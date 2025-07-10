@@ -26,6 +26,7 @@ ENV LC_ALL=POSIX
 
 FROM stage0 as skeleton
 
+RUN apk add bash
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
 RUN chmod +x ./setup_rootfs.sh && SYSROOT=/sysroot ./setup_rootfs.sh
 
@@ -43,8 +44,6 @@ RUN mkdir /sources && \
 
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 
-COPY --from=skeleton /sysroot /sysroot
-
 # Busybox
 RUN cd /sources && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     cd busybox-${BUSYBOX_VERSION} && \
@@ -58,18 +57,31 @@ RUN cd /sources && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
     make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" && \
-    make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/busybox" install
+    make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/sysroot" install
     #make ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" CONFIG_PREFIX="/" DESTDIR="/busybox" install
     #cp -v examples/depmod.pl /mussel/toolchain/bin && \
     #chmod -v 755 /mussel/toolchain/bin/depmod.pl
 RUN ls -liah /mussel/toolchain/
 
 # Here we assemble our building image that we will use to build all the other packages, and assemble again from scratch+skeleton
+FROM stage0 as stage1-merge
+
+RUN apk add rsync
+COPY --from=skeleton /sysroot /skeleton
+
+RUN ls -liah /skeleton
+RUN rm -rf /mussel/toolchain/usr
+RUN rsync -aHAX --keep-dirlinks  /mussel/toolchain/. /skeleton/usr/
+
+COPY --from=busybox-stage0 /sysroot /busybox
+
+RUN rsync -aHAX --keep-dirlinks  /busybox/. /skeleton/
+
+
+
 FROM scratch as stage1
 
-COPY --from=skeleton /sysroot /
-COPY --from=stage0 /mussel/toolchain /
-COPY --from=busybox-stage0 /busybox /
+COPY --from=stage1-merge /skeleton /
 
 FROM stage1 as make
 

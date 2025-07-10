@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/bin/bash
+
+if [ ! -e ${SYSROOT} ]; then
+    mkdir -pv ${SYSROOT}
+fi
 
 cd ${SYSROOT}
 
