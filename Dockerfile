@@ -32,6 +32,13 @@ ENV LC_ALL=POSIX
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
+FROM stage0 AS sources-downloader
+
+ARG CURL_VERSION=8.5.0
+ENV CURL_VERSION=${CURL_VERSION}
+
+RUN mkdir -p /sources/downloads && cd /sources/downloads && wget http://curl.se/download/curl-${CURL_VERSION}.tar.gz 
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -298,14 +305,30 @@ RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
     make -j1 && \
     make CONFIG_PREFIX="/sysroot" install && make install
 
+## musl
+FROM stage1 AS musl
+
+ARG MUSL_VERSION=1.2.5
+ENV MUSL_VERSION=${MUSL_VERSION}
+
+RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
+    tar -xvf musl-${MUSL_VERSION}.tar.gz && \
+    cd musl-${MUSL_VERSION} && \
+    ./configure \
+      --prefix=/usr \
+      --disable-static && \
+      make -j${JOBS} && \
+      DESTDIR=/sysroot make -j${JOBS} install
+
 FROM busybox AS curl
 
 ARG CURL_VERSION=8.5.0
 ENV CURL_VERSION=${CURL_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://curl.se/download/curl-${CURL_VERSION}.tar.gz && \
-    tar -xvf curl-${CURL_VERSION}.tar.gz && mv curl-${CURL_VERSION} curl && \
-    cd curl && mkdir -p /curl && ./configure  ${COMMON_ARGS}  --enable-ipv6 \
+COPY --from=sources-downloader /sources/downloads/curl-${CURL_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf curl-${CURL_VERSION}.tar.gz && mv curl-${CURL_VERSION} curl && \
+    cd curl && mkdir -p /curl && ./configure  ${COMMON_ARGS} --disable-dependency-tracking --enable-ipv6 \
     --enable-unix-sockets \
     --enable-static \
     --without-libidn \
@@ -409,18 +432,25 @@ RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 
-
 ## Perl
 # COPY --from=perl /perl /perl
 # RUN rsync -aHAX --keep-dirlinks  /perl/. /skeleton/
 
+## Musl
+COPY --from=musl /sysroot /musl
+RUN rsync -aHAX --keep-dirlinks  /musl/. /skeleton/
+
 ## BUSYBOX
 COPY --from=busybox /sysroot /busybox
-RUN rsync -aHAX --keep-dirlinks  /busybox/. /skeleton/
+RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
 
 ## CURL
-COPY --from=curl /sysroot /curl
+COPY --from=curl /curl /curl
 RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
+
+## LibreSSL
+COPY --from=libressl /libressl /libressl
+RUN rsync -aHAX --keep-dirlinks  /libressl/. /skeleton/
 
 ### Assemble the final image
 FROM scratch AS stage2
@@ -430,4 +460,7 @@ COPY --from=stage2-merge /skeleton /
 ### Run the final image for tests
 FROM stage2 AS test2
 
+SHELL ["/bin/sh", "-c"]
+
 RUN ls -liah /
+RUN curl --version
