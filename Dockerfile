@@ -374,6 +374,31 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/m4/m4-${M4_VERS
     cd m4 && mkdir -p /m4 && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/m4 && \
     make DESTDIR=/m4 install && make install
 
+## bash
+FROM stage1 AS bash
+
+ARG BASH_VERSION=5.3
+ENV BASH_VERSION=${BASH_VERSION}
+
+RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+    tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
+    cd bash && mkdir -p /bash && ./configure ${COMMON_ARGS} \
+    --build=${BUILD} \
+    --host=${TARGET} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --with-curses \
+    --disable-nls \
+    --enable-readline \
+    --without-bash-malloc \
+    --with-installed-readline && make y.tab.c && make builtins/libbuiltins.a && make && \
+    mkdir -p /bash/etc/bash && \
+    install -Dm644  /sources/bash-${BASH_VERSION}/bashrc /bash/etc/bash/bashrc && \
+    install -Dm644  /sources/bash-${BASH_VERSION}/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
+    make DESTDIR=/bash install && make install # && rm -rf /bash/usr/share/locale
+
 ## perl
 FROM m4 AS perl
 
@@ -451,6 +476,10 @@ RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 ## LibreSSL
 COPY --from=libressl /libressl /libressl
 RUN rsync -aHAX --keep-dirlinks  /libressl/. /skeleton/
+
+## bash
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
 
 ### Assemble the final image
 FROM scratch AS stage2
