@@ -32,12 +32,55 @@ ENV LC_ALL=POSIX
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
+### This stage is used to download the sources for the packages
+### This is needed to download packages via https when we don't still have wget/curl with ssl support
 FROM stage0 AS sources-downloader
 
 ARG CURL_VERSION=8.5.0
 ENV CURL_VERSION=${CURL_VERSION}
 
-RUN mkdir -p /sources/downloads && cd /sources/downloads && wget http://curl.se/download/curl-${CURL_VERSION}.tar.gz 
+RUN mkdir -p /sources/downloads && cd /sources/downloads && wget https://curl.se/download/curl-${CURL_VERSION}.tar.gz 
+
+ARG RSYNC_VERSION=3.4.1
+ENV RSYNC_VERSION=${RSYNC_VERSION}
+
+RUN cd /sources/downloads && wget https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz
+
+ARG XXHASH_VERSION=0.8.3
+ENV XXHASH_VERSION=${XXHASH_VERSION}
+
+RUN cd /sources/downloads && wget https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxHash-${XXHASH_VERSION}.tar.gz
+
+ARG ZSTD_VERSION=1.5.7
+ENV ZSTD_VERSION=${ZSTD_VERSION}
+
+RUN cd /sources/downloads && wget https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd-${ZSTD_VERSION}.tar.gz
+
+ARG LZ4_VERSION=1.10.0
+ENV LZ4_VERSION=${LZ4_VERSION}
+
+RUN cd /sources/downloads && wget https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4-${LZ4_VERSION}.tar.gz
+
+ARG ZLIB_VERSION=1.3.1
+ENV ZLIB_VERSION=${ZLIB_VERSION}
+
+RUN cd /sources/downloads && wget https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib-${ZLIB_VERSION}.tar.gz
+
+ARG ACL_VERSION=2.3.2
+ENV ACL_VERSION=${ACL_VERSION}
+
+RUN cd /sources/downloads && wget https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl-${ACL_VERSION}.tar.gz
+
+ARG ATTR_VERSION=2.5.2
+ENV ATTR_VERSION=${ATTR_VERSION}
+
+RUN cd /sources/downloads && wget https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr-${ATTR_VERSION}.tar.gz
+
+ARG GAWK_VERSION=5.3.2
+ENV GAWK_VERSION=${GAWK_VERSION}
+
+RUN cd /sources/downloads && wget https://ftp.gnu.org/gnu/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
+
 
 FROM stage0 AS skeleton
 
@@ -279,7 +322,7 @@ ENV LIBRESSL_VERSION=${LIBRESSL_VERSION}
 
 RUN mkdir /sources && cd /sources && wget http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz && \
     tar -xvf libressl-${LIBRESSL_VERSION}.tar.gz && mv libressl-${LIBRESSL_VERSION} libressl && \
-    cd libressl && mkdir -p /libressl && ./configure --disable-dependency-tracking ${COMMON_ARGS} && make DESTDIR=/libressl && \
+    cd libressl && mkdir -p /libressl && ./configure --prefix=/usr --disable-dependency-tracking ${COMMON_ARGS} && make DESTDIR=/libressl && \
     make DESTDIR=/libressl install && make install
 
 ## Busybox (from stage1, ready to be used in the final image)
@@ -320,6 +363,7 @@ RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
       make -j${JOBS} && \
       DESTDIR=/sysroot make -j${JOBS} install
 
+## curl
 FROM busybox AS curl
 
 ARG CURL_VERSION=8.5.0
@@ -362,6 +406,218 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/automake/automa
     cd automake && mkdir -p /automake && ./configure ${COMMON_ARGS} && make DESTDIR=/automake && \
     make DESTDIR=/automake install && make install
 
+## xxhash
+FROM stage1 AS xxhash
+
+ARG XXHASH_VERSION=0.8.3
+ENV XXHASH_VERSION=${XXHASH_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/xxHash-${XXHASH_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
+    tar -xvf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
+    cd xxhash && mkdir -p /xxhash && CC=gcc make DESTDIR=/xxhash && \
+    make DESTDIR=/xxhash install && make install
+
+## zstd
+FROM xxhash AS zstd
+
+ARG ZSTD_VERSION=1.5.7
+ENV ZSTD_VERSION=${ZSTD_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/zstd-${ZSTD_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf zstd-${ZSTD_VERSION}.tar.gz && mv zstd-${ZSTD_VERSION} zstd && \
+    cd zstd && mkdir -p /zstd && CC=gcc make DESTDIR=/zstd && \
+    make DESTDIR=/zstd install && make install
+
+## lz4
+FROM zstd AS lz4
+
+ARG LZ4_VERSION=1.10.0
+ENV LZ4_VERSION=${LZ4_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/lz4-${LZ4_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf lz4-${LZ4_VERSION}.tar.gz && mv lz4-${LZ4_VERSION} lz4 && \
+    cd lz4 && mkdir -p /lz4 && CC=gcc make PREFIX="/usr" DESTDIR=/lz4 && \
+    make DESTDIR=/lz4 install && make install
+
+## attr
+FROM lz4 AS attr
+
+ARG ATTR_VERSION=2.5.2
+ENV ATTR_VERSION=${ATTR_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/attr-${ATTR_VERSION}.tar.gz /sources/
+COPY ./patches/attr/basename.patch /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf attr-${ATTR_VERSION}.tar.gz && mv attr-${ATTR_VERSION} attr && \
+    cd attr && mkdir -p /attr && \
+    patch -p1 < /sources/basename.patch && \
+    ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --localstatedir=/var \
+    --disable-nls && make DESTDIR=/attr && \
+    make DESTDIR=/attr install && make install
+
+## acl
+FROM attr AS acl
+
+ARG ACL_VERSION=2.3.2
+ENV ACL_VERSION=${ACL_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/acl-${ACL_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
+    tar -xvf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
+    cd acl && mkdir -p /acl && ./configure ${COMMON_ARGS} --prefix=/usr --disable-dependency-tracking --libexecdir=/usr/libexec && make DESTDIR=/acl && \
+    make DESTDIR=/acl install && make install
+
+## popt
+FROM acl AS popt
+
+ARG POPT_VERSION=1.19
+ENV POPT_VERSION=${POPT_VERSION}
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
+    tar -xvf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
+    cd popt && mkdir -p /popt && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && make DESTDIR=/popt && \
+    make DESTDIR=/popt install && make install
+
+## zlib
+FROM popt AS zlib
+
+ARG ZLIB_VERSION=1.3.1
+ENV ZLIB_VERSION=${ZLIB_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/zlib-${ZLIB_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf zlib-${ZLIB_VERSION}.tar.gz && mv zlib-${ZLIB_VERSION} zlib && \
+    cd zlib && mkdir -p /zlib && ./configure --prefix=/usr --shared && make DESTDIR=/zlib && \
+    make DESTDIR=/zlib install && make install
+
+## gawk
+
+FROM zlib AS gawk
+
+ARG GAWK_VERSION=5.3.2
+ENV GAWK_VERSION=${GAWK_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/gawk-${GAWK_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf gawk-${GAWK_VERSION}.tar.xz && mv gawk-${GAWK_VERSION} gawk && \
+    cd gawk && mkdir -p /gawk && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr -sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --disable-pma&& make DESTDIR=/gawk && \
+    make DESTDIR=/gawk install && make install
+
+## rsync
+FROM gawk AS rsync
+
+ARG RSYNC_VERSION=3.4.1
+ENV RSYNC_VERSION=${RSYNC_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/rsync-${RSYNC_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf rsync-${RSYNC_VERSION}.tar.gz && mv rsync-${RSYNC_VERSION} rsync && \
+    cd rsync && mkdir -p /rsync && \
+    ./configure ${COMMON_ARGS} --prefix=/usr \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --localstatedir=/var \
+    --enable-acl-support \
+    --enable-xattr-support \
+    --disable-roll-simd \
+    --enable-xxhash \
+    --with-rrsync \
+    --without-included-popt \
+    --without-included-zlib \
+    --disable-md2man \
+    --disable-openssl && make DESTDIR=/rsync && \
+    make DESTDIR=/rsync install && make install
+
+## binutils
+FROM stage1 AS binutils
+
+ARG BINUTILS_VERSION=2.44
+ENV BINUTILS_VERSION=${BINUTILS_VERSION}
+
+RUN mkdir /sources && cd /sources && wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+    tar -xvf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
+    cd binutils && mkdir -p /binutils && ./configure ${COMMON_ARGS} && make DESTDIR=/binutils && \
+    make DESTDIR=/binutils install && make install
+
+## coreutils
+FROM rsync AS coreutils
+
+ARG COREUTILS_VERSION=9.4
+ENV COREUTILS_VERSION=${COREUTILS_VERSION}
+
+COPY --from=libressl /libressl /libressl
+RUN rsync -aHAX --keep-dirlinks  /libressl/. /
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+    tar -xvf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
+    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_ARGS} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --enable-no-install-program=hostname,su,kill,uptime \
+    --enable-single-binary=symlinks \
+    --enable-single-binary-exceptions=env,fmt,sha512sum \
+    --with-openssl \
+    --disable-dependency-tracking && make DESTDIR=/coreutils && \
+    make DESTDIR=/coreutils install && make install
+
+## ncurses
+FROM stage1 AS ncurses
+
+ARG NCURSES_VERSION=6.5
+ENV NCURSES_VERSION=${NCURSES_VERSION}
+
+RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+    tar -xvf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
+    cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
+    cd build && ../configure ${COMMON_ARGS} && make -C include &&  make -C progs tic && cd .. && \
+    ./configure ${COMMON_ARGS} \
+    --mandir=/usr/share/man \
+    --with-manpage-format=normal \
+    --with-shared \
+    --without-debug \
+    --without-ada \
+    --without-normal \
+    --disable-stripping \
+    --enable-widec && \
+    make -j${JOBS} && \
+    make DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
+    cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
+
+## util-linux
+# FROM stage1 AS util-linux
+
+# ARG UTIL_LINUX_VERSION=2.39.1
+# ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+
+# RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/util-linux/util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+#     tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+#     cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --enable-libuuid --enable-libblkid \
+#     --enable-fsck --enable-kill --enable-last --enable-mesg \
+#     --enable-mount --enable-partx --enable-rfkill \
+#     --enable-unshare --enable-write \
+#     --disable-bfs --disable-login \
+#     --disable-makeinstall-chown --disable-minix --disable-newgrp \
+#     --disable-use-tty-group --disable-vipw --disable-raw \
+#     --without-udev && make DESTDIR=/util-linux && \
+#     make DESTDIR=/util-linux install && make install
+
+
+
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
@@ -375,7 +631,7 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/m4/m4-${M4_VERS
     make DESTDIR=/m4 install && make install
 
 ## bash
-FROM stage1 AS bash
+FROM ncurses AS bash
 
 ARG BASH_VERSION=5.3
 ENV BASH_VERSION=${BASH_VERSION}
@@ -466,8 +722,12 @@ COPY --from=musl /sysroot /musl
 RUN rsync -aHAX --keep-dirlinks  /musl/. /skeleton/
 
 ## BUSYBOX
-COPY --from=busybox /sysroot /busybox
-RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
+#COPY --from=busybox /sysroot /busybox
+#RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
+
+## coreutils
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /skeleton/
 
 ## CURL
 COPY --from=curl /curl /curl
@@ -478,8 +738,8 @@ COPY --from=libressl /libressl /libressl
 RUN rsync -aHAX --keep-dirlinks  /libressl/. /skeleton/
 
 ## bash
-COPY --from=bash /bash /bash
-RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
+# COPY --from=bash /bash /bash
+# RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
 
 ### Assemble the final image
 FROM scratch AS stage2
