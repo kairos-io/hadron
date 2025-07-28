@@ -774,8 +774,8 @@ COPY --from=musl /sysroot /musl
 RUN rsync -aHAX --keep-dirlinks  /musl/. /skeleton/
 
 ## BUSYBOX
-#COPY --from=busybox /sysroot /busybox
-#RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
+# COPY --from=busybox /sysroot /busybox
+# RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
 
 ## coreutils
 COPY --from=coreutils /coreutils /coreutils
@@ -789,9 +789,13 @@ RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 COPY --from=libressl /libressl /libressl
 RUN rsync -aHAX --keep-dirlinks  /libressl/. /skeleton/
 
+## ca-certificates
+COPY --from=ca-certificates /ca-certificates /ca-certificates
+RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /skeleton/
+
 ## bash
-# COPY --from=bash /bash /bash
-# RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
 
 ### Assemble the final image
 FROM scratch AS stage2
@@ -801,7 +805,7 @@ COPY --from=stage2-merge /skeleton /
 ### Run the final image for tests
 FROM stage2 AS test2
 
-SHELL ["/bin/sh", "-c"]
+SHELL ["/bin/bash", "-c"]
 
 RUN ls -liah /
 RUN curl --version
