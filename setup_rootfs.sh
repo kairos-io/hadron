@@ -6,7 +6,7 @@ fi
 
 cd ${SYSROOT}
 
-mkdir -pv {boot,home,mnt,opt,srv} \
+mkdir -pv {boot,home,mnt,opt,srv,tmp} \
     {etc,var} \
     etc/{opt,sysconfig} \
     usr/{bin,lib} \
