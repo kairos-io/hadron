@@ -633,13 +633,27 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/m4/m4-${M4_VERS
     cd m4 && mkdir -p /m4 && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/m4 && \
     make DESTDIR=/m4 install && make install
 
+## readline
+FROM stage1 AS readline
+
+ARG READLINE_VERSION=8.3
+ENV READLINE_VERSION=${READLINE_VERSION}
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
+    tar -xvf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
+    cd readline && mkdir -p /readline && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/readline && \
+    make DESTDIR=/readline install && make install
+
 ## bash
-FROM ncurses AS bash
+FROM readline AS bash
 
 ARG BASH_VERSION=5.3
 ENV BASH_VERSION=${BASH_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+COPY ./files/bash/bashrc /sources/bashrc
+COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
     tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
     cd bash && mkdir -p /bash && ./configure ${COMMON_ARGS} \
     --build=${BUILD} \
@@ -648,14 +662,14 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/bash/bash-${BAS
     --bindir=/bin \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
-    --with-curses \
+    #--with-curses \
     --disable-nls \
     --enable-readline \
     --without-bash-malloc \
     --with-installed-readline && make y.tab.c && make builtins/libbuiltins.a && make && \
     mkdir -p /bash/etc/bash && \
-    install -Dm644  /sources/bash-${BASH_VERSION}/bashrc /bash/etc/bash/bashrc && \
-    install -Dm644  /sources/bash-${BASH_VERSION}/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
+    install -Dm644  /sources/bashrc /bash/etc/bash/bashrc && \
+    install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
     make DESTDIR=/bash install && make install # && rm -rf /bash/usr/share/locale
 
 ## perl
@@ -796,6 +810,18 @@ RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /skeleton/
 ## bash
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
+
+## readline
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /skeleton/
+
+## acl
+COPY --from=acl /acl /acl
+RUN rsync -aHAX --keep-dirlinks  /acl/. /skeleton/
+
+## attr
+COPY --from=attr /attr /attr
+RUN rsync -aHAX --keep-dirlinks  /attr/. /skeleton/
 
 ### Assemble the final image
 FROM scratch AS stage2
