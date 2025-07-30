@@ -1,0 +1,14 @@
+
+
+if [[ $- != *i* ]] ; then
+	# Shell is non-interactive.  Be done now!
+	return
+fi
+# set fallback PS1; only if currently set to upstream bash default
+if [ "$PS1" = '\s-\v\$ ' ]; then
+	PS1='\h:\w\$ '
+fi
+for f in /etc/bash/*.sh; do
+	[ -r "$f" ] && . "$f"
+done
+unset f
