@@ -19,3 +19,26 @@ jobs:
     - name: Build Docker image
       run: |
         make build
+        
+    - name: Rename and push image to ttl.sh
+      run: |
+        docker tag ukairos:latest ttl.sh/ukairos:1h
+        docker push ttl.sh/ukairos:1h
+  
+  factory:
+    permissions:
+      contents: write
+      security-events: write
+      id-token: write
+      actions: read
+    name: Factory uKairos
+    needs: build
+    uses: kairos-io/kairos-factory-action/.github/workflows/reusable-factory.yaml@main
+    with:
+      base_image: ttl.sh/ukairos:1h
+      model: "generic"
+      arch: "amd64"
+      version: "auto"
+      iso: true
+      grype: true
+      summary_artifacts: true
