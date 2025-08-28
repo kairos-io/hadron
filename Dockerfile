@@ -873,14 +873,26 @@ RUN mkdir -p /sources && cd /sources && tar -xvf curl-${CURL_VERSION}.tar.gz && 
     make DESTDIR=/curl install && make install
 
 ## python
-FROM stage1 AS python
+FROM rsync AS python
 
 ARG PYTHON_VERSION=3.12.11
 ENV PYTHON_VERSION=${PYTHON_VERSION}
 
+COPY --from=libressl /libressl /libressl
+RUN rsync -aHAX --keep-dirlinks  /libressl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+
 COPY --from=sources-downloader /sources/downloads/Python-${PYTHON_VERSION}.tar.xz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf Python-${PYTHON_VERSION}.tar.xz && mv Python-${PYTHON_VERSION} python && \
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xvf Python-${PYTHON_VERSION}.tar.xz && mv Python-${PYTHON_VERSION} python && \
     cd python && mkdir -p /python && ./configure --disable-dependency-tracking --prefix=/usr \
     --enable-ipv6 \
     --enable-loadable-sqlite-extensions \
