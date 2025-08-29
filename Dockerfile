@@ -966,10 +966,37 @@ RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 COPY --from=python /python /python
 RUN rsync -aHAX --keep-dirlinks  /python/. /
 
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+
 COPY --from=sources-downloader /sources/downloads/systemd /sources/downloads/systemd
 
-RUN mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/systemd && \
-    make DESTDIR=/systemd install && make install
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja && mkdir -p build && cd       build && /usr/bin/meson setup .. \
+      --prefix=/usr           \
+      --buildtype=release     \
+      -D default-dnssec=no    \
+      -D firstboot=false      \
+      -D install-tests=false  \
+      -D ldconfig=false       \
+      -D sysusers=false       \
+      -D rpmmacrosdir=no      \
+      -D homed=disabled       \
+      -D userdb=false         \
+      -D man=disabled         \
+      -D mode=release         \
+      -D pamconfdir=no        \
+      -D dev-kvm-mode=0660    \
+      -D nobody-group=nogroup \
+      -D sysupdate=disabled   \
+      -D ukify=disabled       \
+      -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION} 2>&1 && ninja 2>&1 && \
+     DESTDIR=/systemd ninja install && ninja install
 
 ########################################################
 #
