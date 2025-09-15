@@ -131,6 +131,10 @@ ARG OPENSSL_VERSION=3.5.2
 ENV OPENSSL_VERSION=${OPENSSL_VERSION}
 RUN cd /sources/downloads && wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
 
+ARG PKGCONFIG_VERSION=1.8.1
+ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
+RUN cd /sources/downloads && wget https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -378,6 +382,22 @@ RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
       make -j${JOBS} && \
       DESTDIR=/sysroot make -j${JOBS} install
 
+## pkgconfig
+FROM stage1 AS pkgconfig
+
+ARG PKGCONFIG_VERSION=1.8.1
+ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/pkgconf-${PKGCONFIG_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf pkgconf-${PKGCONFIG_VERSION}.tar.xz && mv pkgconf-${PKGCONFIG_VERSION} pkgconfig && \
+    cd pkgconfig && mkdir -p /pkgconfig && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --localstatedir=/var \
+    --with-pkg-config-dir=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig && \
+    make && \
+    make DESTDIR=/pkgconfig install && make install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 ## autoconf
 FROM stage1 AS autoconf
@@ -933,8 +953,8 @@ ENV LIBCAP_VERSION=${LIBCAP_VERSION}
 COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf libcap-${LIBCAP_VERSION}.tar.xz && mv libcap-${LIBCAP_VERSION} libcap && \
-    cd libcap && mkdir -p /libcap && make BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/libcap && \
-    make DESTDIR=/libcap install && make install
+    cd libcap && mkdir -p /libcap && make BUILD_CC=gcc CC="${CC:-gcc}" && \
+    make DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## gperf
 FROM stage1 AS gperf
@@ -975,9 +995,18 @@ RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
 COPY --from=sources-downloader /sources/downloads/systemd /sources/downloads/systemd
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja && mkdir -p build && cd       build && /usr/bin/meson setup .. \
+RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja jinja2 && mkdir -p build && cd       build && /usr/bin/meson setup .. \
       --prefix=/usr           \
       --buildtype=release     \
       -D default-dnssec=no    \
