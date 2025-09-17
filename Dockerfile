@@ -86,6 +86,58 @@ ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
 
 RUN cd /sources/downloads && wget https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2
 
+ARG SYSTEMD_VERSION=257.6
+ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
+
+RUN cd /sources/downloads && wget https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd-${SYSTEMD_VERSION}.tar.gz
+
+ARG LIBCAP_VERSION=2.76
+ENV LIBCAP_VERSION=${LIBCAP_VERSION}
+
+RUN cd /sources/downloads && wget https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap-${LIBCAP_VERSION}.tar.xz
+
+ARG UTIL_LINUX_VERSION=2.41.1
+ARG UTIL_LINUX_VERSION_MAJOR=2.41
+ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+
+RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux-${UTIL_LINUX_VERSION}.tar.xz
+
+ARG PYTHON_VERSION=3.12.11
+ENV PYTHON_VERSION=${PYTHON_VERSION}
+RUN cd /sources/downloads && wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python-${PYTHON_VERSION}.tar.xz
+
+ARG SQLITE3_VERSION=3500400
+ENV SQLITE3_VERSION=${SQLITE3_VERSION}
+
+RUN cd /sources/downloads && wget https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz -O sqlite-autoconf-${SQLITE3_VERSION}.tar.gz
+
+ARG OPENSSL_VERSION=3.5.2
+ENV OPENSSL_VERSION=${OPENSSL_VERSION}
+RUN cd /sources/downloads && wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
+
+ARG PKGCONFIG_VERSION=1.8.1
+ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
+RUN cd /sources/downloads && wget https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
+
+
+## systemd patches
+RUN apk add git patch
+
+ARG OE_CORE_VERSION=master
+ENV OE_CORE_VERSION=${OE_CORE_VERSION}
+
+# Extract systemd and apply patches
+RUN cd /sources/downloads && tar -xvf systemd-${SYSTEMD_VERSION}.tar.gz && \
+    mv systemd-${SYSTEMD_VERSION} systemd
+RUN cd /sources/downloads && git clone https://github.com/openembedded/openembedded-core && \
+    cd openembedded-core && \
+    git checkout ${OE_CORE_VERSION}
+COPY patches/apply_all.sh /apply_all.sh
+#COPY patches/systemd/ /sources/patches/systemd
+RUN chmod +x /apply_all.sh
+RUN /apply_all.sh /sources/downloads/openembedded-core/meta/recipes-core/systemd/systemd/ /sources/downloads/systemd
+#RUN /apply_all.sh /sources/patches/systemd /sources/downloads/systemd
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -318,40 +370,6 @@ RUN ./test
 #
 ########################################################
 
-## libressl
-FROM stage1 AS libressl
-
-ARG LIBRESSL_VERSION=4.1.0
-ENV LIBRESSL_VERSION=${LIBRESSL_VERSION}
-
-RUN mkdir /sources && cd /sources && wget http://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${LIBRESSL_VERSION}.tar.gz && \
-    tar -xvf libressl-${LIBRESSL_VERSION}.tar.gz && mv libressl-${LIBRESSL_VERSION} libressl && \
-    cd libressl && mkdir -p /libressl && ./configure --prefix=/usr --disable-dependency-tracking ${COMMON_ARGS} && make DESTDIR=/libressl && \
-    make DESTDIR=/libressl install && make install
-
-## Busybox (from stage1, ready to be used in the final image)
-FROM libressl AS busybox
-
-COPY --from=busybox-stage0 /sources /sources
-
-ARG BUSYBOX_VERSION=1.37.0
-ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
-
-RUN cd /sources && rm -rfv busybox-${BUSYBOX_VERSION} && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
-    cd busybox-${BUSYBOX_VERSION} && \
-    make -j1 distclean && \
-    make defconfig && \
-    sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
-    sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config
-RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
-    make -j1 && \
-    make CONFIG_PREFIX="/sysroot" install && make install
-
 ## musl
 FROM stage1 AS musl
 
@@ -367,6 +385,22 @@ RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
       make -j${JOBS} && \
       DESTDIR=/sysroot make -j${JOBS} install
 
+## pkgconfig
+FROM stage1 AS pkgconfig
+
+ARG PKGCONFIG_VERSION=1.8.1
+ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/pkgconf-${PKGCONFIG_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf pkgconf-${PKGCONFIG_VERSION}.tar.xz && mv pkgconf-${PKGCONFIG_VERSION} pkgconfig && \
+    cd pkgconfig && mkdir -p /pkgconfig && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --localstatedir=/var \
+    --with-pkg-config-dir=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig && \
+    make && \
+    make DESTDIR=/pkgconfig install && make install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 ## autoconf
 FROM stage1 AS autoconf
@@ -534,30 +568,6 @@ RUN mkdir /sources && cd /sources && wget https://ftp.gnu.org/gnu/binutils/binut
     cd binutils && mkdir -p /binutils && ./configure ${COMMON_ARGS} && make DESTDIR=/binutils && \
     make DESTDIR=/binutils install && make install
 
-## coreutils
-FROM rsync AS coreutils
-
-ARG COREUTILS_VERSION=9.4
-ENV COREUTILS_VERSION=${COREUTILS_VERSION}
-
-# COPY --from=libressl /libressl /libressl
-# RUN rsync -aHAX --keep-dirlinks  /libressl/. /
-
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
-    tar -xvf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
-    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_ARGS} \
-    --prefix=/usr \
-    --bindir=/bin \
-    --sysconfdir=/etc \
-    --mandir=/usr/share/man \
-    --infodir=/usr/share/info \
-    --disable-nls \
-    --enable-no-install-program=hostname,su,kill,uptime \
-    --enable-single-binary=symlinks \
-    --enable-single-binary-exceptions=env,fmt,sha512sum \
-  #  --with-openssl \
-    --disable-dependency-tracking && make DESTDIR=/coreutils && \
-    make DESTDIR=/coreutils install
 
 ## ncurses
 FROM stage1 AS ncurses
@@ -581,24 +591,6 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/ncurses/ncurses
     make -j${JOBS} && \
     make DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
     cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
-
-## util-linux
-# FROM stage1 AS util-linux
-
-# ARG UTIL_LINUX_VERSION=2.39.1
-# ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
-
-# RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/util-linux/util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
-#     tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
-#     cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --enable-libuuid --enable-libblkid \
-#     --enable-fsck --enable-kill --enable-last --enable-mesg \
-#     --enable-mount --enable-partx --enable-rfkill \
-#     --enable-unshare --enable-write \
-#     --disable-bfs --disable-login \
-#     --disable-makeinstall-chown --disable-minix --disable-newgrp \
-#     --disable-use-tty-group --disable-vipw --disable-raw \
-#     --without-udev && make DESTDIR=/util-linux && \
-#     make DESTDIR=/util-linux install && make install
 
 
 
@@ -697,6 +689,78 @@ RUN cd /sources && \
        -Duse64bitint && make libperl.so && \
         make DESTDIR=/perl -j 8 && make DESTDIR=/perl install && make install
 
+
+## openssl
+FROM rsync AS openssl
+
+ARG OPENSSL_VERSION=3.5.2
+ENV OPENSSL_VERSION=${OPENSSL_VERSION}
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=sources-downloader /sources/downloads/openssl-${OPENSSL_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xvf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl && \
+    cd openssl && mkdir -p /openssl && ./config --prefix=/usr         \
+    --openssldir=/etc/ssl \
+    --libdir=lib          \
+    shared                \
+    zlib-dynamic 2>&1 && \
+    make DESTDIR=/openssl 2>&1  && \
+    make DESTDIR=/openssl install && make install
+
+## Busybox (from stage1, ready to be used in the final image)
+FROM openssl AS busybox
+
+COPY --from=busybox-stage0 /sources /sources
+
+ARG BUSYBOX_VERSION=1.37.0
+ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
+
+RUN cd /sources && rm -rfv busybox-${BUSYBOX_VERSION} && tar -xvf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+    cd busybox-${BUSYBOX_VERSION} && \
+    make -j1 distclean && \
+    make defconfig && \
+    sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
+    sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
+    sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
+    sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/' .config && \
+    sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
+    sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
+    sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config
+RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
+    make -j1 && \
+    make CONFIG_PREFIX="/sysroot" install && make install
+
+## coreutils
+FROM rsync AS coreutils
+
+ARG COREUTILS_VERSION=9.4
+ENV COREUTILS_VERSION=${COREUTILS_VERSION}
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+    tar -xvf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
+    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_ARGS} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --sysconfdir=/etc \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --enable-no-install-program=hostname,su,kill,uptime \
+    --enable-single-binary=symlinks \
+    --enable-single-binary-exceptions=env,fmt,sha512sum \
+    --with-openssl \
+    --disable-dependency-tracking && make DESTDIR=/coreutils && \
+    make DESTDIR=/coreutils install
+
 ## findutils
 FROM stage1 AS findutils
 
@@ -728,8 +792,8 @@ FROM rsync AS ca-certificates
 ARG CA_CERTIFICATES_VERSION=20250619
 ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
 
-COPY --from=libressl /libressl /libressl
-RUN rsync -aHAX --keep-dirlinks  /libressl/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
@@ -762,14 +826,63 @@ RUN mkdir -p /sources && cd /sources && tar -xvf ca-certificates-${CA_CERTIFICAT
 COPY ./files/ca-certificates/post_install.sh /sources/post_install.sh
 RUN bash /sources/post_install.sh
 
+## sqlite3 
+FROM rsync AS sqlite3
+
+ARG SQLITE3_VERSION=3500400
+ENV SQLITE3_VERSION=${SQLITE3_VERSION}
+
+ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
+
+COPY --from=sources-downloader /sources/downloads/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
+    mv sqlite-autoconf-${SQLITE3_VERSION} sqlite3 && \
+    cd sqlite3 && mkdir -p /sqlite3 && ./configure \
+		--prefix=/usr \
+		--enable-threadsafe \
+		--enable-session \
+		--enable-static \
+		--enable-fts3 \
+		--enable-fts4 \
+		--enable-fts5 \
+		--soname=legacy && \
+    make && \
+    make DESTDIR=/sqlite3 install && make install
+
+## util-linux
+FROM bash AS util-linux
+
+ARG UTIL_LINUX_VERSION=2.41.1
+ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+
+
+COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-silent-rules \
+    --enable-newgrp \
+    --disable-uuidd \
+    --disable-liblastlog2 \
+    --disable-nls \
+    --disable-kill \
+    --disable-chfn-chsh \
+    --with-vendordir=/usr/lib \
+    --enable-fs-paths-extra=/usr/sbin \
+    && make DESTDIR=/util-linux && \
+    make DESTDIR=/util-linux install && make install
+
 ## curl
 FROM rsync AS curl
 
 COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
 
-COPY --from=libressl /libressl /libressl
-RUN rsync -aHAX --keep-dirlinks  /libressl/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
 COPY --from=zstd /zstd /zstd
 RUN rsync -aHAX --keep-dirlinks  /zstd/. /
@@ -799,6 +912,131 @@ RUN mkdir -p /sources && cd /sources && tar -xvf curl-${CURL_VERSION}.tar.gz && 
     --with-pic \
     --without-libssh2 && make DESTDIR=/curl && \
     make DESTDIR=/curl install && make install
+
+## python
+FROM rsync AS python
+
+ARG PYTHON_VERSION=3.12.11
+ENV PYTHON_VERSION=${PYTHON_VERSION}
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+
+COPY --from=sources-downloader /sources/downloads/Python-${PYTHON_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xvf Python-${PYTHON_VERSION}.tar.xz && mv Python-${PYTHON_VERSION} python && \
+    cd python && mkdir -p /python && ./configure --disable-dependency-tracking --prefix=/usr \
+    --enable-ipv6 \
+    --enable-loadable-sqlite-extensions \
+    --enable-optimizations \
+    --enable-shared \
+    --with-ensurepip=install \
+    --with-lto \
+    --with-computed-gotos \
+    --with-dbmliborder=gdbm:ndbm  2>&1 && make DESTDIR=/python  2>&1 && \
+    make DESTDIR=/python install  2>&1 && make install 2>&1
+    #--with-system-libmpdec \
+    #--with-system-expat \
+
+## libcap
+FROM bash AS libcap
+
+ARG LIBCAP_VERSION=2.76
+ENV LIBCAP_VERSION=${LIBCAP_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xvf libcap-${LIBCAP_VERSION}.tar.xz && mv libcap-${LIBCAP_VERSION} libcap && \
+    cd libcap && mkdir -p /libcap && make BUILD_CC=gcc CC="${CC:-gcc}" && \
+    make DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
+
+## gperf
+FROM stage1 AS gperf
+
+ARG GPERF_VERSION=3.3
+ENV GPERF_VERSION=${GPERF_VERSION}
+
+RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
+    tar -xvf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
+    cd gperf && mkdir -p /gperf && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
+    make BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
+    make DESTDIR=/gperf install && make install
+
+## systemd
+FROM rsync as systemd
+
+ARG SYSTEMD_VERSION=257.6
+ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
+
+COPY --from=gperf /gperf /gperf
+RUN rsync -aHAX --keep-dirlinks  /gperf/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+
+COPY --from=python /python /python
+RUN rsync -aHAX --keep-dirlinks  /python/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+COPY --from=sources-downloader /sources/downloads/systemd /sources/downloads/systemd
+ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
+RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja jinja2 && mkdir -p build && cd       build && /usr/bin/meson setup .. \
+      --prefix=/usr           \
+      --buildtype=release     \
+      -D default-dnssec=no    \
+      -D firstboot=false      \
+      -D install-tests=false  \
+      -D ldconfig=false       \
+      -D sysusers=false       \
+      -D rpmmacrosdir=no      \
+      -D gshadow=false        \
+      -D idn=false            \
+      -D localed=false        \
+      -D nss-myhostname=false  \
+      -D nss-systemd=false     \
+      -D userdb=false         \
+      -D nss-mymachines=disabled \
+      -D nss-resolve=disabled   \
+      -D utmp=false           \
+      -D homed=disabled       \
+      -D man=disabled         \
+      -D mode=release         \
+      -D pamconfdir=no        \
+      -D dev-kvm-mode=0660    \
+      -D nobody-group=nogroup \
+      -D sysupdate=disabled   \
+      -D ukify=disabled       \
+      -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION} 2>&1 && ninja 2>&1 && \
+     DESTDIR=/systemd ninja install && ninja install
 
 ########################################################
 #
@@ -832,9 +1070,9 @@ RUN rsync -aHAX --keep-dirlinks  /coreutils/. /skeleton/
 COPY --from=curl /curl /curl
 RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 
-## LibreSSL
-COPY --from=libressl /libressl /libressl
-RUN rsync -aHAX --keep-dirlinks  /libressl/. /skeleton/
+## OpenSSL
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
 
 ## ca-certificates
 COPY --from=ca-certificates /ca-certificates /ca-certificates
@@ -871,6 +1109,20 @@ RUN rsync -aHAX --keep-dirlinks  /zstd/. /skeleton/
 ## libz
 COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /skeleton/
+
+
+## libcap
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton/
+
+## util-linux
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /skeleton/
+
+
+## systemd
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
 
 ## Cleanup
 
