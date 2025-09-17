@@ -1110,6 +1110,16 @@ RUN rsync -aHAX --keep-dirlinks  /zstd/. /skeleton/
 COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /skeleton/
 
+
+## libcap
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton/
+
+## util-linux
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /skeleton/
+
+
 ## systemd
 COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
