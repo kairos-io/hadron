@@ -86,7 +86,7 @@ ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
 
 RUN cd /sources/downloads && wget https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2
 
-ARG SYSTEMD_VERSION=257.6
+ARG SYSTEMD_VERSION=257.8
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
 
 RUN cd /sources/downloads && wget https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd-${SYSTEMD_VERSION}.tar.gz
@@ -123,7 +123,7 @@ RUN cd /sources/downloads && wget https://distfiles.dereferenced.org/pkgconf/pkg
 ## systemd patches
 RUN apk add git patch
 
-ARG OE_CORE_VERSION=bed605e7cd095f210e24f1e07dab6f814d0bbb59
+ARG OE_CORE_VERSION=30140cb9354fa535f68fab58e73b76f0cca342e4
 ENV OE_CORE_VERSION=${OE_CORE_VERSION}
 
 # Extract systemd and apply patches
@@ -974,7 +974,7 @@ RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/gperf/gperf-
 ## systemd
 FROM rsync as systemd
 
-ARG SYSTEMD_VERSION=257.6
+ARG SYSTEMD_VERSION=257.8
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
 
 COPY --from=gperf /gperf /gperf
