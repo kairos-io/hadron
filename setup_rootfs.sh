@@ -97,7 +97,7 @@ export EDITOR='/bin/vi'
 EOF
 
 cat > etc/issue << "EOF"
-UKairos Linux $(date +'%F')
+UKairos Linux (\d)
 Kernel \r on an \m
 
 EOF
@@ -179,9 +179,13 @@ usbdev[0-9].[0-9]       root:root 0660 */lib/mdev/usbdev
 usbdev[0-9].[0-9]_.*    root:root 0660
 EOF
 
+ARCH=$(uname -m)
+
 cat > etc/os-release << EOF
 NAME="UKairos Linux"
 PRETTY_NAME="UKairos Linux"
 ID=ukairos
 BUILD_ID=rolling
+KAIROS_FLAVOR="ukairos"
+KAIROS_ARCH="${ARCH}"
 EOF

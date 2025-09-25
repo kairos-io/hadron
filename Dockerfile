@@ -15,17 +15,10 @@ ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
 ARG JOBS=16
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
-ENV VENDOR=${VENDOR}
-ENV BUILD_ARCH=${BUILD_ARCH}
-ENV ARCH=${ARCH}
-ENV MUSSEL_VERSION=${MUSSEL_VERSION}
-ENV JOBS=${JOBS}
 
-RUN apk update && \
-  apk add git bash wget bash perl build-base make patch busybox-static curl && git clone https://github.com/firasuke/mussel.git &&  \
-  cd mussel && \
-  git checkout ${MUSSEL_VERSION} -b build && \
-  ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
+RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
+RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
+RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
 ENV LC_ALL=POSIX
@@ -206,16 +199,15 @@ ARG MPC_VERSION=1.3.1
 ENV MPC_VERSION=${MPC_VERSION}
 ARG MPFR_VERSION=4.2.2
 ENV MPFR_VERSION=${MPFR_VERSION}
-RUN <<EOT bash
-    wget https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz \
-    https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 \
-    https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz \
-    http://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
-    tar -xvf gcc-${GCC_VERSION}.tar.xz
-    tar -xvf gmp-${GMP_VERSION}.tar.bz2
-    tar -xvf mpc-${MPC_VERSION}.tar.gz
-    tar -xvf mpfr-${MPFR_VERSION}.tar.bz2
-EOT
+RUN wget http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
+RUN wget http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
+RUN wget http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
+RUN wget http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
+RUN tar -xvf gcc-${GCC_VERSION}.tar.xz
+RUN tar -xvf gmp-${GMP_VERSION}.tar.bz2
+RUN tar -xvf mpc-${MPC_VERSION}.tar.gz
+RUN tar -xvf mpfr-${MPFR_VERSION}.tar.bz2
+
 RUN <<EOT bash
     mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
     mv -v mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc
@@ -249,7 +241,7 @@ ENV MAKE_VERSION=${MAKE_VERSION}
 
 RUN mkdir /sources && \
    cd /sources && \
-   wget https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz
+   wget https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
 
 RUN cd /sources && tar -xvf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
@@ -268,7 +260,7 @@ ENV BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 
 RUN <<EOT bash
-    wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+    wget http://mirror.netcologne.de/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
     tar -xvf binutils-${BINUTILS_VERSION}.tar.xz
 EOT
 
@@ -408,7 +400,7 @@ FROM stage1 AS autoconf
 ARG AUTOCONF_VERSION=2.71
 ENV AUTOCONF_VERSION=${AUTOCONF_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget http://mirror.netcologne.de/gnu/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz && \
     tar -xvf autoconf-${AUTOCONF_VERSION}.tar.xz && mv autoconf-${AUTOCONF_VERSION} autoconf && \
     cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_ARGS} && make DESTDIR=/autoconf && \
     make DESTDIR=/autoconf install && make install
@@ -419,7 +411,7 @@ FROM stage1 AS automake
 ARG AUTOMAKE_VERSION=1.16.5
 ENV AUTOMAKE_VERSION=${AUTOMAKE_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget http://mirror.netcologne.de/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.xz && \
     tar -xvf automake-${AUTOMAKE_VERSION}.tar.xz && mv automake-${AUTOMAKE_VERSION} automake && \
     cd automake && mkdir -p /automake && ./configure ${COMMON_ARGS} && make DESTDIR=/automake && \
     make DESTDIR=/automake install && make install
@@ -568,7 +560,6 @@ RUN mkdir /sources && cd /sources && wget https://ftp.gnu.org/gnu/binutils/binut
     cd binutils && mkdir -p /binutils && ./configure ${COMMON_ARGS} && make DESTDIR=/binutils && \
     make DESTDIR=/binutils install && make install
 
-
 ## ncurses
 FROM stage1 AS ncurses
 
@@ -591,8 +582,6 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/ncurses/ncurses
     make -j${JOBS} && \
     make DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
     cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
-
-
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
@@ -689,7 +678,6 @@ RUN cd /sources && \
        -Duse64bitint && make libperl.so && \
         make DESTDIR=/perl -j 8 && make DESTDIR=/perl install && make install
 
-
 ## openssl
 FROM rsync AS openssl
 
@@ -783,9 +771,6 @@ RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/grep/grep-${
     cd grep && mkdir -p /grep && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/grep && \
     make DESTDIR=/grep install && make install
 
-
-
-
 ## ca-certificates
 FROM rsync AS ca-certificates
 
@@ -850,31 +835,6 @@ RUN mkdir -p /sources && cd /sources && tar -xvf sqlite-autoconf-${SQLITE3_VERSI
     make && \
     make DESTDIR=/sqlite3 install && make install
 
-## util-linux
-FROM bash AS util-linux
-
-ARG UTIL_LINUX_VERSION=2.41.1
-ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
-
-
-COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
-
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
-    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
-    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
-    --libdir=/usr/lib \
-    --disable-silent-rules \
-    --enable-newgrp \
-    --disable-uuidd \
-    --disable-liblastlog2 \
-    --disable-nls \
-    --disable-kill \
-    --disable-chfn-chsh \
-    --with-vendordir=/usr/lib \
-    --enable-fs-paths-extra=/usr/sbin \
-    && make DESTDIR=/util-linux && \
-    make DESTDIR=/util-linux install && make install
-
 ## curl
 FROM rsync AS curl
 
@@ -914,7 +874,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf curl-${CURL_VERSION}.tar.gz && 
     make DESTDIR=/curl install && make install
 
 ## python
-FROM rsync AS python
+FROM rsync AS python-build
 
 ARG PYTHON_VERSION=3.12.11
 ENV PYTHON_VERSION=${PYTHON_VERSION}
@@ -946,6 +906,30 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     make DESTDIR=/python install  2>&1 && make install 2>&1
     #--with-system-libmpdec \
     #--with-system-expat \
+
+## util-linux
+FROM bash AS util-linux
+
+ARG UTIL_LINUX_VERSION=2.41.1
+ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-silent-rules \
+    --enable-newgrp \
+    --disable-uuidd \
+    --disable-liblastlog2 \
+    --disable-nls \
+    --disable-kill \
+    --disable-chfn-chsh \
+    --with-vendordir=/usr/lib \
+    --enable-fs-paths-extra=/usr/sbin \
+    && make DESTDIR=/util-linux && \
+    make DESTDIR=/util-linux install && make install
 
 ## libcap
 FROM bash AS libcap
@@ -986,7 +970,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 
-COPY --from=python /python /python
+COPY --from=python-build /python /python
 RUN rsync -aHAX --keep-dirlinks  /python/. /
 
 COPY --from=openssl /openssl /openssl
@@ -1016,7 +1000,6 @@ RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /source
       -D firstboot=false      \
       -D install-tests=false  \
       -D ldconfig=false       \
-      -D sysusers=false       \
       -D rpmmacrosdir=no      \
       -D gshadow=false        \
       -D idn=false            \
@@ -1059,8 +1042,8 @@ COPY --from=musl /sysroot /musl
 RUN rsync -aHAX --keep-dirlinks  /musl/. /skeleton/
 
 ## BUSYBOX
-# COPY --from=busybox /sysroot /busybox
-# RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
+COPY --from=busybox /sysroot /busybox
+RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
 
 ## coreutils
 COPY --from=coreutils /coreutils /coreutils
@@ -1129,10 +1112,70 @@ RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
 # We don't need headers
 RUN rm -rf /skeleton/usr/include
 
+FROM quay.io/luet/base:0.36.2 AS luet-base
+
+## Install kernel
+FROM alpine AS luet-kernel
+COPY --from=luet-base /usr/bin/luet /usr/bin/luet
+RUN mkdir -p /etc/luet/repos.conf.d/
+RUN luet repo add -y kairos --url quay.io/kairos/packages --type docker
+RUN luet repo update
+RUN luet install -y kernels/linux --system-target /kernel
+
+## Immucore for initramfs
+FROM alpine AS immucore
+RUN wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
+RUN tar xvf immucore-v0.11.3-linux-amd64.tar.gz
+RUN mv immucore /immucore
+RUN chmod +x /immucore
+
+# Agent
+FROM alpine AS kairos-agent
+RUN wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN tar xvf kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN mv kairos-agent /kairos-agent
+RUN chmod +x /kairos-agent
+
+# Build thje initramfs
+FROM alpine AS initramfs-builder
+RUN apk add --no-cache cpio
+COPY --from=busybox /sysroot /initramfs
+# Copy groups file
+COPY --from=stage2-merge /skeleton/etc/group /initramfs/etc/group
+COPY --from=stage2-merge /skeleton/usr/lib/ld-musl-x86_64.so.1 /initramfs/lib/ld-musl-x86_64.so.1
+# Udev stuff, consider building eudev?
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/systemd-udevd /initramfs/usr/lib/systemd/systemd-udevd
+COPY --from=stage2-merge /skeleton/usr/sbin/udevadm /initramfs/usr/sbin/udevadm
+COPY --from=stage2-merge /skeleton/etc/udev/ /initramfs/etc/udev/
+COPY --from=stage2-merge /skeleton/usr/lib/udev/ /initramfs/usr/lib/udev/
+# Policy for network naming
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/network/ /initramfs/usr/lib/systemd/network/
+# This are all libs needed by systemd-udevd
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/libsystemd-shared-257.so /initramfs/usr/lib/systemd/libsystemd-shared-257.so
+COPY --from=stage2-merge /skeleton/usr/lib/libblkid.so.1 /initramfs/usr/lib/libblkid.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libcrypto.so.3 /initramfs/usr/lib/libcrypto.so.3
+COPY --from=stage2-merge /skeleton/usr/lib/libmount.so.1 /initramfs/usr/lib/libmount.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libcap.so.2 /initramfs/usr/lib/libcap.so.2
+COPY --from=stage2-merge /skeleton/usr/lib/libacl.so.1 /initramfs/usr/lib/libacl.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libattr.so.1 /initramfs/usr/lib/libattr.so.1
+COPY --from=immucore /immucore /initramfs/bin/immucore
+WORKDIR /initramfs
+COPY files/init .
+RUN find . | cpio -o -H newc > ../init.cpio
+
 ### Assemble the final image
 FROM scratch AS stage2
 
 COPY --from=stage2-merge /skeleton /
+# This probably needs moving into a different place rather than here it shouldbe done under the skeleton? After building and installing it?
+RUN busybox --install
+COPY --from=luet-kernel /kernel/boot/vmlinuz /boot/vmlinuz
+# Copy modules
+COPY --from=luet-kernel /kernel/lib/modules/ /lib/modules/
+COPY --from=initramfs-builder /init.cpio /boot/initramfs
+COPY --from=kairos-agent /kairos-agent /usr/bin/kairos-agent
+# workaround as we dont have the /system/oem files
+RUN mkdir -p /system/oem/
 
 ### Run the final image for tests
 FROM stage2 AS test2
