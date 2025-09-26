@@ -32,10 +32,8 @@ ln -sfv bin usr/sbin  # usr/sbin -> usr/bin
 ln -sfv lib usr/lib64 # usr/lib64 -> usr/lib
 
 
-ln -sfv run var/run
-ln -sfv run/lock var/lock
-
-
+ln -sfv ../run var/run # var/run -> ../run important to be relative
+ln -sfv run/lock var/lock # var/lock -> run/lock
 
 ln -svf proc/mounts etc/mtab
 cat > etc/passwd << "EOF"
