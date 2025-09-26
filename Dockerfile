@@ -151,6 +151,14 @@ RUN cd /sources/downloads && wget https://strace.io/files/${STRACE_VERSION}/stra
 ARG KBD_VERSION=2.9.0
 RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz && mv kbd-${KBD_VERSION}.tar.gz kbd.tar.gz
 
+ARG IPTABLES_VERSION=1.8.11
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz && mv iptables-${IPTABLES_VERSION}.tar.xz iptables.tar.xz
+
+ARG LIBMNL_VERSION=1.0.5
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 && mv libmnl-${LIBMNL_VERSION}.tar.bz2 libmnl.tar.bz2
+
+ARG LIBNFTNL_VERSION=1.3.0
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz && mv libnftnl-${LIBNFTNL_VERSION}.tar.xz libnftnl.tar.xz
 
 FROM stage0 AS skeleton
 
@@ -1151,6 +1159,54 @@ WORKDIR /sources/strace
 RUN ./configure --prefix=/usr --disable-static --enable-mpers=check
 RUN make && make install DESTDIR=/strace
 
+## libmnl
+FROM rsync AS libmnl
+COPY --from=sources-downloader /sources/downloads/libmnl.tar.bz2 /sources/
+RUN mkdir -p /libmnl
+WORKDIR /sources
+RUN tar -xf libmnl.tar.bz2 && mv libmnl-* libmnl
+WORKDIR /sources/libmnl
+RUN ./configure --prefix=/usr
+RUN make && make install DESTDIR=/libmnl
+
+## libnftnl
+FROM rsync AS libnftnl
+
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnftnl.tar.xz /sources/
+RUN mkdir -p /libnftnl
+WORKDIR /sources
+RUN tar -xf libnftnl.tar.xz && mv libnftnl-* libnftnl
+WORKDIR /sources/libnftnl
+RUN ./configure --prefix=/usr
+RUN make && make install DESTDIR=/libnftnl
+
+## iptables
+FROM rsync AS iptables
+
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=libnftnl /libnftnl /libnftnl
+RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/iptables.tar.xz /sources/
+RUN mkdir -p /iptables
+WORKDIR /sources
+RUN tar -xf iptables.tar.xz && mv iptables-* iptables
+WORKDIR /sources/iptables
+# Remove the include of if_ether.h that is not available in our musl toolchain
+# otherwise its redeclared in other headers and fails the build
+RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
+
+RUN ./configure --prefix=/usr --with-xtlibdir=/usr/lib/xtables
+RUN make && make install DESTDIR=/iptables
+
 ########################################################
 #
 # Stage 2 - Building the final image
@@ -1256,6 +1312,8 @@ RUN rsync -aHAX --keep-dirlinks  /expat/. /skeleton/
 COPY --from=kbd /kbd /kbd
 RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
 
+COPY --from=iptables /iptables /iptables
+RUN rsync -aHAX --keep-dirlinks  /iptables/. /skeleton
 ## Cleanup
 
 # We don't need headers
@@ -1277,6 +1335,8 @@ RUN wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucor
 RUN tar xvf immucore-v0.11.3-linux-amd64.tar.gz
 RUN mv immucore /immucore
 RUN chmod +x /immucore
+RUN apk add --no-cache upx
+RUN upx /immucore
 
 # Agent
 FROM alpine AS kairos-agent
@@ -1284,6 +1344,8 @@ RUN wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kai
 RUN tar xvf kairos-agent-v2.25.0-linux-amd64.tar.gz
 RUN mv kairos-agent /kairos-agent
 RUN chmod +x /kairos-agent
+RUN apk add --no-cache upx
+RUN upx /kairos-agent
 
 # Build the initramfs
 FROM alpine AS initramfs-builder
@@ -1324,10 +1386,13 @@ RUN busybox --install
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 RUN systemctl preset-all
 COPY --from=luet-kernel /kernel/boot/vmlinuz /boot/vmlinuz
+COPY --from=luet-kernel /kernel/lib/modules/ /lib/modules/
 COPY --from=initramfs-builder /init.cpio /boot/initramfs
 COPY --from=kairos-agent /kairos-agent /usr/bin/kairos-agent
 # workaround as we dont have the /system/oem files
 RUN mkdir -p /system/oem/
+## Make eth devices managed by systemd-networkd
+RUN echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=yes\n" > /etc/systemd/network/20-wired.network
 
 ## Assemble the final image
 ## you can pass this image to init like if it was any other base image and it should generate

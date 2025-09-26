@@ -92,6 +92,15 @@ export HISTSIZE=1000
 export HISTFILESIZE=1000
 export PAGER='/bin/more '
 export EDITOR='/bin/vi'
+# load other profiles under /etc/profile.d
+if [ -d /etc/profile.d ]; then
+  for i in /etc/profile.d/*.sh; do
+    if [ -r $i ]; then
+      . $i
+    fi
+  done
+  unset i
+fi
 EOF
 
 cat > etc/issue << "EOF"
@@ -186,4 +195,9 @@ ID=ukairos
 BUILD_ID=rolling
 KAIROS_FLAVOR="ukairos"
 KAIROS_ARCH="${ARCH}"
+EOF
+
+cat > etc/hosts << "EOF"
+127.0.0.1   localhost localhost.localdomain
+::1         localhost localhost.localdomain
 EOF
