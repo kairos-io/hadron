@@ -155,11 +155,6 @@ ARG BISON_VERSION=3.8.2
 ENV BISON_VERSION=${BISON_VERSION}
 RUN cd /sources/downloads && wget https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.xz
 
-## elfutils
-
-ARG ELFUTILS_VERSION=0.193
-ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
-RUN cd /sources/downloads && wget https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2
 
 ## argp-standalone
 
@@ -196,6 +191,13 @@ ARG MUSL_OBSTACK_VERSION=1.2.3
 ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
 RUN cd /sources/downloads && wget https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz
 
+## elfutils
+
+ARG ELFUTILS_VERSION=0.193
+ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
+RUN cd /sources/downloads && wget https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2
+
+RUN cd /sources/downloads && mkdir -p elfutils-patches && wget https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
 
 FROM stage0 AS skeleton
 
@@ -1224,6 +1226,34 @@ COPY --from=sources-downloader /sources/downloads/musl-fts-${FTS_VERSION}.tar.gz
 RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts-${FTS_VERSION}.tar.gz && mv musl-fts-${FTS_VERSION} fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
     make DESTDIR=/fts install && make install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
+## musl-obstack
+FROM rsync as musl-obstack
+ARG MUSL_OBSTACK_VERSION=1.2.3
+ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
+
+COPY --from=autoconf /autoconf /autoconf
+RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
+
+COPY --from=automake /automake /automake
+RUN rsync -aHAX --keep-dirlinks  /automake/. /
+
+COPY --from=libtool /libtool /libtool
+RUN rsync -aHAX --keep-dirlinks  /libtool/. /
+
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+
+COPY --from=sources-downloader /sources/downloads/musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz && mv musl-obstack-${MUSL_OBSTACK_VERSION} musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
+    make DESTDIR=/musl-obstack install && make install
+
 ## elfutils
 
 FROM rsync as elfutils
@@ -1246,9 +1276,16 @@ RUN rsync -aHAX --keep-dirlinks  /zstd/. /
 COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /
 
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /
+
+COPY --from=musl-obstack /musl-obstack /musl-obstack
+RUN rsync -aHAX --keep-dirlinks  /musl-obstack/. /
 
 COPY --from=sources-downloader /sources/downloads/elfutils-${ELFUTILS_VERSION}.tar.bz2 /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.tar.bz2 && mv elfutils-${ELFUTILS_VERSION} elfutils && cd elfutils && mkdir -p /elfutils && ./configure ${COMMON_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
+COPY --from=sources-downloader /sources/downloads/elfutils-patches /sources/downloads/elfutils-patches
+
+RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.tar.bz2 && mv elfutils-${ELFUTILS_VERSION} elfutils && cd elfutils && mkdir -p /elfutils && patch -p1 -i /sources/downloads/elfutils-patches/musl-macros.patch && ./configure ${COMMON_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
 --sysconfdir=/etc \
 --localstatedir=/var \
 --disable-werror \
@@ -1282,6 +1319,12 @@ RUN rsync -aHAX --keep-dirlinks  /bison/. /
 COPY --from=elfutils /elfutils /elfutils
 RUN rsync -aHAX --keep-dirlinks  /elfutils/. /
 
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
 ARG KERNEL_VERSION=6.16.7
 ENV KERNEL_VERSION=${KERNEL_VERSION}
 
@@ -1302,8 +1345,6 @@ fi
 
 cd /sources/kernel && make ARCH=x86_64  olddefconfig && make ARCH=x86_64  KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}"
 EOT
-
-#RUN cd /sources/kernel && make olddefconfig && make KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}"
 
 RUN <<EOT bash
 mkdir -p /kernel/boot
