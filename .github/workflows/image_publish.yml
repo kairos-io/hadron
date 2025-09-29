@@ -2,9 +2,10 @@
 name: 'build container images'
 
 on:
+  pull_request:
   push:
     branches:
-      - '*'
+      - main
     tags:
       - '*'
 concurrency:
@@ -47,14 +48,28 @@ jobs:
             latest=auto
             prefix=
             suffix=
-      - name: Build
+      - name: Build and Push
         uses: docker/build-push-action@v6
+        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Only
+        uses: docker/build-push-action@v6
+        if: github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/tags/')
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
