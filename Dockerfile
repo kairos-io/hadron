@@ -11,10 +11,15 @@ FROM alpine AS stage0
 ########################################################
 
 ARG VENDOR="ukairos"
+ENV VENDOR=${VENDOR}
 ARG ARCH="x86-64"
+ENV ARCH=${ARCH}
 ARG BUILD_ARCH="x86_64"
+ENV BUILD_ARCH=${BUILD_ARCH}
 ARG JOBS=16
+ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
+ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
 RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
@@ -72,7 +77,7 @@ RUN cd /sources/downloads && wget https://download.savannah.nongnu.org/releases/
 ARG GAWK_VERSION=5.3.2
 ENV GAWK_VERSION=${GAWK_VERSION}
 
-RUN cd /sources/downloads && wget https://ftp.gnu.org/gnu/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
+RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
 
 ARG CA_CERTIFICATES_VERSION=20250619
 ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
@@ -174,7 +179,7 @@ RUN cd /sources/downloads && wget https://github.com/westes/flex/releases/downlo
 
 ARG BISON_VERSION=3.8.2
 ENV BISON_VERSION=${BISON_VERSION}
-RUN cd /sources/downloads && wget https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.xz
+RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz
 
 
 ## argp-standalone
@@ -620,7 +625,7 @@ FROM stage1 AS binutils
 ARG BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 
-RUN mkdir /sources && cd /sources && wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget https://ftpmirror.gnu.org/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
     tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
     cd binutils && mkdir -p /binutils && ./configure --quiet ${COMMON_ARGS} && make -s -j${JOBS} DESTDIR=/binutils && \
     make -s -j${JOBS} DESTDIR=/binutils install && make -s -j${JOBS} install
@@ -631,7 +636,7 @@ FROM stage1 AS ncurses
 ARG NCURSES_VERSION=6.5
 ENV NCURSES_VERSION=${NCURSES_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
     tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
     cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
     cd build && ../configure --quiet ${COMMON_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
@@ -1156,7 +1161,7 @@ RUN DESTDIR=/systemd ninja -C buildDir install
 RUN ninja -C buildDir install
 
 ## flex
-FROM m4 as flex
+FROM m4 AS flex
 ARG FLEX_VERSION=2.6.4
 ENV FLEX_VERSION=${FLEX_VERSION}
 
@@ -1166,7 +1171,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && 
     make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
 
 ## bison
-FROM rsync as bison
+FROM rsync AS bison
 
 ARG BISON_VERSION=3.8.2
 ENV BISON_VERSION=${BISON_VERSION}
@@ -1230,7 +1235,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf automake-${AUTOMAKE_VERSION}.ta
 
 
 ## argp-standalone
-FROM rsync as argp-standalone
+FROM rsync AS argp-standalone
 
 ARG ARGP_STANDALONE_VERSION=1.3
 ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
@@ -1254,7 +1259,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone-${ARGP_STANDALO
     make DESTDIR=/argp-standalone install && make install && install -D -m644 argp.h /argp-standalone/usr/include/argp.h && install -D -m755 libargp.a /argp-standalone/usr/lib/libargp.a
 
 ## libtool
-FROM rsync as libtool
+FROM rsync AS libtool
 
 ARG LIBTOOL_VERSION=2.5.4
 ENV LIBTOOL_VERSION=${LIBTOOL_VERSION}
@@ -1272,7 +1277,7 @@ gnulib-tests/Makefile.in && ./configure ${COMMON_ARGS} --disable-dependency-trac
 
 ## fts
 
-FROM rsync as fts
+FROM rsync AS fts
 ARG FTS_VERSION=1.2.7
 ENV FTS_VERSION=${FTS_VERSION}
 
@@ -1302,7 +1307,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts-${FTS_VERSION}.tar.gz 
     make DESTDIR=/fts install && make install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
 ## musl-obstack
-FROM rsync as musl-obstack
+FROM rsync AS musl-obstack
 ARG MUSL_OBSTACK_VERSION=1.2.3
 ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
 
@@ -1331,7 +1336,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack-${MUSL_OBSTACK_VER
 
 ## elfutils
 
-FROM rsync as elfutils
+FROM rsync AS elfutils
 
 ARG ELFUTILS_VERSION=0.193
 ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
@@ -1372,9 +1377,20 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.ta
 --with-zstd && \
     make DESTDIR=/elfutils install && make install
 
-## kernel
-FROM rsync as kernel
 
+from rsync AS diffutils
+ARG DIFFUTILS_VERSION=3.9
+
+
+RUN mkdir -p /sources && cd /sources && wget http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
+    tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
+    cd diffutils && mkdir -p /diffutils && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
+    make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
+    make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
+
+## kernel
+FROM rsync AS kernel
+ARG JOBS
 ARG TARGETARCH
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
@@ -1400,44 +1416,38 @@ RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
+COPY --from=gawk /gawk /gawk
+RUN rsync -aHAX --keep-dirlinks  /gawk/. /
+
+COPY --from=findutils /findutils /findutils
+RUN rsync -aHAX --keep-dirlinks  /findutils/. /
+
+COPY --from=diffutils /diffutils /diffutils
+RUN rsync -aHAX --keep-dirlinks  /diffutils/. /
+
 ARG KERNEL_VERSION=6.16.7
-ENV KERNEL_VERSION=${KERNEL_VERSION}
+ENV ARCH=x86_64
 
 COPY --from=sources-downloader /sources/downloads/linux-${KERNEL_VERSION}.tar.xz /sources/
-RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh
-RUN mkdir -p /sources/kernel-configs
 
+RUN mkdir -p /sources/kernel-configs
 COPY ./files/kernel/* /sources/kernel-configs/
 
-RUN mkdir -p /sources && cd /sources && tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
+RUN mkdir -p /kernel && mkdir -p /modules
 
-RUN <<EOT bash
-if [[ "${TARGETARCH}" == "amd64" ]]; then
-    cp -rfv /sources/kernel-configs/ukairos-x86_64.config .config
-else 
-    cp -rfv /sources/kernel-configs/ukairos-${TARGETARCH}.config .config
-fi
+WORKDIR /sources
+RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
+RUN cp -rfv /sources/kernel-configs/ukairos-${TARGETARCH}.config .config
+WORKDIR /sources/kernel
+RUN make -j${JOBS} olddefconfig
+# This only builds the kernel
+RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage
+RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 
-cd /sources/kernel && make ARCH=x86_64  olddefconfig && make ARCH=x86_64  KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}"
-EOT
-
-## TODO: steps below are basically untested
-## TODO: we miss also compiling modules
-
-RUN <<EOT bash
-mkdir -p /kernel/boot
-KARCH=amd64
-if [[ "${TARGETARCH}" == "amd64" ]]; then
-KARCH=x86_64
-fi
-cd /sources/kernel 
-if [[ -L "arch/${KARCH}/boot/bzImage" ]]; then
-   cp -rfv $(readlink -f "arch/${KARCH}/boot/bzImage") /kernel/boot/"kernel-${KERNEL_PREFIX}-${KARCH}-${PACKAGE_VERSION}-${VENDOR}"
-else
-   cp -rfv arch/${KARCH}/boot/bzImage /kernel/boot/"kernel-${KERNEL_PREFIX}-${KARCH}-${PACKAGE_VERSION}-${VENDOR}"
-fi
-
-EOT
+# This builds the modules
+RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
+RUN ln -s /modules/lib/modules /lib/modules
+RUN ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make modules_install
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
@@ -1736,8 +1746,8 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 RUN systemctl preset-all
 
 ## TODO: The images probably are not shipping the files there
-COPY --from=kernel /kernel/boot/vmlinuz /boot/vmlinuz
-COPY --from=kernel /kernel/lib/modules/ /lib/modules/
+COPY --from=kernel /kernel/vmlinuz /boot/vmlinuz
+COPY --from=kernel /modules/ /lib/modules/
 
 ### final image
 FROM stage3 AS default
