@@ -1377,7 +1377,7 @@ RUN find . | cpio -o -H newc > ../init.cpio
 
 ### Assemble the final image for testing
 ## You can use this image with aurora and it will generate a bootable image
-FROM scratch AS stage2-test
+FROM scratch AS devel
 COPY --from=stage2-merge /skeleton /
 
 # This probably needs moving into a different place rather than here it shouldbe done under the skeleton? After building and installing it?
