@@ -32,10 +32,8 @@ ln -sfv bin usr/sbin  # usr/sbin -> usr/bin
 ln -sfv lib usr/lib64 # usr/lib64 -> usr/lib
 
 
-ln -sfv run var/run
-ln -sfv run/lock var/lock
-
-
+ln -sfv ../run var/run # var/run -> ../run important to be relative
+ln -sfv run/lock var/lock # var/lock -> run/lock
 
 ln -svf proc/mounts etc/mtab
 cat > etc/passwd << "EOF"
@@ -94,10 +92,19 @@ export HISTSIZE=1000
 export HISTFILESIZE=1000
 export PAGER='/bin/more '
 export EDITOR='/bin/vi'
+# load other profiles under /etc/profile.d
+if [ -d /etc/profile.d ]; then
+  for i in /etc/profile.d/*.sh; do
+    if [ -r $i ]; then
+      . $i
+    fi
+  done
+  unset i
+fi
 EOF
 
 cat > etc/issue << "EOF"
-UKairos Linux $(date +'%F')
+UKairos Linux (\d)
 Kernel \r on an \m
 
 EOF
@@ -179,9 +186,18 @@ usbdev[0-9].[0-9]       root:root 0660 */lib/mdev/usbdev
 usbdev[0-9].[0-9]_.*    root:root 0660
 EOF
 
+ARCH=$(uname -m)
+
 cat > etc/os-release << EOF
 NAME="UKairos Linux"
 PRETTY_NAME="UKairos Linux"
 ID=ukairos
 BUILD_ID=rolling
+KAIROS_FLAVOR="ukairos"
+KAIROS_ARCH="${ARCH}"
+EOF
+
+cat > etc/hosts << "EOF"
+127.0.0.1   localhost localhost.localdomain
+::1         localhost localhost.localdomain
 EOF

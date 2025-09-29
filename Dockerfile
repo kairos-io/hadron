@@ -15,17 +15,10 @@ ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
 ARG JOBS=16
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
-ENV VENDOR=${VENDOR}
-ENV BUILD_ARCH=${BUILD_ARCH}
-ENV ARCH=${ARCH}
-ENV MUSSEL_VERSION=${MUSSEL_VERSION}
-ENV JOBS=${JOBS}
 
-RUN apk update && \
-  apk add git bash wget bash perl build-base make patch busybox-static curl && git clone https://github.com/firasuke/mussel.git &&  \
-  cd mussel && \
-  git checkout ${MUSSEL_VERSION} -b build && \
-  ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
+RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
+RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
+RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
 ENV LC_ALL=POSIX
@@ -138,6 +131,35 @@ RUN chmod +x /apply_all.sh
 RUN /apply_all.sh /sources/downloads/openembedded-core/meta/recipes-core/systemd/systemd/ /sources/downloads/systemd
 #RUN /apply_all.sh /sources/patches/systemd /sources/downloads/systemd
 
+ARG DBUS_VERSION=1.16.2
+RUN cd /sources/downloads && wget https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
+
+ARG EXPAT_VERSION=2.7.3
+ARG EXPAT_VERSION_MAJOR=2
+ARG EXPAT_VERSION_MINOR=7
+ARG EXPAT_VERSION_PATCH=3
+# expat
+RUN cd /sources/downloads && wget https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz && mv expat-2.7.3.tar.gz expat.tar.gz
+
+ARG SECCOMP_VERSION=2.6.0
+# seccomp
+RUN cd /sources/downloads && wget https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz && mv libseccomp-${SECCOMP_VERSION}.tar.gz libseccomp.tar.gz
+
+ARG STRACE_VERSION=6.16
+RUN cd /sources/downloads && wget https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz && mv strace-${STRACE_VERSION}.tar.xz strace.tar.xz
+
+ARG KBD_VERSION=2.9.0
+RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz && mv kbd-${KBD_VERSION}.tar.gz kbd.tar.gz
+
+ARG IPTABLES_VERSION=1.8.11
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz && mv iptables-${IPTABLES_VERSION}.tar.xz iptables.tar.xz
+
+ARG LIBMNL_VERSION=1.0.5
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 && mv libmnl-${LIBMNL_VERSION}.tar.bz2 libmnl.tar.bz2
+
+ARG LIBNFTNL_VERSION=1.3.0
+RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz && mv libnftnl-${LIBNFTNL_VERSION}.tar.xz libnftnl.tar.xz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -206,16 +228,15 @@ ARG MPC_VERSION=1.3.1
 ENV MPC_VERSION=${MPC_VERSION}
 ARG MPFR_VERSION=4.2.2
 ENV MPFR_VERSION=${MPFR_VERSION}
-RUN <<EOT bash
-    wget https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz \
-    https://ftp.gnu.org/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 \
-    https://ftp.gnu.org/gnu/mpc/mpc-${MPC_VERSION}.tar.gz \
-    http://ftp.gnu.org/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
-    tar -xvf gcc-${GCC_VERSION}.tar.xz
-    tar -xvf gmp-${GMP_VERSION}.tar.bz2
-    tar -xvf mpc-${MPC_VERSION}.tar.gz
-    tar -xvf mpfr-${MPFR_VERSION}.tar.bz2
-EOT
+RUN wget http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
+RUN wget http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
+RUN wget http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
+RUN wget http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
+RUN tar -xvf gcc-${GCC_VERSION}.tar.xz
+RUN tar -xvf gmp-${GMP_VERSION}.tar.bz2
+RUN tar -xvf mpc-${MPC_VERSION}.tar.gz
+RUN tar -xvf mpfr-${MPFR_VERSION}.tar.bz2
+
 RUN <<EOT bash
     mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
     mv -v mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc
@@ -249,7 +270,7 @@ ENV MAKE_VERSION=${MAKE_VERSION}
 
 RUN mkdir /sources && \
    cd /sources && \
-   wget https://ftp.gnu.org/gnu/make/make-${MAKE_VERSION}.tar.gz
+   wget https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
 
 RUN cd /sources && tar -xvf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
@@ -268,7 +289,7 @@ ENV BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 
 RUN <<EOT bash
-    wget https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+    wget http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
     tar -xvf binutils-${BINUTILS_VERSION}.tar.xz
 EOT
 
@@ -408,7 +429,7 @@ FROM stage1 AS autoconf
 ARG AUTOCONF_VERSION=2.71
 ENV AUTOCONF_VERSION=${AUTOCONF_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz && \
     tar -xvf autoconf-${AUTOCONF_VERSION}.tar.xz && mv autoconf-${AUTOCONF_VERSION} autoconf && \
     cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_ARGS} && make DESTDIR=/autoconf && \
     make DESTDIR=/autoconf install && make install
@@ -419,7 +440,7 @@ FROM stage1 AS automake
 ARG AUTOMAKE_VERSION=1.16.5
 ENV AUTOMAKE_VERSION=${AUTOMAKE_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/automake/automake-${AUTOMAKE_VERSION}.tar.xz && \
     tar -xvf automake-${AUTOMAKE_VERSION}.tar.xz && mv automake-${AUTOMAKE_VERSION} automake && \
     cd automake && mkdir -p /automake && ./configure ${COMMON_ARGS} && make DESTDIR=/automake && \
     make DESTDIR=/automake install && make install
@@ -568,7 +589,6 @@ RUN mkdir /sources && cd /sources && wget https://ftp.gnu.org/gnu/binutils/binut
     cd binutils && mkdir -p /binutils && ./configure ${COMMON_ARGS} && make DESTDIR=/binutils && \
     make DESTDIR=/binutils install && make install
 
-
 ## ncurses
 FROM stage1 AS ncurses
 
@@ -592,15 +612,13 @@ RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/ncurses/ncurses
     make DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
     cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
 
-
-
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
 
 ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftp.gnu.org/gnu/m4/m4-${M4_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz && \
     tar -xvf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
     cd m4 && mkdir -p /m4 && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/m4 && \
     make DESTDIR=/m4 install && make install
@@ -611,7 +629,7 @@ FROM stage1 AS readline
 ARG READLINE_VERSION=8.3
 ENV READLINE_VERSION=${READLINE_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
     tar -xvf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
     cd readline && mkdir -p /readline && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/readline && \
     make DESTDIR=/readline install && make install
@@ -624,8 +642,7 @@ ENV BASH_VERSION=${BASH_VERSION}
 
 COPY ./files/bash/bashrc /sources/bashrc
 COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
-
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
     tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
     cd bash && mkdir -p /bash && ./configure ${COMMON_ARGS} \
     --build=${BUILD} \
@@ -689,7 +706,6 @@ RUN cd /sources && \
        -Duse64bitint && make libperl.so && \
         make DESTDIR=/perl -j 8 && make DESTDIR=/perl install && make install
 
-
 ## openssl
 FROM rsync AS openssl
 
@@ -745,7 +761,7 @@ ENV COREUTILS_VERSION=${COREUTILS_VERSION}
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
     tar -xvf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
     cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_ARGS} \
     --prefix=/usr \
@@ -767,7 +783,7 @@ FROM stage1 AS findutils
 ARG FINDUTILS_VERSION=4.10.0
 ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
     tar -xvf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/findutils && \
     make DESTDIR=/findutils install && make install
@@ -778,13 +794,10 @@ FROM stage1 AS grep
 ARG GREP_VERSION=3.12
 ENV GREP_VERSION=${GREP_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
     tar -xvf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_ARGS} --disable-dependency-tracking && make DESTDIR=/grep && \
     make DESTDIR=/grep install && make install
-
-
-
 
 ## ca-certificates
 FROM rsync AS ca-certificates
@@ -850,31 +863,6 @@ RUN mkdir -p /sources && cd /sources && tar -xvf sqlite-autoconf-${SQLITE3_VERSI
     make && \
     make DESTDIR=/sqlite3 install && make install
 
-## util-linux
-FROM bash AS util-linux
-
-ARG UTIL_LINUX_VERSION=2.41.1
-ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
-
-
-COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
-
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xvf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
-    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
-    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
-    --libdir=/usr/lib \
-    --disable-silent-rules \
-    --enable-newgrp \
-    --disable-uuidd \
-    --disable-liblastlog2 \
-    --disable-nls \
-    --disable-kill \
-    --disable-chfn-chsh \
-    --with-vendordir=/usr/lib \
-    --enable-fs-paths-extra=/usr/sbin \
-    && make DESTDIR=/util-linux && \
-    make DESTDIR=/util-linux install && make install
-
 ## curl
 FROM rsync AS curl
 
@@ -914,7 +902,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf curl-${CURL_VERSION}.tar.gz && 
     make DESTDIR=/curl install && make install
 
 ## python
-FROM rsync AS python
+FROM rsync AS python-build
 
 ARG PYTHON_VERSION=3.12.11
 ENV PYTHON_VERSION=${PYTHON_VERSION}
@@ -947,6 +935,30 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     #--with-system-libmpdec \
     #--with-system-expat \
 
+## util-linux
+FROM bash AS util-linux
+
+ARG UTIL_LINUX_VERSION=2.41.1
+ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
+
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
+    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-silent-rules \
+    --enable-newgrp \
+    --disable-uuidd \
+    --disable-liblastlog2 \
+    --disable-nls \
+    --disable-kill \
+    --disable-chfn-chsh \
+    --with-vendordir=/usr/lib \
+    --enable-fs-paths-extra=/usr/sbin \
+    && make DESTDIR=/util-linux && \
+    make DESTDIR=/util-linux install && make install
+
 ## libcap
 FROM bash AS libcap
 
@@ -965,14 +977,60 @@ FROM stage1 AS gperf
 ARG GPERF_VERSION=3.3
 ENV GPERF_VERSION=${GPERF_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.gnu.org/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
     tar -xvf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
     make DESTDIR=/gperf install && make install
 
+## libseccomp
+FROM rsync AS libseccomp
+COPY --from=gperf /gperf /gperf
+RUN rsync -aHAX --keep-dirlinks  /gperf/. /
+COPY --from=sources-downloader /sources/downloads/libseccomp.tar.gz /sources/
+RUN mkdir -p /libseccomp
+WORKDIR /sources
+RUN tar -xvf libseccomp.tar.gz && mv libseccomp-* libseccomp
+WORKDIR /sources/libseccomp
+RUN ./configure --prefix=/usr --disable-static
+RUN make && make install DESTDIR=/libseccomp
+
+
+## expat
+FROM bash AS expat
+## Force bash as shell otherwise it defaults to /bin/sh and fails
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+COPY --from=sources-downloader /sources/downloads/expat.tar.gz /sources/
+RUN mkdir -p /expat
+WORKDIR /sources
+RUN tar -xvf expat.tar.gz && mv expat-* expat
+WORKDIR /sources/expat
+RUN bash ./configure --prefix=/usr --disable-static
+RUN make && make install DESTDIR=/expat
+
+
+## dbus first pass without systemd support so we can build systemd afterwards
+FROM python-build AS dbus
+
+COPY --from=expat /expat /expat
+RUN rsync -aHAX --keep-dirlinks  /expat/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
+# install target
+RUN mkdir -p /dbus
+WORKDIR /sources
+RUN pip3 install meson ninja
+RUN tar -xvf dbus.tar.xz && mv dbus-* dbus
+WORKDIR /sources/dbus
+RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN DESTDIR=/dbus ninja -C buildDir install
+
+
 ## systemd
-FROM rsync as systemd
+FROM rsync AS systemd
 
 ARG SYSTEMD_VERSION=257.8
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
@@ -986,7 +1044,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 
-COPY --from=python /python /python
+COPY --from=python-build /python /python
 RUN rsync -aHAX --keep-dirlinks  /python/. /
 
 COPY --from=openssl /openssl /openssl
@@ -1007,16 +1065,23 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
+COPY --from=libseccomp /libseccomp /libseccomp
+RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /
+
+COPY --from=dbus /dbus /dbus
+RUN rsync -aHAX --keep-dirlinks  /dbus/. /
+
 COPY --from=sources-downloader /sources/downloads/systemd /sources/downloads/systemd
 ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
-RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja jinja2 && mkdir -p build && cd       build && /usr/bin/meson setup .. \
+RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources/downloads/systemd && mkdir -p /systemd && python3 -m pip install meson ninja jinja2 && mkdir -p build && cd build && /usr/bin/meson setup .. \
       --prefix=/usr           \
       --buildtype=release     \
+      -D dbus=true \
+      -D seccomp=true         \
       -D default-dnssec=no    \
       -D firstboot=false      \
       -D install-tests=false  \
       -D ldconfig=false       \
-      -D sysusers=false       \
       -D rpmmacrosdir=no      \
       -D gshadow=false        \
       -D idn=false            \
@@ -1037,6 +1102,110 @@ RUN rm -fv /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /source
       -D ukify=disabled       \
       -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION} 2>&1 && ninja 2>&1 && \
      DESTDIR=/systemd ninja install && ninja install
+
+
+## dbus second pass pass with systemd support, so we can have a working systemd and dbus
+FROM python-build AS dbus-systemd
+
+COPY --from=expat /expat /expat
+RUN rsync -aHAX --keep-dirlinks  /expat/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
+# install target
+RUN mkdir -p /dbus
+WORKDIR /sources
+RUN pip3 install meson ninja
+RUN tar -xvf dbus.tar.xz && mv dbus-* dbus
+WORKDIR /sources/dbus
+RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN DESTDIR=/dbus ninja -C buildDir install
+
+## kbd for setting the console keymap and font
+FROM rsync AS kbd
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+# Use coreutils for install as it needs ln to support relative symlinks
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+# Use openssl for libssl and libcrypto
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=sources-downloader /sources/downloads/kbd.tar.gz /sources/
+RUN mkdir -p /kbd
+WORKDIR /sources
+RUN tar -xvf kbd.tar.gz && mv kbd-* kbd
+WORKDIR /sources/kbd
+RUN ./configure --prefix=/usr --disable-tests --disable-vlock -enable-libkeymap --enable-libkfont
+RUN make && make install DESTDIR=/kbd
+
+## strace
+FROM rsync AS strace
+
+COPY --from=gawk /gawk /gawk
+RUN rsync -aHAX --keep-dirlinks  /gawk/. /
+COPY --from=sources-downloader /sources/downloads/strace.tar.xz /sources/
+RUN mkdir -p /strace
+WORKDIR /sources
+RUN tar -xvf strace.tar.xz && mv strace-* strace
+WORKDIR /sources/strace
+RUN ./configure --prefix=/usr --disable-static --enable-mpers=check
+RUN make && make install DESTDIR=/strace
+
+## libmnl
+FROM rsync AS libmnl
+COPY --from=sources-downloader /sources/downloads/libmnl.tar.bz2 /sources/
+RUN mkdir -p /libmnl
+WORKDIR /sources
+RUN tar -xf libmnl.tar.bz2 && mv libmnl-* libmnl
+WORKDIR /sources/libmnl
+RUN ./configure --prefix=/usr
+RUN make && make install DESTDIR=/libmnl
+
+## libnftnl
+FROM rsync AS libnftnl
+
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnftnl.tar.xz /sources/
+RUN mkdir -p /libnftnl
+WORKDIR /sources
+RUN tar -xf libnftnl.tar.xz && mv libnftnl-* libnftnl
+WORKDIR /sources/libnftnl
+RUN ./configure --prefix=/usr
+RUN make && make install DESTDIR=/libnftnl
+
+## iptables
+FROM rsync AS iptables
+
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=libnftnl /libnftnl /libnftnl
+RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/iptables.tar.xz /sources/
+RUN mkdir -p /iptables
+WORKDIR /sources
+RUN tar -xf iptables.tar.xz && mv iptables-* iptables
+WORKDIR /sources/iptables
+# Remove the include of if_ether.h that is not available in our musl toolchain
+# otherwise its redeclared in other headers and fails the build
+RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
+
+RUN ./configure --prefix=/usr --with-xtlibdir=/usr/lib/xtables
+RUN make && make install DESTDIR=/iptables
 
 ########################################################
 #
@@ -1059,8 +1228,8 @@ COPY --from=musl /sysroot /musl
 RUN rsync -aHAX --keep-dirlinks  /musl/. /skeleton/
 
 ## BUSYBOX
-# COPY --from=busybox /sysroot /busybox
-# RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
+COPY --from=busybox /sysroot /busybox
+RUN rsync -avHAX --keep-dirlinks  /busybox/. /skeleton/
 
 ## coreutils
 COPY --from=coreutils /coreutils /coreutils
@@ -1110,7 +1279,6 @@ RUN rsync -aHAX --keep-dirlinks  /zstd/. /skeleton/
 COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /skeleton/
 
-
 ## libcap
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton/
@@ -1119,25 +1287,127 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton/
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /skeleton/
 
-
 ## systemd
 COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
 
+## dbus
+COPY --from=dbus-systemd /dbus /dbus
+RUN rsync -aHAX --keep-dirlinks  /dbus/. /skeleton/
+
+## seccomp
+COPY --from=libseccomp /libseccomp /libseccomp
+RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /skeleton/
+
+## libexpat
+COPY --from=expat /expat /expat
+RUN rsync -aHAX --keep-dirlinks  /expat/. /skeleton/
+
+## strace, disabled but if we need to debug this is very useful to add
+## Just uncomment this and you will get it in the final image
+# COPY --from=strace /strace /strace
+# RUN rsync -aHAX --keep-dirlinks  /strace/. /skeleton
+
+## kbd for loadkeys support
+COPY --from=kbd /kbd /kbd
+RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
+
+COPY --from=iptables /iptables /iptables
+RUN rsync -aHAX --keep-dirlinks  /iptables/. /skeleton
 ## Cleanup
 
 # We don't need headers
 RUN rm -rf /skeleton/usr/include
 
-### Assemble the final image
-FROM scratch AS stage2
+FROM quay.io/luet/base:0.36.2 AS luet-base
 
+## Install kernel
+FROM alpine AS luet-kernel
+COPY --from=luet-base /usr/bin/luet /usr/bin/luet
+RUN mkdir -p /etc/luet/repos.conf.d/
+RUN luet repo add -y kairos --url quay.io/kairos/packages --type docker
+RUN luet repo update
+RUN luet install -y kernels/linux-tiny --system-target /kernel
+
+## Immucore for initramfs
+FROM alpine AS immucore
+RUN wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
+RUN tar xvf immucore-v0.11.3-linux-amd64.tar.gz
+RUN mv immucore /immucore
+RUN chmod +x /immucore
+RUN apk add --no-cache upx
+RUN upx /immucore
+
+# Agent
+FROM alpine AS kairos-agent
+RUN wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN tar xvf kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN mv kairos-agent /kairos-agent
+RUN chmod +x /kairos-agent
+RUN apk add --no-cache upx
+RUN upx /kairos-agent
+
+# Build the initramfs
+FROM alpine AS initramfs-builder
+RUN apk add --no-cache cpio
+COPY --from=busybox /sysroot /initramfs
+# Copy groups file
+COPY --from=stage2-merge /skeleton/etc/group /initramfs/etc/group
+COPY --from=stage2-merge /skeleton/usr/lib/ld-musl-x86_64.so.1 /initramfs/lib/ld-musl-x86_64.so.1
+# Udev stuff, consider building eudev?
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/systemd-udevd /initramfs/usr/lib/systemd/systemd-udevd
+COPY --from=stage2-merge /skeleton/usr/sbin/udevadm /initramfs/usr/sbin/udevadm
+COPY --from=stage2-merge /skeleton/etc/udev/ /initramfs/etc/udev/
+COPY --from=stage2-merge /skeleton/usr/lib/udev/ /initramfs/usr/lib/udev/
+# Policy for network naming
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/network/ /initramfs/usr/lib/systemd/network/
+# This are all libs needed by systemd-udevd
+COPY --from=stage2-merge /skeleton/usr/lib/systemd/libsystemd-shared-257.so /initramfs/usr/lib/systemd/libsystemd-shared-257.so
+COPY --from=stage2-merge /skeleton/usr/lib/libblkid.so.1 /initramfs/usr/lib/libblkid.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libcrypto.so.3 /initramfs/usr/lib/libcrypto.so.3
+COPY --from=stage2-merge /skeleton/usr/lib/libmount.so.1 /initramfs/usr/lib/libmount.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libcap.so.2 /initramfs/usr/lib/libcap.so.2
+COPY --from=stage2-merge /skeleton/usr/lib/libacl.so.1 /initramfs/usr/lib/libacl.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libattr.so.1 /initramfs/usr/lib/libattr.so.1
+COPY --from=stage2-merge /skeleton/usr/lib/libseccomp.so.2 /initramfs/usr/lib/libseccomp.so.2
+COPY --from=immucore /immucore /initramfs/bin/immucore
+WORKDIR /initramfs
+COPY files/init .
+RUN find . | cpio -o -H newc > ../init.cpio
+
+### Assemble the final image for testing
+## You can use this image with aurora and it will generate a bootable image
+FROM scratch AS devel
 COPY --from=stage2-merge /skeleton /
 
-### Run the final image for tests
-FROM stage2 AS test2
+# This probably needs moving into a different place rather than here it shouldbe done under the skeleton? After building and installing it?
+RUN busybox --install
+## Workaround to have bash as /bin/sh after busybox overrides it
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+RUN systemctl preset-all
+COPY --from=luet-kernel /kernel/boot/vmlinuz /boot/vmlinuz
+COPY --from=luet-kernel /kernel/lib/modules/ /lib/modules/
+COPY --from=initramfs-builder /init.cpio /boot/initramfs
+COPY --from=kairos-agent /kairos-agent /usr/bin/kairos-agent
+# workaround as we dont have the /system/oem files
+RUN mkdir -p /system/oem/
+## Make eth devices managed by systemd-networkd
+RUN echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=yes\n" > /etc/systemd/network/20-wired.network
 
-SHELL ["/bin/bash", "-c"]
+## Assemble the final image
+## you can pass this image to init like if it was any other base image and it should generate
+## a kairosified image
+## Note that in here we serve the minimal systeml, no workarounds, no initrd, just the kernel and system
+## Its the kairos-init the one that will take care of the rest
+FROM scratch AS stage2
+COPY --from=stage2-merge /skeleton /
+RUN busybox --install
+## Workaround to have bash as /bin/sh after busybox overrides it
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+RUN systemctl preset-all
+COPY --from=luet-kernel /kernel/boot/vmlinuz /boot/vmlinuz
+COPY --from=luet-kernel /kernel/lib/modules/ /lib/modules/
 
-RUN ls -liah /
-RUN curl --version
+### final image
+FROM stage2 AS default
+CMD ["/bin/bash", "-l"]
