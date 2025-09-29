@@ -47,6 +47,9 @@ jobs:
             latest=auto
             prefix=
             suffix=
+      - name: Build Docker image raw
+        run: |
+          make build
       - name: Build
         uses: docker/build-push-action@v6
         with:
