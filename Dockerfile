@@ -1781,10 +1781,6 @@ RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
 COPY --from=lz4 /lz4 /lz4
 RUN rsync -aHAX --keep-dirlinks  /lz4/. /skeleton
 
-## binutils, dracut depends on ldd to find needed modules for initramfs
-COPY --from=binutils /binutils /binutils
-RUN rsync -aHAX --keep-dirlinks  /binutils/. /skeleton
-
 ## Dracut
 COPY --from=dracut /dracut /dracut
 RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
