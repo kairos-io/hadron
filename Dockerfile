@@ -1594,7 +1594,6 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JO
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
 FROM python-build AS kmod
-ARG JOBS
 ## we need liblzma from xz to build
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
@@ -1788,6 +1787,11 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 # kernel and modules
 COPY --from=kernel /kernel/vmlinuz /skeleton/boot/vmlinuz
 COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
+
+## TODO: provide ldconfig and ldd, both scripts for dracut
+COPY files/ldconfig /skeleton/sbin/ldconfig
+COPY files/ldd /skeleton/usr/bin/ldd
+RUN chmod 755 /skeleton/sbin/ldconfig /skeleton/usr/bin/ldd
 
 ## Cleanup
 
