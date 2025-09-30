@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches:
-      - '*'
+      - main
     tags:
       - '*'
 concurrency:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   docker:
-    runs-on: ubuntu-latest-16-cores
+    runs-on: oracle-24cpu-384gb-x86-64
     permissions:
       packages: write
       contents: read
@@ -63,5 +63,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ukairos/ci-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=ukairos/ci-image-${{ github.ref_name }}

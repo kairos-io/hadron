@@ -16,7 +16,7 @@ ARG ARCH="x86-64"
 ENV ARCH=${ARCH}
 ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
-ARG JOBS=8
+ARG JOBS=24
 ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
@@ -1239,7 +1239,7 @@ FROM rsync AS argp-standalone
 
 ARG ARGP_STANDALONE_VERSION=1.3
 ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
-
+ARG CFLAGS
 ENV CFLAGS="$CFLAGS -fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
@@ -1280,7 +1280,7 @@ gnulib-tests/Makefile.in && ./configure ${COMMON_ARGS} --disable-dependency-trac
 FROM rsync AS fts
 ARG FTS_VERSION=1.2.7
 ENV FTS_VERSION=${FTS_VERSION}
-
+ARG CFLAGS
 ENV CFLAGS="$CFLAGS -fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
@@ -1378,7 +1378,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.ta
     make DESTDIR=/elfutils install && make install
 
 
-from rsync AS diffutils
+FROM rsync AS diffutils
 ARG DIFFUTILS_VERSION=3.9
 
 
