@@ -1268,14 +1268,15 @@ ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 RUN mkdir -p /systemd
 RUN python3 -m pip install meson ninja jinja2
 WORKDIR /sources/systemd
-## TODO: disable sysusers
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
       --buildtype=release     \
-      -D dbus=true -D pam=enabled -D pamconfdir=/etc/pam.d \
+      -D dbus=true  \
+      -D pam=enabled \
       -D seccomp=true         \
       -D default-dnssec=no    \
       -D firstboot=false      \
+      -D sysusers=true \
       -D install-tests=false  \
       -D ldconfig=false       \
       -D rpmmacrosdir=no      \

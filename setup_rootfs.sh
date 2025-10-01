@@ -41,7 +41,14 @@ root:x:0:0:root:/root:/bin/bash
 bin:x:1:1:bin:/dev/null:/usr/bin/false
 daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
 messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
-uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/false
+uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/fa
+dbus:x:81:81:System Message Bus:/:/usr/bin/nologin
+systemd-coredump:x:980:980:systemd Core Dumper:/:/usr/bin/nologin
+systemd-network:x:979:979:systemd Network Management:/:/usr/bin/nologin
+systemd-oom:x:978:978:systemd Userspace OOM Killer:/:/usr/bin/nologin
+systemd-journal-remote:x:977:977:systemd Journal Remote:/:/usr/bin/nologin
+systemd-resolve:x:976:976:systemd Resolver:/:/usr/bin/nologin
+systemd-timesync:x:975:975:systemd Time Synchronization:/:/usr/bin/nologin
 nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
 EOF
 
@@ -71,6 +78,8 @@ wheel:x:97:
 users:x:999:
 nogroup:x:65534:
 EOF
+
+touch etc/shadow
 
 touch /var/log/{btmp,lastlog,faillog,wtmp}
 chgrp -v utmp /var/log/lastlog
