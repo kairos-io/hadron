@@ -27,6 +27,23 @@ clean:
 # So this is all done to be able to boot from an iso and test it, things will change in the future and init will be called instead
 devel-iso:
 	make build TARGET=devel
-	docker run -v /var/run/docker.sock:/var/run/docker.sock \
-	-v ${PWD}/build/:/output \
-	${AURORA_IMAGE} build-iso --output /output/ docker:${IMAGE_NAME}
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${IMAGE_NAME}
+
+MEMORY ?= 2096
+ISO_FILE ?= build/kairos-ukairos-.iso
+
+run-qemu:
+	@if [ ! -e disk.img ]; then \
+		qemu-img create -f qcow2 disk.img 40g; \
+	fi
+	qemu-system-x86_64 \
+		-m $(MEMORY) \
+		-smp cores=2 \
+		-nographic \
+		-serial mon:stdio \
+		-rtc base=utc,clock=rt \
+		-chardev socket,path=qga.sock,server,nowait,id=qga0 \
+		-device virtio-serial \
+		-device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
+		-drive if=virtio,media=disk,file=disk.img \
+		-drive if=ide,media=cdrom,file=$(ISO_FILE)
