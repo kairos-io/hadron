@@ -2410,6 +2410,9 @@ RUN busybox --install
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN systemctl preset-all
+# Add sysctl configs
+# TODO: kernel tuning based on the environment? Hardening? better defaults?
+COPY files/sysctl/* /etc/sysctl.d/
 
 ### final image
 FROM stage3 AS default
