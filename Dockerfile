@@ -785,7 +785,7 @@ ARG POPT_VERSION=1.19
 ENV POPT_VERSION=${POPT_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/popt-${POPT_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
     cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
     make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
