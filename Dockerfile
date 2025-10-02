@@ -27,7 +27,7 @@ ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
-RUN apk update && apk add git bash wget -q bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
+RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
