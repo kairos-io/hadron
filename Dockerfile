@@ -1092,7 +1092,7 @@ ARG GREP_VERSION=3.12
 ENV GREP_VERSION=${GREP_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/grep-${GREP_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
     make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
