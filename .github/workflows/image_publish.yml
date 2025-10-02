@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   docker:
-    runs-on: oracle-24cpu-384gb-x86-64
+    runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
       packages: write
       contents: read
@@ -66,6 +66,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=ukairos/ci-image-${{ github.ref_name }}
           cache-to: type=gha,mode=max,scope=ukairos/ci-image-${{ github.ref_name }}
+          build-args: |
+            JOBS=32
       - name: Build PR
         if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
@@ -77,3 +79,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=ukairos/ci-image-main
+          build-args: |
+            JOBS=32
