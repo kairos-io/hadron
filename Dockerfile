@@ -920,7 +920,7 @@ ENV BASH_VERSION=${BASH_VERSION}
 COPY ./files/bash/bashrc /sources/bashrc
 COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
 COPY --from=sources-downloader /sources/downloads/bash-${BASH_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
     cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --build=${BUILD} \
