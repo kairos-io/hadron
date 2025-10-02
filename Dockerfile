@@ -2127,7 +2127,7 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-static
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
 ########################################################
 #
