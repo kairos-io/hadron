@@ -870,7 +870,7 @@ ARG NCURSES_VERSION=6.5
 ENV NCURSES_VERSION=${NCURSES_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/ncurses-${NCURSES_VERSION}.tar.gz /sources/
-RUN mkdir /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
     cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
     cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
