@@ -906,7 +906,7 @@ ARG READLINE_VERSION=8.3
 ENV READLINE_VERSION=${READLINE_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/readline-${READLINE_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
