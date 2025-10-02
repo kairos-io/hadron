@@ -1268,7 +1268,7 @@ ARG GPERF_VERSION=3.3
 ENV GPERF_VERSION=${GPERF_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/gperf-${GPERF_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
