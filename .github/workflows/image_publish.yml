@@ -80,4 +80,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=ukairos/ci-image-main
           build-args: |
-            JOBS=32
+            JOBS=64
