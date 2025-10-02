@@ -6,6 +6,7 @@ ARG VERSION=0.0.1
 ARG JOBS=24
 
 ARG ALPINE_VERSION=3.22.1
+ARG CFLAGS
 
 FROM alpine:${ALPINE_VERSION} AS stage0
 
@@ -548,11 +549,14 @@ FROM scratch AS stage1
 ARG VENDOR="ukairos"
 ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
+ARG CFLAGS
 ENV VENDOR=${VENDOR}
 ENV BUILD_ARCH=${BUILD_ARCH}
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
-ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
+ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
+ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
+# TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
 
 COPY --from=stage1-merge /skeleton /
 
@@ -584,7 +588,7 @@ ENV MUSL_VERSION=${MUSL_VERSION}
 RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
     tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
-    ./configure \
+    ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
       make -s -j${JOBS} && \
@@ -599,7 +603,7 @@ ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
 COPY --from=sources-downloader /sources/downloads/pkgconf-${PKGCONFIG_VERSION}.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf pkgconf-${PKGCONFIG_VERSION}.tar.xz && mv pkgconf-${PKGCONFIG_VERSION} pkgconfig && \
-    cd pkgconfig && mkdir -p /pkgconfig && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
+    cd pkgconfig && mkdir -p /pkgconfig && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --localstatedir=/var \
@@ -662,7 +666,7 @@ WORKDIR /sources
 RUN tar -xf attr-${ATTR_VERSION}.tar.gz && mv attr-${ATTR_VERSION} attr
 WORKDIR /sources/attr
 RUN patch -p1 < /sources/patches/aport/main/attr/attr-basename.patch
-RUN ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --localstatedir=/var \
     --disable-nls
@@ -680,7 +684,7 @@ COPY --from=sources-downloader /sources/downloads/acl-${ACL_VERSION}.tar.gz /sou
 
 RUN mkdir -p /sources && cd /sources && tar -xf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
     tar -xf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
-    cd acl && mkdir -p /acl && ./configure --quiet ${COMMON_ARGS} --prefix=/usr --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
+    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
     make -s -j${JOBS} DESTDIR=/acl install && make -s -j${JOBS} install
 
 ## popt
@@ -691,7 +695,7 @@ ENV POPT_VERSION=${POPT_VERSION}
 
 RUN mkdir -p /sources && cd /sources && wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
     tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
-    cd popt && mkdir -p /popt && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && make -s -j${JOBS} DESTDIR=/popt && \
+    cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
     make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
 
 ## zlib
@@ -703,7 +707,7 @@ ENV ZLIB_VERSION=${ZLIB_VERSION}
 COPY --from=sources-downloader /sources/downloads/zlib-${ZLIB_VERSION}.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf zlib-${ZLIB_VERSION}.tar.gz && mv zlib-${ZLIB_VERSION} zlib && \
-    cd zlib && mkdir -p /zlib && ./configure --prefix=/usr --shared && make -s -j${JOBS} DESTDIR=/zlib && \
+    cd zlib && mkdir -p /zlib && ./configure --shared && make -s -j${JOBS} DESTDIR=/zlib && \
     make -s -j${JOBS} DESTDIR=/zlib install && make -s -j${JOBS} install
 
 ## gawk
@@ -716,7 +720,7 @@ ENV GAWK_VERSION=${GAWK_VERSION}
 COPY --from=sources-downloader /sources/downloads/gawk-${GAWK_VERSION}.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf gawk-${GAWK_VERSION}.tar.xz && mv gawk-${GAWK_VERSION} gawk && \
-    cd gawk && mkdir -p /gawk && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr -sysconfdir=/etc \
+    cd gawk && mkdir -p /gawk && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr -sysconfdir=/etc \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
@@ -733,7 +737,7 @@ COPY --from=sources-downloader /sources/downloads/rsync-${RSYNC_VERSION}.tar.gz 
 
 RUN mkdir -p /sources && cd /sources && tar -xf rsync-${RSYNC_VERSION}.tar.gz && mv rsync-${RSYNC_VERSION} rsync && \
     cd rsync && mkdir -p /rsync && \
-    ./configure --quiet ${COMMON_ARGS} --prefix=/usr \
+    ./configure ${COMMON_CONFIGURE_ARGS} \
     --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --localstatedir=/var \
@@ -761,7 +765,7 @@ WORKDIR /sources/binutils
 ENV AR=ar
 ENV GCC=gcc
 ENV AS=as
-RUN ./configure --quiet ${COMMON_ARGS}
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} DESTDIR=/binutils
 RUN make -s -j${JOBS} DESTDIR=/binutils install
 RUN make -s -j${JOBS} install
@@ -775,8 +779,8 @@ ENV NCURSES_VERSION=${NCURSES_VERSION}
 RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
     tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
     cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
-    cd build && ../configure --quiet ${COMMON_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
-    ./configure --quiet ${COMMON_ARGS} \
+    cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
+    ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --mandir=/usr/share/man \
     --with-manpage-format=normal \
     --with-shared \
@@ -797,7 +801,7 @@ ENV M4_VERSION=${M4_VERSION}
 
 RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz && \
     tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
-    cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
+    cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
     make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
 
 ## readline
@@ -808,7 +812,7 @@ ENV READLINE_VERSION=${READLINE_VERSION}
 
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
     tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
-    cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
+    cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 
 ## bash
@@ -821,7 +825,7 @@ COPY ./files/bash/bashrc /sources/bashrc
 COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
     tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
-    cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_ARGS} \
+    cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --build=${BUILD} \
     --host=${TARGET} \
     --prefix=/usr \
@@ -856,7 +860,7 @@ FROM m4 AS perl
 ARG PERL_VERSION=5.42.0
 ENV PERL_VERSION=${PERL_VERSION}
 
-ENV CFLAGS="-static -Os -ffunction-sections -fdata-sections -Bsymbolic-functions"
+ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 
@@ -957,7 +961,7 @@ RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
     tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
-    cd coreutils && mkdir -p /coreutils && ./configure --quiet ${COMMON_ARGS} \
+    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --bindir=/bin \
     --sysconfdir=/etc \
@@ -979,7 +983,7 @@ ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
 
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
     tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
-    cd findutils && mkdir -p /findutils && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
+    cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
 
 ## grep
@@ -990,7 +994,7 @@ ENV GREP_VERSION=${GREP_VERSION}
 
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
     tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
-    cd grep && mkdir -p /grep && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
+    cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
     make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
 
 ## ca-certificates
@@ -1045,8 +1049,7 @@ COPY --from=sources-downloader /sources/downloads/sqlite-autoconf-${SQLITE3_VERS
 
 RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
     mv sqlite-autoconf-${SQLITE3_VERSION} sqlite3 && \
-    cd sqlite3 && mkdir -p /sqlite3 && ./configure --quiet \
-		--prefix=/usr \
+    cd sqlite3 && mkdir -p /sqlite3 && ./configure ${COMMON_CONFIGURE_ARGS} \
 		--enable-threadsafe \
 		--enable-session \
 		--enable-static \
@@ -1075,7 +1078,7 @@ ENV CURL_VERSION=${CURL_VERSION}
 COPY --from=sources-downloader /sources/downloads/curl-${CURL_VERSION}.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && mv curl-${CURL_VERSION} curl && \
-    cd curl && mkdir -p /curl && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --enable-ipv6 \
+    cd curl && mkdir -p /curl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --enable-ipv6 \
     --enable-unix-sockets \
     --enable-static \
     --without-libidn2 \
@@ -1143,7 +1146,7 @@ COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSIO
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
     mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
-    cd util-linux && mkdir -p /util-linux && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking  --prefix=/usr \
+    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
     --disable-silent-rules \
     --enable-newgrp \
@@ -1166,7 +1169,7 @@ ENV GPERF_VERSION=${GPERF_VERSION}
 
 RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
     tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
-    cd gperf && mkdir -p /gperf && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
+    cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
     make -s -j${JOBS} DESTDIR=/gperf install && make -s -j${JOBS} install
 
@@ -1179,7 +1182,7 @@ RUN mkdir -p /libseccomp
 WORKDIR /sources
 RUN tar -xf libseccomp.tar.gz && mv libseccomp-* libseccomp
 WORKDIR /sources/libseccomp
-RUN ./configure --quiet --prefix=/usr --disable-static
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libseccomp
 
 
@@ -1192,7 +1195,7 @@ RUN mkdir -p /expat
 WORKDIR /sources
 RUN tar -xf expat.tar.gz && mv expat-* expat
 WORKDIR /sources/expat
-RUN bash ./configure --quiet --prefix=/usr --disable-static
+RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
 
 
@@ -1332,7 +1335,7 @@ ENV FLEX_VERSION=${FLEX_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/flex-${FLEX_VERSION}.tar.gz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && mv flex-${FLEX_VERSION} flex && cd flex && mkdir -p /flex && ./configure ${COMMON_ARGS} --docdir=/usr/share/doc/flex-${FLEX_VERSION} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
+RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && mv flex-${FLEX_VERSION} flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --docdir=/usr/share/doc/flex-${FLEX_VERSION} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
     make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
 
 ## bison
@@ -1351,7 +1354,7 @@ COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
 COPY --from=sources-downloader /sources/downloads/bison-${BISON_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf bison-${BISON_VERSION}.tar.xz && mv bison-${BISON_VERSION} bison && cd bison && mkdir -p /bison && ./configure ${COMMON_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
+RUN mkdir -p /sources && cd /sources && tar -xvf bison-${BISON_VERSION}.tar.xz && mv bison-${BISON_VERSION} bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
     make DESTDIR=/bison install && make install
 
 
@@ -1372,7 +1375,7 @@ RUN rsync -aHAX --keep-dirlinks  /perl/. /
 COPY --from=sources-downloader /sources/downloads/autoconf-${AUTOCONF_VERSION}.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf autoconf-${AUTOCONF_VERSION}.tar.xz && mv autoconf-${AUTOCONF_VERSION} autoconf && \
-    cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_ARGS} --prefix=/usr && make DESTDIR=/autoconf && \
+    cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/autoconf && \
     make DESTDIR=/autoconf install && make install
 
 
@@ -1395,7 +1398,7 @@ RUN rsync -aHAX --keep-dirlinks  /m4/. /
 COPY --from=sources-downloader /sources/downloads/automake-${AUTOMAKE_VERSION}.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf automake-${AUTOMAKE_VERSION}.tar.xz && mv automake-${AUTOMAKE_VERSION} automake && \
-    cd automake && mkdir -p /automake && ./configure ${COMMON_ARGS} --prefix=/usr && make DESTDIR=/automake && \
+    cd automake && mkdir -p /automake && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/automake && \
     make DESTDIR=/automake install && make install
 
 
@@ -1404,8 +1407,7 @@ FROM rsync AS argp-standalone
 
 ARG ARGP_STANDALONE_VERSION=1.3
 ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
-ARG CFLAGS
-ENV CFLAGS="$CFLAGS -fPIC"
+ENV CFLAGS="-fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
 RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
@@ -1420,7 +1422,7 @@ COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
 COPY --from=sources-downloader /sources/downloads/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz && mv argp-standalone-${ARGP_STANDALONE_VERSION} argp-standalone && cd argp-standalone && mkdir -p /argp-standalone && autoreconf -vif && ./configure ${COMMON_ARGS} --disable-dependency-tracking --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared -sysconfdir=/etc --localstatedir=/var && \
+RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz && mv argp-standalone-${ARGP_STANDALONE_VERSION} argp-standalone && cd argp-standalone && mkdir -p /argp-standalone && autoreconf -vif && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared -sysconfdir=/etc --localstatedir=/var && \
     make DESTDIR=/argp-standalone install && make install && install -D -m644 argp.h /argp-standalone/usr/include/argp.h && install -D -m755 libargp.a /argp-standalone/usr/lib/libargp.a
 
 ## libtool
@@ -1437,7 +1439,7 @@ COPY --from=sources-downloader /sources/downloads/libtool-${LIBTOOL_VERSION}.tar
 RUN mkdir -p /sources && cd /sources && tar -xvf libtool-${LIBTOOL_VERSION}.tar.xz && mv libtool-${LIBTOOL_VERSION} libtool && cd libtool && mkdir -p /libtool && sed -i \
 -e "s|test-funclib-quote.sh||" \
 -e "s|test-option-parser.sh||" \
-gnulib-tests/Makefile.in && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
+gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
     make DESTDIR=/libtool install && make install
 
 ## fts
@@ -1467,7 +1469,7 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
 COPY --from=sources-downloader /sources/downloads/musl-fts-${FTS_VERSION}.tar.gz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts-${FTS_VERSION}.tar.gz && mv musl-fts-${FTS_VERSION} fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
+RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts-${FTS_VERSION}.tar.gz && mv musl-fts-${FTS_VERSION} fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
     make DESTDIR=/fts install && make install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
 ## musl-obstack
@@ -1495,7 +1497,7 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
 
 COPY --from=sources-downloader /sources/downloads/musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz && mv musl-obstack-${MUSL_OBSTACK_VERSION} musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
+RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz && mv musl-obstack-${MUSL_OBSTACK_VERSION} musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
     make DESTDIR=/musl-obstack install && make install
 
 
@@ -1529,7 +1531,7 @@ RUN rsync -aHAX --keep-dirlinks  /musl-obstack/. /
 COPY --from=sources-downloader /sources/downloads/elfutils-${ELFUTILS_VERSION}.tar.bz2 /sources/
 COPY --from=sources-downloader /sources/downloads/elfutils-patches /sources/downloads/elfutils-patches
 
-RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.tar.bz2 && mv elfutils-${ELFUTILS_VERSION} elfutils && cd elfutils && mkdir -p /elfutils && patch -p1 -i /sources/downloads/elfutils-patches/musl-macros.patch && ./configure ${COMMON_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
+RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.tar.bz2 && mv elfutils-${ELFUTILS_VERSION} elfutils && cd elfutils && mkdir -p /elfutils && patch -p1 -i /sources/downloads/elfutils-patches/musl-macros.patch && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
 --sysconfdir=/etc \
 --localstatedir=/var \
 --disable-werror \
@@ -1548,7 +1550,7 @@ ARG DIFFUTILS_VERSION=3.9
 
 RUN mkdir -p /sources && cd /sources && wget http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
     tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
-    cd diffutils && mkdir -p /diffutils && ./configure --quiet ${COMMON_ARGS} --disable-dependency-tracking --prefix=/usr && \
+    cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
     make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
 
@@ -1666,7 +1668,7 @@ RUN mkdir -p /strace
 WORKDIR /sources
 RUN tar -xf strace.tar.xz && mv strace-* strace
 WORKDIR /sources/strace
-RUN ./configure --quiet --prefix=/usr --disable-static --enable-mpers=check
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-mpers=check
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/strace
 
 ## libmnl
@@ -1676,7 +1678,7 @@ RUN mkdir -p /libmnl
 WORKDIR /sources
 RUN tar -xf libmnl.tar.bz2 && mv libmnl-* libmnl
 WORKDIR /sources/libmnl
-RUN ./configure --quiet --prefix=/usr
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libmnl
 
 ## libnftnl
@@ -1691,7 +1693,7 @@ RUN mkdir -p /libnftnl
 WORKDIR /sources
 RUN tar -xf libnftnl.tar.xz && mv libnftnl-* libnftnl
 WORKDIR /sources/libnftnl
-RUN ./configure --quiet --prefix=/usr
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libnftnl
 
 ## iptables
@@ -1714,7 +1716,7 @@ WORKDIR /sources/iptables
 # otherwise its redeclared in other headers and fails the build
 RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
 
-RUN ./configure --quiet --prefix=/usr --with-xtlibdir=/usr/lib/xtables
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables
 RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 
@@ -1725,7 +1727,7 @@ RUN mkdir -p /xz
 WORKDIR /sources
 RUN tar -xf xz.tar.gz && mv xz-* xz
 WORKDIR /sources/xz
-RUN ./configure --quiet --prefix=/usr --disable-static --disable-doc --enable-small --disable-scripts
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-doc --enable-small --disable-scripts
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JOBS} install
 
 
@@ -1875,7 +1877,7 @@ RUN mkdir -p /urcu
 WORKDIR /sources
 RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
-RUN ./configure --quiet --prefix=/usr --disable-static --enable-shared
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${JOBS} install
 
 ## needed for dracut and other tools
@@ -1937,7 +1939,7 @@ RUN mkdir -p /parted
 WORKDIR /sources
 RUN tar -xf parted.tar.xz && mv parted-* parted
 WORKDIR /sources/parted
-RUN ./configure --quiet --prefix=/usr --disable-static --enable-shared --without-readline
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/parted && make -s -j${JOBS} install
 
 
@@ -1954,7 +1956,7 @@ RUN mkdir -p /e2fsprogs
 WORKDIR /sources
 RUN tar -xf e2fsprogs.tar.xz && mv e2fsprogs-* e2fsprogs
 WORKDIR /sources/e2fsprogs
-RUN ./configure --quiet --prefix=/usr --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/e2fsprogs && make -s -j${JOBS} install
 
 
@@ -1966,7 +1968,7 @@ RUN mkdir -p /dosfstools
 WORKDIR /sources
 RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
-RUN ./configure --quiet --prefix=/usr
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools && make -s -j${JOBS} install
 
 
@@ -1989,6 +1991,7 @@ RUN tar -xf gptfdisk.tar.gz && mv gptfdisk-* gptfdisk
 WORKDIR /sources/gptfdisk
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-musl.patch
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
+## TODO: we need to get rid of these LDFLAGS, makes the binary around 9MB
 RUN LDFLAGS="-static-libstdc++ -static-libgcc" make -s -j${JOBS} sgdisk
 RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
 RUN install -Dm0755 -t /usr/bin sgdisk
@@ -2021,7 +2024,7 @@ RUN mkdir -p /cryptsetup
 WORKDIR /sources
 RUN tar -xf cryptsetup.tar.xz && mv cryptsetup-* cryptsetup
 WORKDIR /sources/cryptsetup
-RUN ./configure --quiet --prefix=/usr --disable-static --enable-shared --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -s -j${JOBS} install
 
 
@@ -2069,13 +2072,13 @@ RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 FROM grub-base AS grub-efi
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
-RUN ./configure --quiet --prefix=/usr --with-platform=efi --disable-efiemu --disable-werror
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
 RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-efi
 
 FROM grub-base AS grub-bios
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
-RUN ./configure --quiet --prefix=/usr --with-platform=pc --disable-werror
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror
 RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios
 
 
@@ -2124,7 +2127,7 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
-RUN ./configure --quiet --prefix=/usr --sysconfdir=/etc --without-libbsd --disable-static
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-static
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
 ########################################################
 #
