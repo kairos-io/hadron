@@ -349,6 +349,101 @@ ENV APORTS_VERSION=${APORTS_VERSION}
 
 RUN cd /sources/downloads && wget https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz && mv aports-v${APORTS_VERSION}.tar.gz aports.tar.gz
 
+## busybox for stage0
+ARG BUSYBOX_VERSION=1.37.0
+ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
+RUN cd /sources/downloads && wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
+
+## musl for stage0
+ARG MUSL_VERSION=1.2.5
+ENV MUSL_VERSION=${MUSL_VERSION}
+RUN cd /sources/downloads && wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
+
+## gcc and dependencies for stage0
+ARG GCC_VERSION=14.3.0
+ENV GCC_VERSION=${GCC_VERSION}
+ARG GMP_VERSION=6.3.0
+ENV GMP_VERSION=${GMP_VERSION}
+ARG MPC_VERSION=1.3.1
+ENV MPC_VERSION=${MPC_VERSION}
+ARG MPFR_VERSION=4.2.2
+ENV MPFR_VERSION=${MPFR_VERSION}
+RUN cd /sources/downloads && wget http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
+RUN cd /sources/downloads && wget http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
+RUN cd /sources/downloads && wget http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
+RUN cd /sources/downloads && wget http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
+
+## make for stage0
+ARG MAKE_VERSION=4.4.1
+ENV MAKE_VERSION=${MAKE_VERSION}
+RUN cd /sources/downloads && wget https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
+
+## binutils for stage0
+ARG BINUTILS_VERSION=2.44
+ENV BINUTILS_VERSION=${BINUTILS_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+
+## popt for stage1
+ARG POPT_VERSION=1.19
+ENV POPT_VERSION=${POPT_VERSION}
+RUN cd /sources/downloads && wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz
+
+## ncurses for stage1
+ARG NCURSES_VERSION=6.5
+ENV NCURSES_VERSION=${NCURSES_VERSION}
+RUN cd /sources/downloads && wget http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz
+
+## m4 for stage1
+ARG M4_VERSION=1.4.20
+ENV M4_VERSION=${M4_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz
+
+## readline for stage1
+ARG READLINE_VERSION=8.3
+ENV READLINE_VERSION=${READLINE_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz
+
+## bash for stage1
+ARG BASH_VERSION=5.3
+ENV BASH_VERSION=${BASH_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz
+
+## perl for stage1
+ARG PERL_VERSION=5.42.0
+ENV PERL_VERSION=${PERL_VERSION}
+RUN cd /sources/downloads && wget http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz
+
+## coreutils for stage1
+ARG COREUTILS_VERSION=9.4
+ENV COREUTILS_VERSION=${COREUTILS_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz
+
+## findutils for stage1
+ARG FINDUTILS_VERSION=4.10.0
+ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz
+
+## grep for stage1
+ARG GREP_VERSION=3.12
+ENV GREP_VERSION=${GREP_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz
+
+## gperf for stage1
+ARG GPERF_VERSION=3.3
+ENV GPERF_VERSION=${GPERF_VERSION}
+RUN cd /sources/downloads && wget http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz
+
+## diffutils for stage1
+ARG DIFFUTILS_VERSION=3.9
+ENV DIFFUTILS_VERSION=${DIFFUTILS_VERSION}
+RUN cd /sources/downloads && wget http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz
+
+## immucore binary
+RUN cd /sources/downloads && wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
+
+## kairos-agent binary
+RUN cd /sources/downloads && wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -368,9 +463,7 @@ FROM stage0 AS busybox-stage0
 ARG BUSYBOX_VERSION=1.37.0
 ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 
-RUN mkdir /sources && \
-   cd /sources && \
-   wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 
+COPY --from=sources-downloader /sources/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 /sources/
 
 RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     cd busybox-${BUSYBOX_VERSION} && \
@@ -393,8 +486,9 @@ FROM stage0 AS musl-stage0
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
-    tar -xf musl-${MUSL_VERSION}.tar.gz && \
+COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
     ./configure --disable-warnings \
       CROSS_COMPILE=${TARGET}- \
@@ -416,14 +510,16 @@ ARG MPC_VERSION=1.3.1
 ENV MPC_VERSION=${MPC_VERSION}
 ARG MPFR_VERSION=4.2.2
 ENV MPFR_VERSION=${MPFR_VERSION}
-RUN wget http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
-RUN wget http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
-RUN wget http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
-RUN wget http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
-RUN tar -xf gcc-${GCC_VERSION}.tar.xz
-RUN tar -xf gmp-${GMP_VERSION}.tar.bz2
-RUN tar -xf mpc-${MPC_VERSION}.tar.gz
-RUN tar -xf mpfr-${MPFR_VERSION}.tar.bz2
+
+COPY --from=sources-downloader /sources/downloads/gcc-${GCC_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/gmp-${GMP_VERSION}.tar.bz2 /sources/
+COPY --from=sources-downloader /sources/downloads/mpc-${MPC_VERSION}.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/mpfr-${MPFR_VERSION}.tar.bz2 /sources/
+
+RUN cd /sources && tar -xf gcc-${GCC_VERSION}.tar.xz
+RUN cd /sources && tar -xf gmp-${GMP_VERSION}.tar.bz2
+RUN cd /sources && tar -xf mpc-${MPC_VERSION}.tar.gz
+RUN cd /sources && tar -xf mpfr-${MPFR_VERSION}.tar.bz2
 
 RUN <<EOT bash
     mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
@@ -455,9 +551,7 @@ FROM stage0 AS make-stage0
 ARG MAKE_VERSION=4.4.1
 ENV MAKE_VERSION=${MAKE_VERSION}
 
-RUN mkdir /sources && \
-   cd /sources && \
-   wget https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
+COPY --from=sources-downloader /sources/downloads/make-${MAKE_VERSION}.tar.gz /sources/
 
 RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
@@ -475,9 +569,10 @@ FROM stage0 AS binutils-stage0
 ENV BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 
+COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.tar.xz /sources/
+
 RUN <<EOT bash
-    wget http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
-    tar -xf binutils-${BINUTILS_VERSION}.tar.xz
+    cd /sources && tar -xf binutils-${BINUTILS_VERSION}.tar.xz
 EOT
 
 RUN <<EOT bash
@@ -587,8 +682,9 @@ FROM stage1 AS musl
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
-    tar -xf musl-${MUSL_VERSION}.tar.gz && \
+COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
     ./configure --disable-warnings \
       --prefix=/usr \
@@ -695,8 +791,9 @@ FROM acl AS popt
 ARG POPT_VERSION=1.19
 ENV POPT_VERSION=${POPT_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
-    tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
+COPY --from=sources-downloader /sources/downloads/popt-${POPT_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
     cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
     make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
 
@@ -760,8 +857,10 @@ FROM stage1 AS binutils
 ARG BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 ARG JOBS
-RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
-    tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
+
+COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
     cd binutils && mkdir -p /binutils
 WORKDIR /sources/binutils
 ENV AR=ar
@@ -778,8 +877,9 @@ FROM stage1 AS ncurses
 ARG NCURSES_VERSION=6.5
 ENV NCURSES_VERSION=${NCURSES_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
-    tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
+COPY --from=sources-downloader /sources/downloads/ncurses-${NCURSES_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
     cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
     cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
     ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
@@ -801,8 +901,9 @@ FROM stage1 AS m4
 ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz && \
-    tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
+COPY --from=sources-downloader /sources/downloads/m4-${M4_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
     cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
     make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
 
@@ -812,8 +913,9 @@ FROM stage1 AS readline
 ARG READLINE_VERSION=8.3
 ENV READLINE_VERSION=${READLINE_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
-    tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
+COPY --from=sources-downloader /sources/downloads/readline-${READLINE_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 
@@ -825,8 +927,10 @@ ENV BASH_VERSION=${BASH_VERSION}
 
 COPY ./files/bash/bashrc /sources/bashrc
 COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
-    tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
+
+COPY --from=sources-downloader /sources/downloads/bash-${BASH_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
     cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --build=${BUILD} \
     --host=${TARGET} \
@@ -866,9 +970,9 @@ ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-fun
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 
-RUN cd /sources && \
-    wget http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz && \
-    tar -xf perl-${PERL_VERSION}.tar.xz && mv perl-${PERL_VERSION} perl && \
+COPY --from=sources-downloader /sources/downloads/perl-${PERL_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf perl-${PERL_VERSION}.tar.xz && mv perl-${PERL_VERSION} perl && \
     cd perl && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
        -Dccdlflags='-rdynamic' \
@@ -961,8 +1065,9 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
-    tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
+COPY --from=sources-downloader /sources/downloads/coreutils-${COREUTILS_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
     cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --bindir=/bin \
@@ -983,8 +1088,9 @@ FROM stage1 AS findutils
 ARG FINDUTILS_VERSION=4.10.0
 ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
-    tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
+COPY --from=sources-downloader /sources/downloads/findutils-${FINDUTILS_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
 
@@ -994,8 +1100,9 @@ FROM stage1 AS grep
 ARG GREP_VERSION=3.12
 ENV GREP_VERSION=${GREP_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
-    tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
+COPY --from=sources-downloader /sources/downloads/grep-${GREP_VERSION}.tar.xz /sources/
+
+RUN cd /sources && tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
     make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
 
@@ -1169,8 +1276,9 @@ FROM stage1 AS gperf
 ARG GPERF_VERSION=3.3
 ENV GPERF_VERSION=${GPERF_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
-    tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
+COPY --from=sources-downloader /sources/downloads/gperf-${GPERF_VERSION}.tar.gz /sources/
+
+RUN cd /sources && tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
     make -s -j${JOBS} DESTDIR=/gperf install && make -s -j${JOBS} install
@@ -1549,9 +1657,9 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.ta
 FROM rsync AS diffutils
 ARG DIFFUTILS_VERSION=3.9
 
+COPY --from=sources-downloader /sources/downloads/diffutils-${DIFFUTILS_VERSION}.tar.xz /sources/
 
-RUN mkdir -p /sources && cd /sources && wget http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
-    tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
+RUN cd /sources && tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
     cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
     make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
@@ -2353,18 +2461,22 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 
 ## Immucore for initramfs
 FROM alpine:${ALPINE_VERSION} AS immucore
-RUN wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
-RUN tar xf immucore-v0.11.3-linux-amd64.tar.gz
-RUN mv immucore /immucore
+
+COPY --from=sources-downloader /sources/downloads/immucore-v0.11.3-linux-amd64.tar.gz /sources/
+
+RUN cd /sources && tar xf immucore-v0.11.3-linux-amd64.tar.gz
+RUN mv /sources/immucore /immucore
 RUN chmod +x /immucore
 RUN apk add --no-cache upx
 RUN upx /immucore
 
 # Agent
 FROM alpine:${ALPINE_VERSION} AS kairos-agent
-RUN wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
-RUN tar xf kairos-agent-v2.25.0-linux-amd64.tar.gz
-RUN mv kairos-agent /kairos-agent
+
+COPY --from=sources-downloader /sources/downloads/kairos-agent-v2.25.0-linux-amd64.tar.gz /sources/
+
+RUN cd /sources && tar xf kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN mv /sources/kairos-agent /kairos-agent
 RUN chmod +x /kairos-agent
 RUN apk add --no-cache upx
 RUN upx /kairos-agent
