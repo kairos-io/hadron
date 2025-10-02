@@ -139,6 +139,10 @@ ARG OPENSSL_VERSION=3.5.2
 ENV OPENSSL_VERSION=${OPENSSL_VERSION}
 RUN cd /sources/downloads && wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
 
+ARG OPENSSH_VERSION=9.9p1
+ENV OPENSSH_VERSION=${OPENSSH_VERSION}
+RUN cd /sources/downloads && wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz
+
 ARG PKGCONFIG_VERSION=1.8.1
 ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
 RUN cd /sources/downloads && wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
@@ -1098,6 +1102,34 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && m
     --with-pic \
     --without-libssh2 && make -s -j${JOBS} DESTDIR=/curl && \
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
+
+## openssh
+FROM rsync AS openssh
+
+ARG OPENSSH_VERSION=9.9p1
+ENV OPENSSH_VERSION=${OPENSSH_VERSION}
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=sources-downloader /sources/downloads/openssh-${OPENSSH_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh && \
+    cd openssh && mkdir -p /openssh && ./configure ${COMMON_CONFIGURE_ARGS} \
+    --prefix=/usr \
+    --sysconfdir=/etc/ssh \
+    --libexecdir=/usr/lib/ssh \
+    --datadir=/usr/share/openssh \
+    --with-privsep-path=/var/empty \
+    --with-privsep-user=sshd \
+    --with-md5-passwords \
+    --with-ssl-engine \
+    --disable-strip && \
+    make -s -j${JOBS} && \
+    make -s -j${JOBS} DESTDIR=/openssh install && make -s -j${JOBS} install
 
 ## python
 FROM rsync AS python-build
@@ -2166,6 +2198,10 @@ RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 ## OpenSSL
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
+
+## openssh
+COPY --from=openssh /openssh /openssh
+RUN rsync -aHAX --keep-dirlinks  /openssh/. /skeleton/
 
 ## ca-certificates
 COPY --from=ca-certificates /ca-certificates /ca-certificates
