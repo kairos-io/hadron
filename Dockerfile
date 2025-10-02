@@ -331,6 +331,12 @@ ARG SHADOW_VERSION=4.18.0
 ENV SHADOW_VERSION=${SHADOW_VERSION}
 RUN cd /sources/downloads && wget https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz && mv shadow-${SHADOW_VERSION}.tar.xz shadow.tar.xz
 
+
+# cloud-utils for growpart
+ARG CLOUD_UTILS_VERSION=0.33
+ENV CLOUD_UTILS_VERSION=${CLOUD_UTILS_VERSION}
+RUN cd /sources/downloads && wget https://github.com/canonical/cloud-utils/archive/refs/tags/${CLOUD_UTILS_VERSION}.tar.gz && mv ${CLOUD_UTILS_VERSION}.tar.gz cloud-utils.tar.gz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -1998,8 +2004,12 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -
 ## growpart from cloud-utils
 # its just a simple pyton script
 FROM stage0 AS growpart
-COPY files/growpart /growpart/usr/bin/growpart
-
+RUN mkdir -p /growpart/usr/bin
+COPY --from=sources-downloader /sources/downloads/cloud-utils.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf cloud-utils.tar.gz && mv cloud-utils-* cloud-utils
+RUN stat /sources/cloud-utils/bin
+RUN cp /sources/cloud-utils/bin/growpart /growpart/usr/bin/growpart
 
 ## grub for bootloader installation
 FROM python-build AS grub-base
