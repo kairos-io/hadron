@@ -1080,7 +1080,7 @@ ARG FINDUTILS_VERSION=4.10.0
 ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/findutils-${FINDUTILS_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
