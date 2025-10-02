@@ -4,7 +4,7 @@
 ARG BOOTLOADER=grub
 ARG VERSION=0.0.1
 ARG JOBS=24
-
+ARG CFLAGS
 
 FROM alpine AS stage0
 
@@ -547,11 +547,14 @@ FROM scratch AS stage1
 ARG VENDOR="ukairos"
 ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
+ARG CFLAGS
 ENV VENDOR=${VENDOR}
 ENV BUILD_ARCH=${BUILD_ARCH}
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
-ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD}"
+ENV COMMON_ARGS="--prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
+ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
+# TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
 
 COPY --from=stage1-merge /skeleton /
 
@@ -855,7 +858,7 @@ FROM m4 AS perl
 ARG PERL_VERSION=5.42.0
 ENV PERL_VERSION=${PERL_VERSION}
 
-ENV CFLAGS="-static -Os -ffunction-sections -fdata-sections -Bsymbolic-functions"
+ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 
@@ -1403,8 +1406,7 @@ FROM rsync AS argp-standalone
 
 ARG ARGP_STANDALONE_VERSION=1.3
 ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
-ARG CFLAGS
-ENV CFLAGS="$CFLAGS -fPIC"
+ENV CFLAGS="${CFLAGS//-Os/-O2} -fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
 RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
