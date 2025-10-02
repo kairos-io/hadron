@@ -894,7 +894,7 @@ ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/m4-${M4_VERSION}.tar.xz /sources/
-RUN mkdir /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
     cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
     make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
