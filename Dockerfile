@@ -851,7 +851,7 @@ ARG BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.tar.xz /sources/
-RUN mkdir /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
     cd binutils && mkdir -p /binutils
 WORKDIR /sources/binutils
