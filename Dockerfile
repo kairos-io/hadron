@@ -1649,7 +1649,7 @@ FROM rsync AS diffutils
 ARG DIFFUTILS_VERSION=3.9
 
 COPY --from=sources-downloader /sources/downloads/diffutils-${DIFFUTILS_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && \
+RUN cd /sources && \
     tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
     cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
