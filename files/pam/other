@@ -1,55 +1,9 @@
-#
-# /etc/pam.d/other - specify the PAM fallback behaviour
-#
-# Note that this file is used for any unspecified service; for example
-#if /etc/pam.d/cron  specifies no session modules but cron calls
-#pam_open_session, the session module out of /etc/pam.d/other is
-#used.  If you really want nothing to happen then use pam_permit.so or
-#pam_deny.so as appropriate.
-
-# We fall back to the system default in /etc/pam.d/common-*
-#
-
-auth	[success=1 default=ignore]	pam_unix.so nullok
-# here's the fallback if no module succeeds
-auth	requisite			pam_deny.so
-# prime the stack with a positive return value if there isn't one already;
-# this avoids us returning an error just because nothing sets a success code
-# since the modules above will each just jump around
-auth	required			pam_permit.so
-# and here are more per-package modules (the "Additional" block)
-# end of pam-auth-update config
-# here are the per-package modules (the "Primary" block)
-account	[success=1 new_authtok_reqd=done default=ignore]	pam_unix.so
-# here's the fallback if no module succeeds
-account	requisite			pam_deny.so
-# prime the stack with a positive return value if there isn't one already;
-# this avoids us returning an error just because nothing sets a success code
-# since the modules above will each just jump around
-account	required			pam_permit.so
-# and here are more per-package modules (the "Additional" block)
-# end of pam-auth-update config
-password	[success=1 default=ignore]	pam_unix.so obscure yescrypt
-# here's the fallback if no module succeeds
-password	requisite			pam_deny.so
-# prime the stack with a positive return value if there isn't one already;
-# this avoids us returning an error just because nothing sets a success code
-# since the modules above will each just jump around
-password	required			pam_permit.so
-# and here are more per-package modules (the "Additional" block)
-# end of pam-auth-update config
-
-session	[default=1]			pam_permit.so
-# here's the fallback if no module succeeds
-session	requisite			pam_deny.so
-# prime the stack with a positive return value if there isn't one already;
-# this avoids us returning an error just because nothing sets a success code
-# since the modules above will each just jump around
-session	required			pam_permit.so
-# The pam_umask module will set the umask according to the system default in
-# /etc/login.defs and user settings, solving the problem of different
-# umask settings with different shells, display managers, remote sessions etc.
-# See "man pam_umask".
-session optional			pam_umask.so
-# and here are more per-package modules (the "Additional" block)
-session	required	pam_unix.so
+#%PAM-1.0
+auth      required   pam_deny.so
+auth      required   pam_warn.so
+account   required   pam_deny.so
+account   required   pam_warn.so
+password  required   pam_deny.so
+password  required   pam_warn.so
+session   required   pam_deny.so
+session   required   pam_warn.so

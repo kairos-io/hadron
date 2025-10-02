@@ -2123,7 +2123,7 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
-RUN ./configure --quiet --prefix=/usr --sysconfdir=/etc --without-libbsd --disable-static --with-bcrypt --with-yescrypt
+RUN ./configure --quiet --prefix=/usr --sysconfdir=/etc --without-libbsd --disable-static
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
 ########################################################
 #
@@ -2452,6 +2452,12 @@ RUN systemctl preset-all
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
 COPY files/sysctl/* /etc/sysctl.d/
+# copy a new login.defs to have better defaults as some stuff is already done by shadow and pam
+COPY files/login.defs /etc/login.defs
+## Remove users stuff
+RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
+## Create any missing users from scratch
+RUN systemd-sysusers
 
 ### final image
 FROM stage3 AS default
