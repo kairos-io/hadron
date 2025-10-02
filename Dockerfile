@@ -41,57 +41,57 @@ FROM stage0 AS sources-downloader
 ARG CURL_VERSION=8.5.0
 ENV CURL_VERSION=${CURL_VERSION}
 
-RUN mkdir -p /sources/downloads && cd /sources/downloads && wget https://curl.se/download/curl-${CURL_VERSION}.tar.gz 
+RUN mkdir -p /sources/downloads && cd /sources/downloads && wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz 
 
 ARG RSYNC_VERSION=3.4.1
 ENV RSYNC_VERSION=${RSYNC_VERSION}
 
-RUN cd /sources/downloads && wget https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz
 
 ARG XXHASH_VERSION=0.8.3
 ENV XXHASH_VERSION=${XXHASH_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxHash-${XXHASH_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxHash-${XXHASH_VERSION}.tar.gz
 
 ARG ZSTD_VERSION=1.5.7
 ENV ZSTD_VERSION=${ZSTD_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd-${ZSTD_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd-${ZSTD_VERSION}.tar.gz
 
 ARG LZ4_VERSION=1.10.0
 ENV LZ4_VERSION=${LZ4_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4-${LZ4_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4-${LZ4_VERSION}.tar.gz
 
 ARG ZLIB_VERSION=1.3.1
 ENV ZLIB_VERSION=${ZLIB_VERSION}
 
-RUN cd /sources/downloads && wget https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib-${ZLIB_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib-${ZLIB_VERSION}.tar.gz
 
 ARG ACL_VERSION=2.3.2
 ENV ACL_VERSION=${ACL_VERSION}
 
-RUN cd /sources/downloads && wget https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl-${ACL_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl-${ACL_VERSION}.tar.gz
 
 ARG ATTR_VERSION=2.5.2
 ENV ATTR_VERSION=${ATTR_VERSION}
 
-RUN cd /sources/downloads && wget https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr-${ATTR_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr-${ATTR_VERSION}.tar.gz
 
 ARG GAWK_VERSION=5.3.2
 ENV GAWK_VERSION=${GAWK_VERSION}
 
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
 
 ARG CA_CERTIFICATES_VERSION=20250619
 ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
 
-RUN cd /sources/downloads && wget https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2
+RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2
 
 ARG SYSTEMD_VERSION=257.8
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd-${SYSTEMD_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd-${SYSTEMD_VERSION}.tar.gz
 
 ## systemd patches
 RUN apk add git patch
@@ -114,236 +114,236 @@ RUN /apply_all.sh /sources/downloads/openembedded-core/meta/recipes-core/systemd
 ARG LIBCAP_VERSION=2.76
 ENV LIBCAP_VERSION=${LIBCAP_VERSION}
 
-RUN cd /sources/downloads && wget https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap-${LIBCAP_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap-${LIBCAP_VERSION}.tar.xz
 
 ARG UTIL_LINUX_VERSION=2.41.1
 ARG UTIL_LINUX_VERSION_MAJOR=2.41
 ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
 
-RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux-${UTIL_LINUX_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux-${UTIL_LINUX_VERSION}.tar.xz
 
 ARG PYTHON_VERSION=3.12.11
 ENV PYTHON_VERSION=${PYTHON_VERSION}
-RUN cd /sources/downloads && wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python-${PYTHON_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python-${PYTHON_VERSION}.tar.xz
 
 ARG SQLITE3_VERSION=3500400
 ENV SQLITE3_VERSION=${SQLITE3_VERSION}
 
-RUN cd /sources/downloads && wget https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz -O sqlite-autoconf-${SQLITE3_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz -O sqlite-autoconf-${SQLITE3_VERSION}.tar.gz
 
 ARG OPENSSL_VERSION=3.5.2
 ENV OPENSSL_VERSION=${OPENSSL_VERSION}
-RUN cd /sources/downloads && wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
+RUN cd /sources/downloads && wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
 
 ARG PKGCONFIG_VERSION=1.8.1
 ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
-RUN cd /sources/downloads && wget https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
 
 ARG DBUS_VERSION=1.16.2
-RUN cd /sources/downloads && wget https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
+RUN cd /sources/downloads && wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
 
 ARG EXPAT_VERSION=2.7.3
 ARG EXPAT_VERSION_MAJOR=2
 ARG EXPAT_VERSION_MINOR=7
 ARG EXPAT_VERSION_PATCH=3
 # expat
-RUN cd /sources/downloads && wget https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz && mv expat-2.7.3.tar.gz expat.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz && mv expat-2.7.3.tar.gz expat.tar.gz
 
 ARG SECCOMP_VERSION=2.6.0
 # seccomp
-RUN cd /sources/downloads && wget https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz && mv libseccomp-${SECCOMP_VERSION}.tar.gz libseccomp.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz && mv libseccomp-${SECCOMP_VERSION}.tar.gz libseccomp.tar.gz
 
 ARG STRACE_VERSION=6.16
-RUN cd /sources/downloads && wget https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz && mv strace-${STRACE_VERSION}.tar.xz strace.tar.xz
+RUN cd /sources/downloads && wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz && mv strace-${STRACE_VERSION}.tar.xz strace.tar.xz
 
 ARG KBD_VERSION=2.9.0
-RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz && mv kbd-${KBD_VERSION}.tar.gz kbd.tar.gz
+RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz && mv kbd-${KBD_VERSION}.tar.gz kbd.tar.gz
 
 ARG IPTABLES_VERSION=1.8.11
-RUN cd /sources/downloads && wget https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz && mv iptables-${IPTABLES_VERSION}.tar.xz iptables.tar.xz
+RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz && mv iptables-${IPTABLES_VERSION}.tar.xz iptables.tar.xz
 
 ARG LIBMNL_VERSION=1.0.5
-RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 && mv libmnl-${LIBMNL_VERSION}.tar.bz2 libmnl.tar.bz2
+RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 && mv libmnl-${LIBMNL_VERSION}.tar.bz2 libmnl.tar.bz2
 
 ARG LIBNFTNL_VERSION=1.3.0
-RUN cd /sources/downloads && wget https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz && mv libnftnl-${LIBNFTNL_VERSION}.tar.xz libnftnl.tar.xz
+RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz && mv libnftnl-${LIBNFTNL_VERSION}.tar.xz libnftnl.tar.xz
 
 ## kernel
 ARG KERNEL_VERSION=6.16.7
 ENV KERNEL_VERSION=${KERNEL_VERSION}
-RUN cd /sources/downloads && wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz
 
 ## flex
 
 ARG FLEX_VERSION=2.6.4
 ENV FLEX_VERSION=${FLEX_VERSION}
-RUN cd /sources/downloads && wget https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz
 
 ## bison
 
 ARG BISON_VERSION=3.8.2
 ENV BISON_VERSION=${BISON_VERSION}
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz
 
 
 ## argp-standalone
 
 ARG ARGP_STANDALONE_VERSION=1.3
 ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
-RUN cd /sources/downloads && wget http://www.lysator.liu.se/~nisse/misc/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q http://www.lysator.liu.se/~nisse/misc/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz
 
 ## autoconf
 
 ARG AUTOCONF_VERSION=2.71
 ENV AUTOCONF_VERSION=${AUTOCONF_VERSION}
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz
 
 ## automake
 
 ARG AUTOMAKE_VERSION=1.18.1
 ENV AUTOMAKE_VERSION=${AUTOMAKE_VERSION}
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz
 
 ## fts
 
 ARG FTS_VERSION=1.2.7
 ENV FTS_VERSION=${FTS_VERSION}
-RUN cd /sources/downloads && wget https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts-${FTS_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts-${FTS_VERSION}.tar.gz
 
 ## libtool
 
 ARG LIBTOOL_VERSION=2.5.4
 ENV LIBTOOL_VERSION=${LIBTOOL_VERSION}
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz
 
 ## musl-obstack
 ARG MUSL_OBSTACK_VERSION=1.2.3
 ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
-RUN cd /sources/downloads && wget https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz
 
 ## elfutils
 
 ARG ELFUTILS_VERSION=0.193
 ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
-RUN cd /sources/downloads && wget https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2
+RUN cd /sources/downloads && wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2
 
-RUN cd /sources/downloads && mkdir -p elfutils-patches && wget https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
+RUN cd /sources/downloads && mkdir -p elfutils-patches && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
 
 ## xzutils
 ARG XZUTILS_VERSION=5.8.1
 ENV XZUTILS_VERSION=${XZUTILS_VERSION}
 
-RUN cd /sources/downloads && wget https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz && mv xz-${XZUTILS_VERSION}.tar.gz xz.tar.gz
+RUN cd /sources/downloads && wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz && mv xz-${XZUTILS_VERSION}.tar.gz xz.tar.gz
 
 ## kmod
 ARG KMOD_VERSION=34
 ENV KMOD_VERSION=${KMOD_VERSION}
 
-RUN cd /sources/downloads && wget https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz && mv kmod-${KMOD_VERSION}.tar.gz kmod.tar.gz
+RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz && mv kmod-${KMOD_VERSION}.tar.gz kmod.tar.gz
 
 ## dracut
 ARG DRACUT_VERSION=108
 ENV DRACUT_VERSION=${DRACUT_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz && mv ${DRACUT_VERSION}.tar.gz dracut.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz && mv ${DRACUT_VERSION}.tar.gz dracut.tar.gz
 
 ## libaio
 
 ARG LIBAIO_VERSION=0.3.113
 ENV LIBAIO_VERSION=${LIBAIO_VERSION}
 
-RUN cd /sources/downloads && wget https://pagure.io/libaio/archive/libaio-${LIBAIO_VERSION}/libaio-libaio-${LIBAIO_VERSION}.tar.gz && mv libaio-libaio-${LIBAIO_VERSION}.tar.gz libaio.tar.gz
+RUN cd /sources/downloads && wget -q https://pagure.io/libaio/archive/libaio-${LIBAIO_VERSION}/libaio-libaio-${LIBAIO_VERSION}.tar.gz && mv libaio-libaio-${LIBAIO_VERSION}.tar.gz libaio.tar.gz
 
 ## lvm2
 ARG LVM2_VERSION=2.03.35
 ENV LVM2_VERSION=${LVM2_VERSION}
 
-RUN cd /sources/downloads && wget http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz && mv LVM2.${LVM2_VERSION}.tgz lvm2.tgz
+RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz && mv LVM2.${LVM2_VERSION}.tgz lvm2.tgz
 
 
 ## multipath-tools
 ARG MULTIPATH_TOOLS_VERSION=0.11.0
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
 
 
 ## jsonc
 ARG JSONC_VERSION=0.18
 ENV JSONC_VERSION=${JSONC_VERSION}
 
-RUN cd /sources/downloads && wget https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz && mv json-c-${JSONC_VERSION}.tar.gz json-c.tar.gz
+RUN cd /sources/downloads && wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz && mv json-c-${JSONC_VERSION}.tar.gz json-c.tar.gz
 
 ## cmake
 ARG CMAKE_VERSION=4.1.1
 ENV CMAKE_VERSION=${CMAKE_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
 
 ## urcu
 ARG URCU_VERSION=0.15.3
 ENV URCU_VERSION=${URCU_VERSION}
-RUN cd /sources/downloads && wget https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
+RUN cd /sources/downloads && wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
 
 
 ## parted
 ARG PARTED_VERSION=3.6
 ENV PARTED_VERSION=${PARTED_VERSION}
 
-RUN cd /sources/downloads && wget https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz && mv parted-${PARTED_VERSION}.tar.xz parted.tar.xz
+RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz && mv parted-${PARTED_VERSION}.tar.xz parted.tar.xz
 
 ## e2fsprogs
 ARG E2FSPROGS_VERSION=1.46.6
 ENV E2FSPROGS_VERSION=${E2FSPROGS_VERSION}
 
-RUN cd /sources/downloads && wget https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz && mv e2fsprogs-${E2FSPROGS_VERSION}.tar.xz e2fsprogs.tar.xz
+RUN cd /sources/downloads && wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz && mv e2fsprogs-${E2FSPROGS_VERSION}.tar.xz e2fsprogs.tar.xz
 
 ## dosfstools
 ARG DOSFSTOOLS_VERSION=4.2
 ENV DOSFSTOOLS_VERSION=${DOSFSTOOLS_VERSION}
-RUN cd /sources/downloads && wget https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz && mv dosfstools-${DOSFSTOOLS_VERSION}.tar.gz dosfstools.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz && mv dosfstools-${DOSFSTOOLS_VERSION}.tar.gz dosfstools.tar.gz
 
 ## sgdisk
 ARG SGDISK_VERSION=1.0.8
 ENV SGDISK_VERSION=${SGDISK_VERSION}
-RUN cd /sources/downloads && wget https://downloads.sourceforge.net/project/gptfdisk/gptfdisk/${SGDISK_VERSION}/gptfdisk-${SGDISK_VERSION}.tar.gz && mv gptfdisk-${SGDISK_VERSION}.tar.gz gptfdisk.tar.gz
+RUN cd /sources/downloads && wget -q https://downloads.sourceforge.net/project/gptfdisk/gptfdisk/${SGDISK_VERSION}/gptfdisk-${SGDISK_VERSION}.tar.gz && mv gptfdisk-${SGDISK_VERSION}.tar.gz gptfdisk.tar.gz
 
 
 ## cryptsetup
 ARG CRYPTSETUP_VERSION=2.8.1
 ENV CRYPTSETUP_VERSION=${CRYPTSETUP_VERSION}
-RUN cd /sources/downloads && wget https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz && mv cryptsetup-${CRYPTSETUP_VERSION}.tar.xz cryptsetup.tar.xz
+RUN cd /sources/downloads && wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz && mv cryptsetup-${CRYPTSETUP_VERSION}.tar.xz cryptsetup.tar.xz
 
 
 ## grub
 ARG GRUB_VERSION=2.12
 ENV GRUB_VERSION=${GRUB_VERSION}
-RUN cd /sources/downloads && wget https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz && mv grub-${GRUB_VERSION}.tar.xz grub.tar.xz
+RUN cd /sources/downloads && wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz && mv grub-${GRUB_VERSION}.tar.xz grub.tar.xz
 
 
 ## PAM
 ARG PAM_VERSION=1.7.1
 ENV PAM_VERSION=${PAM_VERSION}
 
-RUN cd /sources/downloads && wget https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz && mv Linux-PAM-${PAM_VERSION}.tar.xz pam.tar.xz
+RUN cd /sources/downloads && wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz && mv Linux-PAM-${PAM_VERSION}.tar.xz pam.tar.xz
 
 # shadow
 ARG SHADOW_VERSION=4.18.0
 ENV SHADOW_VERSION=${SHADOW_VERSION}
-RUN cd /sources/downloads && wget https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz && mv shadow-${SHADOW_VERSION}.tar.xz shadow.tar.xz
+RUN cd /sources/downloads && wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz && mv shadow-${SHADOW_VERSION}.tar.xz shadow.tar.xz
 
 
 # cloud-utils for growpart
 ARG CLOUD_UTILS_VERSION=0.33
 ENV CLOUD_UTILS_VERSION=${CLOUD_UTILS_VERSION}
-RUN cd /sources/downloads && wget https://github.com/canonical/cloud-utils/archive/refs/tags/${CLOUD_UTILS_VERSION}.tar.gz && mv ${CLOUD_UTILS_VERSION}.tar.gz cloud-utils.tar.gz
+RUN cd /sources/downloads && wget -q https://github.com/canonical/cloud-utils/archive/refs/tags/${CLOUD_UTILS_VERSION}.tar.gz && mv ${CLOUD_UTILS_VERSION}.tar.gz cloud-utils.tar.gz
 
 
 # alpine aports repo for patches to build under musl
 ARG APORTS_VERSION=3.22.1
 ENV APORTS_VERSION=${APORTS_VERSION}
 
-RUN cd /sources/downloads && wget https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz && mv aports-v${APORTS_VERSION}.tar.gz aports.tar.gz
+RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz && mv aports-v${APORTS_VERSION}.tar.gz aports.tar.gz
 
 FROM stage0 AS skeleton
 
@@ -366,7 +366,7 @@ ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 
 RUN mkdir /sources && \
    cd /sources && \
-   wget https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 
+   wget -q https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 
 
 RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     cd busybox-${BUSYBOX_VERSION} && \
@@ -389,7 +389,7 @@ FROM stage0 AS musl-stage0
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
+RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
     tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
     ./configure --disable-warnings \
@@ -412,10 +412,10 @@ ARG MPC_VERSION=1.3.1
 ENV MPC_VERSION=${MPC_VERSION}
 ARG MPFR_VERSION=4.2.2
 ENV MPFR_VERSION=${MPFR_VERSION}
-RUN wget http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
-RUN wget http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
-RUN wget http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
-RUN wget http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
+RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
+RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
+RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
+RUN wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
 RUN tar -xf gcc-${GCC_VERSION}.tar.xz
 RUN tar -xf gmp-${GMP_VERSION}.tar.bz2
 RUN tar -xf mpc-${MPC_VERSION}.tar.gz
@@ -453,7 +453,7 @@ ENV MAKE_VERSION=${MAKE_VERSION}
 
 RUN mkdir /sources && \
    cd /sources && \
-   wget https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
+   wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
 
 RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
@@ -472,7 +472,7 @@ ENV BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 
 RUN <<EOT bash
-    wget http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+    wget -q http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
     tar -xf binutils-${BINUTILS_VERSION}.tar.xz
 EOT
 
@@ -583,7 +583,7 @@ FROM stage1 AS musl
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-RUN wget http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
+RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz && \
     tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
     ./configure --disable-warnings \
@@ -691,7 +691,7 @@ FROM acl AS popt
 ARG POPT_VERSION=1.19
 ENV POPT_VERSION=${POPT_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz && \
     tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
     cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
     make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
@@ -756,7 +756,7 @@ FROM stage1 AS binutils
 ARG BINUTILS_VERSION=2.44
 ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 ARG JOBS
-RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget -q http://ftpmirror.gnu.org/binutils/binutils-${BINUTILS_VERSION}.tar.xz && \
     tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
     cd binutils && mkdir -p /binutils
 WORKDIR /sources/binutils
@@ -774,7 +774,7 @@ FROM stage1 AS ncurses
 ARG NCURSES_VERSION=6.5
 ENV NCURSES_VERSION=${NCURSES_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
+RUN mkdir /sources && cd /sources && wget -q http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz && \
     tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
     cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
     cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
@@ -797,7 +797,7 @@ FROM stage1 AS m4
 ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
 
-RUN mkdir /sources && cd /sources && wget http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz && \
+RUN mkdir /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz && \
     tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
     cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
     make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
@@ -808,7 +808,7 @@ FROM stage1 AS readline
 ARG READLINE_VERSION=8.3
 ENV READLINE_VERSION=${READLINE_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz && \
     tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
@@ -821,7 +821,7 @@ ENV BASH_VERSION=${BASH_VERSION}
 
 COPY ./files/bash/bashrc /sources/bashrc
 COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && \
     tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
     cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --build=${BUILD} \
@@ -863,7 +863,7 @@ ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 
 RUN cd /sources && \
-    wget http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz && \
+    wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz && \
     tar -xf perl-${PERL_VERSION}.tar.xz && mv perl-${PERL_VERSION} perl && \
     cd perl && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
@@ -957,7 +957,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz && \
     tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
     cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
@@ -979,7 +979,7 @@ FROM stage1 AS findutils
 ARG FINDUTILS_VERSION=4.10.0
 ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz && \
     tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
@@ -990,7 +990,7 @@ FROM stage1 AS grep
 ARG GREP_VERSION=3.12
 ENV GREP_VERSION=${GREP_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz && \
     tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
     make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
@@ -1165,7 +1165,7 @@ FROM stage1 AS gperf
 ARG GPERF_VERSION=3.3
 ENV GPERF_VERSION=${GPERF_VERSION}
 
-RUN mkdir -p /sources && cd /sources && wget http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz && \
     tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
@@ -1546,7 +1546,7 @@ FROM rsync AS diffutils
 ARG DIFFUTILS_VERSION=3.9
 
 
-RUN mkdir -p /sources && cd /sources && wget http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
+RUN mkdir -p /sources && cd /sources && wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz && \
     tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
     cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
@@ -2349,7 +2349,7 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 
 ## Immucore for initramfs
 FROM alpine AS immucore
-RUN wget https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
+RUN wget -q https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
 RUN tar xf immucore-v0.11.3-linux-amd64.tar.gz
 RUN mv immucore /immucore
 RUN chmod +x /immucore
@@ -2358,7 +2358,7 @@ RUN upx /immucore
 
 # Agent
 FROM alpine AS kairos-agent
-RUN wget https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
+RUN wget -q https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
 RUN tar xf kairos-agent-v2.25.0-linux-amd64.tar.gz
 RUN mv kairos-agent /kairos-agent
 RUN chmod +x /kairos-agent
