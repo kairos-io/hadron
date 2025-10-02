@@ -1,11 +1,15 @@
-MUSL_CROSS_MAKE_VERSION=6f3701d08137496d5aac479e3a3977b5ae993c1f
 IMAGE_NAME=ukairos
-AURORA_IMAGE=quay.io/kairos/auroraboot:v0.9.0
+AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.9.0
 TARGET ?= default
+JOBS ?= 24
 
 .PHONY: build
 build:
-	docker build --progress=plain --build-arg MUSL_CROSS_MAKE_VERSION=${MUSL_CROSS_MAKE_VERSION} -t ${IMAGE_NAME} --target ${TARGET} .
+	docker build --progress=plain \
+	--build-arg JOBS=${JOBS} \
+	--build-arg VERSION=$$(git describe --tags --always --dirty) \
+	-t ${IMAGE_NAME} \
+	--target ${TARGET} .
 
 run:
 	docker run -it ${IMAGE_NAME}
