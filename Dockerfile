@@ -449,6 +449,13 @@ RUN cd /sources/downloads && wget -q https://github.com/kairos-io/immucore/relea
 ## kairos-agent
 RUN cd /sources/downloads && wget -q https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
 
+## sudo
+
+ARG SUDO_VERSION=1.9.17p2
+ENV SUDO_VERSION=${SUDO_VERSION}
+RUN cd /sources/downloads && wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz && mv sudo-${SUDO_VERSION}.tar.gz sudo.tar.gz
+
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -2271,6 +2278,29 @@ RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
+
+
+
+FROM rsync AS sudo
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+COPY --from=pam-systemd /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
+RUN mkdir -p /sudo
+WORKDIR /sources
+RUN tar -xf sudo.tar.gz && mv sudo-* sudo
+WORKDIR /sources/sudo
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
+
+
+
 ########################################################
 #
 # Stage 2 - Building the final image
@@ -2455,6 +2485,9 @@ RUN cp /aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig
 
 # make sure they are both executable
 RUN chmod 755 /skeleton/sbin/ldconfig /skeleton/usr/bin/ldd
+
+COPY --from=sudo /sudo /sudo
+RUN rsync -aHAX --keep-dirlinks  /sudo/. /skeleton
 
 ## Cleanup
 

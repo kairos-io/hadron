@@ -1,0 +1,6 @@
+#%PAM-1.0
+
+auth      include     system-auth
+account   required    pam_unix.so
+session   required    pam_env.so
+session   required    pam_unix.so
