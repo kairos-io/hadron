@@ -34,3 +34,4 @@ Apache 2.0
 
 - https://github.com/firasuke/mussel For making things even easier than musl-cross-make with mussel. It was so plug-n-play that felt like a really nice experience right from the start.
 - https://github.com/openembedded/openembedded-core/tree/master/meta/recipes-core/systemd which makes possible to build systemd on top of musl
+- https://github.com/mocaccinoOS/mocaccino-micro For inspiration on how to build a musl system from scratch
