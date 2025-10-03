@@ -2332,6 +2332,8 @@ COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
 RUN mkdir -p /sudo
 WORKDIR /sources
