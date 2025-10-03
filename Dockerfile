@@ -356,6 +356,7 @@ RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/aport
 ## busybox
 ARG BUSYBOX_VERSION=1.37.0
 ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
+# XXX: Temporary workaround as busybox currently have expired certificates
 RUN cd /sources/downloads && wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
 
 ## musl
