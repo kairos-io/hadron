@@ -1,6 +1,6 @@
 ## Hadron Linux
 
-The foundational Linux for the cloud. Hadron is a minimal, from-scratch distro using vanilla components, engineered for trusted and flexible boot environments.
+The foundational Linux for the cloud and the edge. Hadron is a minimal, from-scratch distro using vanilla components, engineered for trusted and flexible boot environments.
 
 Stays close to upstream with `musl`, `systemd`, and `vanilla kernels` for modern, secure workloads.
 
