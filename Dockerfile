@@ -16,7 +16,7 @@ FROM alpine:${ALPINE_VERSION} AS stage0
 #
 ########################################################
 
-ARG VENDOR="ukairos"
+ARG VENDOR="hadron"
 ENV VENDOR=${VENDOR}
 ARG ARCH="x86-64"
 ENV ARCH=${ARCH}
@@ -641,7 +641,7 @@ RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks  /mtd/. /s
 
 FROM scratch AS stage1
 
-ARG VENDOR="ukairos"
+ARG VENDOR="hadron"
 ARG ARCH="x86-64"
 ARG BUILD_ARCH="x86_64"
 ARG CFLAGS
@@ -991,7 +991,7 @@ RUN cd /sources && \
        -Dinstallman3dir=/usr/share/man/man3 \
        -Dman1ext='1' \
        -Dman3ext='3pm' \
-       -Dcf_by='uKairos' \
+       -Dcf_by='hadron' \
        -Dcf_email='mudler@kairos.io' \
        -Ud_csh \
        -Ud_fpos64_t \
@@ -1737,7 +1737,7 @@ RUN mkdir -p /kernel && mkdir -p /modules
 WORKDIR /sources
 RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
 WORKDIR /sources/kernel
-#RUN cp -rfv /sources/kernel-configs/ukairos-${TARGETARCH}.config .config
+#RUN cp -rfv /sources/kernel-configs/hadron-${TARGETARCH}.config .config
 RUN cp -rfv /sources/kernel-configs/tinyconfig.config .config
 # This only builds the kernel
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage

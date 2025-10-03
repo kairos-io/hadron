@@ -1,4 +1,4 @@
-IMAGE_NAME=ukairos
+IMAGE_NAME=hadron
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.9.0
 TARGET ?= default
 JOBS ?= 24
@@ -30,7 +30,7 @@ devel-iso:
 	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${IMAGE_NAME}
 
 MEMORY ?= 2096
-ISO_FILE ?= build/kairos-ukairos-.iso
+ISO_FILE ?= build/kairos-hadron-.iso
 
 run-qemu:
 	@if [ ! -e disk.img ]; then \

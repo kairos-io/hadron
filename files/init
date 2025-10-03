@@ -376,7 +376,7 @@ mount -t tmpfs -o nodev,nosuid,noexec shm /dev/shm
 # mount run
 mount -t tmpfs -o nodev,nosuid,noexec,rw tmpfs /run
 
-echo "UKairos Init $VERSION" > "$ROOT"/dev/kmsg
+echo "Hadron Init $VERSION" > "$ROOT"/dev/kmsg
 echo "Ukairos Init $VERSION"
 
 # pick first keymap if found

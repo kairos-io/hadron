@@ -64,8 +64,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=ukairos/ci-image-${{ github.ref_name }}
-          cache-to: type=gha,mode=max,scope=ukairos/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args: |
             JOBS=32
       - name: Build PR
@@ -78,6 +78,6 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=ukairos/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
             JOBS=64

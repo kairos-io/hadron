@@ -114,7 +114,7 @@ fi
 EOF
 
 cat > etc/issue << "EOF"
-UKairos Linux (\d)
+Hadron Linux (\d)
 Kernel \r on an \m
 
 EOF
@@ -122,9 +122,9 @@ EOF
 ARCH=$(uname -m)
 
 cat > etc/os-release << EOF
-NAME="UKairos Linux"
-PRETTY_NAME="UKairos Linux"
-ID=ukairos
+NAME="Kairos Hadron Linux"
+PRETTY_NAME="Hadron Linux"
+ID=hadron
 BUILD_ID=rolling
 EOF
 
