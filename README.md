@@ -1,10 +1,10 @@
 ## Hadron Linux
 
-Hadron is a a lightweight Cloud-Native Linux Distribution built from scratch.
+The foundational Linux for the cloud. Hadron is a minimal, from-scratch distro using vanilla components, engineered for trusted and flexible boot environments.
 
-What it makes Hadron so special? Hadron is built entirely from the ground-up in containers to run with Kairos and be as much close at upstream projects as possible: it uses musl, systemd and vanilla Linux Kernels. 
+Stays close to upstream with `musl`, `systemd`, and `vanilla kernels` for modern, secure workloads.
 
-It is ready for modern workloads: supports Trusted Boot (via USI/UKI) and standard boot (via Dracut/GRUB).
+It is ready for modern workloads: supports Trusted Boot (via USI/UKI) and standard boot (via Dracut/GRUB). Upgrades are managed via Kairos's agent for A/B style upgrades.
 
 ## Development
 
