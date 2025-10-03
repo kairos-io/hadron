@@ -270,7 +270,7 @@ RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirror
 
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.11.0
+ARG MULTIPATH_TOOLS_VERSION=0.11.1
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
 RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
@@ -289,7 +289,7 @@ ENV CMAKE_VERSION=${CMAKE_VERSION}
 RUN cd /sources/downloads && wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
 
 ## urcu
-ARG URCU_VERSION=0.15.3
+ARG URCU_VERSION=0.15.2
 ENV URCU_VERSION=${URCU_VERSION}
 RUN cd /sources/downloads && wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
 
@@ -450,11 +450,14 @@ RUN cd /sources/downloads && wget -q https://github.com/kairos-io/immucore/relea
 RUN cd /sources/downloads && wget -q https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
 
 ## sudo
-
 ARG SUDO_VERSION=1.9.17p2
 ENV SUDO_VERSION=${SUDO_VERSION}
 RUN cd /sources/downloads && wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz && mv sudo-${SUDO_VERSION}.tar.gz sudo.tar.gz
 
+## pax-utils
+ARG PAX_UTILS_VERSION=1.3.8
+ENV PAX_UTILS_VERSION=${PAX_UTILS_VERSION}
+RUN cd /sources/downloads && wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz && mv pax-utils-${PAX_UTILS_VERSION}.tar.xz pax-utils.tar.xz
 
 FROM stage0 AS skeleton
 
@@ -645,6 +648,12 @@ RUN mkdir -p /skeleton/usr/include/asm-generic && rsync -aHAX --keep-dirlinks  /
 
 COPY --from=alpine-hack /usr/include/mtd /mtd
 RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks  /mtd/. /skeleton/usr/include/mtd
+
+# Provide ldconfig in the image
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /aports/aports.tar.gz
+WORKDIR /aports
+RUN tar xf aports.tar.gz && mv aports-* aports
+RUN cp aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig && chmod +x /skeleton//usr/bin/ldconfig
 ## END of HACK
 
 FROM scratch AS stage1
@@ -721,7 +730,7 @@ ARG XXHASH_VERSION=0.8.3
 ENV XXHASH_VERSION=${XXHASH_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/xxHash-${XXHASH_VERSION}.tar.gz /sources/
-
+ENV CC="gcc"
 RUN mkdir -p /sources && cd /sources && tar -xf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
     tar -xf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
     cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} DESTDIR=/xxhash && \
@@ -1274,7 +1283,6 @@ RUN ./configure --quiet --prefix=/usr \
 RUN make -s -j${JOBS} DESTDIR=/python
 RUN make -s -j${JOBS} DESTDIR=/python install
 RUN make -s -j${JOBS} install 2>&1
-
 
 ## util-linux
 FROM bash AS util-linux
@@ -2017,15 +2025,34 @@ WORKDIR /sources/jsonc-build/
 RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j${JOBS} install
 
+# pax-utils provives scanelf which lddconfig needs
+FROM python-build as pax-utils
+
+COPY --from=sources-downloader /sources/downloads/pax-utils.tar.xz /sources/
+RUN mkdir -p /pax-utils
+WORKDIR /sources
+RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
+WORKDIR /sources/pax-utils
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=release -Dtests=false
+RUN DESTDIR=/pax-utils ninja -C buildDir install
+RUN ninja -C buildDir install
 
 FROM rsync AS urcu
 
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+
 COPY --from=sources-downloader /sources/downloads/urcu.tar.bz2 /sources/
-RUN mkdir -p /urcu
 WORKDIR /sources
+RUN mkdir -p /urcu
 RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
-RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${JOBS} install
 
 ## needed for dracut and other tools
@@ -2061,15 +2088,27 @@ RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+
 COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
+WORKDIR /sources/patches
+RUN tar -xf aports.tar.gz && mv aports-* aport
+# extract the aport patch to apply to multipath-tools
 RUN mkdir -p /multipath-tools
 WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
-# make libgcc static to avoid needing libgcc_s at runtime
-ENV CC="gcc -static-libgcc"
+# patch it
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/0001-Disable-O2.patch
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-basename.patch
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-implicit-function-declaration-error.patch
+ENV CC="gcc"
 # Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} LIB=/lib && make -s -j${JOBS} LIB=/lib install DESTDIR=/multipath-tools && make -s -j${JOBS} LIB=/lib install
+RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} WARN_ONLY=1 SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} WARN_ONLY=1 LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
 FROM rsync AS parted
@@ -2141,7 +2180,7 @@ WORKDIR /sources/gptfdisk
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-musl.patch
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
 ## TODO: we need to get rid of these LDFLAGS, makes the binary around 9MB
-RUN LDFLAGS="-static-libstdc++ -static-libgcc" make -s -j${JOBS} sgdisk
+RUN make -s -j${JOBS} sgdisk
 RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
 RUN install -Dm0755 -t /usr/bin sgdisk
 
@@ -2168,6 +2207,8 @@ COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=readline /readline /readline
 RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 
 COPY --from=sources-downloader /sources/downloads/cryptsetup.tar.xz /sources/
 RUN mkdir -p /cryptsetup
@@ -2411,6 +2452,9 @@ RUN rsync -aHAX --keep-dirlinks  /lvm2/. /skeleton/
 
 COPY --from=multipath-tools /multipath-tools /multipath-tools
 RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
+## Copy libgcc_s.so.1 for multipathd deps and gptfdisk
+COPY --from=gcc-stage0 /sysroot/usr/lib/libgcc_s* /skeleton/usr/lib/
+COPY --from=gcc-stage0 /sysroot/usr/lib/libstdc* /skeleton/usr/lib/
 
 ## liburcu needed by multipath-tools
 COPY --from=urcu /urcu /urcu
@@ -2455,8 +2499,8 @@ RUN rsync -aHAX --keep-dirlinks  /xxhash/. /skeleton
 
 ## strace, disabled but if we need to debug this is very useful to add
 ## Just uncomment this and you will get it in the final image
-# COPY --from=strace /strace /strace
-# RUN rsync -aHAX --keep-dirlinks  /strace/. /skeleton
+#COPY --from=strace /strace /strace
+#RUN rsync -aHAX --keep-dirlinks  /strace/. /skeleton
 
 ## kbd for loadkeys support
 COPY --from=kbd /kbd /kbd
@@ -2470,6 +2514,10 @@ RUN rsync -aHAX --keep-dirlinks  /pam/. /skeleton
 
 COPY --from=shadow /shadow /shadow
 RUN rsync -aHAX --keep-dirlinks  /shadow/. /skeleton
+
+# This provides readelf needed by ldconfig
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /skeleton
 
 # kernel and modules
 COPY --from=kernel /kernel/vmlinuz /skeleton/boot/vmlinuz
