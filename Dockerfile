@@ -38,7 +38,7 @@ ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
 ### This stage is used to download the sources for the packages
 ### This runs in parallel with stage0 to improve build time since it's network-bound while stage0 is CPU-bound
-FROM alpine AS sources-downloader
+FROM alpine:${ALPINE_VERSION} AS sources-downloader
 
 # Install packages needed for downloading and patching sources
 RUN apk update && apk add wget git patch tar bash coreutils findutils
@@ -356,7 +356,7 @@ RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/aport
 ## busybox
 ARG BUSYBOX_VERSION=1.37.0
 ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
-RUN cd /sources/downloads && wget -q https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
+RUN cd /sources/downloads && wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
 
 ## musl
 ARG MUSL_VERSION=1.2.5
@@ -1377,6 +1377,42 @@ RUN meson setup buildDir --prefix=/usr --buildtype=release
 RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
+
+## xz and liblzma
+FROM rsync AS xz
+COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
+RUN mkdir -p /xz
+WORKDIR /sources
+RUN tar -xf xz.tar.gz && mv xz-* xz
+WORKDIR /sources/xz
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-doc --enable-small --disable-scripts
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JOBS} install
+
+
+## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
+FROM python-build AS kmod
+## we need liblzma from xz to build
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+
+## Override ln so the install works
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+
+COPY --from=sources-downloader /sources/downloads/kmod.tar.gz /sources/
+RUN mkdir -p /kmod
+WORKDIR /sources
+RUN tar -xf kmod.tar.gz && mv kmod-* kmod
+WORKDIR /sources/kmod
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
+RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
+
+
 ## systemd
 FROM rsync AS systemd
 
@@ -1422,6 +1458,12 @@ RUN rsync -aHAX --keep-dirlinks  /dbus/. /
 COPY --from=pam-base /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+
 COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
 ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 RUN mkdir -p /systemd
@@ -1432,6 +1474,7 @@ RUN /usr/bin/meson setup buildDir \
       --buildtype=release     \
       -D dbus=true  \
       -D pam=enabled \
+      -D kmod=true \
       -D seccomp=true         \
       -D default-dnssec=no    \
       -D firstboot=false      \
@@ -1852,42 +1895,6 @@ RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables
 RUN make -s -s && make -s -s install DESTDIR=/iptables
 
-
-## xz and liblzma
-FROM rsync AS xz
-COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
-RUN mkdir -p /xz
-WORKDIR /sources
-RUN tar -xf xz.tar.gz && mv xz-* xz
-WORKDIR /sources/xz
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-doc --enable-small --disable-scripts
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JOBS} install
-
-
-## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
-FROM python-build AS kmod
-## we need liblzma from xz to build
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
-
-## Override ln so the install works
-COPY --from=coreutils /coreutils /coreutils
-RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
-
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-
-COPY --from=sources-downloader /sources/downloads/kmod.tar.gz /sources/
-RUN mkdir -p /kmod
-WORKDIR /sources
-RUN tar -xf kmod.tar.gz && mv kmod-* kmod
-WORKDIR /sources/kmod
-RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
-RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
-
-
 FROM rsync AS dracut
 
 
@@ -2053,8 +2060,9 @@ RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
 # make libgcc static to avoid needing libgcc_s at runtime
 ENV CC="gcc -static-libgcc"
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/multipath-tools && make -s -j${JOBS} install
-
+# Set lib to /lib so it works in initramfs as well
+RUN make -s -j${JOBS} LIB=/lib && make -s -j${JOBS} LIB=/lib install DESTDIR=/multipath-tools && make -s -j${JOBS} LIB=/lib install
+RUN rm -Rf /multipath/usr/share/man
 
 FROM rsync AS parted
 
@@ -2130,6 +2138,7 @@ RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
 RUN install -Dm0755 -t /usr/bin sgdisk
 
 
+## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
 FROM rsync AS cryptsetup
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
@@ -2243,7 +2252,6 @@ RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
 # install shadow now that we have pam to get a proper login binary
-
 FROM rsync AS shadow
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
