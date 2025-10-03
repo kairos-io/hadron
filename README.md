@@ -1,6 +1,6 @@
 ## Hadron Linux
 
-<img width="250" align="left" alt="Gemini_Generated_Image_6rdymo6rdymo6rdy" src="https://github.com/user-attachments/assets/bafc8d48-385b-4920-8481-97628afa2f8c" />
+<img width="250" align="left" alt="logo" src="https://github.com/user-attachments/assets/d9c8b765-191b-401e-a360-1164faa9ba2c" />
 
 The foundational Linux for the cloud and the edge. Hadron is a minimal, from-scratch distro using vanilla components, engineered for trusted and flexible boot environments.
 
