@@ -1,0 +1,11 @@
+ARG BASE_IMAGE=hadron
+ARG KAIROS_INIT=main
+
+FROM quay.io/kairos/kairos-init:${KAIROS_INIT} AS kairos-init
+
+FROM ${BASE_IMAGE} AS base-kairos
+ARG VERSION
+
+RUN --mount=type=bind,from=kairos-init,src=/kairos-init,dst=/kairos-init \
+    /kairos-init -l debug -s install --version "${VERSION}" && \
+    /kairos-init -l debug -s init --version "${VERSION}"

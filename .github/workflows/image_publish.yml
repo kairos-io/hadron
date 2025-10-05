@@ -22,10 +22,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@master
-        with:
-          platforms: all
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -74,6 +70,98 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
+          push: true
+          tags: ttl.sh/hadron:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-main
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ttl.sh/hadron-init:${{ github.sha }}
+  build-iso:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build ISO
+        run: |
+          mkdir build
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $PWD/build/:/output \
+          quay.io/kairos/auroraboot:latest --debug build-iso --output /output/ \
+          --name kairos-hadron-${{ github.sha }} \
+          docker:ttl.sh/hadron-init:${{ github.sha }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: kairos-hadron-${{ github.sha }}.iso.zip
+          path: build/*.iso
+
+  acceptance-tests:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Download artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: kairos-hadron-${{ github.sha }}.iso.zip
+      - name: Enable KVM group perms
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
+          sudo setfacl -m u:runner:rwx /dev/kvm
+      - name: Run tests
+        env:
+          USE_QEMU: true
+          KVM: true
+          MEMORY: 5000
+          DRIVE_SIZE: 50000
+          CREATE_VM: true
+          CPUS: 4
+        run: |
+          export ISO=$PWD/$(ls *.iso|grep -v ipxe | head -1 )
+          echo "ISO is: $ISO"
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r ./tests/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: acceptance-${{github.sha}}.logs.zip
+          path: tests/**/logs/*
+          if-no-files-found: warn
+
+
