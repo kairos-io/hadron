@@ -28,10 +28,10 @@ var _ = Describe("kairos autoinstall test", Label("acceptance"), func() {
 	var datasource string
 
 	BeforeEach(func() {
-		datasource = CreateDatasource("assets/autoinstall.yaml")
+		datasource = CreateDatasource("assets/acceptance.yaml")
 		Expect(os.Setenv("DATASOURCE", datasource)).ToNot(HaveOccurred())
 		_, vm = startVM()
-		vm.EventuallyConnects(1200)
+		vm.EventuallyConnects(600)
 	})
 
 	AfterEach(func() {
