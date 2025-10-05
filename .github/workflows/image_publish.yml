@@ -110,8 +110,8 @@ jobs:
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:latest --debug build-iso --output /output/ \
-          --name kairos-hadron-${{ github.sha }} \
+          quay.io/kairos/auroraboot:v0.13.0 --debug build-iso --output /output/ \
+          --override-name kairos-hadron-${{ github.sha }} \
           docker:ttl.sh/hadron-init:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v4
