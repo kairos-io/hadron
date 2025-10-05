@@ -1219,6 +1219,10 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && m
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
 
 ## openssh
+## TODO: if we want a separate user for sshd we can drop a file onto /usr/lib/sysusers.d/sshd.conf
+## with:
+# u sshd - "sshd priv user"
+## And enable --with-privsep-user=sshd during configure
 FROM rsync AS openssh
 
 ARG OPENSSH_VERSION=9.9p1
@@ -1232,19 +1236,33 @@ RUN rsync -aHAX --keep-dirlinks  /zlib/. /
 
 COPY --from=sources-downloader /sources/downloads/openssh-${OPENSSH_VERSION}.tar.gz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh && \
-    cd openssh && mkdir -p /openssh && ./configure ${COMMON_CONFIGURE_ARGS} \
+RUN mkdir -p /openssh
+WORKDIR /sources
+RUN tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh
+
+WORKDIR /sources/openssh
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --sysconfdir=/etc/ssh \
     --libexecdir=/usr/lib/ssh \
     --datadir=/usr/share/openssh \
     --with-privsep-path=/var/empty \
-    --with-privsep-user=sshd \
+    --with-privsep-user=nobody \
     --with-md5-passwords \
     --with-ssl-engine \
-    --disable-strip && \
-    make -s -j${JOBS} && \
-    make -s -j${JOBS} DESTDIR=/openssh install && make -s -j${JOBS} install
+    --disable-strip
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} DESTDIR=/openssh install
+RUN make -s -j${JOBS} install
+## Provide the proper files and dirs for sshd to run properly with systemd
+# TODO: Do we need to adjust ssh config files? To allow for PAM and things like that?
+COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
+COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
+COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
+# Add sshd_config.d dir for droping extra configs
+RUN mkdir -p /openssh/etc/ssh/sshd_config.d
+RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
+RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
 
 ## python
 FROM rsync AS python-build
@@ -2026,7 +2044,7 @@ RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j${JOBS} install
 
 # pax-utils provives scanelf which lddconfig needs
-FROM python-build as pax-utils
+FROM python-build AS pax-utils
 
 COPY --from=sources-downloader /sources/downloads/pax-utils.tar.xz /sources/
 RUN mkdir -p /pax-utils
