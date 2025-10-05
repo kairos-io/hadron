@@ -93,6 +93,7 @@ jobs:
           tags: ttl.sh/hadron-init:${{ github.sha }}
           build-args: |
             BASE_IMAGE=ttl.sh/hadron:${{ github.sha }}
+            VERSION=v0.0.1-${{ github.sha }}
   build-iso:
     runs-on: ubuntu-latest
     needs:
