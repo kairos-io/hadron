@@ -91,6 +91,8 @@ jobs:
           file: ./Dockerfile.init
           push: true
           tags: ttl.sh/hadron-init:${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ttl.sh/hadron:${{ github.sha }}
   build-iso:
     runs-on: ubuntu-latest
     needs:
