@@ -5,9 +5,8 @@ debug: true
 
 install:
   no-format: true
-  auto: false
-  poweroff: false
-  reboot: false
+  auto: true
+  reboot: true
   grub_options:
     extra_cmdline: "rd.immucore.debug"
 
