@@ -1257,14 +1257,13 @@ RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} DESTDIR=/openssh install
 RUN make -s -j${JOBS} install
 ## Provide the proper files and dirs for sshd to run properly with systemd
-# TODO: Do we need to adjust ssh config files? To allow for PAM and things like that?
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
-#COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
-#COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
+COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
+COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
 # Add sshd_config.d dir for droping extra configs
-#RUN mkdir -p /openssh/etc/ssh/sshd_config.d
-#RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
-#RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
+RUN mkdir -p /openssh/etc/ssh/sshd_config.d
+RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
+RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
 
 ## python
 FROM rsync AS python-build
