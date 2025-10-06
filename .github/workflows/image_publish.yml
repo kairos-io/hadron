@@ -128,6 +128,7 @@ jobs:
       matrix:
         test:
           - "acceptance"
+          - "reset"
           - "custom-partitioning"
     steps:
       - name: Checkout code
