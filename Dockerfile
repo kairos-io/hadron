@@ -2653,7 +2653,7 @@ COPY --from=stage2-pre-grub /skeleton /
 # grub would go in here I guess
 
 ## Final image for systemd-boot
-FROM stage2-merge AS stage2-systemd
+FROM scratch AS stage2-systemd
 COPY --from=stage2-pre-systemd /skeleton /
 ## install systemd-boot here I guess
 
