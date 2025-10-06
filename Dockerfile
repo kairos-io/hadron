@@ -443,12 +443,6 @@ ARG DIFFUTILS_VERSION=3.9
 ENV DIFFUTILS_VERSION=${DIFFUTILS_VERSION}
 RUN cd /sources/downloads && wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz
 
-## immucore
-RUN cd /sources/downloads && wget -q https://github.com/kairos-io/immucore/releases/download/v0.11.3/immucore-v0.11.3-linux-amd64.tar.gz
-
-## kairos-agent
-RUN cd /sources/downloads && wget -q https://github.com/kairos-io/kairos-agent/releases/download/v2.25.0/kairos-agent-v2.25.0-linux-amd64.tar.gz
-
 ## sudo
 ARG SUDO_VERSION=1.9.17p2
 ENV SUDO_VERSION=${SUDO_VERSION}
@@ -2606,72 +2600,6 @@ RUN rsync -aHAX --keep-dirlinks  /grub-bios/. /skeleton
 ## Dracut
 COPY --from=dracut /dracut /dracut
 RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
-
-## Immucore for initramfs
-FROM alpine:${ALPINE_VERSION} AS immucore
-COPY --from=sources-downloader /sources/downloads/immucore-v0.11.3-linux-amd64.tar.gz .
-RUN tar xf immucore-v0.11.3-linux-amd64.tar.gz
-RUN mv immucore /immucore
-RUN chmod +x /immucore
-RUN apk add --no-cache upx
-RUN upx /immucore
-
-# Agent
-FROM alpine:${ALPINE_VERSION} AS kairos-agent
-COPY --from=sources-downloader /sources/downloads/kairos-agent-v2.25.0-linux-amd64.tar.gz .
-RUN tar xf kairos-agent-v2.25.0-linux-amd64.tar.gz
-RUN mv kairos-agent /kairos-agent
-RUN chmod +x /kairos-agent
-RUN apk add --no-cache upx
-RUN upx /kairos-agent
-
-# Build the initramfs
-FROM alpine:${ALPINE_VERSION} AS initramfs-builder
-RUN apk add --no-cache cpio
-COPY --from=busybox /sysroot /initramfs
-# Copy groups file
-COPY --from=stage2-merge /skeleton/etc/group /initramfs/etc/group
-COPY --from=stage2-merge /skeleton/usr/lib/ld-musl-x86_64.so.1 /initramfs/lib/ld-musl-x86_64.so.1
-# Udev stuff, consider building eudev?
-COPY --from=stage2-merge /skeleton/usr/lib/systemd/systemd-udevd /initramfs/usr/lib/systemd/systemd-udevd
-COPY --from=stage2-merge /skeleton/usr/sbin/udevadm /initramfs/usr/sbin/udevadm
-COPY --from=stage2-merge /skeleton/etc/udev/ /initramfs/etc/udev/
-COPY --from=stage2-merge /skeleton/usr/lib/udev/ /initramfs/usr/lib/udev/
-# Policy for network naming
-COPY --from=stage2-merge /skeleton/usr/lib/systemd/network/ /initramfs/usr/lib/systemd/network/
-# This are all libs needed by systemd-udevd
-COPY --from=stage2-merge /skeleton/usr/lib/systemd/libsystemd-shared-257.so /initramfs/usr/lib/systemd/libsystemd-shared-257.so
-COPY --from=stage2-merge /skeleton/usr/lib/libblkid.so.1 /initramfs/usr/lib/libblkid.so.1
-COPY --from=stage2-merge /skeleton/usr/lib/libcrypto.so.3 /initramfs/usr/lib/libcrypto.so.3
-COPY --from=stage2-merge /skeleton/usr/lib/libmount.so.1 /initramfs/usr/lib/libmount.so.1
-COPY --from=stage2-merge /skeleton/usr/lib/libcap.so.2 /initramfs/usr/lib/libcap.so.2
-COPY --from=stage2-merge /skeleton/usr/lib/libacl.so.1 /initramfs/usr/lib/libacl.so.1
-COPY --from=stage2-merge /skeleton/usr/lib/libattr.so.1 /initramfs/usr/lib/libattr.so.1
-COPY --from=stage2-merge /skeleton/usr/lib/libseccomp.so.2 /initramfs/usr/lib/libseccomp.so.2
-COPY --from=immucore /immucore /initramfs/bin/immucore
-WORKDIR /initramfs
-COPY files/init .
-RUN find . | cpio -o -H newc > ../init.cpio
-
-### Assemble the final image for testing
-## You can use this image with aurora and it will generate a bootable image
-FROM scratch AS devel
-COPY --from=stage2-merge /skeleton /
-
-# This probably needs moving into a different place rather than here it shouldbe done under the skeleton? After building and installing it?
-RUN busybox --install
-## Workaround to have bash as /bin/sh after busybox overrides it
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
-RUN systemctl preset-all
-COPY --from=kernel /kernel/vmlinuz /boot/vmlinuz
-COPY --from=kernel /modules/ /lib/modules/
-COPY --from=initramfs-builder /init.cpio /boot/initramfs
-COPY --from=kairos-agent /kairos-agent /usr/bin/kairos-agent
-# workaround as we dont have the /system/oem files
-RUN mkdir -p /system/oem/
-## Make eth devices managed by systemd-networkd
-RUN echo -e "[Match]\nName=en*\n\n[Network]\nDHCP=yes\n" > /etc/systemd/network/20-wired.network
-
 
 ### Assemble the image depending on our bootloader
 ## either grub or systemd-boot for trusted boot
