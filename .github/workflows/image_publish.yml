@@ -118,11 +118,17 @@ jobs:
         with:
           name: kairos-hadron-${{ github.sha }}.iso.zip
           path: build/*.iso
-  acceptance-tests:
+  tests:
     runs-on: ubuntu-latest
+    name: ${{ matrix.test }} tests
     needs:
       - build-iso
     if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        test:
+          - "acceptance"
+          - "custom-partitioning"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -156,7 +162,7 @@ jobs:
           echo "ISO is: $ISO"
           cp tests/go.* .
           go mod download
-          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r ./tests/
+          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

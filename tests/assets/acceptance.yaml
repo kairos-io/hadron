@@ -6,6 +6,10 @@ install:
   device: /dev/vda
   grub_options:
     extra_cmdline: "rd.immucore.debug foobarzz"
+  bundles:
+    - rootfs_path: /var/lib/extensions/kubo
+      targets:
+        - container://quay.io/kairos/ci-temp-images:bundles-test
 
 stages:
   initramfs:

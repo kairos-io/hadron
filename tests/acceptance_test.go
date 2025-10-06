@@ -14,7 +14,7 @@ import (
 )
 
 var stateContains = func(vm VM, query string, expected ...string) {
-	or := []types.GomegaMatcher{}
+	var or []types.GomegaMatcher
 	for _, e := range expected {
 		or = append(or, ContainSubstring(e))
 	}
@@ -32,6 +32,9 @@ var _ = Describe("kairos autoinstall test", Label("acceptance"), func() {
 		Expect(os.Setenv("DATASOURCE", datasource)).ToNot(HaveOccurred())
 		_, vm = startVM()
 		vm.EventuallyConnects(600)
+		expectDefaultService(vm)
+		expectStartedInstallation(vm)
+		expectRebootedToActive(vm)
 	})
 
 	AfterEach(func() {
@@ -51,12 +54,6 @@ var _ = Describe("kairos autoinstall test", Label("acceptance"), func() {
 	})
 
 	Context("reboots and passes functional tests", func() {
-		BeforeEach(func() {
-			expectDefaultService(vm)
-			expectStartedInstallation(vm)
-			expectRebootedToActive(vm)
-		})
-
 		It("passes checks", func() {
 			By("checking grubenv file", func() {
 				out, err := vm.Sudo("cat /oem/grubenv")
@@ -200,6 +197,79 @@ var _ = Describe("kairos autoinstall test", Label("acceptance"), func() {
 					}
 				}
 			})
+		})
+		It("resets", func() {
+			Eventually(func() string {
+				out, _ := vm.Sudo("cat /oem/grubenv")
+				return out
+			}, 10*time.Minute, 1*time.Second).Should(
+				Or(
+					ContainSubstring("foobarzz"),
+				))
+			By("Creating files on persistent and oem")
+			_, err := vm.Sudo("touch /usr/local/test")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = vm.Sudo("touch /oem/test")
+			Expect(err).ToNot(HaveOccurred())
+
+			vm.HasFile("/oem/test")
+			vm.HasFile("/usr/local/test")
+			By("Setting the next entry to statereset")
+			_, err = vm.Sudo("grub2-editenv /oem/grubenv set next_entry=statereset")
+			Expect(err).ToNot(HaveOccurred())
+			By("Rebooting")
+			vm.Reboot()
+
+			expectRebootedToActive(vm)
+
+			By("Checking that persistent file is gone")
+			Eventually(func() string {
+				out, _ := vm.Sudo("if [ -f /usr/local/test ]; then echo ok; else echo wrong; fi")
+				return out
+			}, 3*time.Minute, 1*time.Second).Should(
+				Or(
+					ContainSubstring("wrong"),
+				))
+			By("Checking that oem file is still there")
+			Eventually(func() string {
+				out, _ := vm.Sudo("if [ -f /oem/test ]; then echo ok; else echo wrong; fi")
+				return out
+			}, 3*time.Minute, 1*time.Second).Should(
+				Or(
+					ContainSubstring("ok"),
+				))
+		})
+		It("checking if it has kubo extension", func() {
+			Eventually(func() string {
+				// This seems to not load the /etc/profile.d/systemd-sysext.sh sot it cant use the
+				// SYSTEMD_SYSEXT_HIERARCHIES that we set
+				// So we run the command with login so it loads the envs
+				// Without the SYSTEMD_SYSEXT_HIERARCHIES set to the proper paths it will not
+				// find any extensions
+				out, _ := vm.Sudo("bash -l -c \"systemd-sysext\"")
+				return out
+			}, 3*time.Minute, 10*time.Second).Should(ContainSubstring("kubo"), func() string {
+				// Debug output in case of an error
+				result := ""
+				out, _ := vm.Sudo("cat /etc/kairos-release")
+				result = result + fmt.Sprintf("kairos-release:\n%s\n", out)
+
+				out, _ = vm.Sudo("cat /oem/90_custom.yaml")
+				result = result + fmt.Sprintf("90_custom.yaml:\n%s\n", out)
+
+				out, _ = vm.Sudo("cat /var/lib/extensions/kubo/usr/lib/extension-release.d/extension-release.kubo")
+				result = result + fmt.Sprintf("extension-release.kubo:\n%s\n", out)
+
+				out, _ = vm.Sudo("systemd-sysext status")
+				result = result + fmt.Sprintf("systemd-sysext status:\n%s\n", out)
+
+				return result
+			})
+
+			ipfsV, err := vm.Sudo("ipfs version")
+			Expect(err).ToNot(HaveOccurred(), ipfsV)
+			Expect(ipfsV).To(ContainSubstring("0.15.0"))
 		})
 	})
 })

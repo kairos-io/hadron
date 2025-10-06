@@ -17,9 +17,6 @@ import (
 	"github.com/diskfs/go-diskfs/filesystem"
 	"github.com/diskfs/go-diskfs/filesystem/iso9660"
 	"github.com/google/uuid"
-	"github.com/kairos-io/go-nodepair"
-	qr "github.com/kairos-io/go-nodepair/qrcode"
-	"github.com/mudler/edgevpn/pkg/node"
 	process "github.com/mudler/go-processmanager"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,7 +31,6 @@ func TestSuite(t *testing.T) {
 }
 
 var getVersionCmd = ". /etc/kairos-release; [ ! -z \"$KAIROS_VERSION\" ] && echo $KAIROS_VERSION"
-var getVersionCmdOsRelease = ". /etc/os-release; [ ! -z \"$KAIROS_VERSION\" ] && echo $KAIROS_VERSION"
 
 // CreateDatasource creates a datasource iso from a given user-data file
 // And returns the path to the datasource iso
@@ -205,104 +201,6 @@ func expectRebootedToActive(vm VM) {
 	})
 }
 
-func expectSecureBootEnabled(vm VM) {
-	// Check for secureboot before install, based on firmware env var
-	// if we set, then the test suite will load the secureboot firmware
-	secureboot := os.Getenv("FIRMWARE")
-
-	if secureboot != "" {
-		By("checking that secureboot is enabled", func() {
-			out, _ := vm.Sudo("dmesg | grep -i secure")
-			Expect(out).To(ContainSubstring("Secure boot enabled"))
-		})
-	}
-}
-
-// return the PID of the swtpm (to be killed later) and the state directory
-func emulateTPM(stateDir string) {
-	t := path.Join(stateDir, "tpm")
-	err := os.MkdirAll(t, os.ModePerm)
-	Expect(err).ToNot(HaveOccurred())
-
-	cmd := exec.Command("swtpm",
-		"socket",
-		"--tpmstate", fmt.Sprintf("dir=%s", t),
-		"--ctrl", fmt.Sprintf("type=unixio,path=%s/swtpm-sock", t),
-		"--tpm2", "--log", "level=20")
-	err = cmd.Start()
-	Expect(err).ToNot(HaveOccurred())
-
-	err = os.WriteFile(path.Join(t, "pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0744)
-	Expect(err).ToNot(HaveOccurred())
-}
-
-var kubectl = func(vm VM, s string) (string, error) {
-	return vm.Sudo("k3s kubectl " + s)
-}
-
-// Generates a valid token for provider tests
-func generateToken() string {
-	l := int(^uint(0) >> 1)
-	return node.GenerateNewConnectionData(l).Base64()
-}
-
-// register registers a node with a qrfile
-func register(loglevel, qrfile, configFile, device string, reboot bool) error {
-	b, _ := os.ReadFile(configFile)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	if qrfile != "" {
-		fileInfo, err := os.Stat(qrfile)
-		if err != nil {
-			return err
-		}
-		if fileInfo.IsDir() {
-			return fmt.Errorf("cannot register with a directory, please pass a file") //nolint:revive // This is a message printed to the user.
-		}
-
-		if !isReadable(qrfile) {
-			return fmt.Errorf("cannot register with a file that is not readable") //nolint:revive // This is a message printed to the user.
-		}
-	}
-	// dmesg -D to suppress tty ev
-	fmt.Println("Sending registration payload, please wait")
-
-	config := map[string]string{
-		"device": device,
-		"cc":     string(b),
-	}
-
-	if reboot {
-		config["reboot"] = "true"
-	}
-
-	err := nodepair.Send(
-		ctx,
-		config,
-		nodepair.WithReader(qr.Reader),
-		nodepair.WithToken(qrfile),
-		nodepair.WithLogLevel(loglevel),
-	)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Payload sent, installation will start on the machine briefly")
-	return nil
-}
-
-func isReadable(fileName string) bool {
-	file, err := os.Open(fileName)
-	if err != nil {
-		if os.IsPermission(err) {
-			return false
-		}
-	}
-	file.Close()
-	return true
-}
-
 func defaultVMOpts(stateDir string) []types.MachineOption {
 	opts := defaultVMOptsNoDrives(stateDir)
 
@@ -327,9 +225,6 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 	var sshPort, spicePort int
 
 	vmName := uuid.New().String()
-
-	// Always setup a tpm emulator
-	emulateTPM(stateDir)
 
 	sshPort, err = getFreePort()
 	Expect(err).ToNot(HaveOccurred())
@@ -453,14 +348,6 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 	}
 
 	return opts
-}
-
-func HostSSHFingerprint(vm VM) string {
-	By("Getting SSH host key fingerprint")
-	fp, err := vm.Sudo("cat /etc/ssh/ssh_host_*.pub 2>/dev/null | ssh-keygen -lf -")
-	Expect(err).ToNot(HaveOccurred(), fp)
-	Expect(fp).ToNot(BeEmpty(), "SSH host key fingerprint should not be empty")
-	return fp
 }
 
 var stateAssertVM = func(vm VM, query, expected string) {
