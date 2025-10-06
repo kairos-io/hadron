@@ -2548,16 +2548,13 @@ RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /skeleton
 COPY --from=kernel /kernel/vmlinuz /skeleton/boot/vmlinuz
 COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
 
-## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
-RUN ln -s /skeleton/lib/ld-musl-x86_64.so.1 /skeleton/usr/bin/ldd
-
 ## Copy ldconfig from alpine musl
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /
 RUN tar xf /aports.tar.gz && mv aports-* aports
 RUN cp /aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig
 
 # make sure they are both executable
-RUN chmod 755 /skeleton/sbin/ldconfig /skeleton/usr/bin/ldd
+RUN chmod 755 /skeleton/sbin/ldconfig
 
 COPY --from=sudo /sudo /sudo
 RUN rsync -aHAX --keep-dirlinks  /sudo/. /skeleton
@@ -2648,6 +2645,8 @@ COPY files/login.defs /etc/login.defs
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 ## Create any missing users from scratch
 RUN systemd-sysusers
+## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
+RUN ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd
 
 ### final image
 FROM stage3 AS default
