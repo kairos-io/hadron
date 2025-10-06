@@ -1,0 +1,9 @@
+# Pathnames of valid login shells.
+# This file is consulted by programs such as chsh and pam_shells.
+
+/bin/sh
+/bin/bash
+/usr/bin/sh
+/usr/bin/bash
+/usr/sbin/sh
+/usr/sbin/bash

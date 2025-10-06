@@ -1,7 +1,9 @@
 IMAGE_NAME=hadron
+INIT_IMAGE_NAME=hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.9.0
 TARGET ?= default
 JOBS ?= 24
+GIT_VERSION := $(shell git describe --tags --always --dirty)
 
 .PHONY: build
 build:
@@ -17,17 +19,13 @@ run:
 clean:
 	docker rmi ${IMAGE_NAME}
 
-# Build a development ISO image
-# This make a base artifact and some workarounds to be able to generate a working iso
-# It bundles a custom init (very basic) to be able to mount the iso and run immucore and such, should support cdrom/netboot/installed boot
-# It bundles a hardcoded immucore and agent versions in there
-# manually builds a initramfs with the needed tools and deps
-# creates /system/oem so immucore boots
-# hardcodedes the systemd-networkd config so enp is up with dhcp always
-# So this is all done to be able to boot from an iso and test it, things will change in the future and init will be called instead
-devel-iso:
-	make build TARGET=devel
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${IMAGE_NAME}
+# Build an ISO image
+## This needs a TAG to be set in the git repo otherwise it will fail to parse the version
+iso:
+	make build
+	docker build -t ${INIT_IMAGE_NAME} -f Dockerfile.init --build-arg BASE_IMAGE=${IMAGE_NAME} --build-arg VERSION=${GIT_VERSION} .
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME}
+
 
 MEMORY ?= 2096
 ISO_FILE ?= build/kairos-hadron-.iso

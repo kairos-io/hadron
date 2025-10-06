@@ -743,10 +743,14 @@ ARG ZSTD_VERSION=1.5.7
 ENV ZSTD_VERSION=${ZSTD_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/zstd-${ZSTD_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf zstd-${ZSTD_VERSION}.tar.gz && mv zstd-${ZSTD_VERSION} zstd && \
-    cd zstd && mkdir -p /zstd && CC=gcc make -s -j${JOBS} DESTDIR=/zstd && \
-    make -s -j${JOBS} DESTDIR=/zstd install && make -s -j${JOBS} install
+RUN mkdir -p /zstd
+WORKDIR /sources
+RUN tar -xf zstd-${ZSTD_VERSION}.tar.gz && mv zstd-${ZSTD_VERSION} zstd
+WORKDIR /sources/zstd
+ENV CC=gcc
+RUN make -s -j${JOBS} DESTDIR=/zstd prefix=/usr
+RUN make -s -j${JOBS} DESTDIR=/zstd prefix=/usr install
+RUN make -s -j${JOBS} prefix=/usr install
 
 ## lz4
 FROM zstd AS lz4
@@ -818,10 +822,14 @@ ARG ZLIB_VERSION=1.3.1
 ENV ZLIB_VERSION=${ZLIB_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/zlib-${ZLIB_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf zlib-${ZLIB_VERSION}.tar.gz && mv zlib-${ZLIB_VERSION} zlib && \
-    cd zlib && mkdir -p /zlib && ./configure --shared && make -s -j${JOBS} DESTDIR=/zlib && \
-    make -s -j${JOBS} DESTDIR=/zlib install && make -s -j${JOBS} install
+RUN mkdir -p /zlib
+WORKDIR /sources
+RUN tar -xf zlib-${ZLIB_VERSION}.tar.gz && mv zlib-${ZLIB_VERSION} zlib
+WORKDIR /sources/zlib
+RUN ./configure --shared --prefix=/usr
+RUN make -s -j${JOBS} DESTDIR=/zlib
+RUN make -s -j${JOBS} DESTDIR=/zlib install
+RUN make -s -j${JOBS} install
 
 ## gawk
 
@@ -1257,12 +1265,12 @@ RUN make -s -j${JOBS} install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 # TODO: Do we need to adjust ssh config files? To allow for PAM and things like that?
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
-COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
-COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
+#COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
+#COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
 # Add sshd_config.d dir for droping extra configs
-RUN mkdir -p /openssh/etc/ssh/sshd_config.d
-RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
-RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
+#RUN mkdir -p /openssh/etc/ssh/sshd_config.d
+#RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
+#RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
 
 ## python
 FROM rsync AS python-build
@@ -2317,6 +2325,9 @@ RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=release
 RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
+## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
+COPY files/shells /pam/etc/shells
+RUN chmod 644 /pam/etc/shells
 
 # install shadow now that we have pam to get a proper login binary
 FROM rsync AS shadow
@@ -2543,8 +2554,8 @@ RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /skeleton
 COPY --from=kernel /kernel/vmlinuz /skeleton/boot/vmlinuz
 COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
 
-## Add custom ldd pointing to our musl
-COPY files/ldd /skeleton/usr/bin/ldd
+## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
+RUN ln -s /skeleton/lib/ld-musl-x86_64.so.1 /skeleton/usr/bin/ldd
 
 ## Copy ldconfig from alpine musl
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /
