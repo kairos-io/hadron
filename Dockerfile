@@ -2396,8 +2396,8 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${
 # Stage 2 - Building the final image
 #
 ########################################################
-# Container base image, it has the minimal required to run as a container
-FROM stage0 AS container
+# stage-merge will merge all the built packages into a single directory
+FROM stage0 AS stage0-merge
 
 RUN apk add rsync
 
@@ -2514,8 +2514,13 @@ RUN chmod 755 /skeleton/sbin/ldconfig
 # We don't need headers
 RUN rm -rf /skeleton/usr/include
 
+# Container base image, it has the minimal required to run as a container
+FROM scratch AS container
+COPY --from=stage0-merge /skeleton /
+CMD ["/bin/bash", "-l"]
+
 # stage2-merge is the image more complete, with systemd and kernel and so on
-FROM container as stage2-merge
+FROM container AS stage2-merge
 ## openssh
 COPY --from=openssh /openssh /openssh
 RUN rsync -aHAX --keep-dirlinks  /openssh/. /skeleton/
