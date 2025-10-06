@@ -224,10 +224,9 @@ var _ = Describe("kairos basic test", func() {
 				return result
 			})
 
-			// ipfs is built agasint libc so we cant test it properly in here until we built it from scratch with CGO_ENABLED=0
-			//ipfsV, err := vm.Sudo("ipfs version")
-			//Expect(err).ToNot(HaveOccurred(), ipfsV)
-			//Expect(ipfsV).To(ContainSubstring("0.15.0"))
+			ipfsV, err := vm.Sudo("ipfs version")
+			Expect(err).ToNot(HaveOccurred(), ipfsV)
+			Expect(ipfsV).To(ContainSubstring("0.38.0"))
 		})
 	})
 	It("resets", Label("reset"), func() {
