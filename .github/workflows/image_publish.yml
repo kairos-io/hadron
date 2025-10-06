@@ -14,11 +14,17 @@ concurrency:
 jobs:
   docker:
     runs-on: oracle-24cpu-384gb-x86-64
+    name: build-${{ matrix.target }}
     permissions:
       packages: write
       contents: read
       attestations: write
       id-token: write
+    strategy:
+      matrix:
+          target:
+              - default
+              - container
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -41,7 +47,7 @@ jobs:
         uses: docker/metadata-action@032a4b3bda1b716928481836ac5bfe36e1feaad6
         with:
           images: |
-             ghcr.io/${{ github.repository }}
+             ghcr.io/${{ github.repository }}/${{ matrix.target }}
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -60,6 +66,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: ${{ matrix.target }}
           cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
@@ -73,6 +80,7 @@ jobs:
           push: true
           tags: ttl.sh/hadron:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: ${{ matrix.target }}
           cache-from: type=gha,scope=hadron/ci-image-main
   build:
     runs-on: ubuntu-latest
