@@ -12,19 +12,13 @@ concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
-  docker:
+  container:
     runs-on: oracle-24cpu-384gb-x86-64
-    name: build-${{ matrix.target }}
     permissions:
       packages: write
       contents: read
       attestations: write
       id-token: write
-    strategy:
-      matrix:
-          target:
-              - default
-              - container
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -47,7 +41,7 @@ jobs:
         uses: docker/metadata-action@032a4b3bda1b716928481836ac5bfe36e1feaad6
         with:
           images: |
-             ghcr.io/${{ github.repository }}/${{ matrix.target }}
+            ghcr.io/${{ github.repository }}-container
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -66,7 +60,72 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          target: ${{ matrix.target }}
+          target: container
+          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
+      - name: Build PR
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ttl.sh/hadron-container:${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: container
+          cache-from: type=gha,scope=hadron/ci-image-main
+  default:
+    runs-on: oracle-24cpu-384gb-x86-64
+    needs:
+      - container  # Take advantage of cached layers from the container build
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@032a4b3bda1b716928481836ac5bfe36e1feaad6
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{raw}}
+            type=ref,event=branch
+          flavor: |
+            latest=auto
+            prefix=
+            suffix=
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
@@ -80,12 +139,11 @@ jobs:
           push: true
           tags: ttl.sh/hadron:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
-          target: ${{ matrix.target }}
           cache-from: type=gha,scope=hadron/ci-image-main
   build:
     runs-on: ubuntu-latest
     needs:
-      - docker
+      - default
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
