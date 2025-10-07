@@ -2524,7 +2524,7 @@ RUN find /skeleton -name '*.a' -delete
 
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
-COPY --from=stage0-merge /skeleton /
+COPY --from=stage2-merge /skeleton /
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd
