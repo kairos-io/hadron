@@ -181,11 +181,11 @@ func expectDefaultService(vm VM) {
 }
 
 func expectStartedInstallation(vm VM) {
-	By("checking that installation has started", func() {
+	By("checking that installation has started (via journald logs)", func() {
 		Eventually(func() string {
-			out, _ := vm.Sudo("ps aux")
+			out, _ := vm.Sudo("journalctl -t kairos-agent --no-pager")
 			return out
-		}, 30*time.Minute, 1*time.Second).Should(ContainSubstring("/usr/bin/kairos-agent install"))
+		}, 30*time.Minute, 1*time.Second).Should(ContainSubstring("kairos-install.after"))
 	})
 }
 
