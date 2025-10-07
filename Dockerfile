@@ -2397,7 +2397,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${
 #
 ########################################################
 # stage-merge will merge all the built packages into a single directory
-FROM stage0 AS stage0-merge
+FROM stage0 AS stage2-merge
 
 RUN apk add rsync
 
