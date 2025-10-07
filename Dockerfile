@@ -1041,8 +1041,8 @@ RUN cd /sources && tar -xf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPE
     make -s -j${JOBS} DESTDIR=/openssl 2>&1  && \
     make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} install_sw install_ssldirs
 
-## Busybox (from stage1, ready to be used in the final image)
-FROM openssl AS busybox
+## Busybox final. Only provides vi and tar which are small enough to not do the real ones.
+FROM stage1 AS busybox
 
 COPY --from=busybox-stage0 /sources /sources
 
@@ -1052,17 +1052,11 @@ ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 RUN cd /sources && rm -rfv busybox-${BUSYBOX_VERSION} && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     cd busybox-${BUSYBOX_VERSION} && \
     make -s distclean && \
-    make -s defconfig && \
-    sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
-    sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config
+    make -s defconfig
+COPY files/busybox/minimal.config /sources/busybox-${BUSYBOX_VERSION}/.config
 RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
     make -s && \
-    make -s CONFIG_PREFIX="/sysroot" install && make -s -j${JOBS} install
+    make -s install
 
 ## coreutils
 FROM rsync AS coreutils
@@ -1080,21 +1074,24 @@ COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
 COPY --from=sources-downloader /sources/downloads/coreutils-${COREUTILS_VERSION}.tar.xz /sources/
-RUN cd /sources && \
-    tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
-    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
+WORKDIR /sources
+RUN tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils
+WORKDIR /sources/coreutils
+RUN  ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --bindir=/bin \
     --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --enable-no-install-program=hostname,su,kill,uptime \
+     --enable-install-program=hostname,su \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
-    --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/coreutils && \
-    make -s -j${JOBS} DESTDIR=/coreutils install
+    --disable-dependency-tracking --enable-systemd
+
+RUN make -s -j${JOBS} DESTDIR=/coreutils
+RUN make -s -j${JOBS} DESTDIR=/coreutils install
 
 ## findutils
 FROM stage1 AS findutils
@@ -1310,7 +1307,9 @@ ARG UTIL_LINUX_VERSION=2.41.1
 ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
-
+# disable login and su, missing pam header
+# runuser wont build due to pam headers missing as well
+# PAM+shadow will build login later
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
     mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
     cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
@@ -1318,12 +1317,13 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     --disable-silent-rules \
     --enable-newgrp \
     --disable-uuidd \
-    --disable-liblastlog2 \
+    --disable-liblastlog2 --disable-pam-lastlog2 --disable-asciidoc --disable-poman --disable-minix --disable-cramfs --disable-bfs \
     --disable-nls \
     --disable-kill \
     --disable-chfn-chsh \
     --with-vendordir=/usr/lib \
-    --enable-fs-paths-extra=/usr/sbin \
+    --enable-fs-paths-extra=/usr/sbin --without-python --with-sysusersdir=/usr/lib/sysusers.d/ \
+    --disable-login --disable-su \
     && make -s -j${JOBS} DESTDIR=/util-linux && \
     make -s -j${JOBS} DESTDIR=/util-linux install && make -s -j${JOBS} install
 
@@ -2423,7 +2423,6 @@ RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
 
-
 ## ca-certificates
 COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /skeleton/
@@ -2524,8 +2523,9 @@ RUN find /skeleton -name '*.a' -delete
 
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
-COPY --from=stage2-merge /skeleton /
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+SHELL ["/bin/bash", "-c"]
+COPY --link --from=stage2-merge /skeleton /
+RUN ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd
 CMD ["/bin/bash", "-l"]
