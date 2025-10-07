@@ -211,7 +211,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         timeout-minutes: 5
         with:
           go-version-file: tests/go.mod
