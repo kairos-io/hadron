@@ -1089,7 +1089,7 @@ RUN cd /sources && \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --enable-no-install-program=hostname,su,kill,uptime \
+    --enable-install-program=hostname,su \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
