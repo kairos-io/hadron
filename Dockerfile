@@ -453,6 +453,14 @@ ARG PAX_UTILS_VERSION=1.3.8
 ENV PAX_UTILS_VERSION=${PAX_UTILS_VERSION}
 RUN cd /sources/downloads && wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz && mv pax-utils-${PAX_UTILS_VERSION}.tar.xz pax-utils.tar.xz
 
+## openscsi
+
+ARG OPEN_SCSI_VERSION=2.1.11
+ENV OPEN_SCSI_VERSION=${OPEN_SCSI_VERSION}
+
+RUN cd /sources/downloads && wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz && mv ${OPEN_SCSI_VERSION}.tar.gz openscsi.tar.gz
+
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -2391,6 +2399,35 @@ RUN tar -xf sudo.tar.gz && mv sudo-* sudo
 WORKDIR /sources/sudo
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
+
+FROM python-build AS openscsi
+
+# Wee need cmake, libkmod, liblzma, mount, systemd, perl
+COPY --from=cmake /cmake /cmake
+RUN rsync -aHAX --keep-dirlinks  /cmake/. /
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=sources-downloader /sources/downloads/openscsi.tar.gz /sources/
+RUN pip3 install meson ninja
+RUN mkdir -p /openscsi
+WORKDIR /sources
+RUN tar -xf openscsi.tar.gz && mv open-iscsi-* openscsi
+WORKDIR /sources/openscsi
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
+RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
+
+
 ########################################################
 #
 # Stage 2 - Building the final image
@@ -2630,6 +2667,10 @@ RUN rsync -aHAX --keep-dirlinks  /pam/. /skeleton
 # copy shadow but with systemd support
 COPY --from=shadow-systemd /shadow /shadow
 RUN rsync -aHAX --keep-dirlinks  /shadow/. /skeleton
+
+# copy iscsi
+COPY --from=openscsi /openscsi /openscsi
+RUN rsync -aHAX --keep-dirlinks  /openscsi/. /skeleton
 
 ## This target will assemble dracut and all its dependencies into the skeleton
 FROM stage0 AS dracut-final
