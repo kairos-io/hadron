@@ -207,11 +207,11 @@ jobs:
           - "custom-partitioning"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         timeout-minutes: 5
         with:
           go-version-file: tests/go.mod
