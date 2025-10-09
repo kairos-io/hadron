@@ -34,6 +34,8 @@ var _ = Describe("kairos basic test", func() {
 		vm.EventuallyConnects(600)
 		expectDefaultService(vm)
 		expectStartedInstallation(vm)
+		By("Rebooting into installed system")
+		vm.Reboot()
 		expectRebootedToActive(vm)
 	})
 
