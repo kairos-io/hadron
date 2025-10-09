@@ -1097,7 +1097,7 @@ RUN cd /sources && \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --enable-no-install-program=hostname,su,kill,uptime \
+    --enable-install-program=hostname,su \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
@@ -1332,6 +1332,14 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     --disable-chfn-chsh \
     --with-vendordir=/usr/lib \
     --enable-fs-paths-extra=/usr/sbin \
+    --disable-pam-lastlog2 \
+    --disable-asciidoc \
+    --disable-poman \
+    --disable-minix \
+    --disable-cramfs \
+    --disable-bfs \
+    --without-python \
+    --with-sysusersdir=/usr/lib/sysusers.d/ \
     && make -s -j${JOBS} DESTDIR=/util-linux && \
     make -s -j${JOBS} DESTDIR=/util-linux install && make -s -j${JOBS} install
 
