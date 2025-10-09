@@ -1,3 +1,4 @@
 build/
 tests/logs/
 config.yaml
+tests/*.test
