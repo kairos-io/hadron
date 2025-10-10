@@ -1383,7 +1383,7 @@ WORKDIR /sources
 RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
-RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
 RUN DESTDIR=/dbus ninja -C buildDir install
 
 
@@ -1408,7 +1408,7 @@ WORKDIR /sources
 RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
 RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
@@ -1506,7 +1506,7 @@ RUN python3 -m pip install meson ninja jinja2
 WORKDIR /sources/systemd
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
-      --buildtype=release     \
+      --buildtype=minsize -Dstrip=true     \
       -D dbus=true  \
       -D pam=enabled \
       -D kmod=true \
@@ -1843,7 +1843,7 @@ WORKDIR /sources
 RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
-RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
 RUN DESTDIR=/dbus ninja -C buildDir install
 
 ## kbd for setting the console keymap and font
@@ -2053,7 +2053,7 @@ WORKDIR /sources
 RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=release -Dtests=false
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false
 RUN DESTDIR=/pax-utils ninja -C buildDir install
 RUN ninja -C buildDir install
 
@@ -2315,7 +2315,7 @@ WORKDIR /sources
 RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=release
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
 RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
@@ -2587,9 +2587,13 @@ RUN rsync -aHAX --keep-dirlinks  /lvm2/. /skeleton/
 
 COPY --from=multipath-tools /multipath-tools /multipath-tools
 RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
+## Use mount and cp to preserv symlinks, otherwise if we copy directly
+## we will resolve the symlinks and copy the real files multiple times
 ## Copy libgcc_s.so.1 for multipathd deps and gptfdisk
-COPY --from=gcc-stage0 /sysroot/usr/lib/libgcc_s* /skeleton/usr/lib/
-COPY --from=gcc-stage0 /sysroot/usr/lib/libstdc* /skeleton/usr/lib/
+RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro \
+    mkdir -p /skeleton/usr/lib && \
+    cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/ && \
+    cp -a /mnt/libstdc++.so* /skeleton/usr/lib/
 
 ## liburcu needed by multipath-tools
 COPY --from=urcu /urcu /urcu
@@ -2702,9 +2706,29 @@ COPY --from=full-image-pre-systemd /skeleton /
 # We also run systemctl preset-all to have default presets for systemd services
 FROM full-image-${BOOTLOADER} AS full-image-final
 ARG VERSION
-RUN busybox --install
-## Workaround to have bash as /bin/sh after busybox overrides it
+## Cleanup first
+# We don't need headers
+RUN rm -rf /usr/include
+# Remove man files, 4,9Mb
+RUN rm -rf /usr/share/man
+RUN rm -rf /usr/local/share/man
+# Remove docs 4,9Mb
+RUN rm -rf /usr/share/doc
+# remove info 3,8Mb
+RUN rm -rf /usr/share/info
+RUN rm -rf /usr/share/local/info
+# Remove static libs
+RUN find / -name '*.a' -delete
+# Remove packageconfig files
+RUN rm -Rf /usr/share/pkgconfig
+## Small configs
+# set a default locale
+RUN echo "export LANG=C.UTF-8" >> /etc/profile.d/locale.sh
+RUN echo "export LANG=C.UTF-8" >> /etc/bash.bashrc
+RUN chmod 644 /etc/profile.d/locale.sh
+RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
+RUN busybox --install
 RUN systemctl preset-all
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
