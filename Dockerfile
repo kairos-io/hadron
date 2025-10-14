@@ -1382,6 +1382,35 @@ WORKDIR /sources/expat
 RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
 
+FROM stage0 as gdb-stage0
+ARG GDB_VERSION=16.3
+ARG GMP_VERSION=6.3.0
+ARG MPFR_VERSION=4.2.2
+ARG MPC_VERSION=1.3.1
+COPY --from=sources-downloader /sources/downloads/gdb-${GDB_VERSION}.tar.gz .
+COPY --from=sources-downloader /sources/downloads/gmp-${GMP_VERSION}.tar.bz2 .
+COPY --from=sources-downloader /sources/downloads/mpfr-${MPFR_VERSION}.tar.bz2 .
+COPY --from=sources-downloader /sources/downloads/mpc-${MPC_VERSION}.tar.gz .
+COPY --from=expat /expat /
+COPY --from=python-build /python /
+
+RUN tar -xf gmp-${GMP_VERSION}.tar.bz2
+RUN tar -xf mpfr-${MPFR_VERSION}.tar.bz2
+RUN tar -xf gdb-${GDB_VERSION}.tar.gz
+RUN tar -xf mpc-${MPC_VERSION}.tar.gz
+RUN mv -v mpfr-${MPFR_VERSION} gdb-${GDB_VERSION}/mpfr
+RUN mv -v gmp-${GMP_VERSION} gdb-${GDB_VERSION}/gmp
+RUN mv -v mpc-${MPC_VERSION} gdb-${GDB_VERSION}/mpc
+RUN mkdir -p /gdb
+RUN cd gdb-${GDB_VERSION} && mkdir -v build && cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} \
+    --target=${TARGET} \
+    --with-sysroot=/ \
+    --disable-nls \
+    --with-libexpat-prefix=/usr \
+    --disable-multilib
+RUN cd gdb-${GDB_VERSION}/build && make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS}
+RUN cd gdb-${GDB_VERSION}/build && make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/gdb install
+
 
 ## dbus first pass without systemd support so we can build systemd afterwards
 FROM python-build AS dbus
@@ -2791,4 +2820,11 @@ RUN systemd-sysusers
 
 ### final image
 FROM full-image-final AS default
+CMD ["/bin/bash", "-l"]
+
+## final image with debug
+FROM full-image-final AS debug
+
+COPY --from=strace /strace /
+COPY --from=gdb-stage0 /gdb /
 CMD ["/bin/bash", "-l"]
