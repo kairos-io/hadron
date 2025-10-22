@@ -3,7 +3,7 @@ INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.9.0
 TARGET ?= default
 JOBS ?= 24
-GIT_VERSION := $(shell git describe --tags --always --dirty)
+GIT_VERSION := v0.0.0-$(shell git describe --tags --always --dirty)
 
 .PHONY: build
 build:
