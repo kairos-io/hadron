@@ -2,11 +2,28 @@
 
 <img width="250" align="left" alt="logo" src="https://github.com/user-attachments/assets/d9c8b765-191b-401e-a360-1164faa9ba2c" />
 
-The foundational Linux for the cloud and the edge. Hadron is a minimal, from-scratch distro using vanilla components, engineered for trusted and flexible boot environments.
+**The foundational Linux distribution for the cloud and the edge.**
 
-Stays close to upstream with `musl`, `systemd`, and `vanilla kernels` for modern, secure workloads.
+Hadron delivers a minimal, trustworthy operating system built from the ground up with vanilla upstream components. Engineered for security, flexibility, and reliability.
 
-It is ready for modern workloads: supports Trusted Boot (via USI/UKI) and standard boot (via Dracut/GRUB). Upgrades are managed via Kairos's agent for A/B style upgrades.
+Hadron is Engineered by [Spectro Cloud](https://www.spectrocloud.com) from the [Kairos](https://kairos.io) team.
+
+### Why Hadron?
+
+- **Minimal & Lean**: Bare essentials only—no bloat, just what you need
+- **Trusted Boot**: Secure boot environments with modern security standards
+- **Upstream First**: Built with vanilla components, staying close to upstream
+- **Edge & Cloud Ready**: Optimized for both cloud workloads and edge deployments
+- **Seamless Updates**: A/B upgrade capabilities for zero-downtime operations
+
+## Architecture
+
+Hadron is built from scratch with a focus on minimalism and staying close to upstream sources:
+
+- **Core Components**: Built on `musl` libc, `systemd` init system, and vanilla Linux kernels
+- **Boot Methods**: Supports both Trusted Boot (via USI/UKI) and standard boot (via Dracut/GRUB)
+- **Upgrade System**: Managed via Kairos agent for A/B style atomic upgrades
+- **Upstream Alignment**: Minimal patches, maximum compatibility with upstream projects
 
 ## Development
 
