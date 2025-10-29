@@ -1,6 +1,6 @@
 ## Hadron Linux
 
-<img width="210" align="left" alt="logo" src="https://github.com/user-attachments/assets/d9c8b765-191b-401e-a360-1164faa9ba2c" />
+<img width="200" align="left" alt="logo" src="https://github.com/user-attachments/assets/d9c8b765-191b-401e-a360-1164faa9ba2c" />
 
 **The foundational Linux distribution for the cloud and the edge.**
 
