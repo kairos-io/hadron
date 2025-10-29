@@ -1,0 +1,14 @@
+baseURL = '/'
+languageCode = 'en-us'
+title = 'Hadron Linux'
+publishDir = 'public'
+
+[params]
+  author = 'Hadron Linux'
+  description = 'The foundational Linux distribution for the cloud and the edge'
+  
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+

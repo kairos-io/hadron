@@ -2,3 +2,7 @@ build/
 tests/logs/
 config.yaml
 tests/*.test
+
+# Hugo build artifacts
+docs/public/
+docs/resources/
