@@ -2471,6 +2471,110 @@ RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D i
 RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
 
 
+## Build image with all the deps on it
+FROM stage1 AS full-toolchain-merge
+## Prepare rsync to work
+COPY --link --from=rsync /rsync /
+COPY --link --from=attr /attr /
+COPY --link --from=acl /acl /
+COPY --link --from=popt /popt /
+COPY --link --from=zstd /zstd /
+COPY --link --from=zlib /zlib /
+COPY --link --from=lz4 /lz4 /
+COPY --link --from=xxhash /xxhash /
+COPY --link --from=lz4 /lz4 /
+
+# Now prepare a merged directory with all the built tools
+COPY --from=cmake /cmake /cmake
+RUN rsync -aHAX --keep-dirlinks  /cmake/. /merge
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /merge
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /merge
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /merge
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /merge
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /merge
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /merge
+COPY --from=pam-systemd /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /merge
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /merge
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /merge
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /merge
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /merge
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /merge
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /merge
+COPY --from=bison /bison /bison
+RUN rsync -aHAX --keep-dirlinks  /bison/. /merge
+COPY --from=flex /flex /flex
+RUN rsync -aHAX --keep-dirlinks  /flex/. /merge
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /merge
+COPY --from=lvm2 /lvm2 /lvm2
+RUN rsync -aHAX --keep-dirlinks  /lvm2/. /merge
+COPY --from=gawk /gawk /gawk
+RUN rsync -aHAX --keep-dirlinks  /gawk/. /merge
+COPY --from=jsonc /jsonc /jsonc
+RUN rsync -aHAX --keep-dirlinks  /jsonc/. /merge
+COPY --from=urcu /urcu /urcu
+RUN rsync -aHAX --keep-dirlinks  /urcu/. /merge
+COPY --from=libaio /libaio /libaio
+RUN rsync -aHAX --keep-dirlinks  /libaio/. /merge
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /merge
+COPY --from=expat /expat /expat
+RUN rsync -aHAX --keep-dirlinks  /expat/. /merge
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /merge
+COPY --from=zstd /zstd /zstd
+RUN rsync -aHAX --keep-dirlinks  /zstd/. /merge
+COPY --from=argp-standalone /argp-standalone /argp-standalone
+RUN rsync -aHAX --keep-dirlinks  /argp-standalone/. /merge
+COPY --from=fts /fts /fts
+RUN rsync -aHAX --keep-dirlinks  /fts/. /merge
+COPY --from=autoconf /autoconf /autoconf
+RUN rsync -aHAX --keep-dirlinks  /autoconf/. /merge
+COPY --from=automake /automake /automake
+RUN rsync -aHAX --keep-dirlinks  /automake/. /merge
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /merge
+COPY --from=libseccomp /libseccomp /libseccomp
+RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /merge
+COPY --from=dbus /dbus /dbus
+RUN rsync -aHAX --keep-dirlinks  /dbus/. /merge
+COPY --from=python-build /python /python
+RUN rsync -aHAX --keep-dirlinks  /python/. /merge
+COPY --from=acl /acl /acl
+RUN rsync -aHAX --keep-dirlinks  /acl/. /merge
+COPY --from=ca-certificates /ca-certificates /ca-certificates
+RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /merge
+COPY --from=curl /curl /curl
+RUN rsync -aHAX --keep-dirlinks  /curl/. /merge
+COPY --from=rsync /rsync /rsync
+RUN rsync -aHAX --keep-dirlinks  /rsync/. /merge
+COPY --from=gcc-stage0 /sysroot /gcc
+RUN rsync -aHAX --keep-dirlinks /gcc/. /merge
+COPY --from=musl-stage0 /sysroot /musl
+RUN rsync -aHAX --keep-dirlinks /musl/. /merge
+COPY --from=make-stage0 /sysroot /make
+RUN rsync -aHAX --keep-dirlinks /make/. /merge
+COPY --from=binutils-stage0 /sysroot /binutils
+RUN rsync -aHAX --keep-dirlinks /binutils/. /merge
+
+
+
+FROM scratch AS full-toolchain
+COPY --from=full-toolchain-merge /merge /.
+
 ########################################################
 #
 # Stage 2 - Building the final image
