@@ -465,6 +465,10 @@ RUN cd /sources/downloads && wget -q https://github.com/open-iscsi/open-iscsi/ar
 ARG GDB_VERSION=16.3
 RUN cd /sources/downloads && wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz && mv gdb-${GDB_VERSION}.tar.gz gdb.tar.gz
 
+
+ARG LIBFFI_VERSION=3.5.2
+RUN cd /sources/downloads && wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz && mv libffi-${LIBFFI_VERSION}.tar.gz libffi.tar.gz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -1277,6 +1281,16 @@ RUN mkdir -p /openssh/etc/ssh/sshd_config.d
 RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
 RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
 
+FROM rsync AS libffi
+
+COPY --from=sources-downloader /sources/downloads/libffi.tar.gz /sources/
+RUN mkdir -p /libffi
+WORKDIR /sources
+RUN tar -xf libffi.tar.gz && mv libffi-* libffi
+WORKDIR /sources/libffi
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libffi
+
 ## python
 FROM rsync AS python-build
 ARG JOBS
@@ -1298,6 +1312,9 @@ RUN rsync -aHAX --keep-dirlinks  /readline/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
+COPY --from=libffi /libffi /libffi
+RUN rsync -aHAX --keep-dirlinks  /libffi/. /
+
 COPY --from=sources-downloader /sources/downloads/Python-${PYTHON_VERSION}.tar.xz /sources/
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf Python-${PYTHON_VERSION}.tar.xz && mv Python-${PYTHON_VERSION} python && \
@@ -1314,7 +1331,6 @@ RUN ./configure --quiet --prefix=/usr \
 RUN make -s -j${JOBS} DESTDIR=/python
 RUN make -s -j${JOBS} DESTDIR=/python install
 RUN make -s -j${JOBS} install 2>&1
-
 ## util-linux
 FROM bash AS util-linux
 
@@ -1500,7 +1516,7 @@ RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
 
 
 ## systemd
-FROM rsync AS systemd
+FROM rsync AS systemd-base
 
 ARG SYSTEMD_VERSION=257.8
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
@@ -1550,11 +1566,17 @@ RUN rsync -aHAX --keep-dirlinks  /kmod/. /
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
 
+COPY --from=libffi /libffi /libffi
+RUN rsync -aHAX --keep-dirlinks  /libffi/. /
+
 COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
-ENV CFLAGS="-D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 RUN mkdir -p /systemd
-RUN python3 -m pip install meson ninja jinja2
+RUN python3 -m pip install meson ninja jinja2 pyelftools
+
+
+FROM systemd-base AS systemd
 WORKDIR /sources/systemd
+ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
       --buildtype=minsize -Dstrip=true     \
@@ -1585,11 +1607,31 @@ RUN /usr/bin/meson setup buildDir \
       -D nobody-group=nogroup \
       -D sysupdate=disabled   \
       -D ukify=disabled       \
+      -D bootloader=disabled \
       -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION}
 RUN ninja -C buildDir
 RUN DESTDIR=/systemd ninja -C buildDir install
 RUN ninja -C buildDir install
 
+
+FROM systemd-base AS systemd-bootloader
+ARG VERSION
+WORKDIR /sources/systemd
+ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wchar_t"
+RUN /usr/bin/meson setup buildDir \
+    --prefix=/usr \
+    --buildtype=minsize \
+    -D strip=true -Dman=false \
+    -D bootloader=true -Defi=true \
+    -D sbat-distro="Hadron" \
+    -D sbat-distro-url="hadron.kairos.io" \
+    -Dsbat-distro-summary="Hadron Linux" \
+    -Dsbat-distro-version="hadron-${VERSION}"
+RUN /usr/bin/meson compile systemd-boot -C buildDir
+## Mimic the efi install places other distros and the full systemd install does.
+RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
+RUN cp buildDir/src/boot/*.efi /systemd/usr/lib/systemd/boot/efi/
+RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
 ## flex
 FROM m4 AS flex
 ARG FLEX_VERSION=2.6.4
@@ -2774,6 +2816,8 @@ RUN apk add rsync
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
+COPY --from=systemd-bootloader /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
 # No dracut for systemd-boot
 
 ## Final image for grub

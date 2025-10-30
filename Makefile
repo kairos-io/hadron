@@ -4,12 +4,14 @@ AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.9.0
 TARGET ?= default
 JOBS ?= 24
 GIT_VERSION := v0.0.0-$(shell git describe --tags --always --dirty)
+BOOTLOADER ?= grub
 
 .PHONY: build
 build:
 	docker build --progress=plain \
 	--build-arg JOBS=${JOBS} \
 	--build-arg VERSION=$$(git describe --tags --always --dirty) \
+	--build-arg BOOTLOADER=${BOOTLOADER} \
 	-t ${IMAGE_NAME} \
 	--target ${TARGET} .
 
