@@ -2614,7 +2614,7 @@ RUN rsync -aHAX --keep-dirlinks /binutils/. /merge
 
 
 
-FROM scratch AS full-toolchain
+FROM scratch AS toolchain
 COPY --from=full-toolchain-merge /merge /.
 
 ########################################################
