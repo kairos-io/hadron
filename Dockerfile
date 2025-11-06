@@ -1402,7 +1402,7 @@ WORKDIR /sources/expat
 RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
 
-FROM stage0 as gdb-stage0
+FROM stage0 AS gdb-stage0
 ARG GMP_VERSION=6.3.0
 ARG MPFR_VERSION=4.2.2
 ARG MPC_VERSION=1.3.1
@@ -1623,10 +1623,12 @@ RUN /usr/bin/meson setup buildDir \
     --buildtype=minsize \
     -D strip=true -Dman=false \
     -D bootloader=true -Defi=true \
+    -D mode=developer \
+    -D version-tag="hadron" \
     -D sbat-distro="Hadron" \
     -D sbat-distro-url="hadron.kairos.io" \
     -Dsbat-distro-summary="Hadron Linux" \
-    -Dsbat-distro-version="hadron-${VERSION}"
+    -Dsbat-distro-version="${VERSION}"
 RUN /usr/bin/meson compile systemd-boot -C buildDir
 ## Mimic the efi install places other distros and the full systemd install does.
 RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
