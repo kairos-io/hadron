@@ -1623,8 +1623,6 @@ RUN /usr/bin/meson setup buildDir \
     --buildtype=minsize \
     -D strip=true -Dman=false \
     -D bootloader=true -Defi=true \
-    -D mode=developer \
-    -D version-tag="hadron" \
     -D sbat-distro="Hadron" \
     -D sbat-distro-url="hadron.kairos.io" \
     -Dsbat-distro-summary="Hadron Linux" \
@@ -2866,6 +2864,14 @@ RUN rsync -aHAX --keep-dirlinks  /shadow/. /skeleton
 # copy iscsi
 COPY --from=openscsi /openscsi /openscsi
 RUN rsync -aHAX --keep-dirlinks  /openscsi/. /skeleton
+
+# kmod needed by openscsi
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /skeleton
+
+# lzma needed by openscsi
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
 
 ## This target will assemble dracut and all its dependencies into the skeleton
 FROM stage0 AS dracut-final
