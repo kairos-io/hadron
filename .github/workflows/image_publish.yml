@@ -61,7 +61,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
         if: github.event_name == 'pull_request'
@@ -127,7 +127,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: container
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
         if: github.event_name == 'pull_request'
@@ -150,7 +150,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           target: container-test
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
   hadron-grub:
     runs-on: oracle-24cpu-384gb-x86-64
     needs:
@@ -201,7 +201,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args:
             BOOTLOADER=grub
@@ -269,7 +269,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args:
             BOOTLOADER=systemd
