@@ -469,6 +469,9 @@ RUN cd /sources/downloads && wget -q https://sourceware.org/pub/gdb/releases/gdb
 ARG LIBFFI_VERSION=3.5.2
 RUN cd /sources/downloads && wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz && mv libffi-${LIBFFI_VERSION}.tar.gz libffi.tar.gz
 
+ARG TPM2_TSS_VERSION=4.1.3
+RUN cd /sources/downloads && wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz && mv tpm2-tss-${TPM2_TSS_VERSION}.tar.gz tpm2-tss.tar.gz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -1514,124 +1517,6 @@ RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
 RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
 
-
-## systemd
-FROM rsync AS systemd-base
-
-ARG SYSTEMD_VERSION=257.8
-ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
-
-COPY --from=gperf /gperf /gperf
-RUN rsync -aHAX --keep-dirlinks  /gperf/. /
-
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-COPY --from=util-linux /util-linux /util-linux
-RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-
-COPY --from=python-build /python /python
-RUN rsync -aHAX --keep-dirlinks  /python/. /
-
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-
-COPY --from=bash /bash /bash
-RUN rsync -aHAX --keep-dirlinks  /bash/. /
-
-COPY --from=coreutils /coreutils /coreutils
-RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
-
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-
-COPY --from=libseccomp /libseccomp /libseccomp
-RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /
-
-COPY --from=dbus /dbus /dbus
-RUN rsync -aHAX --keep-dirlinks  /dbus/. /
-
-COPY --from=pam /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
-
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
-
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
-
-COPY --from=libffi /libffi /libffi
-RUN rsync -aHAX --keep-dirlinks  /libffi/. /
-
-COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
-RUN mkdir -p /systemd
-RUN python3 -m pip install meson ninja jinja2 pyelftools
-
-
-FROM systemd-base AS systemd
-WORKDIR /sources/systemd
-ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
-RUN /usr/bin/meson setup buildDir \
-      --prefix=/usr           \
-      --buildtype=minsize -Dstrip=true     \
-      -D dbus=true  \
-      -D pam=enabled \
-      -D kmod=true \
-      -D seccomp=true         \
-      -D default-dnssec=no    \
-      -D firstboot=false      \
-      -D sysusers=true \
-      -D install-tests=false  \
-      -D ldconfig=false       \
-      -D rpmmacrosdir=no      \
-      -D gshadow=false        \
-      -D idn=false            \
-      -D localed=false        \
-      -D nss-myhostname=false  \
-      -D nss-systemd=false     \
-      -D userdb=false         \
-      -D nss-mymachines=disabled \
-      -D nss-resolve=disabled   \
-      -D utmp=false           \
-      -D homed=disabled       \
-      -D man=disabled         \
-      -D mode=release         \
-      -D pamconfdir=no        \
-      -D dev-kvm-mode=0660    \
-      -D nobody-group=nogroup \
-      -D sysupdate=disabled   \
-      -D ukify=disabled       \
-      -D bootloader=disabled \
-      -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION}
-RUN ninja -C buildDir
-RUN DESTDIR=/systemd ninja -C buildDir install
-RUN ninja -C buildDir install
-
-
-FROM systemd-base AS systemd-bootloader
-ARG VERSION
-WORKDIR /sources/systemd
-ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wchar_t"
-RUN /usr/bin/meson setup buildDir \
-    --prefix=/usr \
-    --buildtype=minsize \
-    -D strip=true -Dman=false \
-    -D bootloader=true -Defi=true \
-    -D sbat-distro="Hadron" \
-    -D sbat-distro-url="hadron.kairos.io" \
-    -Dsbat-distro-summary="Hadron Linux" \
-    -Dsbat-distro-version="${VERSION}"
-RUN /usr/bin/meson compile systemd-boot -C buildDir
-## Mimic the efi install places other distros and the full systemd install does.
-RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
-RUN cp buildDir/src/boot/*.efi /systemd/usr/lib/systemd/boot/efi/
-RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
 ## flex
 FROM m4 AS flex
 ARG FLEX_VERSION=2.6.4
@@ -1918,27 +1803,6 @@ RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make modules_install
 
-## dbus second pass pass with systemd support, so we can have a working systemd and dbus
-FROM python-build AS dbus-systemd
-
-COPY --from=expat /expat /expat
-RUN rsync -aHAX --keep-dirlinks  /expat/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
-# install target
-RUN mkdir -p /dbus
-WORKDIR /sources
-RUN pip3 install meson ninja
-RUN tar -xf dbus.tar.xz && mv dbus-* dbus
-WORKDIR /sources/dbus
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/dbus ninja -C buildDir install
-
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
 
@@ -2074,7 +1938,8 @@ WORKDIR /sources/libaio
 ENV CC=gcc
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libaio
 
-
+## lvm2 for dmsetup, devmapper and so on
+## We need to build it with systemd support so we can use it later with systemd rules and so on
 FROM rsync AS lvm2
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2096,7 +1961,7 @@ RUN tar -xf lvm2.tgz && mv LVM2* lvm2
 WORKDIR /sources/lvm2
 # patch it
 RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
-RUN ./configure --prefix=/usr
+RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${JOBS} install
 
 
@@ -2137,6 +2002,7 @@ WORKDIR /sources/jsonc-build/
 RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j${JOBS} install
 
+
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
 
@@ -2166,82 +2032,6 @@ RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${JOBS} install
-
-## needed for dracut and other tools
-FROM rsync AS multipath-tools
-
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-# devmapper
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
-
-## get libudev from systemd
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-
-## libaio for multipathd
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /
-
-## json-c for multipathd
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
-
-## urcu for multipathd
-COPY --from=urcu /urcu /urcu
-RUN rsync -aHAX --keep-dirlinks  /urcu/. /
-
-## util-linux for libmount.so
-COPY --from=util-linux /util-linux /util-linux
-RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-
-## libcap
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
-
-COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-# extract the aport patch to apply to multipath-tools
-RUN mkdir -p /multipath-tools
-WORKDIR /sources
-RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
-WORKDIR /sources/multipath-tools
-# patch it
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/0001-Disable-O2.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-basename.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-implicit-function-declaration-error.patch
-ENV CC="gcc"
-# Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
-RUN make -s -j${JOBS} WARN_ONLY=1 SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
-RUN make -s -j${JOBS} WARN_ONLY=1 LIB=/lib install
-RUN rm -Rf /multipath/usr/share/man
-
-FROM rsync AS parted
-
-## device-mapper from lvm2
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
-
-## util-linux for libuuid
-COPY --from=util-linux /util-linux /util-linux
-RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-
-
-COPY --from=sources-downloader /sources/downloads/parted.tar.xz /sources/
-RUN mkdir -p /parted
-WORKDIR /sources
-RUN tar -xf parted.tar.xz && mv parted-* parted
-WORKDIR /sources/parted
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/parted && make -s -j${JOBS} install
-
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
@@ -2331,6 +2121,25 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -s -j${JOBS} install
 
 
+FROM rsync AS parted
+
+## device-mapper from lvm2
+COPY --from=lvm2 /lvm2 /lvm2
+RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+
+## util-linux for libuuid
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+
+
+COPY --from=sources-downloader /sources/downloads/parted.tar.xz /sources/
+RUN mkdir -p /parted
+WORKDIR /sources
+RUN tar -xf parted.tar.xz && mv parted-* parted
+WORKDIR /sources/parted
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/parted && make -s -j${JOBS} install
+
 ## growpart from cloud-utils
 # its just a simple pyton script
 FROM stage0 AS growpart
@@ -2361,7 +2170,7 @@ COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=lvm2 /lvm2 /lvm2
+COPY --from=lvm2-systemd /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
 COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /
@@ -2372,11 +2181,13 @@ RUN tar -xf grub.tar.xz && mv grub-* grub
 WORKDIR /sources/grub
 RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
+
 FROM grub-base AS grub-efi
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
 RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-efi
+
 
 FROM grub-base AS grub-bios
 WORKDIR /sources/grub
@@ -2384,6 +2195,307 @@ RUN mkdir -p /grub-bios
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror
 RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios
 
+
+FROM rsync AS tpm2-tss
+RUN mkdir -p /tpm2-tss
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=jsonc /jsonc /jsonc
+RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=curl /curl /curl
+RUN rsync -aHAX --keep-dirlinks  /curl/. /
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+COPY --from=sources-downloader /sources/downloads/tpm2-tss.tar.gz /sources/
+
+WORKDIR /sources
+RUN tar -xf tpm2-tss.tar.gz && mv tpm2-tss-* tpm2-tss
+WORKDIR /sources/tpm2-tss
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/tpm2-tss && make -s -j${JOBS} install
+
+
+## systemd
+## Try to build it at the end so we have most libraries already built
+## Anything that depends on systemd should be built after this stage
+FROM rsync AS systemd-base
+
+ARG SYSTEMD_VERSION=257.8
+ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
+
+COPY --from=gperf /gperf /gperf
+RUN rsync -aHAX --keep-dirlinks  /gperf/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+
+COPY --from=python-build /python /python
+RUN rsync -aHAX --keep-dirlinks  /python/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+COPY --from=libseccomp /libseccomp /libseccomp
+RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /
+
+COPY --from=dbus /dbus /dbus
+RUN rsync -aHAX --keep-dirlinks  /dbus/. /
+
+COPY --from=pam /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+
+COPY --from=libffi /libffi /libffi
+RUN rsync -aHAX --keep-dirlinks  /libffi/. /
+
+# Cryptsetup for systemd-cryptsetup
+COPY --from=cryptsetup /cryptsetup /cryptsetup
+RUN rsync -aHAX --keep-dirlinks  /cryptsetup/. /
+
+# jsonc for cryptsetup
+COPY --from=jsonc /jsonc /jsonc
+RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+
+# mapper for cryptsetup
+COPY --from=lvm2 /lvm2 /lvm2
+RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+
+COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
+RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /
+
+COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
+RUN mkdir -p /systemd
+RUN python3 -m pip install meson ninja jinja2 pyelftools
+
+## TODO: We are going to have issues here
+## systemd-bless and other systemd-tpm releated tools need to be ebable by setting the BOOTLOADER to true
+## but that tries to build systemd-boot as well which fails due to the missing wchar_t definition in musl
+## we avoid this by only building the bootloader in a separate stage below
+## But in here we want to build all those needed pieces, so we hack the meson.build files to remove the bootloader dependency
+## We know we are going to need them later and we are going to be using sdboot from the separate stage below so its ok
+FROM systemd-base AS systemd
+WORKDIR /sources/systemd
+ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
+## Superhack to get tpm2-setup binary and service to build without having bootloader=enabled
+RUN sed -i "/'name' *: *'systemd-tpm2-setup'/,/},/s/'ENABLE_BOOTLOADER', *//" src/tpm2-setup/meson.build
+## Superhack to enable units that are linked to booloader build but we cant build them directly
+RUN sed -i "/'file' *: *'systemd-bless-boot.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-pcrextend@.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-pcrextend.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-tpm2-setup.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-tpm2-setup-early.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-pcrlock@.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-pcrlock.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN sed -i "/'file' *: *'systemd-pcrlock.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+RUN /usr/bin/meson setup buildDir \
+      --prefix=/usr           \
+      --buildtype=minsize -Dstrip=true     \
+      -D dbus=enabled  \
+      -D bootloader=disabled  \
+      -D tpm2=enabled          \
+      -D pam=enabled \
+      -D libcryptsetup=enabled  \
+      -D kmod=enabled \
+      -D seccomp=enabled         \
+      -D default-dnssec=no    \
+      -D firstboot=false      \
+      -D sysusers=true \
+      -D install-tests=false  \
+      -D ldconfig=false       \
+      -D rpmmacrosdir=no      \
+      -D gshadow=false        \
+      -D idn=false            \
+      -D localed=false        \
+      -D nss-myhostname=false  \
+      -D nss-systemd=false     \
+      -D userdb=false         \
+      -D nss-mymachines=disabled \
+      -D nss-resolve=disabled   \
+      -D utmp=false           \
+      -D homed=disabled       \
+      -D man=disabled         \
+      -D mode=release         \
+      -D pamconfdir=no        \
+      -D dev-kvm-mode=0660    \
+      -D nobody-group=nogroup \
+      -D sysupdate=disabled   \
+      -D ukify=disabled       \
+      -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION}
+RUN ninja -C buildDir
+RUN DESTDIR=/systemd ninja -C buildDir install
+
+## In here we only build the sdboot files
+## with musl, we cannot compile the full systemd-boot due to missing wchar_t definition
+## and with it, we cannot compile other things
+## So we workaround by building only the bootloader in this separate stage
+## using meson to compile it (not install as that builds more stuff)
+## and copying the resulting .efi files
+FROM systemd-base AS systemd-bootloader
+ARG VERSION
+WORKDIR /sources/systemd
+ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wchar_t"
+RUN /usr/bin/meson setup buildDir \
+    --prefix=/usr \
+    --buildtype=minsize \
+    -D strip=true -Dman=false \
+    -D bootloader=true -Defi=true \
+    -D sbat-distro="Hadron" \
+    -D sbat-distro-url="hadron.kairos.io" \
+    -Dsbat-distro-summary="Hadron Linux" \
+    -Dsbat-distro-version="${VERSION}"
+RUN /usr/bin/meson compile systemd-boot -C buildDir
+## Mimic the efi install places other distros and the full systemd install does.
+RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
+RUN cp buildDir/src/boot/*.efi /systemd/usr/lib/systemd/boot/efi/
+RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
+
+
+## multipath-tools with systemd support
+## lvm2 for dmsetup, devmapper and so on
+## We need to build it with systemd support so we can use it later with systemd rules and so on
+## This helps when a device is unlocked to makle the mapper show the device right away
+FROM rsync AS lvm2-systemd
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libaio /libaio /libaio
+RUN rsync -aHAX --keep-dirlinks  /libaio/. /
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=python-build  /python /python
+RUN rsync -aHAX --keep-dirlinks  /python/. /
+COPY --from=ca-certificates /ca-certificates /ca-certificates
+RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+
+COPY --from=sources-downloader /sources/downloads/lvm2.tgz /sources/
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
+
+RUN mkdir -p /lvm2
+
+# extract the aport patch to apply to lvm2
+WORKDIR /sources/patches
+RUN tar -xf aports.tar.gz && mv aports-* aport
+WORKDIR /sources
+RUN tar -xf lvm2.tgz && mv LVM2* lvm2
+WORKDIR /sources/lvm2
+# patch it
+RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
+RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --enable-udev_sync --enable-udev_rules --with-udevdir=/usr/lib/udev/rules.d --enable-dmeventd
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${JOBS} install
+
+## needed for dracut and other tools
+FROM rsync AS multipath-tools
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+# devmapper
+COPY --from=lvm2-systemd /lvm2 /lvm2
+RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+
+## get libudev from systemd
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+
+## libaio for multipathd
+COPY --from=libaio /libaio /libaio
+RUN rsync -aHAX --keep-dirlinks  /libaio/. /
+
+## json-c for multipathd
+COPY --from=jsonc /jsonc /jsonc
+RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+
+## urcu for multipathd
+COPY --from=urcu /urcu /urcu
+RUN rsync -aHAX --keep-dirlinks  /urcu/. /
+
+## util-linux for libmount.so
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
+
+## libcap
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=pax-utils /pax-utils /pax-utils
+RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+
+COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
+WORKDIR /sources/patches
+RUN tar -xf aports.tar.gz && mv aports-* aport
+# extract the aport patch to apply to multipath-tools
+RUN mkdir -p /multipath-tools
+WORKDIR /sources
+RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
+WORKDIR /sources/multipath-tools
+# patch it
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/0001-Disable-O2.patch
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-basename.patch
+RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-implicit-function-declaration-error.patch
+ENV CC="gcc"
+# Set lib to /lib so it works in initramfs as well
+RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} WARN_ONLY=1 SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} WARN_ONLY=1 LIB=/lib install
+RUN rm -Rf /multipath/usr/share/man
+
+## dbus second pass pass with systemd support, so we can have a working systemd and dbus
+FROM python-build AS dbus-systemd
+
+COPY --from=expat /expat /expat
+RUN rsync -aHAX --keep-dirlinks  /expat/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
+# install target
+RUN mkdir -p /dbus
+WORKDIR /sources
+RUN pip3 install meson ninja
+RUN tar -xf dbus.tar.xz && mv dbus-* dbus
+WORKDIR /sources/dbus
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
+RUN DESTDIR=/dbus ninja -C buildDir install
 
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
@@ -2561,7 +2673,7 @@ COPY --from=flex /flex /flex
 RUN rsync -aHAX --keep-dirlinks  /flex/. /merge
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /merge
-COPY --from=lvm2 /lvm2 /lvm2
+COPY --from=lvm2-systemd /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /merge
 COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /merge
@@ -2808,7 +2920,7 @@ COPY --from=growpart /growpart /growpart
 RUN rsync -aHAX --keep-dirlinks  /growpart/. /skeleton
 
 # device-mapper from lvm2
-COPY --from=lvm2 /lvm2 /lvm2
+COPY --from=lvm2-systemd /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /skeleton/
 
 COPY --from=multipath-tools /multipath-tools /multipath-tools
@@ -2872,6 +2984,9 @@ RUN rsync -aHAX --keep-dirlinks  /kmod/. /skeleton
 # lzma needed by openscsi
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
+
+COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
+RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
 ## This target will assemble dracut and all its dependencies into the skeleton
 FROM stage0 AS dracut-final
