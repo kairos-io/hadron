@@ -354,7 +354,7 @@ jobs:
   build-trusted-iso:
     runs-on: ubuntu-latest
     needs:
-      - build-grub
+      - build-trusted
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
