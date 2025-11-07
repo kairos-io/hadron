@@ -344,9 +344,14 @@ jobs:
         run: |
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $PWD/tests/assets/keys:/keys \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.13.0 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-grub-${{ github.sha }} \
+          quay.io/kairos/auroraboot:v0.13.0 --debug build-uki \
+          --output-dir /output/ --public-keys /keys \
+          --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
+          --sb-key /keys/db.key \
+          --sb-cert /keys/db.pem \
+          --output-type iso \
           docker:ttl.sh/hadron-init-grub:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v5
