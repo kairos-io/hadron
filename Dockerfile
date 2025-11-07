@@ -1887,46 +1887,6 @@ RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables
 RUN make -s -s && make -s -s install DESTDIR=/iptables
 
-FROM rsync AS dracut
-
-
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=bash /bash /bash
-RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=coreutils /coreutils /coreutils
-RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
-
-COPY --from=zstd /zstd /zstd
-RUN rsync -aHAX --keep-dirlinks  /zstd/. /
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-COPY --from=fts /fts /fts
-RUN rsync -aHAX --keep-dirlinks  /fts/. /
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
-
-COPY --from=sources-downloader /sources/downloads/dracut.tar.gz /sources/
-RUN mkdir -p /dracut
-WORKDIR /sources
-RUN tar -xf dracut.tar.gz && mv dracut-* dracut
-WORKDIR /sources/dracut
-## TODO: Fix this, it should be set everywhere already?
-ENV CC=gcc
-RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
-
 ## libaio for lvm2
 FROM rsync AS libaio
 
@@ -2170,7 +2130,7 @@ COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=lvm2-systemd /lvm2 /lvm2
+COPY --from=lvm2 /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
 COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /
@@ -2378,6 +2338,47 @@ RUN /usr/bin/meson compile systemd-boot -C buildDir
 RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
 RUN cp buildDir/src/boot/*.efi /systemd/usr/lib/systemd/boot/efi/
 RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
+
+
+FROM rsync AS dracut
+
+
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+
+COPY --from=zstd /zstd /zstd
+RUN rsync -aHAX --keep-dirlinks  /zstd/. /
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=kmod /kmod /kmod
+RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=fts /fts /fts
+RUN rsync -aHAX --keep-dirlinks  /fts/. /
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+
+COPY --from=sources-downloader /sources/downloads/dracut.tar.gz /sources/
+RUN mkdir -p /dracut
+WORKDIR /sources
+RUN tar -xf dracut.tar.gz && mv dracut-* dracut
+WORKDIR /sources/dracut
+## TODO: Fix this, it should be set everywhere already?
+ENV CC=gcc
+RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
 
 
 ## multipath-tools with systemd support
