@@ -370,7 +370,7 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/tests/assets/keys:/keys \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.13.0 --debug build-uki \
+          quay.io/kairos/auroraboot:v0.14.0-beta1 --debug build-uki \
           --output-dir /output/ --public-keys /keys \
           --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
           --sb-key /keys/db.key \
