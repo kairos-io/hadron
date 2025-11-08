@@ -41,7 +41,7 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 	Describe("Uki tests", Label("acceptance-trusted", "acceptance-trusted-generic"), func() {
 		BeforeEach(func() {
-			datasource = CreateDatasource("assets/uki-install.yaml")
+			datasource = CreateDatasource("assets/uki.yaml")
 			Expect(os.Setenv("DATASOURCE", datasource)).ToNot(HaveOccurred())
 			_, vm = startVM()
 			vm.EventuallyConnects(300)
