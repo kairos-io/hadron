@@ -383,7 +383,7 @@ jobs:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
           path: build/*.iso
   tests-grub:
-    runs-on: ubuntu-latest
+    runs-on: fast # Custom runner, more memory and CPU
     name: ${{ matrix.test }} tests
     needs:
       - build-grub-iso
@@ -435,7 +435,7 @@ jobs:
           path: tests/**/logs/*
           if-no-files-found: warn
   tests-trusted:
-    runs-on: fast # Custom runner, seems to expose the swtpm device directly?
+    runs-on: fast # Custom runner, more memory and CPU
     name: ${{ matrix.test }} tests
     needs:
       - build-trusted-iso
