@@ -51,17 +51,21 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 		})
 
 		BeforeAll(func() {
-			if os.Getenv("EXPECTED_NEW_VERSION") == "" {
-				Fail("EXPECTED_NEW_VERSION environment variable is needed for the UKI upgrade test")
-			}
+			// Not needed for now as we dont test the upgrade itself
+			/*
+				if os.Getenv("EXPECTED_NEW_VERSION") == "" {
+					Fail("EXPECTED_NEW_VERSION environment variable is needed for the UKI upgrade test")
+				}
 
-			if os.Getenv("EXPECTED_SINGLE_ENTRY") == "" {
-				Fail("EXPECTED_SINGLE_ENTRY environment variable is needed for the UKI upgrade test")
-			}
+				if os.Getenv("EXPECTED_SINGLE_ENTRY") == "" {
+					Fail("EXPECTED_SINGLE_ENTRY environment variable is needed for the UKI upgrade test")
+				}
 
-			if os.Getenv("UPGRADE_IMAGE") == "" {
-				Fail("UPGRADE_IMAGE environment variable is needed for the UKI upgrade test")
-			}
+				if os.Getenv("UPGRADE_IMAGE") == "" {
+					Fail("UPGRADE_IMAGE environment variable is needed for the UKI upgrade test")
+				}
+
+			*/
 		})
 		It("passes checks", func() {
 
