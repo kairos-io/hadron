@@ -61,7 +61,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
         if: github.event_name == 'pull_request'
@@ -127,7 +127,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: container
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
       - name: Build PR
         if: github.event_name == 'pull_request'
@@ -150,7 +150,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           target: container-test
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
   hadron-grub:
     runs-on: oracle-24cpu-384gb-x86-64
     needs:
@@ -201,7 +201,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args:
             BOOTLOADER=grub
@@ -269,7 +269,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-${{ github.ref_name }}
+          cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args:
             BOOTLOADER=systemd
@@ -287,7 +287,7 @@ jobs:
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args:
             BOOTLOADER=systemd
-  build:
+  build-grub:
     runs-on: ubuntu-latest
     needs:
       - hadron-grub
@@ -303,14 +303,36 @@ jobs:
         with:
           file: ./Dockerfile.init
           push: true
-          tags: ttl.sh/hadron-init:${{ github.sha }}
+          tags: ttl.sh/hadron-init-grub:${{ github.sha }}
           build-args: |
             BASE_IMAGE=ttl.sh/hadron-grub:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
-  build-iso:
+            TRUSTED_BOOT=false
+  build-trusted:
     runs-on: ubuntu-latest
     needs:
-      - build
+      - hadron
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          file: ./Dockerfile.init
+          push: true
+          tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ttl.sh/hadron:${{ github.sha }}
+            VERSION=v0.0.1-${{ github.sha }}
+            TRUSTED_BOOT=true
+  build-grub-iso:
+    runs-on: ubuntu-latest
+    needs:
+      - build-grub
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -324,18 +346,47 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.13.0 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-${{ github.sha }} \
-          docker:ttl.sh/hadron-init:${{ github.sha }}
+          --override-name kairos-hadron-trusted-${{ github.sha }} \
+          docker:ttl.sh/hadron-init-grub:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: kairos-hadron-${{ github.sha }}.iso.zip
+          name: kairos-hadron-grub-${{ github.sha }}.iso.zip
           path: build/*.iso
-  tests:
+  build-trusted-iso:
+    runs-on: ubuntu-latest
+    needs:
+      - build-trusted
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build ISO
+        run: |
+          mkdir build
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $PWD/tests/assets/keys:/keys \
+          -v $PWD/build/:/output \
+          quay.io/kairos/auroraboot:v0.13.0 --debug build-uki \
+          --output-dir /output/ --public-keys /keys \
+          --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
+          --sb-key /keys/db.key \
+          --sb-cert /keys/db.pem \
+          --output-type iso \
+          docker:ttl.sh/hadron-init-trusted:${{ github.sha }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
+          path: build/*.iso
+  tests-grub:
     runs-on: ubuntu-latest
     name: ${{ matrix.test }} tests
     needs:
-      - build-iso
+      - build-grub-iso
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
@@ -357,7 +408,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v6
         with:
-          name: kairos-hadron-${{ github.sha }}.iso.zip
+          name: kairos-hadron-grub-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
         run: |
           sudo apt-get update
@@ -381,6 +432,59 @@ jobs:
         if: failure()
         with:
           name: acceptance-${{github.sha}}.logs.zip
+          path: tests/**/logs/*
+          if-no-files-found: warn
+  tests-trusted:
+    runs-on: ubuntu-latest
+    name: ${{ matrix.test }} tests
+    needs:
+      - build-trusted-iso
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        test:
+          - "acceptance-trusted-generic"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v6
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Download artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
+      - name: Enable KVM group perms
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
+          sudo setfacl -m u:runner:rwx /dev/kvm
+      - name: Run tests
+        env:
+          USE_QEMU: true
+          KVM: true
+          MEMORY: 5000
+          DRIVE_SIZE: 50000
+          CREATE_VM: true
+          CPUS: 4
+          FIRMWARE: /usr/share/OVMF/OVMF_CODE.fd
+          EMULATE_TPM: true
+          UKI_TEST: true
+        run: |
+          export ISO=$PWD/$(ls *.iso|grep -v ipxe | head -1 )
+          echo "ISO is: $ISO"
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        if: failure()
+        with:
+          name: acceptance-trusted-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
