@@ -435,7 +435,7 @@ jobs:
           path: tests/**/logs/*
           if-no-files-found: warn
   tests-trusted:
-    runs-on: ubuntu-latest
+    runs-on: fast # Custom runner, seems to expose the swtpm device directly?
     name: ${{ matrix.test }} tests
     needs:
       - build-trusted-iso
