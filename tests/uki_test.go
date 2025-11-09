@@ -79,8 +79,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
 				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "alpine", "opensuse", "ubuntu", "debian", "fedora")
-				stateContains(vm, "kairos.flavor", "alpine", "opensuse", "ubuntu", "debian", "fedora")
+				stateContains(vm, "system.os.name", "hadron")
+				stateContains(vm, "kairos.flavor", "hadron")
 			})
 
 			By("rebooting to recovery")
@@ -151,8 +151,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
 				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "alpine", "opensuse", "ubuntu", "debian", "fedora")
-				stateContains(vm, "kairos.flavor", "alpine", "opensuse", "ubuntu", "debian", "fedora")
+				stateContains(vm, "system.os.name", "hadron")
+				stateContains(vm, "kairos.flavor", "hadron")
 			})
 
 			By("Checking that the active entry is broken and with 0 retries", func() {
