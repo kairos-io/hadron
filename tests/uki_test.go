@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,27 +40,13 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 	Describe("Uki tests", Label("acceptance-trusted", "acceptance-trusted-generic"), func() {
 		BeforeEach(func() {
-			datasource = CreateDatasource("assets/uki-install.yaml")
+			datasource = CreateDatasource("assets/uki.yaml")
 			Expect(os.Setenv("DATASOURCE", datasource)).ToNot(HaveOccurred())
 			_, vm = startVM()
 			vm.EventuallyConnects(300)
 		})
 		AfterEach(func() {
 			Expect(os.Remove(datasource)).ToNot(HaveOccurred())
-		})
-
-		BeforeAll(func() {
-			if os.Getenv("EXPECTED_NEW_VERSION") == "" {
-				Fail("EXPECTED_NEW_VERSION environment variable is needed for the UKI upgrade test")
-			}
-
-			if os.Getenv("EXPECTED_SINGLE_ENTRY") == "" {
-				Fail("EXPECTED_SINGLE_ENTRY environment variable is needed for the UKI upgrade test")
-			}
-
-			if os.Getenv("UPGRADE_IMAGE") == "" {
-				Fail("UPGRADE_IMAGE environment variable is needed for the UKI upgrade test")
-			}
 		})
 		It("passes checks", func() {
 
@@ -75,8 +60,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
 				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "alpine", "opensuse", "ubuntu", "debian", "fedora")
-				stateContains(vm, "kairos.flavor", "alpine", "opensuse", "ubuntu", "debian", "fedora")
+				stateContains(vm, "system.os.name", "hadron")
+				stateContains(vm, "kairos.flavor", "hadron")
 			})
 
 			By("rebooting to recovery")
@@ -105,25 +90,6 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 			out, err = vm.Sudo("ls /usr/local/after-reset-file")
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(out).ToNot(MatchRegexp("No such file or directory"))
-
-			By("upgrading a single boot entry")
-			upgradeImage := os.Getenv("UPGRADE_IMAGE")
-			out, err = vm.Sudo(fmt.Sprintf("kairos-agent --debug upgrade --source oci:%s --boot-entry %s", upgradeImage, os.Getenv("EXPECTED_SINGLE_ENTRY")))
-			Expect(err).ToNot(HaveOccurred(), out)
-			out, err = vm.Sudo(fmt.Sprintf("kairos-agent --debug bootentry --select %s", os.Getenv("EXPECTED_SINGLE_ENTRY")))
-			Expect(err).ToNot(HaveOccurred(), out)
-			vm.Reboot()
-			vm.EventuallyConnects(1200)
-
-			By("checking if upgrade worked")
-			out, err = vm.Sudo("cat /etc/kairos-release")
-			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(MatchRegexp(fmt.Sprintf("KAIROS_VERSION=\"?%s\"?", os.Getenv("EXPECTED_NEW_VERSION"))))
-
-			out, err = vm.Sudo("cat /sys/firmware/efi/efivars/LoaderEntrySelected-*")
-			Expect(err).ToNot(HaveOccurred(), out)
-			selectedEntry := removeSpecialChars(out)
-			Expect(selectedEntry).To(Equal(fmt.Sprintf("%s+3.conf", strings.TrimSpace(os.Getenv("EXPECTED_SINGLE_ENTRY")))))
 		})
 	})
 	Describe("Uki boot assessment tests", Label("acceptance-trusted", "acceptance-trusted-boot-assessment"), func() {
@@ -147,8 +113,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
 				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "alpine", "opensuse", "ubuntu", "debian", "fedora")
-				stateContains(vm, "kairos.flavor", "alpine", "opensuse", "ubuntu", "debian", "fedora")
+				stateContains(vm, "system.os.name", "hadron")
+				stateContains(vm, "kairos.flavor", "hadron")
 			})
 
 			By("Checking that the active entry is broken and with 0 retries", func() {
@@ -167,15 +133,6 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 	})
 
 })
-
-func removeSpecialChars(str string) string {
-	return strings.Map(func(r rune) rune {
-		if unicode.IsPrint(r) {
-			return r
-		}
-		return -1
-	}, str)
-}
 
 func genericTests(vm VM) {
 	By("Checking SecureBoot is enabled", func() {

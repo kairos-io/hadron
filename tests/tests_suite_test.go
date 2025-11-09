@@ -137,6 +137,24 @@ func gatherLogs(vm VM) {
 		})
 }
 
+// return the PID of the swtpm (to be killed later) and the state directory
+func emulateTPM(stateDir string) {
+	t := path.Join(stateDir, "tpm")
+	err := os.MkdirAll(t, os.ModePerm)
+	Expect(err).ToNot(HaveOccurred())
+
+	cmd := exec.Command("swtpm",
+		"socket",
+		"--tpmstate", fmt.Sprintf("dir=%s", t),
+		"--ctrl", fmt.Sprintf("type=unixio,path=%s/swtpm-sock", t),
+		"--tpm2", "--log", "level=20")
+	err = cmd.Start()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = os.WriteFile(path.Join(t, "pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0744)
+	Expect(err).ToNot(HaveOccurred())
+}
+
 func startVM() (context.Context, VM) {
 	stateDir, err := os.MkdirTemp("", "")
 	Expect(err).ToNot(HaveOccurred())
@@ -225,6 +243,9 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 	var sshPort, spicePort int
 
 	vmName := uuid.New().String()
+
+	// Always setup a tpm emulator
+	emulateTPM(stateDir)
 
 	sshPort, err = getFreePort()
 	Expect(err).ToNot(HaveOccurred())
