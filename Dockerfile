@@ -1889,7 +1889,7 @@ WORKDIR /sources/iptables
 # otherwise its redeclared in other headers and fails the build
 RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
 
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables
 RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 ## libaio for lvm2
@@ -2262,7 +2262,6 @@ COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
 RUN mkdir -p /systemd
 RUN python3 -m pip install meson ninja jinja2 pyelftools
 
-## TODO: We are going to have issues here
 ## systemd-bless and other systemd-tpm releated tools need to be ebable by setting the BOOTLOADER to true
 ## but that tries to build systemd-boot as well which fails due to the missing wchar_t definition in musl
 ## we avoid this by only building the bootloader in a separate stage below
@@ -2332,6 +2331,7 @@ ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wc
 RUN /usr/bin/meson setup buildDir \
     --prefix=/usr \
     --buildtype=minsize \
+    -D mode=release         \
     -D strip=true -Dman=false \
     -D bootloader=true -Defi=true \
     -D sbat-distro="Hadron" \
@@ -2938,6 +2938,12 @@ RUN rsync -aHAX --keep-dirlinks  /sudo/. /skeleton
 # Iptables is needed to support k8s
 COPY --from=iptables /iptables /iptables
 RUN rsync -aHAX --keep-dirlinks  /iptables/. /skeleton
+
+# For iptables-nft backend
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /skeleton
+COPY --from=libnftnl /libnftnl /libnftnl
+RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /skeleton
 
 ## cryptsetup for encrypted partitions
 ## TODO: do we need to build systemd after cryptsetup to have the systemd-cryptsetup unit?
