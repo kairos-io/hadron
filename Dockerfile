@@ -472,6 +472,11 @@ RUN cd /sources/downloads && wget -q https://github.com/libffi/libffi/releases/d
 ARG TPM2_TSS_VERSION=4.1.3
 RUN cd /sources/downloads && wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz && mv tpm2-tss-${TPM2_TSS_VERSION}.tar.gz tpm2-tss.tar.gz
 
+# libxml
+ARG LIBXML2_VERSION=2.14.5
+ARG LIBXML2_VERSION_MAJOR_AND_MINOR=2.14
+RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz && mv libxml2-${LIBXML2_VERSION}.tar.xz libxml2.tar.xz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -2626,6 +2631,19 @@ RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D i
 RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
 
 
+FROM rsync AS libxml
+RUN mkdir -p /libxml
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+COPY --from=sources-downloader /sources/downloads/libxml2.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
+WORKDIR /sources/libxml2
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libxml && make -s -j${JOBS} install
+
+
 ## Build image with all the deps on it
 FROM stage1 AS full-toolchain-merge
 ## Prepare rsync to work
@@ -2637,7 +2655,6 @@ COPY --link --from=zstd /zstd /
 COPY --link --from=zlib /zlib /
 COPY --link --from=lz4 /lz4 /
 COPY --link --from=xxhash /xxhash /
-COPY --link --from=lz4 /lz4 /
 
 # Now prepare a merged directory with all the built tools
 COPY --from=cmake /cmake /cmake
@@ -2724,11 +2741,26 @@ COPY --from=make-stage0 /sysroot /make
 RUN rsync -aHAX --keep-dirlinks /make/. /merge
 COPY --from=binutils-stage0 /sysroot /binutils
 RUN rsync -aHAX --keep-dirlinks /binutils/. /merge
-
-
+COPY --from=attr /attr /attr
+RUN rsync -aHAX --keep-dirlinks  /attr/. /merge
+COPY --from=busybox /sysroot /busybox
+RUN rsync -aHAX --keep-dirlinks  /busybox/. /merge
+COPY --from=libffi /libffi /libffi
+RUN rsync -aHAX --keep-dirlinks  /libffi/. /merge
+COPY --from=lz4 /lz4 /lz4
+RUN rsync -aHAX --keep-dirlinks  /lz4/. /merge
+COPY --from=xxhash /xxhash /xxhash
+RUN rsync -aHAX --keep-dirlinks  /xxhash/. /merge
+COPY --from=popt /popt /popt
+RUN rsync -aHAX --keep-dirlinks  /popt/. /merge
+COPY --from=libxml /libxml /libxml
+RUN rsync -aHAX --keep-dirlinks  /libxml/. /merge
 
 FROM scratch AS toolchain
+SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+CMD ["/bin/bash", "-l"]
 
 ########################################################
 #
