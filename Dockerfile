@@ -2033,6 +2033,8 @@ RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 ## We need libstdc++ and libgcc to build gptfdisk
 COPY --from=gcc-stage0 /sysroot /gcc-stage0
 RUN rsync -aHAX --keep-dirlinks  /gcc-stage0/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
 COPY --from=sources-downloader /sources/downloads/gptfdisk.tar.gz /sources/
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
@@ -2046,10 +2048,11 @@ RUN tar -xf gptfdisk.tar.gz && mv gptfdisk-* gptfdisk
 WORKDIR /sources/gptfdisk
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-musl.patch
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
-## TODO: we need to get rid of these LDFLAGS, makes the binary around 9MB
-RUN make -s -j${JOBS} sgdisk
+## Making it static makes the binary around 9MB
+## But allows us to not ship the full libstdc++
+## which saves about 20Mb for libstdc++
+RUN make -s -j${JOBS} sgdisk CXXFLAGS='-O2 -pipe' LDFLAGS='-Wl,--as-needed -Wl,-Bstatic -lstdc++ -static-libgcc -Wl,-Bdynamic -luuid -lpopt'
 RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
-RUN install -Dm0755 -t /usr/bin sgdisk
 
 
 ## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
@@ -2967,10 +2970,7 @@ RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
 ## Use mount and cp to preserv symlinks, otherwise if we copy directly
 ## we will resolve the symlinks and copy the real files multiple times
 ## Copy libgcc_s.so.1 for multipathd deps and gptfdisk
-RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro \
-    mkdir -p /skeleton/usr/lib && \
-    cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/ && \
-    cp -a /mnt/libstdc++.so* /skeleton/usr/lib/
+RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/usr/lib && cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/
 
 ## liburcu needed by multipath-tools
 COPY --from=urcu /urcu /urcu
