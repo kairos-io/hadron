@@ -2050,7 +2050,7 @@ RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-musl.patch
 RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
 ## Making it static makes the binary around 9MB
 ## But allows us to not ship the full libstdc++
-## which saves about 20Mb for libstdc++
+## which saves about 20MB for libstdc++
 ## LDFLAGS explanation:
 ## -Wl,--as-needed: Only link libraries actually used.
 ## -Wl,-Bstatic -lstdc++ -static-libgcc: Statically link libstdc++ and libgcc to avoid shipping large C++ runtime libraries.
