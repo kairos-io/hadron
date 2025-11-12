@@ -2051,7 +2051,12 @@ RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
 ## Making it static makes the binary around 9MB
 ## But allows us to not ship the full libstdc++
 ## which saves about 20Mb for libstdc++
-RUN make -s -j${JOBS} sgdisk CXXFLAGS='-O2 -pipe' LDFLAGS='-Wl,--as-needed -Wl,-Bstatic -lstdc++ -static-libgcc -Wl,-Bdynamic -luuid -lpopt'
+## LDFLAGS explanation:
+## -Wl,--as-needed: Only link libraries actually used.
+## -Wl,-Bstatic -lstdc++ -static-libgcc: Statically link libstdc++ and libgcc to avoid shipping large C++ runtime libraries.
+## -Wl,-Bdynamic -luuid -lpopt: Dynamically link libuuid and libpopt, as static versions may not be available or desired.
+ENV GPTFDISK_LDFLAGS="-Wl,--as-needed -Wl,-Bstatic -lstdc++ -static-libgcc -Wl,-Bdynamic -luuid -lpopt"
+RUN make -s -j${JOBS} sgdisk CXXFLAGS='-O2 -pipe' LDFLAGS="${GPTFDISK_LDFLAGS}"
 RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
 
 
