@@ -2965,7 +2965,7 @@ COPY --from=multipath-tools /multipath-tools /multipath-tools
 RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
 ## Use mount and cp to preserv symlinks, otherwise if we copy directly
 ## we will resolve the symlinks and copy the real files multiple times
-## Copy libgcc_s.so.1 for multipathd deps and gptfdisk
+## Copy libgcc_s.so.1 for multipathd deps
 RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/usr/lib && cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/
 
 ## liburcu needed by multipath-tools
