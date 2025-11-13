@@ -2957,10 +2957,6 @@ RUN rsync -aHAX --keep-dirlinks  /cryptsetup/. /skeleton
 COPY --from=jsonc /jsonc /jsonc
 RUN rsync -aHAX --keep-dirlinks  /jsonc/. /skeleton
 
-## growpart
-COPY --from=growpart /growpart /growpart
-RUN rsync -aHAX --keep-dirlinks  /growpart/. /skeleton
-
 # device-mapper from lvm2
 COPY --from=lvm2-systemd /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /skeleton/
@@ -2975,9 +2971,6 @@ RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/
 ## liburcu needed by multipath-tools
 COPY --from=urcu /urcu /urcu
 RUN rsync -aHAX --keep-dirlinks  /urcu/. /skeleton
-
-COPY --from=parted /parted /parted
-RUN rsync -aHAX --keep-dirlinks  /parted/. /skeleton/
 
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
