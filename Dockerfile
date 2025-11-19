@@ -2983,13 +2983,6 @@ RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
 COPY --from=dosfstools /dosfstools /dosfstools
 RUN rsync -aHAX --keep-dirlinks  /dosfstools/. /skeleton/
 
-## popt for gptfdisk and probably parted
-COPY --from=popt /popt /popt
-RUN rsync -aHAX --keep-dirlinks  /popt/. /skeleton/
-
-COPY --from=gptfdisk /gptfdisk /gptfdisk
-RUN rsync -aHAX --keep-dirlinks  /gptfdisk/. /skeleton/
-
 ## systemd
 COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
