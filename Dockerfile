@@ -1276,7 +1276,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --with-privsep-user=nobody \
     --with-md5-passwords \
     --with-ssl-engine \
-    --disable-strip
+    --with-ssl-engine
+
 RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} DESTDIR=/openssh install
 RUN make -s -j${JOBS} install
@@ -2778,7 +2779,8 @@ CMD ["/bin/bash", "-l"]
 # stage-merge will merge all the built packages into a single directory
 FROM stage0 AS stage2-merge
 
-RUN apk add rsync
+RUN apk add rsync pax-utils
+
 
 COPY --from=skeleton /sysroot /skeleton
 
@@ -2901,6 +2903,16 @@ RUN rm -rf /skeleton/usr/share/local/info
 # Remove static libs
 RUN find /skeleton -name '*.a' -delete
 
+# Strip binaries
+# Strip binaries
+RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+
+
+# Remove python artifacts
+RUN find /skeleton -name "*.pyc" -delete
+RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
+
+
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
 COPY --from=stage2-merge /skeleton /
@@ -2931,7 +2943,9 @@ RUN ldd /bin/bash
 # stage2-merge is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
 FROM alpine:${ALPINE_VERSION} AS full-image-merge
-RUN apk add rsync
+RUN apk add rsync pax-utils binutils
+
+
 ## openssh
 COPY --from=openssh /openssh /openssh
 RUN rsync -aHAX --keep-dirlinks  /openssh/. /skeleton/
@@ -3018,9 +3032,19 @@ RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
 COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
+# Strip binaries
+RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+
+
+# Remove python artifacts
+RUN find /skeleton -name "*.pyc" -delete
+RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
+
+
 ## This target will assemble dracut and all its dependencies into the skeleton
 FROM stage0 AS dracut-final
-RUN apk add rsync
+RUN apk add rsync pax-utils
+
 ## kmod for modprobe, insmod, lsmod, modinfo, rmmod. Draut depends on this
 COPY --from=kmod /kmod /kmod
 RUN rsync -aHAX --keep-dirlinks  /kmod/. /skeleton
@@ -3051,6 +3075,11 @@ RUN rsync -aHAX --keep-dirlinks  /grub-bios/. /skeleton
 ## Dracut
 COPY --from=dracut /dracut /dracut
 RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
+
+# Strip binaries
+RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+
+
 
 ### Assemble the image depending on our bootloader
 ## either grub or systemd-boot for trusted boot
@@ -3135,3 +3164,10 @@ FROM full-image-final AS debug
 COPY --from=strace /strace /
 COPY --from=gdb-stage0 /gdb /
 CMD ["/bin/bash", "-l"]
+
+## Final verification stage
+FROM full-image-final AS image-test
+COPY files/verify_binaries.sh /verify_binaries.sh
+RUN chmod +x /verify_binaries.sh
+RUN /verify_binaries.sh
+
