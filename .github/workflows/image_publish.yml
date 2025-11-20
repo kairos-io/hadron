@@ -378,6 +378,7 @@ jobs:
           --sb-cert /keys/db.pem \
           --output-type iso \
           --overlay-iso /overlay \
+          --sdboot-in-source \
           docker:ttl.sh/hadron-init-trusted:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v5

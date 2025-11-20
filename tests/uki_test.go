@@ -157,15 +157,20 @@ func genericTests(vm VM) {
 			return out
 		}, 2*time.Minute).Should(And(
 			ContainSubstring("Running after-install hook"),
-			ContainSubstring("Encrypting COS_OEM"),
-			ContainSubstring("Encrypting COS_PERSISTENT"),
-			ContainSubstring("Done encrypting COS_OEM"),
-			ContainSubstring("Done encrypting COS_PERSISTENT"),
 			ContainSubstring("Done executing stage 'kairos-uki-install.after.after'"),
 			ContainSubstring("Unmounting disk partitions"),
 		))
+
 		vm.Sudo("sync")
 		time.Sleep(10 * time.Second)
+	})
+	By("Checking OEM/PERSISTENT are encrypted", func() {
+		out, err := vm.Sudo("blkid /dev/vda2")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(ContainSubstring("crypto_LUKS"))
+		out, err = vm.Sudo("blkid /dev/vda3")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(ContainSubstring("crypto_LUKS"))
 	})
 	By("Ejecting Cdrom", func() {
 		vm.DetachCD()
