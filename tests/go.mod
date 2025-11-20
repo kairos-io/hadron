@@ -1,12 +1,12 @@
 module hadron-tests
 
-go 1.24.2
+go 1.25.3
 
 require (
 	github.com/diskfs/go-diskfs v1.7.0
 	github.com/google/uuid v1.6.0
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/spectrocloud/peg v0.0.0-20240405075800-c5da7125e30f
 )

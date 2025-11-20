@@ -2314,8 +2314,7 @@ RUN /usr/bin/meson setup buildDir \
       -D dev-kvm-mode=0660    \
       -D nobody-group=nogroup \
       -D sysupdate=disabled   \
-      -D ukify=disabled       \
-      -D docdir=/usr/share/doc/systemd-${SYSTEMD_VERSION}
+      -D ukify=disabled
 RUN ninja -C buildDir
 RUN DESTDIR=/systemd ninja -C buildDir install
 
@@ -2760,7 +2759,7 @@ RUN rsync -aHAX --keep-dirlinks  /libxml/. /merge
 FROM scratch AS toolchain
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+RUN ln -s /bin/bash /bin/sh
 CMD ["/bin/bash", "-l"]
 
 ########################################################
