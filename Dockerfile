@@ -1268,7 +1268,6 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --with-privsep-path=/var/empty \
     --with-privsep-user=nobody \
     --with-md5-passwords \
-    --with-ssl-engine \
     --with-ssl-engine
 
 RUN make -s -j${JOBS}
@@ -2897,7 +2896,6 @@ RUN rm -rf /skeleton/usr/share/local/info
 RUN find /skeleton -name '*.a' -delete
 
 # Strip binaries
-# Strip binaries
 RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
@@ -3071,6 +3069,7 @@ COPY --from=dracut /dracut /dracut
 RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 
 # Strip binaries
+# As this is added to the full-image-merge we still have to strip binaries here
 RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
