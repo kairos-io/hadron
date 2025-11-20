@@ -1066,27 +1066,20 @@ RUN cd /sources && tar -xf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPE
     make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} install_sw install_ssldirs
 
 ## Busybox (from stage1, ready to be used in the final image)
+## with a tiny config as we have other tools
 FROM openssl AS busybox
 
 COPY --from=busybox-stage0 /sources /sources
 
 ARG BUSYBOX_VERSION=1.37.0
 ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
-
-RUN cd /sources && rm -rfv busybox-${BUSYBOX_VERSION} && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
-    cd busybox-${BUSYBOX_VERSION} && \
-    make -s distclean && \
-    make -s defconfig && \
-    sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
-    sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_FEATURE_UTMP\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
-    sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config
-RUN cd /sources/busybox-${BUSYBOX_VERSION} && \
-    make -s && \
-    make -s CONFIG_PREFIX="/sysroot" install && make -s -j${JOBS} install
+WORKDIR /sources
+RUN rm -rfv busybox-${BUSYBOX_VERSION} && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2
+WORKDIR /sources/busybox-${BUSYBOX_VERSION}
+COPY ./files/busybox/minimal.config .config
+RUN make oldconfig
+RUN make -s -j${JOBS} CONFIG_PREFIX="/sysroot" install
+RUN make -s -j${JOBS} install
 
 ## coreutils
 FROM rsync AS coreutils
@@ -2916,7 +2909,7 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
 COPY --from=stage2-merge /skeleton /
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh
+SHELL ["/bin/bash", "-c"]
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd
 CMD ["/bin/bash", "-l"]
@@ -2994,8 +2987,9 @@ RUN rsync -aHAX --keep-dirlinks  /urcu/. /skeleton
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
 
-COPY --from=dosfstools /dosfstools /dosfstools
-RUN rsync -aHAX --keep-dirlinks  /dosfstools/. /skeleton/
+## mkfs.vfat provided by busybox
+#COPY --from=dosfstools /dosfstools /dosfstools
+#RUN rsync -aHAX --keep-dirlinks  /dosfstools/. /skeleton/
 
 ## systemd
 COPY --from=systemd /systemd /systemd
@@ -3119,7 +3113,10 @@ COPY --from=full-image-pre-systemd /skeleton /
 # We also add some default configs for sysctl, login.defs, etc
 # We also run systemctl preset-all to have default presets for systemd services
 FROM full-image-${BOOTLOADER} AS full-image-final
+SHELL ["/bin/bash", "-c"]
 ARG VERSION
+## Link sh to bash
+RUN ln -s /bin/bash /bin/sh
 ## Cleanup first
 # We don't need headers
 RUN rm -rf /usr/include
