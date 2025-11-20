@@ -2907,6 +2907,8 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 FROM scratch AS container
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
+## Link sh to bash
+RUN ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd
 CMD ["/bin/bash", "-l"]
@@ -3113,8 +3115,6 @@ COPY --from=full-image-pre-systemd /skeleton /
 FROM full-image-${BOOTLOADER} AS full-image-final
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
-## Link sh to bash
-RUN ln -s /bin/bash /bin/sh
 ## Cleanup first
 # We don't need headers
 RUN rm -rf /usr/include
