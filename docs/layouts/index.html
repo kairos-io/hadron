@@ -1,84 +1,224 @@
-<!DOCTYPE html>
-<html lang="{{ .Site.LanguageCode }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ .Site.Title }}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        header {
-            margin-bottom: 2rem;
-        }
-        header img {
-            max-width: 250px;
-            margin-bottom: 1rem;
-        }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-        }
-        h2 {
-            color: #34495e;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-        }
-        p {
-            margin-bottom: 1rem;
-        }
-        ul {
-            margin-left: 2rem;
-            margin-bottom: 1rem;
-        }
-        li {
-            margin-bottom: 0.5rem;
-        }
-        code {
-            background: #f4f4f4;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        pre {
-            background: #f4f4f4;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-        pre code {
-            background: none;
-            padding: 0;
-        }
-        a {
-            color: #3498db;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        strong {
-            color: #2c3e50;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        {{ .Content }}
-    </header>
-</body>
-</html>
+<!doctype html>
+<html lang="en">
 
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Hadron — Minimal. Trusted. Upstream-first</title>
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+
+    <!-- decorative blobs -->
+    <div class="blob one" aria-hidden="true"></div>
+    <div class="blob two" aria-hidden="true"></div>
+
+    <!-- particle canvas behind content -->
+    <canvas id="particle-canvas" aria-hidden="true"></canvas>
+
+    <!-- scroll-snap container -->
+    <main id="main" class="snap-container">
+        <!-- PAGE 1: HERO -->
+        <section id="page-hero" class="snap-page hero" role="banner" aria-label="Hadron hero">
+            <div class="hero-inner">
+                <div class="hero-left">
+                    <div class="eyebrow">Hadron Linux</div>
+                    <h2>Minimal. Trusted.<br />Built for the cloud &amp; the edge.</h2>
+                    <p class="lead">Hadron delivers a minimal, trustworthy operating system engineered for security,
+                        flexibility and rock-solid reliability. Tiny by design, powerful in production.</p>
+
+                    <div class="ctas" role="navigation" aria-label="Primary">
+                        <button class="btn primary" id="btn-start" onclick="window.location.href='/docs/building/quickstart/'">Get Started</button>
+                        <button class="btn secondary" id="btn-github" onclick="window.open('https://github.com/kairos-io/hadron','_blank')">View on GitHub</button>
+                    </div>
+
+                    <div class="feature-list" aria-hidden="false">
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- package/box icon for minimal -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path
+                                        d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                                    </path>
+                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                </svg>
+                            </div>
+                            <div><strong>Minimal &amp; Lean</strong>
+                                <div class="muted">Bare essentials only - no vendor bloat. Build what you need on top.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- shield check icon for trusted boot -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    <polyline points="9 12 11 14 15 10"></polyline>
+                                </svg>
+                            </div>
+                            <div><strong>Trusted by default</strong>
+                                <div class="muted">Secure-boot ready, USI/UKI supported as first-class citizens.</div>
+                            </div>
+                        </div>
+
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- puzzle piece for expandable/extensions -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path
+                                        d="M19.439 15.439v-4.878a2 2 0 0 0-2-2h-4.878a2 2 0 0 1-2-2V2.683a.683.683 0 0 0-.683-.683h-4a.683.683 0 0 0-.683.683v3.878a2 2 0 0 1-2 2H2.683A.683.683 0 0 0 2 9.244v4a.683.683 0 0 0 .683.683h3.878a2 2 0 0 1 2 2v3.878a.683.683 0 0 0 .683.683h4a.683.683 0 0 0 .683-.683v-3.878a2 2 0 0 1 2-2h3.878a.683.683 0 0 0 .683-.683z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div><strong>Expandable</strong>
+                                <div class="muted">Build your own or use sysextensions to expand the system easily.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SHOWCASE -->
+                <aside class="showcase" aria-label="Hadron showcase">
+                    <div class="showcase-inner">
+                        <img id="hadron-logo" src="/images/logo-only.png" alt="Hadron logo">
+                        <div class="show-caption">Engineered by Spectro Cloud — built by the Kairos team</div>
+                    </div>
+                </aside>
+            </div>
+
+            <!-- down arrow (hero) -->
+            <button id="scroll-down" class="scroll-indicator" aria-label="Scroll down to details">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 5v14M5 12l7 7 7-7" stroke="white" stroke-width="1.6" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                </svg>
+            </button>
+        </section>
+
+        <!-- PAGE 2: Hadron + Kairos (mirrored layout) -->
+        <section id="page-details" class="snap-page hero" aria-label="Hadron and Kairos">
+            <div class="hero-inner hero-reversed">
+                <!-- SHOWCASE (left side when reversed) -->
+                <aside class="showcase" aria-label="Kairos showcase">
+                    <div class="showcase-inner">
+                        <svg id="kairos-logo" width="220" height="220" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.55));" aria-label="Hadron + Kairos">
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.18907e-05 1 68.502 18.8594)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 -0.500028 3.18907e-05 1 47.0088 31.2695)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499972 47.0088 6.45312)" fill="#fb9e70"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(3.19859e-05 1 0.86601 0.500028 25.5139 43.6797)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499973 0.866041 0.499972 25.5139 68.4922)" fill="#fb9e70"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-3.17834e-05 1 0.866009 -0.500028 4.02271 56.0898)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 68.5042 93.3125)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 47.011 105.723)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 47.011 80.9062)" fill="#fb9e70"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.4985 118.141)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9917 105.73)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9917 130.547)" fill="#fb9e70"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 132.979 56.0859)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 111.486 68.4961)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 111.486 43.6797)" fill="#fb9e70"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.5002 43.6875)" fill="#ee5007"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9934 31.2773)" fill="#ff7442"></rect>
+                            <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9934 56.0938)" fill="#fb9e70"></rect>
+                        </svg>
+                        <div class="show-caption">Powered by Kairos for seamless operations</div>
+                    </div>
+                </aside>
+
+                <!-- CONTENT (right side when reversed) -->
+                <div class="hero-left">
+                    <div class="eyebrow">Hadron + Kairos</div>
+                    <h1>The best combo for reliable operations</h1>
+                    <p class="lead">Kairos provides the agent & upgrade tooling that unlock Hadron's full potential:
+                        robust A/B upgrades, immutability, and powerful configuration management.</p>
+
+                    <div class="ctas">
+                        <button class="btn primary" onclick="window.location.href='/docs/building/quickstart/'">Try Hadron with Kairos</button>
+                        <button class="btn secondary" onclick="window.open('https://kairos.io','_blank')">Learn about
+                            Kairos</button>
+                    </div>
+
+                    <div class="feature-list" aria-hidden="false">
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- git-branch for A/B upgrades -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                                    <circle cx="18" cy="6" r="3"></circle>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                </svg>
+                            </div>
+                            <div><strong>Safe Atomic Updates</strong>
+                                <div class="muted">A/B upgrades with automatic failovers, minimal failure surface.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- layers icon for minimal footprint -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                    <polyline points="2 17 12 22 22 17"></polyline>
+                                    <polyline points="2 12 12 17 22 12"></polyline>
+                                </svg>
+                            </div>
+                            <div><strong>Simplify configuration</strong>
+                                <div class="muted">Configure your nodes with simple and declarative YAML files.</div>
+                            </div>
+                        </div>
+
+                        <div class="feature">
+                            <div class="dot" aria-hidden="true">
+                                <!-- check-circle for trusted supply chain -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <div><strong>Trusted Supply Chain</strong>
+                                <div class="muted">Secure and measured boot with full data partition encryption.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <button id="scroll-up-fixed" class="scroll-indicator up" aria-label="Scroll back to top" title="Back to top">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7" stroke="white" stroke-width="1.6" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+    </button>
+
+    <footer>
+        <small class="muted">© Hadron — Engineered by Spectro Cloud / Kairos Team</small>
+    </footer>
+
+    <script defer src="/js/scripts.js"></script>
+</body>
+
+</html>
