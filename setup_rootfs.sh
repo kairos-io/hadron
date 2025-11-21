@@ -87,10 +87,9 @@ chmod -v 664  /var/log/lastlog
 chmod -v 600  /var/log/btmp
 
 cat > etc/profile << "EOF"
-export PATH=/bin:/usr/bin
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin/:/usr/local/sbin/
 
 if [ `id -u` -eq 0 ] ; then
-        PATH=/bin:/sbin:/usr/bin:/usr/sbin
         unset HISTFILE
 fi
 
@@ -119,10 +118,8 @@ Kernel \r on an \m
 
 EOF
 
-ARCH=$(uname -m)
-
 cat > etc/os-release << EOF
-NAME="Kairos Hadron Linux"
+NAME="Hadron Linux"
 PRETTY_NAME="Hadron Linux"
 ID=hadron
 BUILD_ID=rolling

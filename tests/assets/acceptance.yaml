@@ -7,9 +7,9 @@ install:
   grub_options:
     extra_cmdline: "rd.immucore.debug foobarzz"
   bundles:
-    - rootfs_path: /var/lib/extensions/kubo
+    - rootfs_path: /var/lib/extensions/k9s
       targets:
-        - container://quay.io/kairos/ci-temp-images:bundles-test
+        - run://quay.io/kairos/community-bundles:k9s_latest
 
 stages:
   initramfs:

@@ -57,7 +57,7 @@ var _ = Describe("kairos basic test", func() {
 
 	It("passes checks", Label("acceptance"), func() {
 		By("checking grubenv file", func() {
-			out, err := vm.Sudo("cat /oem/grubenv")
+			out, err := vm.Sudo("cat /oem/grub_oem_env")
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(out).To(ContainSubstring("foobarzz"))
 		})
@@ -199,36 +199,10 @@ var _ = Describe("kairos basic test", func() {
 			}
 		})
 
-		By("Checking that kubo extension is present", func() {
-			Eventually(func() string {
-				// This seems to not load the /etc/profile.d/systemd-sysext.sh sot it cant use the
-				// SYSTEMD_SYSEXT_HIERARCHIES that we set
-				// So we run the command with login so it loads the envs
-				// Without the SYSTEMD_SYSEXT_HIERARCHIES set to the proper paths it will not
-				// find any extensions
-				out, _ := vm.Sudo("bash -l -c \"systemd-sysext\"")
-				return out
-			}, 3*time.Minute, 10*time.Second).Should(ContainSubstring("kubo"), func() string {
-				// Debug output in case of an error
-				result := ""
-				out, _ := vm.Sudo("cat /etc/kairos-release")
-				result = result + fmt.Sprintf("kairos-release:\n%s\n", out)
-
-				out, _ = vm.Sudo("cat /oem/90_custom.yaml")
-				result = result + fmt.Sprintf("90_custom.yaml:\n%s\n", out)
-
-				out, _ = vm.Sudo("cat /var/lib/extensions/kubo/usr/lib/extension-release.d/extension-release.kubo")
-				result = result + fmt.Sprintf("extension-release.kubo:\n%s\n", out)
-
-				out, _ = vm.Sudo("systemd-sysext status")
-				result = result + fmt.Sprintf("systemd-sysext status:\n%s\n", out)
-
-				return result
-			})
-
-			ipfsV, err := vm.Sudo("ipfs version")
-			Expect(err).ToNot(HaveOccurred(), ipfsV)
-			Expect(ipfsV).To(ContainSubstring("0.38.0"))
+		By("Checking that k9s bundle is present", func() {
+			k9s, err := vm.Sudo("k9s version")
+			Expect(err).ToNot(HaveOccurred(), k9s)
+			Expect(k9s).To(ContainSubstring("v0.50.9"))
 		})
 	})
 	It("resets", Label("reset"), func() {
