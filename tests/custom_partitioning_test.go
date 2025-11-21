@@ -119,7 +119,7 @@ stages:
     layout:
       device:
         path: "/dev/vdb"
-		init_disk: true
+        init_disk: true
       add_partitions:
         - fsLabel: COS_GRUB
           size: 64
