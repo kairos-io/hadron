@@ -116,20 +116,15 @@ stages:
   kairos-install.pre.before:
   - if:  '[ -e "/dev/vdb" ]'
     name: "Create partitions"
-    commands:
-      - |
-        parted --script --machine -- "/dev/vdb" mklabel gpt
-        # Legacy bios
-        sgdisk --new=1:2048:+1M --change-name=1:'bios' --typecode=1:EF02 /dev/vdb
     layout:
       device:
         path: "/dev/vdb"
+		init_disk: true
       add_partitions:
-        # For efi (comment out the legacy bios partition above)
-        #- fsLabel: COS_GRUB
-        #  size: 64
-        #  pLabel: efi
-        #  filesystem: "fat"
+        - fsLabel: COS_GRUB
+          size: 64
+          pLabel: bios
+          bootable: true
         - fsLabel: COS_OEM
           size: 64
           pLabel: oem
