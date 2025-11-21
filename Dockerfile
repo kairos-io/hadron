@@ -2645,6 +2645,28 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libxml && make -s -j
 
 
 ## Build image with all the deps on it
+## Busybox provides the following tools for the final images:
+# Needed to build initramfs under grub variants
+# awk
+# cpio
+# gzip # this is not strictly needed
+# pkill
+# sed
+# cool utils to have for easy management and utility:
+# free
+# clear
+# less
+# lsof
+# more
+# ps
+# watch
+# which
+# ip
+# tree
+# really needed in the system and the actual ones are too big:
+# tar
+# vi
+# mkfs.vfat
 FROM stage1 AS full-toolchain-merge
 ## Prepare rsync to work
 COPY --link --from=rsync /rsync /
