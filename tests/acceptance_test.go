@@ -207,7 +207,7 @@ var _ = Describe("kairos basic test", func() {
 	})
 	It("resets", Label("reset"), func() {
 		Eventually(func() string {
-			out, _ := vm.Sudo("cat /oem/grubenv")
+			out, _ := vm.Sudo("cat /oem/grub_oem_env")
 			return out
 		}, 10*time.Minute, 1*time.Second).Should(
 			Or(
@@ -223,7 +223,7 @@ var _ = Describe("kairos basic test", func() {
 		vm.HasFile("/oem/test")
 		vm.HasFile("/usr/local/test")
 		By("Setting the next entry to statereset")
-		_, err = vm.Sudo("grub2-editenv /oem/grubenv set next_entry=statereset")
+		_, err = vm.Sudo("grub2-editenv /oem/grub_oem_env set next_entry=statereset")
 		Expect(err).ToNot(HaveOccurred())
 		By("Rebooting")
 		vm.Reboot()
