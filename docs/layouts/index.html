@@ -46,7 +46,7 @@ body {
         <div class="hero-inner">
             <div class="hero-left">
                 <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <img src="/images/hadron-logo.png" alt="Hadron logo" style="height: 1.5em; width: auto;">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
                     <span>Hadron Linux</span>
                 </div>
                 <h1>Minimal. Trusted.<br />Built for the cloud &amp; the edge.</h1>
@@ -129,10 +129,68 @@ body {
     <!-- PAGE 2: Hadron + Kairos (mirrored layout) -->
     <section id="page-details" class="snap-page hero" aria-label="Hadron and Kairos">
         <div class="hero-inner hero-reversed">
-            <!-- SHOWCASE (left side when reversed) -->
-            <aside class="showcase" aria-label="Kairos showcase">
-                <div class="showcase-inner">
-                    <svg id="kairos-logo" width="220" height="220" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.55));" aria-label="Hadron + Kairos">
+            <!-- FEATURE LIST (moved to left side) -->
+            <aside class="showcase" aria-label="Kairos features">
+                <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
+                    <div class="feature-list" aria-hidden="false" style="width: 100%;">
+                        <div class="feature" style="align-items: flex-start;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- git-branch for A/B upgrades -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                                    <circle cx="18" cy="6" r="3"></circle>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Safe Atomic Updates</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">A/B upgrades with automatic failovers, minimal failure surface.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="feature" style="align-items: flex-start;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- layers icon for minimal footprint -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                    <polyline points="2 17 12 22 22 17"></polyline>
+                                    <polyline points="2 12 12 17 22 12"></polyline>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Simplify configuration</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Configure your nodes with simple and declarative YAML files.</div>
+                            </div>
+                        </div>
+
+                        <div class="feature" style="align-items: flex-start;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- check-circle for trusted supply chain -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted Supply Chain</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Secure and measured boot with full data partition encryption.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- CONTENT (right side when reversed) -->
+            <div class="hero-left">
+                <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <span>Hadron +</span>
+                    <svg width="1.5em" height="1.5em" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.18907e-05 1 68.502 18.8594)" fill="#ee5007"></rect>
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 -0.500028 3.18907e-05 1 47.0088 31.2695)" fill="#ff7442"></rect>
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499972 47.0088 6.45312)" fill="#fb9e70"></rect>
@@ -152,13 +210,8 @@ body {
                         <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9934 31.2773)" fill="#ff7442"></rect>
                         <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9934 56.0938)" fill="#fb9e70"></rect>
                     </svg>
-                    <div class="show-caption">Powered by Kairos for seamless operations</div>
+                    <span>Kairos</span>
                 </div>
-            </aside>
-
-            <!-- CONTENT (right side when reversed) -->
-            <div class="hero-left">
-                <div class="eyebrow">Hadron + Kairos</div>
                 <h1>The purpose-built stack for immutable, reliable operations.</h1>
                 <p class="lead">Kairos provides the image-based lifecycle, A/B upgrades, configuration engine, and secure supply chain that unleash Hadron's full potential. Together, they form a minimal, predictable, and production-ready foundation for cloud and edge systems.</p>
 
@@ -166,57 +219,6 @@ body {
                     <button class="btn primary" onclick="window.location.href='/docs/building/quickstart/'">Try Hadron with Kairos</button>
                     <button class="btn secondary" onclick="window.open('https://kairos.io','_blank')">Learn about
                         Kairos</button>
-                </div>
-
-                <div class="feature-list" aria-hidden="false">
-                    <div class="feature">
-                        <div class="dot" aria-hidden="true">
-                            <!-- git-branch for A/B upgrades -->
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                aria-hidden="true">
-                                <line x1="6" y1="3" x2="6" y2="15"></line>
-                                <circle cx="18" cy="6" r="3"></circle>
-                                <circle cx="6" cy="18" r="3"></circle>
-                                <path d="M18 9a9 9 0 0 1-9 9"></path>
-                            </svg>
-                        </div>
-                        <div><strong>Safe Atomic Updates</strong>
-                            <div class="muted">A/B upgrades with automatic failovers, minimal failure surface.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="feature">
-                        <div class="dot" aria-hidden="true">
-                            <!-- layers icon for minimal footprint -->
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                aria-hidden="true">
-                                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                                <polyline points="2 17 12 22 22 17"></polyline>
-                                <polyline points="2 12 12 17 22 12"></polyline>
-                            </svg>
-                        </div>
-                        <div><strong>Simplify configuration</strong>
-                            <div class="muted">Configure your nodes with simple and declarative YAML files.</div>
-                        </div>
-                    </div>
-
-                    <div class="feature">
-                        <div class="dot" aria-hidden="true">
-                            <!-- check-circle for trusted supply chain -->
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                aria-hidden="true">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                        </div>
-                        <div><strong>Trusted Supply Chain</strong>
-                            <div class="muted">Secure and measured boot with full data partition encryption.</div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
