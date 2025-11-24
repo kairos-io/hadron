@@ -2,6 +2,7 @@
 ## small LFS system, starting from Alpine Linux.
 ## It uses mussel to build the system.
 ARG BOOTLOADER=grub
+ARG KERNEL_TYPE=baremetal
 ARG VERSION=0.0.1
 ARG JOBS=24
 
@@ -1742,7 +1743,7 @@ RUN cd /sources && \
     make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
 
 ## kernel
-FROM rsync AS kernel
+FROM rsync AS kernel-base
 ARG JOBS
 ARG TARGETARCH
 COPY --from=bash /bash /bash
@@ -1791,8 +1792,22 @@ RUN mkdir -p /kernel && mkdir -p /modules
 WORKDIR /sources
 RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
 WORKDIR /sources/kernel
-#RUN cp -rfv /sources/kernel-configs/hadron-${TARGETARCH}.config .config
-RUN cp -rfv /sources/kernel-configs/tinyconfig.config .config
+RUN cp -rfv /sources/kernel-configs/default.config .config
+
+
+FROM kernel-base AS kernel-virtual
+# no op, we use the default tiny
+
+FROM kernel-base AS kernel-baremetal
+WORKDIR /sources/kernel
+RUN cp -rfv /sources/kernel-configs/baremetal.fragment .
+# Merge the baremental fragment into the config
+RUN scripts/kconfig/merge_config.sh .config baremetal.fragment
+
+FROM kernel-${KERNEL_TYPE} AS kernel
+ARG JOBS
+ARG TARGETARCH
+WORKDIR /sources/kernel
 # This only builds the kernel
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage
 RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
@@ -1800,6 +1815,7 @@ RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 # This builds the modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+# This installs the headers
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font

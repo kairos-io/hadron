@@ -1,0 +1,93 @@
+# This fragment enables common drivers and features for baremetal server deployments.
+# It is intended to be used as an addition to a minimal x86_64 kernel configuration.
+# --- Storage (NVMe, USB, SCSI disk) ---
+CONFIG_BLK_DEV_NVME=m
+CONFIG_NVME_MULTIPATH=y
+CONFIG_USB=m
+CONFIG_USB_XHCI_HCD=m
+CONFIG_USB_EHCI_HCD=m
+CONFIG_USB_OHCI_HCD=m
+CONFIG_USB_UHCI_HCD=m
+CONFIG_USB_STORAGE=m
+CONFIG_USB_UAS=m
+CONFIG_BLK_DEV_SD=m
+
+# --- Networking (common NICs) ---
+CONFIG_IGB=m
+CONFIG_IXGBE=m
+CONFIG_R8169=m
+CONFIG_BNXT_EN=m
+CONFIG_MLX5_CORE=m
+
+# --- Graphics / Console ---
+CONFIG_DRM=m
+CONFIG_DRM_SIMPLEDRM=y
+
+# --- Input / HID ---
+CONFIG_INPUT_EVDEV=m
+CONFIG_HID_GENERIC=m
+CONFIG_USB_HID=m
+
+# --- Filesystems ---
+CONFIG_OVERLAY_FS=m
+CONFIG_XFS_FS=m
+CONFIG_BTRFS_FS=m
+
+# --- Sensors / hwmon ---
+CONFIG_HWMON=m
+CONFIG_SENSORS_CORETEMP=m
+CONFIG_SENSORS_NCT6775=m
+
+# --- Server mgmt ---
+CONFIG_IPMI_HANDLER=m
+CONFIG_IPMI_DEVICE_INTERFACE=m
+CONFIG_IPMI_SI=m
+
+# --- Reliability / errors ---
+CONFIG_X86_MCE=y
+CONFIG_EDAC_GHES=m
+# pick one (or more) platform EDACs as modules if you target them:
+# CONFIG_EDAC_SKX=m
+# CONFIG_EDAC_I7CORE=m
+
+# --- Watchdogs ---
+CONFIG_WATCHDOG=y
+CONFIG_ITCO_WDT=y
+CONFIG_SOFT_WATCHDOG=y
+
+# --- TPM / RNG ---
+CONFIG_TCG_TIS_SPI=m
+CONFIG_TCG_TIS_I2C=m
+CONFIG_HW_RANDOM=m
+CONFIG_HW_RANDOM_INTEL=m
+CONFIG_HW_RANDOM_VIRTIO=m
+
+# --- MD / DM ---
+CONFIG_MD_RAID1=m
+CONFIG_MD_RAID10=m
+CONFIG_MD_RAID456=m
+CONFIG_DM_SNAPSHOT=m
+CONFIG_DM_MIRROR=m
+CONFIG_DM_CACHE=m
+
+# --- Net features ---
+CONFIG_BONDING=m
+CONFIG_TUN=m
+CONFIG_TAP=m
+
+# --- Console / buses ---
+CONFIG_HOTPLUG_PCI=y
+CONFIG_HOTPLUG_PCI_PCIE=y
+CONFIG_HOTPLUG_PCI_ACPI=y
+CONFIG_I2C_CHARDEV=m
+CONFIG_I2C_I801=m
+CONFIG_I2C_HID_ACPI=m
+
+# --- Power/thermal ---
+CONFIG_INTEL_POWERCLAMP=m
+CONFIG_INTEL_IDLE=y
+
+# --- Network FS ---
+CONFIG_NFS_FS=m
+CONFIG_NFS_V4=m
+CONFIG_CIFS=m
