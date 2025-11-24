@@ -42,13 +42,13 @@ anchor = "smart"
 [languages]
 [languages.en]
 # This is the title of the community page
-title = "Kairos"
+title = "Hadron Linux"
 languageName ="English"
 # Weight used for sorting.
 weight = 1
 [languages.en.params]
 description = "Kairos is an open-source Linux-based operating system designed for securely running Kubernetes at the edge. It provides immutable, declarative infrastructure with features like P2P clustering, trusted boot, and A/B upgrades."
-images = [ "images/Kairos_800x419.png" ]
+images = [ "images/hadron-logo.svg" ]
 
 [params.social]
 twitter = "Kairos_OSS"
