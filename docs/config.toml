@@ -3,6 +3,7 @@ languageCode = 'en-us'
 title = 'Hadron Linux by Kairos'
 publishDir = 'public'
 
+
 [params]
   author = 'Hadron Linux by Kairos'
   description = 'The foundational Linux distribution for the cloud and the edge'

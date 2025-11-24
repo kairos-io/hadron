@@ -3,16 +3,10 @@ title: "Quickstart"
 weight: 1
 ---
 
-# Building Hadron
 
-Building Hadron requires only Docker on your build system. We provide a Makefile for ease of use, but you can also build directly with Docker if you prefer.
 
-### Prerequisites
+# Quickstart
 
-- **Docker**: Required for building Hadron images
-- **Make** (optional): For using the provided Makefile
-
-# Quick Start
 
 The simplest way to build Hadron is using the Makefile:
 
@@ -20,97 +14,118 @@ The simplest way to build Hadron is using the Makefile:
 make build
 ```
 
-This will build the Hadron OCI image, the Kairos OCI image, and create a bootable ISO image using the default Trusted Boot configuration. Everything is built in one command.
-
-## Building with Makefile
-
-The Makefile provides several targets and configuration options to customize your build.
-
-The build process consists of three main stages:
-
-1. **`build-hadron`**: Builds the Hadron base OCI image
-2. **`build-kairos`**: Builds the Kairos OCI image on top of Hadron (requires Hadron image)
-3. **`build-iso`**: Creates a bootable ISO from the OCI images (requires Hadron+Kairos OCI image)
-
-The **`build`** target runs all three stages in sequence, which is the recommended way to build everything.
-
-### Available Targets
-
-- **`build`**: Builds the Hadron+Kairos OCI images and the ISO image (complete build workflow)
-- **`build-hadron`**: Builds only the Hadron OCI image
-- **`build-kairos`**: Builds the Hadron+Kairos OCI images (builds Hadron first, then Kairos on top)
-- **`build-iso`**: Builds the GRUB or Trusted Boot ISO image based on the `BOOTLOADER` variable. Expects the Hadron+Kairos OCI images to be built already.
-- **`trusted-iso`**: Builds a Trusted Boot ISO image with Secure Boot signing. Expects the Hadron+Kairos OCI images to be built already.
-- **`grub-iso`**: Builds a GRUB-based ISO image (non-trusted boot). Expects the Hadron+Kairos OCI images to be built already.
-- **`help`**: Shows all available targets and configuration options
-
-### Configuration Variables
-
-The Makefile supports several variables to customize the build process:
-
-| Variable | Default | Possible Values | Description |
-|----------|---------|----------------|-------------|
-| `BOOTLOADER` | `systemd` | `systemd`, `grub` | Controls which bootloader to use. `systemd` uses systemd-boot for Trusted Boot with Secure Boot support. `grub` uses GRUB with dracut for traditional boot (no Secure Boot). |
-| `VERSION` | `v0.0.1` | Semver string | Sets the version of the generated Kairos+Hadron image. Used in the final ISO filename and metadata. Typically semantic versioning like `v1.0.0`. |
-| `HADRON_VERSION` | `Git tag + dirty` | Semver string | Automatically set from git tags. Represents the version of the Hadron base image itself. Typically don't need to set manually. |
-| `IMAGE_NAME` | `hadron` | Any string | The name of the Docker image for the Hadron base image. |
-| `INIT_IMAGE_NAME` | `hadron-init` | Any string | The name of the Docker image for the Kairos image built on top of Hadron. |
-| `KEYS_DIR` | `Test keys` | Path to directory | Directory containing the keys for Trusted Boot image signing. **⚠️ Warning**: Default keys are **INSECURE** and should **NOT** be used in production. Required keys: `tpm2-pcr-private.pem`, `db.key`, `db.pem`, `db.auth`, `KEK.auth`, `PK.auth`. |
-| `PROGRESS` | `none` | `auto`, `plain`, `tty`, `none` | Docker build progress output style. |
-
-**Examples:**
+This will pull the Hadron image, build the Kairos+Hadron OCI image, and create a bootable ISO image using the default Trusted Boot configuration. Everything is built in one command.
 
 ```bash
-# Build with Trusted Boot (default)
-make build
+$ make build                               
+Pulling base Hadron image from ghcr.io/kairos-io/hadron:main...
+main: Pulling from kairos-io/hadron
+Digest: sha256:a6924c87ceebff059b0ddf48245c50d9ae61ebaca47c46dfe66f908fbc7615be
+Status: Image is up to date for ghcr.io/kairos-io/hadron:main
+ghcr.io/kairos-io/hadron:main
+Building Kairos image...
+Kairos image built successfully
+Building Trusted Boot ISO image...
+2025-11-24T09:53:26Z INF [1] Extracting image to a temporary directory
+2025-11-24T09:53:26Z INF [1] Copying hadron-init:latest source to /tmp/auroraboot-build-uki-3859643668
+2025-11-24T09:53:27Z INF [1] Finished copying hadron-init:latest into /tmp/auroraboot-build-uki-3859643668
+2025-11-24T09:53:27Z INF [1] Creating additional directories in the rootfs
+2025-11-24T09:53:27Z INF [1] Copying kernel
+2025-11-24T09:53:27Z INF [1] Creating an initramfs file
+2025-11-24T09:53:29Z INF [1] Running ukify for cmdline: Kairos: console=ttyS0 console=tty1 net.ifnames=1 rd.immucore.oemlabel=COS_OEM rd.immucore.oemtimeout=2 rd.immucore.uki selinux=0 panic=5 rd.shell=0 systemd.crash_reboot=yes install-mode
+2025-11-24T09:53:29Z INF [1] Generating: norole.efi
+2025/11/24 09:53:29 INFO Signing systemd-boot path=/tmp/auroraboot-build-uki-3859643668/usr/lib/systemd/boot/efi/systemd-bootx64.efi
+2025/11/24 09:53:29 INFO Signed systemd-boot path=BOOTX64.EFI
+2025/11/24 09:53:29 INFO Generating UKI sections
+2025/11/24 09:53:29 INFO Generating PCR measurements
+2025/11/24 09:53:29 INFO Generating signed policy per profile
+2025/11/24 09:53:29 INFO Generated UKI sections
+2025/11/24 09:53:29 INFO Assembling UKI
+2025/11/24 09:53:29 INFO Assembled UKI
+2025/11/24 09:53:29 INFO Signing UKI
+2025/11/24 09:53:30 INFO Signed UKI at norole.efi
+2025-11-24T09:53:30Z INF [1] Creating kairos and loader conf files
+2025-11-24T09:53:30Z INF [1] Creating base config file with profile 0
+2025-11-24T09:53:30Z INF [1] Calculating the size of the img file
+2025-11-24T09:53:30Z INF [1] Creating the img file with size: 95Mb
+2025-11-24T09:53:30Z INF [1] Created image: /tmp/auroraboot-iso-dir-3496997432/efiboot.img
+2025-11-24T09:53:30Z INF [1] Creating directories in the img file
+2025-11-24T09:53:30Z INF [1] Copying files in the img file
+2025-11-24T09:53:30Z INF [1] Creating the iso files with xorriso
+2025-11-24T09:53:30Z INF [1] Done building iso at: /output/
+Trusted Boot ISO image built successfully at build/kairos-hadron-v0.0.1-beta1-8-gbff906b-dirty-core-amd64-generic-v0.0.1.iso build/kairos-hadron-v0.0.1-beta1-8-gbff906b-dirty-core-amd64-generic-v0.0.1-uki.iso
 
-# Build with GRUB bootloader
+```
+
+If you need to build a grub-based ISO (non-trusted boot), you can run:
+
+```bash
 make build BOOTLOADER=grub
-
-# Build with custom version
-make build VERSION=v1.2.3
-
-# Build with production keys
-make build KEYS_DIR=/path/to/secure/keys VERSION=v1.0.0
-
-# Build with verbose output
-make build PROGRESS=plain
-
 ```
 
-## Build Output
+And that will build the Hadron+Kairos OCI images and create a GRUB-based ISO image instead.
 
-### Image Names
+## Using a different Hadron image as base
 
-After building, you'll have Docker images:
-- `hadron` (or `IMAGE_NAME`): The Hadron base image
-- `hadron-init` (or `INIT_IMAGE_NAME`): The Kairos image with Hadron
-
-### ISO Files
-
-ISO files are created in the `build/` directory with names like:
-- Trusted Boot: `kairos-hadron-<HADRON_VERSION>-core-$ARCH-generic-<VERSION>-uki.iso`
-- GRUB: `kairos-hadron-<HADRON_VERSION>-core-$ARCH-generic-<VERSION>.iso`
-
-### Finding Your ISO
-
-After building, the Makefile will print the location:
+By default, the Makefile pulls the `main` branch of the Hadron image. You can specify a different image altogether by using the `IMAGE_NAME` variable:
 
 ```bash
-$ make build
-...
-Trusted Boot ISO image built successfully at build/kairos-hadron-v0.0.1-core-amd64-generic-v0.0.1-uki.iso
+make build IMAGE_NAME=ghcr.io/kairos-io/hadron:$VERSION
 ```
 
-Or find it manually:
+or for grub bootloader:
 
 ```bash
-find build -name "*.iso"
+make build IMAGE_NAME=ghcr.io/kairos-io/hadron-grub:$VERSION
 ```
 
 
-## Next Steps
+
+# Quickstart with Docker only
+
+If you prefer not to use the Makefile, you can build directly with Docker commands.
+
+Pull the Hadron base image:
+
+```bash
+docker pull ghcr.io/kairos-io/hadron:$VERSION
+```
+
+Build the Kairos+Hadron OCI image (we provide a Dockefile.init for this):
+
+```bash
+docker build -t $MYTAG -f Dockerfile.init --build-arg BASE_IMAGE=ghcr.io/kairos-io/hadron:$VERSION --build-arg VERSION=$VERSION .
+```
+
+**Note**: Replace `$MYTAG` and `$VERSION` with your desired image tag and version.
+
+Then build the ISO image using the `auroraboot` image:
+
+```bash
+docker run -v /var/run/docker.sock:/var/run/docker.sock \
+	-v ${PWD}/build/:/output \
+	-v ${KEYS_DIR}:/keys \
+	quay.io/kairos/auroraboot:v0.14.0-beta1 \
+	build-uki \
+	--output-dir /output/ \
+	--public-keys /keys \
+	--tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
+	--sb-key /keys/db.key \
+	--sb-cert /keys/db.pem \
+	--output-type iso \
+	--sdboot-in-source \
+	docker:$MYTAG
+```
+
+**Note**: Make sure to replace `${KEYS_DIR}` with the path to your keys directory, and `$MYTAG` with the tag of the Kairos+Hadron OCI image you built earlier.
+See the [Trusted Boot documentation](/docs/building/trusted-grub) for more details on the required keys.
+
+This will generate a Trusted Boot ISO image in the `build/` directory.
+
+
+# Next Steps
 
 After building, you may want to:
-- [Building Extra Packages from the Toolchain image](./building_extra_packages_from_toolchain): Learn how to build additional packages
+- [Building Extra Packages from the Toolchain image](/docs/building/building_extra_packages_from_toolchain): Learn how to build additional packages
 - [Learn more about Kairos](https://kairos.io/docs/): Learn about all the functionality that Kairos brings into Hadron
+- [Build Hadron from Scratch](/docs/building/building-scratch): Learn how to build Hadron step-by-step from source

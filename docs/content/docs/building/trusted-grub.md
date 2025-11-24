@@ -1,6 +1,6 @@
 ---
 title: "Trusted Boot or Grub?"
-weight: 2
+weight: 4
 ---
 
 # Trusted Boot

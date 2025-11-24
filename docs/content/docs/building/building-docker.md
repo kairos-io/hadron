@@ -1,6 +1,6 @@
 ---
-title: "Building with docker"
-weight: 2
+title: "Building Hadron from scratch with docker"
+weight: 3
 ---
 
 # Building with Docker

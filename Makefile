@@ -1,4 +1,4 @@
-IMAGE_NAME ?= hadron
+IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.14.0-beta1
 TARGET ?= default
@@ -9,6 +9,19 @@ BOOTLOADER ?= systemd
 KEYS_DIR ?= ${PWD}/tests/assets/keys
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
+
+# Adjust IMAGE_NAME based on BOOTLOADER
+# If we are building with GRUB and the user has not overridden IMAGE_NAME,
+# we set it to the GRUB-specific image.
+# otherwise, we leave it as the default.
+ifeq ($(BOOTLOADER),grub)
+ifneq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
+  # User override, do nothing
+else
+  $(eval IMAGE_NAME := ghcr.io/kairos-io/hadron-grub:main)
+endif
+endif
+
 
 .DEFAULT_GOAL := help
 
@@ -41,11 +54,18 @@ help: targets
 	@echo " - db.auth, KEK.auth, PK.auth: The public authentication keys to inject into the EFI firmware"
 
 
-.PHONY: build
-build: build-hadron build-kairos build-iso
+.PHONY: build-scratch
+build-scratch: build-hadron-scratch build-kairos build-iso
 
-## This builds the Hadron image
-build-hadron:
+.PHONY: build
+build: pull-image build-kairos build-iso
+
+pull-image:
+	@echo "Pulling base Hadron image from ${IMAGE_NAME}..."
+	@docker pull ${IMAGE_NAME}
+
+## This builds the Hadron image from scratch
+build-hadron-scratch:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} \
 	--build-arg JOBS=${JOBS} \
@@ -58,9 +78,15 @@ build-hadron:
 ## This builds the Kairos image based off Hadron
 build-kairos:
 	@echo "Building Kairos image..."
-	@docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+	@if [ "${BOOTLOADER}" = "systemd" ]; then \
+		TRUSTED_BOOT=true; \
+	else \
+		TRUSTED_BOOT=false; \
+	fi; \
+	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
 	-f Dockerfile.init \
 	--build-arg BASE_IMAGE=${IMAGE_NAME} \
+	--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 	--build-arg VERSION=${VERSION} .
 	@echo "Kairos image built successfully"
 
@@ -74,7 +100,7 @@ clean:
 grub-iso:
 	@echo "Building GRUB ISO image..."
 	@docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME}
-	@echo "GRUB ISO image built successfully at $(shell find build -name "kairos-hadron-${HADRON_VERSION}-*-${VERSION}*.iso")"
+	@echo "GRUB ISO image built successfully at $(shell ls -t1 build/kairos-hadron-${HADRON_VERSION}-*-${VERSION}*.iso | head -n1)"
 
 # Build an ISO image
 trusted-iso:
@@ -92,7 +118,7 @@ trusted-iso:
 	--output-type iso \
 	--sdboot-in-source \
 	docker:${INIT_IMAGE_NAME}
-	@echo "Trusted Boot ISO image built successfully at $(shell find build -name "kairos-hadron-${HADRON_VERSION}-*-${VERSION}*.iso")"
+	@echo "Trusted Boot ISO image built successfully at $(shell ls -t1 build/kairos-hadron-${HADRON_VERSION}-*-${VERSION}-uki.iso | head -n1)"
 
 # Default ISO is the Trusted Boot ISO
 build-iso:
