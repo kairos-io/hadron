@@ -3,11 +3,6 @@ title: "Quickstart"
 weight: 1
 ---
 
-
-
-# Quickstart
-
-
 The simplest way to build Hadron is using the Makefile:
 
 ```bash

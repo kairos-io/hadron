@@ -3,8 +3,6 @@ title: "Building Extra Packages from Toolchain"
 weight: 8
 ---
 
-# Building Extra Packages from Toolchain
-
 Hadron's Dockerfile builds many packages that are available in the toolchain but not included in the final production images. This guide explains how to build additional packages using the Hadron toolchain environment.
 
 ## Understanding the Toolchain

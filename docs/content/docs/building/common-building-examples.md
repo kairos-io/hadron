@@ -1,11 +1,7 @@
 ---
-title: "Common building examples"
+title: "Common Building Examples"
 weight: 3
 ---
-
-
-
-# Common Build Examples
 
 #### Build Everything (Default - Trusted Boot)
 

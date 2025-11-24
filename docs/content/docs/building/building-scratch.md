@@ -1,5 +1,5 @@
 ---
-title: "Building Hadron from scratch"
+title: "Building Hadron from Scratch"
 weight: 2
 ---
 

@@ -3,6 +3,13 @@ languageCode = 'en-us'
 title = 'Hadron Linux by Kairos'
 publishDir = 'public'
 
+[module]
+  proxy = "direct"
+  [module.hugoVersion]
+    extended = true
+    min = "0.73.0"
+  [[module.imports]]
+    path = "github.com/google/docsy"
 
 [params]
   author = 'Hadron Linux by Kairos'

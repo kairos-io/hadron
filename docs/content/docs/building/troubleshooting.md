@@ -3,8 +3,6 @@ title: "Troubleshooting"
 weight: 15
 ---
 
-# Troubleshooting
-
 ### Build Fails with "Out of Memory"
 
 By default we set the number of jobs for building to the number of processors availabel in the machine.

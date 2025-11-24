@@ -1,10 +1,7 @@
 ---
-title: "Building Hadron from scratch with docker"
+title: "Building Hadron from Scratch with Docker"
 weight: 3
 ---
-
-# Building with Docker
-
 
 If you prefer not to use the Makefile, you can build directly with Docker commands.
 

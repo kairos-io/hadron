@@ -3,8 +3,6 @@ title: "Trusted Boot or Grub?"
 weight: 4
 ---
 
-# Trusted Boot
-
 Hadron's default build configuration produces a **Trusted Boot** image with Secure Boot support. This is the recommended configuration for production deployments.
 
 ### What is Trusted Boot?
