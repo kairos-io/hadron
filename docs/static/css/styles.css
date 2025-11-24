@@ -200,6 +200,18 @@ h1 {
     filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.55));
 }
 
+.show-caption {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
 /* down & up arrow */
 .scroll-indicator {
     position: fixed;
