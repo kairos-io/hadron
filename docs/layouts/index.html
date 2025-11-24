@@ -40,13 +40,13 @@ body {
     <canvas id="particle-canvas" aria-hidden="true"></canvas>
 
     <!-- scroll-snap container -->
-    <div id="main" class="snap-container">
+    <main id="main" class="snap-container">
     <!-- PAGE 1: HERO -->
     <section id="page-hero" class="snap-page hero" role="banner" aria-label="Hadron hero">
         <div class="hero-inner">
             <div class="hero-left">
                 <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <img src="/images/hadron-logo.svg" alt="Hadron logo" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
                     <span>Hadron Linux</span>
                 </div>
                 <h1>Minimal. Trusted.<br />Built for the cloud &amp; the edge.</h1>
@@ -61,8 +61,8 @@ body {
             <!-- FEATURE LIST (moved to right side) -->
             <aside class="showcase" aria-label="Hadron features">
                 <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
-                    <div class="feature-list" aria-hidden="false" style="width: 100%;">
-                        <div class="feature" style="align-items: flex-start;">
+                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- package/box icon for minimal -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -79,9 +79,9 @@ body {
                                 <div class="muted" style="margin-top: 0.25rem;">Bare essentials only — no downstream patches, no vendor ecosystem.
                                 </div>
                             </div>
-                        </div>
+                        </li>
 
-                        <div class="feature" style="align-items: flex-start;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- shield check icon for trusted boot -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -94,9 +94,9 @@ body {
                             <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted by default</strong>
                                 <div class="muted" style="margin-top: 0.25rem;">Secure-boot ready, USI/UKI supported as first-class citizens.</div>
                             </div>
-                        </div>
+                        </li>
 
-                        <div class="feature" style="align-items: flex-start;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- puzzle piece for expandable/extensions -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -111,8 +111,8 @@ body {
                                 <div class="muted" style="margin-top: 0.25rem;">Build your own or use sysextensions to expand the system easily.
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </li>
+                    </ul>
                 </div>
             </aside>
         </div>
@@ -132,8 +132,8 @@ body {
             <!-- FEATURE LIST (moved to left side) -->
             <aside class="showcase" aria-label="Kairos features">
                 <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
-                    <div class="feature-list" aria-hidden="false" style="width: 100%;">
-                        <div class="feature" style="align-items: flex-start;">
+                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- git-branch for A/B upgrades -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -149,9 +149,9 @@ body {
                                 <div class="muted" style="margin-top: 0.25rem;">A/B upgrades with automatic failovers, minimal failure surface.
                                 </div>
                             </div>
-                        </div>
+                        </li>
 
-                        <div class="feature" style="align-items: flex-start;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- layers icon for minimal footprint -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -165,9 +165,9 @@ body {
                             <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Simplify configuration</strong>
                                 <div class="muted" style="margin-top: 0.25rem;">Configure your nodes with simple and declarative YAML files.</div>
                             </div>
-                        </div>
+                        </li>
 
-                        <div class="feature" style="align-items: flex-start;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
                                 <!-- check-circle for trusted supply chain -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
@@ -180,17 +180,17 @@ body {
                             <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted Supply Chain</strong>
                                 <div class="muted" style="margin-top: 0.25rem;">Secure and measured boot with full data partition encryption.</div>
                             </div>
-                        </div>
-                    </div>
+                        </li>
+                    </ul>
                 </div>
             </aside>
 
             <!-- CONTENT (right side when reversed) -->
             <div class="hero-left">
                 <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <img src="/images/hadron-logo.svg" alt="Hadron logo" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
                     <span>Hadron +</span>
-                    <svg width="1.5em" height="1.5em" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <svg width="1.5em" height="1.5em" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kairos logo" style="filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.18907e-05 1 68.502 18.8594)" fill="#ee5007"></rect>
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 -0.500028 3.18907e-05 1 47.0088 31.2695)" fill="#ff7442"></rect>
                         <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499972 47.0088 6.45312)" fill="#fb9e70"></rect>
@@ -223,7 +223,7 @@ body {
             </div>
         </div>
     </section>
-    </div>
+    </main>
 
     <button id="scroll-up-fixed" class="scroll-indicator up" aria-label="Scroll back to top" title="Back to top">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -234,5 +234,29 @@ body {
 </div>
 
 <script defer src="/js/scripts.js"></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Hadron Linux",
+  "description": "A minimal, upstream-aligned Linux distribution built from scratch using musl, systemd, and vanilla Linux kernels — engineered for secure, predictable cloud and edge deployments.",
+  "url": "https://hadron-linux.io",
+  "applicationCategory": "OperatingSystem",
+  "operatingSystem": "Linux",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "codeRepository": "https://github.com/kairos-io/hadron",
+  "keywords": ["Linux", "operating system", "minimal", "musl", "systemd", "cloud", "edge computing", "secure boot", "UKI", "USI"],
+  "featureList": [
+    "Minimal and lean - bare essentials only",
+    "Trusted by default - secure-boot ready, USI/UKI supported",
+    "Expandable - build your own or use sysextensions"
+  ]
+}
+</script>
 {{ end }}
 

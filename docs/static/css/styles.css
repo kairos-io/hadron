@@ -143,6 +143,9 @@ h1 {
     margin-top: 1.6rem;
     display: grid;
     gap: 0.9rem;
+    list-style: none;
+    margin-left: 0;
+    padding-left: 0;
 }
 
 .feature {
