@@ -113,6 +113,8 @@ h1 {
     font-weight: 700;
     cursor: pointer;
     transition: transform .18s ease, box-shadow .18s ease;
+    text-decoration: none;
+    display: inline-block;
 }
 
 .btn.primary {

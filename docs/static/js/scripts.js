@@ -73,17 +73,9 @@
         const scrollUp = document.getElementById('scroll-up-fixed');
         const pageDetails = document.getElementById('page-details');
         const pageHero = document.getElementById('page-hero');
-        const btnStart = document.getElementById('btn-start');
-        const btnGithub = document.getElementById('btn-github');
 
         if (scrollDown && pageDetails) {
             scrollDown.addEventListener('click', () => pageDetails.scrollIntoView({ behavior: 'smooth' }));
-        }
-        if (btnStart && pageDetails) {
-            btnStart.addEventListener('click', () => pageDetails.scrollIntoView({ behavior: 'smooth' }));
-        }
-        if (btnGithub) {
-            btnGithub.addEventListener('click', () => window.open('https://github.com/kairos-io/hadron', '_blank'));
         }
 
         // Arrow toggling - show down on hero, up on details
