@@ -6,3 +6,8 @@ tests/*.test
 # Hugo build artifacts
 docs/public/
 docs/resources/
+
+# Internal strategy documents (not for public consumption)
+docs/_narrative-strategy.md
+docs/_seo-strategy.md
+docs/_project-context.md
