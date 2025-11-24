@@ -1,7 +1,12 @@
 ---
 title: "Quickstart"
+menu:
+  main:
+    weight: 10
 weight: 1
 ---
+
+## Building Hadron Using Make
 
 The simplest way to build Hadron is using the Makefile:
 
@@ -60,7 +65,7 @@ make build BOOTLOADER=grub
 
 And that will build the Hadron+Kairos OCI images and create a GRUB-based ISO image instead.
 
-## Using a different Hadron image as base
+### Using a different Hadron image as base
 
 By default, the Makefile pulls the `main` branch of the Hadron image. You can specify a different image altogether by using the `IMAGE_NAME` variable:
 
@@ -74,9 +79,7 @@ or for grub bootloader:
 make build IMAGE_NAME=ghcr.io/kairos-io/hadron-grub:$VERSION
 ```
 
-
-
-# Quickstart with Docker only
+## Building Hadron Using Docker
 
 If you prefer not to use the Makefile, you can build directly with Docker commands.
 
@@ -118,7 +121,7 @@ See the [Trusted Boot documentation](/docs/building/trusted-grub) for more detai
 This will generate a Trusted Boot ISO image in the `build/` directory.
 
 
-# Next Steps
+## Next Steps
 
 After building, you may want to:
 - [Building Extra Packages from the Toolchain image](/docs/building/building_extra_packages_from_toolchain): Learn how to build additional packages
