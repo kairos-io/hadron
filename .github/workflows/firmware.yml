@@ -46,6 +46,18 @@ jobs:
       - name: Build sysexts
         run: |
           ./firmware.sh --sysext
+          mv build unsigned-sysext
       - name: Build signed sysext
         run: |
           ./firmware.sh --sysext --private-key tests/assets/keys/PK.key --certificate tests/assets/keys/PK.pem
+          mv build signed-sysext
+      - name: Upload sysext artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-sysext
+          path: unsigned-sysext/
+      - name: Upload signed sysext artifacts
+        uses: actions/upload-artifact@v4
+        with:
+            name: signed-sysext
+            path: signed-sysext/
