@@ -1,84 +1,262 @@
-<!DOCTYPE html>
-<html lang="{{ .Site.LanguageCode }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ .Site.Title }}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: #fff;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        header {
-            margin-bottom: 2rem;
-        }
-        header img {
-            max-width: 250px;
-            margin-bottom: 1rem;
-        }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-        }
-        h2 {
-            color: #34495e;
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-        }
-        p {
-            margin-bottom: 1rem;
-        }
-        ul {
-            margin-left: 2rem;
-            margin-bottom: 1rem;
-        }
-        li {
-            margin-bottom: 0.5rem;
-        }
-        code {
-            background: #f4f4f4;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        pre {
-            background: #f4f4f4;
-            padding: 1rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-        pre code {
-            background: none;
-            padding: 0;
-        }
-        a {
-            color: #3498db;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        strong {
-            color: #2c3e50;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        {{ .Content }}
-    </header>
-</body>
-</html>
+{{ define "main" }}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/styles.css">
+<style>
+/* Override Docsy body styles for landing page */
+body {
+    background: linear-gradient(145deg, #071026, #0e2540) !important;
+    overflow-x: hidden;
+}
+/* Ensure landing page content is full width and height */
+.td-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    position: relative;
+}
+/* Make landing page container fill available space */
+#landing-container {
+    position: relative;
+    min-height: calc(100vh - 120px);
+    overflow: hidden;
+}
+/* Adjust snap container for header/footer */
+.snap-container {
+    height: calc(100vh - 120px);
+    position: relative;
+}
+/* Ensure showcase is visible */
+.showcase {
+    display: flex !important;
+}
+</style>
+<div id="landing-container">
+    <!-- decorative blobs -->
+    <div class="blob one" aria-hidden="true"></div>
+    <div class="blob two" aria-hidden="true"></div>
+
+    <!-- particle canvas behind content -->
+    <canvas id="particle-canvas" aria-hidden="true"></canvas>
+
+    <!-- scroll-snap container -->
+    <main id="main" class="snap-container">
+    <!-- PAGE 1: HERO -->
+    <section id="page-hero" class="snap-page hero" role="banner" aria-label="Hadron hero">
+        <div class="hero-inner">
+            <div class="hero-left">
+                <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <span>Hadron Linux</span>
+                </div>
+                <h1>Minimal. Trusted.<br />Built for the cloud &amp; the edge.</h1>
+                <p class="lead">Hadron is a minimal, upstream-aligned Linux distribution built from scratch using musl, systemd, and vanilla Linux kernels — engineered for secure, predictable cloud and edge deployments.</p>
+
+                <div class="ctas" role="navigation" aria-label="Primary">
+                    <a href="/docs/quickstart/" class="btn primary" id="btn-start">Get Started</a>
+                    <a href="https://github.com/kairos-io/hadron" target="_blank" rel="noopener noreferrer" class="btn secondary" id="btn-github">View on GitHub</a>
+                </div>
+            </div>
+
+            <!-- FEATURE LIST (moved to right side) -->
+            <aside class="showcase" aria-label="Hadron features">
+                <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
+                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- package/box icon for minimal -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path
+                                        d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                                    </path>
+                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Minimal &amp; Lean</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Bare essentials only — no downstream patches, no vendor ecosystem.
+                                </div>
+                            </div>
+                        </li>
+
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- shield check icon for trusted boot -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    <polyline points="9 12 11 14 15 10"></polyline>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted by default</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Secure-boot ready, USI/UKI supported as first-class citizens.</div>
+                            </div>
+                        </li>
+
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- puzzle piece for expandable/extensions -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path
+                                        d="M19.439 15.439v-4.878a2 2 0 0 0-2-2h-4.878a2 2 0 0 1-2-2V2.683a.683.683 0 0 0-.683-.683h-4a.683.683 0 0 0-.683.683v3.878a2 2 0 0 1-2 2H2.683A.683.683 0 0 0 2 9.244v4a.683.683 0 0 0 .683.683h3.878a2 2 0 0 1 2 2v3.878a.683.683 0 0 0 .683.683h4a.683.683 0 0 0 .683-.683v-3.878a2 2 0 0 1 2-2h3.878a.683.683 0 0 0 .683-.683z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Expandable</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Build your own or use sysextensions to expand the system easily.
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+        </div>
+
+        <!-- down arrow (hero) -->
+        <button id="scroll-down" class="scroll-indicator" aria-label="Scroll down to details">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12l7 7 7-7" stroke="white" stroke-width="1.6" stroke-linecap="round"
+                    stroke-linejoin="round" />
+            </svg>
+        </button>
+    </section>
+
+    <!-- PAGE 2: Hadron + Kairos (mirrored layout) -->
+    <section id="page-details" class="snap-page hero" aria-label="Hadron and Kairos">
+        <div class="hero-inner hero-reversed">
+            <!-- FEATURE LIST (moved to left side) -->
+            <aside class="showcase" aria-label="Kairos features">
+                <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
+                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- git-branch for A/B upgrades -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                                    <circle cx="18" cy="6" r="3"></circle>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Safe Atomic Updates</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">A/B upgrades with automatic failovers, minimal failure surface.
+                                </div>
+                            </div>
+                        </li>
+
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- layers icon for minimal footprint -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                                    <polyline points="2 17 12 22 22 17"></polyline>
+                                    <polyline points="2 12 12 17 22 12"></polyline>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Simplify configuration</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Configure your nodes with simple and declarative YAML files.</div>
+                            </div>
+                        </li>
+
+                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
+                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                                <!-- check-circle for trusted supply chain -->
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
+                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                                    aria-hidden="true">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                </svg>
+                            </div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted Supply Chain</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Secure and measured boot with full data partition encryption.</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- CONTENT (right side when reversed) -->
+            <div class="hero-left">
+                <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                    <span>Hadron +</span>
+                    <svg width="1.5em" height="1.5em" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kairos logo" style="filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.18907e-05 1 68.502 18.8594)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 -0.500028 3.18907e-05 1 47.0088 31.2695)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499972 47.0088 6.45312)" fill="#fb9e70"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(3.19859e-05 1 0.86601 0.500028 25.5139 43.6797)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499973 0.866041 0.499972 25.5139 68.4922)" fill="#fb9e70"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-3.17834e-05 1 0.866009 -0.500028 4.02271 56.0898)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 68.5042 93.3125)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 47.011 105.723)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 47.011 80.9062)" fill="#fb9e70"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.4985 118.141)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9917 105.73)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9917 130.547)" fill="#fb9e70"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 132.979 56.0859)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 111.486 68.4961)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 111.486 43.6797)" fill="#fb9e70"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.5002 43.6875)" fill="#ee5007"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9934 31.2773)" fill="#ff7442"></rect>
+                        <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9934 56.0938)" fill="#fb9e70"></rect>
+                    </svg>
+                    <span>Kairos</span>
+                </div>
+                <h1>The purpose-built stack for immutable, reliable operations.</h1>
+                <p class="lead">Kairos provides the image-based lifecycle, A/B upgrades, configuration engine, and secure supply chain that unleash Hadron's full potential. Together, they form a minimal, predictable, and production-ready foundation for cloud and edge systems.</p>
+
+                <div class="ctas">
+                    <a href="/docs/quickstart/" class="btn primary">Try Hadron with Kairos</a>
+                    <a href="https://kairos.io" target="_blank" rel="noopener noreferrer" class="btn secondary">Learn about
+                        Kairos</a>
+                </div>
+            </div>
+        </div>
+    </section>
+    </main>
+
+    <button id="scroll-up-fixed" class="scroll-indicator up" aria-label="Scroll back to top" title="Back to top">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 19V5M5 12l7-7 7 7" stroke="white" stroke-width="1.6" stroke-linecap="round"
+                stroke-linejoin="round" />
+        </svg>
+    </button>
+</div>
+
+<script defer src="/js/scripts.js"></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Hadron Linux",
+  "description": "A minimal, upstream-aligned Linux distribution built from scratch using musl, systemd, and vanilla Linux kernels — engineered for secure, predictable cloud and edge deployments.",
+  "url": "https://hadron-linux.io",
+  "applicationCategory": "OperatingSystem",
+  "operatingSystem": "Linux",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "codeRepository": "https://github.com/kairos-io/hadron",
+  "keywords": ["Linux", "operating system", "minimal", "musl", "systemd", "cloud", "edge computing", "secure boot", "UKI", "USI"],
+  "featureList": [
+    "Minimal and lean - bare essentials only",
+    "Trusted by default - secure-boot ready, USI/UKI supported",
+    "Expandable - build your own or use sysextensions"
+  ]
+}
+</script>
+{{ end }}
 

@@ -1,0 +1,19 @@
+// Project-specific custom styles
+// This file is loaded after all theme styles
+
+// Customize footer background color
+.td-footer {
+  background-color: #050b14 !important;
+}
+
+// Also target footer in case of different class names
+footer.td-footer,
+footer {
+  background-color: #050b14 !important;
+}
+
+// Ensure navbar uses the primary color (header color)
+.td-navbar {
+  background-color: #0b1f3a !important;
+}
+

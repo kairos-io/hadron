@@ -1,0 +1,12 @@
+<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Equilateral triangle with 3D folded ribbon effect -->
+  <!-- Top-left segment (lighter orange) -->
+  <path d="M 100 20 L 20 173.2 L 100 173.2 Z" fill="#FF8C42"/>
+  
+  <!-- Top-right segment (medium vibrant orange) -->
+  <path d="M 100 20 L 180 173.2 L 100 173.2 Z" fill="#FF6B35"/>
+  
+  <!-- Bottom segment (darker, richer orange) - creates depth effect -->
+  <path d="M 20 173.2 L 180 173.2 L 100 200 Z" fill="#EE5007"/>
+</svg>
+

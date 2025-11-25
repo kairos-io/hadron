@@ -1799,7 +1799,8 @@ RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 
 # This builds the modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make modules_install
+RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
@@ -2679,6 +2680,8 @@ COPY --link --from=lz4 /lz4 /
 COPY --link --from=xxhash /xxhash /
 
 # Now prepare a merged directory with all the built tools
+COPY --from=busybox /sysroot /busybox
+RUN rsync -aHAX --keep-dirlinks  /busybox/. /merge
 COPY --from=cmake /cmake /cmake
 RUN rsync -aHAX --keep-dirlinks  /cmake/. /merge
 COPY --from=kmod /kmod /kmod
@@ -2777,8 +2780,26 @@ COPY --from=popt /popt /popt
 RUN rsync -aHAX --keep-dirlinks  /popt/. /merge
 COPY --from=libxml /libxml /libxml
 RUN rsync -aHAX --keep-dirlinks  /libxml/. /merge
+COPY --from=grep /grep /grep
+RUN rsync -aHAX --keep-dirlinks  /grep/. /merge
+COPY --from=diffutils /diffutils /diffutils
+RUN rsync -aHAX --keep-dirlinks  /diffutils/. /merge
+## Kernel but only the headers
+COPY --from=kernel /linux-headers/ /linux-headers
+RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /merge/usr/
 
 FROM scratch AS toolchain
+# These are the default values for the toolchain
+# Set them so anything using the toolchain will use the default values
+ENV VENDOR="hadron"
+ENV ARCH="x86-64"
+ENV BUILD_ARCH="x86_64"
+ENV VENDOR=${VENDOR}
+ENV BUILD_ARCH=${BUILD_ARCH}
+ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
+ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
+ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
