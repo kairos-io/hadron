@@ -382,6 +382,9 @@ if [[ $SYSEXT -eq 1 ]]; then
       if [[ "$cert_dir" != /* ]]; then
         cert_dir="${PWD}/$cert_dir"
       fi
+      ## chmod the key to be read only by the user
+      chmod 400 "$PRIVATE_KEY"
+      chmod 400 "$CERTIFICATE"
       ## Now add the mounts for the key and cert
       mounts="$mounts -v $key_dir:/key -v $cert_dir:/cert"
       ## Now set the full destination args to the proper paths inside the container
