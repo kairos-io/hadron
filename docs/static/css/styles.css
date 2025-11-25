@@ -69,15 +69,6 @@ body {
 .eyebrow {
     color: var(--accent);
     font-weight: 600;
-    text-transform: uppercase;
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-.eyebrow-kairos {
-    color: var(--accent);
-    font-weight: 600;
-    text-transform: uppercase;
     font-size: 3rem;
     margin-bottom: 1rem;
 }
