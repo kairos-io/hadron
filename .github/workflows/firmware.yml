@@ -1,4 +1,4 @@
-name: firmware.yml
+name: Build firmware images
 on:
   pull_request:
   push:
