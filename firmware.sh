@@ -387,7 +387,7 @@ if [[ $SYSEXT -eq 1 ]]; then
       ## Now set the full destination args to the proper paths inside the container
       args="$args --private-key /key/$(basename "$PRIVATE_KEY") --certificate /cert/$(basename "$CERTIFICATE")"
     fi
-    docker run -it --rm ${mounts} \
+    docker run -i --rm ${mounts} \
       -v "${PWD}"/build:/build \
       auroraboot \
       sysext ${args} "$target_name" "$image"
