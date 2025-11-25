@@ -389,7 +389,7 @@ if [[ $SYSEXT -eq 1 ]]; then
     fi
     docker run -i --rm ${mounts} \
       -v "${PWD}"/build:/build \
-      auroraboot \
+      quay.io/kairos/auroraboot:v0.15.0-beta1 \
       sysext ${args} "$target_name" "$image"
     echo "Sysext for $target_name built successfully."
   done
