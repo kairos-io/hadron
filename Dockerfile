@@ -3213,7 +3213,8 @@ RUN systemd-sysusers
 RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
 
 ### final image
-FROM full-image-final AS default
+FROM scratch AS default
+COPY --from=full-image-final / /
 CMD ["/bin/bash", "-l"]
 
 ## final image with debug
