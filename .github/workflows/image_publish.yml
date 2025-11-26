@@ -317,7 +317,7 @@ jobs:
           push: true
           tags: ttl.sh/hadron-init-bios:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-virtual-bios:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud-bios:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
   build-trusted:
@@ -338,7 +338,7 @@ jobs:
           push: true
           tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-virtual-trusted:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud-trusted:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=true
   build-bios-iso:
