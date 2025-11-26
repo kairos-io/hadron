@@ -291,7 +291,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ttl.sh/hadron-${{ matrix.kernel }}:${{ github.sha }}
+          tags: ttl.sh/hadron-${{ matrix.kernel }}-trusted:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
