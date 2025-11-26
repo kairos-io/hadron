@@ -12,6 +12,11 @@ concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
+  testSize:
+    runs-on:  oracle-vm-32cpu-128gb-x86-64
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@v1.3.1
   toolchain:
     runs-on: oracle-24cpu-384gb-x86-64
     permissions:
@@ -29,8 +34,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
       - name: Log in to the Container registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
