@@ -1812,6 +1812,11 @@ RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 # This builds the modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+
+FROM kernel-base AS kernel-headers
+ARG JOBS
+ARG TARGETARCH
+WORKDIR /sources/kernel
 # This installs the headers
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
@@ -2798,7 +2803,7 @@ RUN rsync -aHAX --keep-dirlinks  /grep/. /merge
 COPY --from=diffutils /diffutils /diffutils
 RUN rsync -aHAX --keep-dirlinks  /diffutils/. /merge
 ## Kernel but only the headers
-COPY --from=kernel /linux-headers/ /linux-headers
+COPY --from=kernel-headers /linux-headers/ /linux-headers
 RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /merge/usr/
 
 FROM scratch AS toolchain
@@ -3204,6 +3209,8 @@ COPY files/login.defs /etc/login.defs
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 ## Create any missing users from scratch
 RUN systemd-sysusers
+## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
+RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
 
 ### final image
 FROM full-image-final AS default
