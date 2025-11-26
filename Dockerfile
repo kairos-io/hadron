@@ -2,7 +2,7 @@
 ## small LFS system, starting from Alpine Linux.
 ## It uses mussel to build the system.
 ARG BOOTLOADER=grub
-ARG KERNEL_TYPE=baremetal
+ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
 ARG JOBS=24
 
@@ -1791,18 +1791,15 @@ RUN mkdir -p /kernel && mkdir -p /modules
 
 WORKDIR /sources
 RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
-WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/default.config .config
 
 
 FROM kernel-base AS kernel-virtual
-# no op, we use the default tiny
-
-FROM kernel-base AS kernel-baremetal
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/baremetal.fragment .
-# Merge the baremental fragment into the config
-RUN scripts/kconfig/merge_config.sh .config baremetal.fragment
+RUN cp -rfv /sources/kernel-configs/virtual.config .config
+
+FROM kernel-base AS kernel-default
+WORKDIR /sources/kernel
+RUN cp -rfv /sources/kernel-configs/default.config .config
 
 FROM kernel-${KERNEL_TYPE} AS kernel
 ARG JOBS

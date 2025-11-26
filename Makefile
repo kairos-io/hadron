@@ -6,7 +6,7 @@ JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.1
 BOOTLOADER ?= systemd
-KERNEL_TYPE ?= baremetal
+KERNEL_TYPE ?= default
 KEYS_DIR ?= ${PWD}/tests/assets/keys
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
