@@ -6,7 +6,8 @@ JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.1
 BOOTLOADER ?= systemd
-KEYS_DIR ?= ${PWD}/tests/assets/keys
+CURRENT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
+KEYS_DIR ?= $(CURRENT_DIR)/tests/assets/keys
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
 
@@ -99,14 +100,14 @@ clean:
 
 grub-iso:
 	@echo "Building GRUB ISO image..."
-	@docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME}
+	@docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -v $(CURRENT_DIR)/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME}
 	@echo "GRUB ISO image built successfully at $(shell ls -t1 build/kairos-hadron-${HADRON_VERSION}-*-${VERSION}*.iso | head -n1)"
 
 # Build an ISO image
 trusted-iso:
 	@echo "Building Trusted Boot ISO image..."
 	@docker run -v /var/run/docker.sock:/var/run/docker.sock \
-	-v ${PWD}/build/:/output \
+	-v $(CURRENT_DIR)/build/:/output \
 	-v ${KEYS_DIR}:/keys \
 	${AURORA_IMAGE} \
 	build-uki \
