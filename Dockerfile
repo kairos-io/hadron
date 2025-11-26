@@ -1793,9 +1793,9 @@ WORKDIR /sources
 RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
 
 
-FROM kernel-base AS kernel-virtual
+FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/virtual.config .config
+RUN cp -rfv /sources/kernel-configs/cloud.config .config
 
 FROM kernel-base AS kernel-default
 WORKDIR /sources/kernel
