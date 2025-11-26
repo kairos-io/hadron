@@ -271,7 +271,7 @@ RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirror
 
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.11.1
+ARG MULTIPATH_TOOLS_VERSION=0.11.3
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
 RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
@@ -2482,18 +2482,10 @@ COPY --from=pax-utils /pax-utils /pax-utils
 RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 
 COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-# extract the aport patch to apply to multipath-tools
 RUN mkdir -p /multipath-tools
 WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
-# patch it
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/0001-Disable-O2.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-basename.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-implicit-function-declaration-error.patch
 ENV CC="gcc"
 # Set lib to /lib so it works in initramfs as well
 RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib

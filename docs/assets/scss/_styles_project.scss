@@ -3,17 +3,17 @@
 
 // Customize footer background color
 .td-footer {
-  background-color: #050b14 !important;
+  background-color: $primary !important;
 }
 
 // Also target footer in case of different class names
 footer.td-footer,
 footer {
-  background-color: #050b14 !important;
+  background-color: $primary !important;
 }
 
 // Ensure navbar uses the primary color (header color)
 .td-navbar {
-  background-color: #0b1f3a !important;
+  background-color: $primary !important;
 }
 

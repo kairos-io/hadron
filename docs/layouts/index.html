@@ -47,14 +47,23 @@ body {
             <div class="hero-left">
                 <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
                     <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
-                    <span>Hadron Linux</span>
+                    <span>HADRON</span>
+                    <span style="font-size: 0.7em; opacity: 0.8; font-weight: 300;">by Kairos</span>
                 </div>
-                <h1>Minimal. Trusted.<br />Built for the cloud &amp; the edge.</h1>
-                <p class="lead">Hadron is a minimal, upstream-aligned Linux distribution built from scratch using musl, systemd, and vanilla Linux kernels — engineered for secure, predictable cloud and edge deployments.</p>
+                <h1>The foundation for image-based systems.</h1>
+                <p class="lead">
+                    Hadron is a minimal, upstream-aligned Linux distribution built from scratch with musl, systemd, vanilla kernels and no package manager — designed for predictable cloud and edge environments.
+                </p>
+                <p class="lead">
+                    Topped with <a href="https://kairos.io" target="_blank" rel="noopener noreferrer">Kairos</a>, it becomes immutable and has powerful lifecycle management. It's the foundation for image-based systems.
+                </p>
+                <p>
+                    Engineered by the Kairos team at <a href="https://spectrocloud.com" target="_blank" rel="noopener noreferrer">Spectro Cloud</a>.
+                </p>
 
                 <div class="ctas" role="navigation" aria-label="Primary">
-                    <a href="/docs/quickstart/" class="btn primary" id="btn-start">Get Started</a>
-                    <a href="https://github.com/kairos-io/hadron" target="_blank" rel="noopener noreferrer" class="btn secondary" id="btn-github">View on GitHub</a>
+                    <a href="/docs/" class="btn primary" id="btn-start">Documentation</a>
+                    <a href="https://github.com/kairos-io/hadron" target="_blank" rel="noopener noreferrer" class="btn secondary" id="btn-github">Source Code</a>
                 </div>
             </div>
 
@@ -64,7 +73,7 @@ body {
                     <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
                         <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- package/box icon for minimal -->
+                                <!-- package/box icon for core components -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
                                     aria-hidden="true">
@@ -75,40 +84,37 @@ body {
                                     <line x1="12" y1="22.08" x2="12" y2="12"></line>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Minimal &amp; Lean</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Bare essentials only — no downstream patches, no vendor ecosystem.
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Core Components</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">musl, systemd, vanilla kernels.
                                 </div>
                             </div>
                         </li>
 
                         <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- shield check icon for trusted boot -->
+                                <!-- arrow up icon for upstream alignment -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
                                     aria-hidden="true">
-                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                                    <polyline points="9 12 11 14 15 10"></polyline>
+                                    <path d="M12 19V5M5 12l7-7 7 7"></path>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted by default</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Secure-boot ready, USI/UKI supported as first-class citizens.</div>
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Upstream First</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Minimal changes. Maximum compatibility.</div>
                             </div>
                         </li>
 
                         <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
                             <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- puzzle piece for expandable/extensions -->
+                                <!-- star icon for independent -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
                                     aria-hidden="true">
-                                    <path
-                                        d="M19.439 15.439v-4.878a2 2 0 0 0-2-2h-4.878a2 2 0 0 1-2-2V2.683a.683.683 0 0 0-.683-.683h-4a.683.683 0 0 0-.683.683v3.878a2 2 0 0 1-2 2H2.683A.683.683 0 0 0 2 9.244v4a.683.683 0 0 0 .683.683h3.878a2 2 0 0 1 2 2v3.878a.683.683 0 0 0 .683.683h4a.683.683 0 0 0 .683-.683v-3.878a2 2 0 0 1 2-2h3.878a.683.683 0 0 0 .683-.683z">
-                                    </path>
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Expandable</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Build your own or use sysextensions to expand the system easily.
+                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Independent</strong>
+                                <div class="muted" style="margin-top: 0.25rem;">Built from scratch. No package manager.
                                 </div>
                             </div>
                         </li>
@@ -117,111 +123,6 @@ body {
             </aside>
         </div>
 
-        <!-- down arrow (hero) -->
-        <button id="scroll-down" class="scroll-indicator" aria-label="Scroll down to details">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 5v14M5 12l7 7 7-7" stroke="white" stroke-width="1.6" stroke-linecap="round"
-                    stroke-linejoin="round" />
-            </svg>
-        </button>
-    </section>
-
-    <!-- PAGE 2: Hadron + Kairos (mirrored layout) -->
-    <section id="page-details" class="snap-page hero" aria-label="Hadron and Kairos">
-        <div class="hero-inner hero-reversed">
-            <!-- FEATURE LIST (moved to left side) -->
-            <aside class="showcase" aria-label="Kairos features">
-                <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
-                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- git-branch for A/B upgrades -->
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true">
-                                    <line x1="6" y1="3" x2="6" y2="15"></line>
-                                    <circle cx="18" cy="6" r="3"></circle>
-                                    <circle cx="6" cy="18" r="3"></circle>
-                                    <path d="M18 9a9 9 0 0 1-9 9"></path>
-                                </svg>
-                            </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Safe Atomic Updates</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">A/B upgrades with automatic failovers, minimal failure surface.
-                                </div>
-                            </div>
-                        </li>
-
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- layers icon for minimal footprint -->
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true">
-                                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                                    <polyline points="2 17 12 22 22 17"></polyline>
-                                    <polyline points="2 12 12 17 22 12"></polyline>
-                                </svg>
-                            </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Simplify configuration</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Configure your nodes with simple and declarative YAML files.</div>
-                            </div>
-                        </li>
-
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
-                                <!-- check-circle for trusted supply chain -->
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
-                                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-                                    aria-hidden="true">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                </svg>
-                            </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Trusted Supply Chain</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Secure and measured boot with full data partition encryption.</div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-            </aside>
-
-            <!-- CONTENT (right side when reversed) -->
-            <div class="hero-left">
-                <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
-                    <span>Hadron +</span>
-                    <svg width="1.5em" height="1.5em" viewBox="0 0 137 137" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Kairos logo" style="filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.18907e-05 1 68.502 18.8594)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 -0.500028 3.18907e-05 1 47.0088 31.2695)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499972 47.0088 6.45312)" fill="#fb9e70"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(3.19859e-05 1 0.86601 0.500028 25.5139 43.6797)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499973 0.866041 0.499972 25.5139 68.4922)" fill="#fb9e70"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-3.17834e-05 1 0.866009 -0.500028 4.02271 56.0898)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 68.5042 93.3125)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 47.011 105.723)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 47.011 80.9062)" fill="#fb9e70"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.4985 118.141)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9917 105.73)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9917 130.547)" fill="#fb9e70"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.86601 0.500028 -3.19781e-05 1 132.979 56.0859)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866009 -0.500028 3.18033e-05 1 111.486 68.4961)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(-0.866041 0.499972 0.866041 0.499973 111.486 43.6797)" fill="#fb9e70"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 -0.500028 3.18907e-05 -1 68.5002 43.6875)" fill="#ee5007"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.86601 0.500028 -3.18907e-05 -1 89.9934 31.2773)" fill="#ff7442"></rect>
-                        <rect width="24.8171" height="24.8171" transform="matrix(0.866041 -0.499972 -0.866041 -0.499972 89.9934 56.0938)" fill="#fb9e70"></rect>
-                    </svg>
-                    <span>Kairos</span>
-                </div>
-                <h1>The purpose-built stack for immutable, reliable operations.</h1>
-                <p class="lead">Kairos provides the image-based lifecycle, A/B upgrades, configuration engine, and secure supply chain that unleash Hadron's full potential. Together, they form a minimal, predictable, and production-ready foundation for cloud and edge systems.</p>
-
-                <div class="ctas">
-                    <a href="/docs/quickstart/" class="btn primary">Try Hadron with Kairos</a>
-                    <a href="https://kairos.io" target="_blank" rel="noopener noreferrer" class="btn secondary">Learn about
-                        Kairos</a>
-                </div>
-            </div>
-        </div>
     </section>
     </main>
 
@@ -252,9 +153,9 @@ body {
   "codeRepository": "https://github.com/kairos-io/hadron",
   "keywords": ["Linux", "operating system", "minimal", "musl", "systemd", "cloud", "edge computing", "secure boot", "UKI", "USI"],
   "featureList": [
-    "Minimal and lean - bare essentials only",
-    "Trusted by default - secure-boot ready, USI/UKI supported",
-    "Expandable - build your own or use sysextensions"
+    "Core Components - musl, systemd, vanilla kernels",
+    "Upstream First - Minimal changes. Maximum compatibility",
+    "Independent - Built from scratch. No package manager"
   ]
 }
 </script>
