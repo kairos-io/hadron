@@ -12,13 +12,8 @@ concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
-  testSize:
-    runs-on:  oracle-vm-32cpu-128gb-x86-64
-    steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@v1.3.1
   toolchain:
-    runs-on: oracle-24cpu-384gb-x86-64
+    runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
       packages: write
       contents: read
@@ -82,7 +77,7 @@ jobs:
           target: toolchain
           cache-from: type=gha,scope=hadron/ci-image-main
   container:
-    runs-on: oracle-24cpu-384gb-x86-64
+    runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
       - toolchain
     permissions:
@@ -157,7 +152,7 @@ jobs:
           target: container-test
           cache-from: type=gha,scope=hadron/ci-image-main
   hadron-bios:
-    runs-on: oracle-24cpu-384gb-x86-64
+    runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -230,7 +225,7 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
   hadron-trusted:
-    runs-on: oracle-24cpu-384gb-x86-64
+    runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
