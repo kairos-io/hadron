@@ -3204,11 +3204,6 @@ RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
 RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
 
-### final image
-FROM scratch AS default
-COPY --from=full-image-final / /
-CMD ["/bin/bash", "-l"]
-
 ## final image with debug
 FROM full-image-final AS debug
 
@@ -3222,3 +3217,7 @@ COPY files/verify_binaries.sh /verify_binaries.sh
 RUN chmod +x /verify_binaries.sh
 RUN /verify_binaries.sh
 
+### final image, last in case we call it without a target, it will build this one
+FROM scratch AS default
+COPY --from=full-image-final / /
+CMD ["/bin/bash", "-l"]
