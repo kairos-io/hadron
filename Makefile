@@ -1,4 +1,4 @@
-IMAGE_NAME ?= ghcr.io/kairos-io/hadron-default-trusted:main
+IMAGE_NAME ?= ghcr.io/kairos-io/hadron-trusted:main
 INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.14.0-beta1
 TARGET ?= default
@@ -16,10 +16,10 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 # we set it to the GRUB-specific image.
 # otherwise, we leave it as the default.
 ifeq ($(BOOTLOADER),grub)
-ifneq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron-default-trusted:main)
+ifneq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron-trusted:main)
   # User override, do nothing
 else
-  $(eval IMAGE_NAME := ghcr.io/kairos-io/hadron-default-grub:main)
+  $(eval IMAGE_NAME := ghcr.io/kairos-io/hadron-grub:main)
 endif
 endif
 

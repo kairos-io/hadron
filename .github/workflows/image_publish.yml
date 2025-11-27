@@ -71,8 +71,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
-          tags: ttl.sh/hadron-container:${{ github.sha }}
+          tags: ttl.sh/hadron-toolchain:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
           cache-from: type=gha,scope=hadron/ci-image-main
@@ -107,7 +106,7 @@ jobs:
         uses: docker/metadata-action@8d8c7c12f7b958582a5cb82ba16d5903cb27976a
         with:
           images: |
-            ghcr.io/${{ github.repository }}-container
+            ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -137,8 +136,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
-          tags: ttl.sh/hadron-container:${{ github.sha }}
+          tags: ttl.sh/hadron:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: type=gha,scope=hadron/ci-image-main
@@ -185,7 +183,7 @@ jobs:
         uses: docker/metadata-action@8d8c7c12f7b958582a5cb82ba16d5903cb27976a
         with:
           images: |
-            ghcr.io/${{ github.repository }}-${{ matrix.kernel }}-bios
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-bios
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -218,7 +216,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ttl.sh/hadron-${{ matrix.kernel }}-bios:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-bios:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
@@ -258,7 +256,7 @@ jobs:
         uses: docker/metadata-action@8d8c7c12f7b958582a5cb82ba16d5903cb27976a
         with:
           images: |
-            ghcr.io/${{ github.repository }}-${{ matrix.kernel }}-trusted
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -291,13 +289,13 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ttl.sh/hadron-${{ matrix.kernel }}-trusted:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
-  build-bios:
+  build-kairos-bios:
     runs-on: ubuntu-latest
     needs:
       - hadron-bios
@@ -318,7 +316,7 @@ jobs:
             BASE_IMAGE=ttl.sh/hadron-cloud-bios:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
-  build-trusted:
+  build-kairos-trusted:
     runs-on: ubuntu-latest
     needs:
       - hadron-trusted
@@ -342,7 +340,7 @@ jobs:
   build-bios-iso:
     runs-on: ubuntu-latest
     needs:
-      - build-bios
+      - build-kairos-bios
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -366,7 +364,7 @@ jobs:
   build-trusted-iso:
     runs-on: ubuntu-latest
     needs:
-      - build-trusted
+      - build-kairos-trusted
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
