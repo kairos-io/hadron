@@ -71,7 +71,6 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
           tags: ttl.sh/hadron-toolchain:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
@@ -107,7 +106,7 @@ jobs:
         uses: docker/metadata-action@8d8c7c12f7b958582a5cb82ba16d5903cb27976a
         with:
           images: |
-            ghcr.io/${{ github.repository }}-container
+            ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{raw}}
             type=ref,event=branch
@@ -137,8 +136,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/amd64
-          push: true
-          tags: ttl.sh/hadron-container:${{ github.sha }}
+          tags: ttl.sh/hadron:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: type=gha,scope=hadron/ci-image-main
