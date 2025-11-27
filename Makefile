@@ -1,26 +1,33 @@
-IMAGE_NAME ?= ghcr.io/kairos-io/hadron-trusted:main
+IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.14.0-beta1
 TARGET ?= default
 JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.1
-BOOTLOADER ?= systemd
+BOOTLOADER ?= grub
 KERNEL_TYPE ?= default
 KEYS_DIR ?= ${PWD}/tests/assets/keys
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
 
 # Adjust IMAGE_NAME based on BOOTLOADER
-# If we are building with GRUB and the user has not overridden IMAGE_NAME,
-# we set it to the GRUB-specific image.
-# otherwise, we leave it as the default.
-ifeq ($(BOOTLOADER),grub)
-ifneq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron-trusted:main)
-  # User override, do nothing
-else
-  $(eval IMAGE_NAME := ghcr.io/kairos-io/hadron-grub:main)
+# If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
+# of the Hadron image. If the user has overridden IMAGE_NAME, we respect that.
+# If we are building with grub, we do nothing.
+ifeq ($(BOOTLOADER),systemd)
+	ifeq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
+          IMAGE_NAME := ghcr.io/kairos-io/hadron-trusted:main
+	endif
 endif
+
+# Check fi bootloader is grub or systemd
+ifeq ($(BOOTLOADER),grub)
+	# No change needed
+else ifeq ($(BOOTLOADER),systemd)
+	# No change needed
+else
+$(error "Invalid BOOTLOADER value: $(BOOTLOADER). Must be 'grub' or 'systemd'.")
 endif
 
 
@@ -100,7 +107,7 @@ clean:
 	@docker rmi ${IMAGE_NAME}
 
 grub-iso:
-	@echo "Building GRUB ISO image..."
+	@echo "Building BIOS ISO image..."
 	@docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME} && \
 	echo "GRUB ISO image built successfully at $$(ls -t1 build/kairos-hadron-*.iso | head -n1)"
 
@@ -122,7 +129,7 @@ trusted-iso:
 	docker:${INIT_IMAGE_NAME} && \
 	echo "Trusted Boot ISO image built successfully at $$(ls -t1 build/kairos-hadron-*-uki.iso | head -n1)"
 
-# Default ISO is the Trusted Boot ISO
+# Default ISO is the Grub ISO
 build-iso:
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
 		$(MAKE) --no-print-directory trusted-iso; \
