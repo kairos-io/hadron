@@ -202,6 +202,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: default
           cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
           build-args: |
@@ -218,6 +219,7 @@ jobs:
           push: true
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-bios:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: default
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
             BOOTLOADER=grub
@@ -277,6 +279,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=hadron/ci-image-main
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
+          target: default
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -291,6 +294,7 @@ jobs:
           push: true
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: default
           cache-from: type=gha,scope=hadron/ci-image-main
           build-args: |
             BOOTLOADER=systemd
