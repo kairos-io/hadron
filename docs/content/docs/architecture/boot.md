@@ -3,47 +3,45 @@ title: "Boot Architecture"
 linkTitle: "Boot Architecture"
 weight: 3
 description: |
-    Bootloader configurations and boot process in Hadron
+    Boot modes and boot process in Hadron
 ---
 
-Hadron supports two bootloader configurations, each optimized for different use cases. The choice of bootloader affects the boot process, security capabilities, and system requirements.
+Hadron supports two boot modes, each optimized for different use cases. The choice of boot mode affects hardware compatibility, security capabilities, and system requirements.
 
-## GRUB Bootloader
+## Standard Boot (BIOS)
 
-GRUB is the default bootloader for Hadron, providing traditional boot capabilities with broad hardware compatibility.
+Standard Boot provides compatibility with legacy BIOS systems. This boot mode works on older hardware that uses traditional BIOS firmware rather than modern UEFI.
 
-### GRUB Features
+### BIOS Compatibility
 
-**BIOS and UEFI Support**
+Standard Boot supports legacy BIOS firmware:
 
-GRUB supports both legacy BIOS and modern UEFI firmware:
+- Works on systems with BIOS firmware (UEFI systems not supported)
+- Compatible with a wide range of legacy systems
+- Supports traditional boot configurations
+- Reliable boot on BIOS-based hardware
 
-- Works on older hardware without UEFI
-- Supports UEFI Secure Boot (with appropriate keys)
-- Compatible with a wide range of systems
-- Flexible boot configuration
+**Hardware Compatibility**
 
-**Boot Configuration**
+Standard Boot ensures:
 
-GRUB provides:
+- Broad hardware support on BIOS systems
+- Compatibility with various storage controllers
+- Support for different filesystem types
+- Reliable boot on legacy hardware platforms
+
+### Boot Configuration
+
+Standard Boot provides:
 
 - Flexible boot menu configuration
 - Kernel parameter customization
 - Rescue mode capabilities
 - Boot from network or local storage
 
-**Hardware Compatibility**
-
-GRUB's mature codebase ensures:
-
-- Broad hardware support
-- Compatibility with various storage controllers
-- Support for different filesystem types
-- Reliable boot on diverse hardware
-
 ### Initramfs with dracut
 
-When using GRUB, Hadron includes [dracut](https://github.com/dracut-ng/dracut-ng) for initramfs generation. dracut creates a minimal initial ramdisk that:
+Standard Boot includes [dracut](https://github.com/dracut-ng/dracut-ng) for initramfs generation. dracut creates a minimal initial ramdisk that:
 
 **Early Boot Tasks**
 
@@ -71,35 +69,26 @@ dracut integrates with systemd in the initramfs:
 - Provides systemd units for early boot
 - Enables systemd features in initramfs
 
-### GRUB Build Process
+### Implementation Details
 
-GRUB is built with:
+Standard Boot uses GRUB as the bootloader. The build system produces BIOS images for legacy hardware platforms.
 
-- Support for both BIOS and UEFI platforms
-- Minimal module set (only essential modules)
-- Optimized binary size
-- Compatibility with musl-based systems
+## Trusted Boot (UEFI Secure Boot)
 
-The build system produces separate GRUB images for BIOS and UEFI, allowing Hadron to boot on either platform.
+Trusted Boot enables secure boot capabilities on UEFI systems with Secure Boot enabled. This boot mode provides a chain of trust from firmware to kernel, protecting against boot-time attacks and enabling advanced security features.
 
-## systemd-boot (Trusted Boot)
+### UEFI Secure Boot Support
 
-For systems requiring trusted boot capabilities, Hadron supports systemd-boot with Unified Kernel Images (UKI).
+Trusted Boot requires UEFI firmware with Secure Boot enabled:
 
-### systemd-boot Features
+- Requires UEFI firmware (BIOS systems not supported)
+- EFI executable signing and verification
+- Chain of trust from firmware to kernel
+- Protection against boot-time attacks
 
-**Modern UEFI Bootloader**
+### Unified Kernel Images (UKI)
 
-systemd-boot is a lightweight UEFI bootloader that:
-
-- Integrates with systemd ecosystem
-- Supports Unified Kernel Images
-- Provides simple, predictable boot process
-- Eliminates need for separate initramfs
-
-**Unified Kernel Images (UKI)**
-
-UKI combines kernel, initramfs, and boot configuration into a single EFI executable:
+Trusted Boot uses Unified Kernel Images that combine kernel, initramfs, and boot configuration into a single EFI executable:
 
 - Single file contains all boot components
 - Easier to sign and verify
@@ -108,7 +97,7 @@ UKI combines kernel, initramfs, and boot configuration into a single EFI executa
 
 ### Trusted Boot Capabilities
 
-With systemd-boot, Hadron supports:
+With Trusted Boot, Hadron supports:
 
 **Secure Boot**
 
@@ -138,20 +127,13 @@ With systemd-boot, Hadron supports:
 - Automatic rollback on boot failure
 - Boot state tracking
 
-### systemd-boot Build Process
+### Implementation Details
 
-systemd-boot is built separately from the main systemd build due to musl's limitations with wchar_t definitions. The build process:
-
-- Compiles systemd-boot EFI binaries
-- Generates UKI stub files
-- Includes SBAT (Secure Boot Advanced Targeting) information
-- Produces EFI executables for boot
-
-The EFI binaries are then merged into the final image at `/usr/lib/systemd/boot/efi/`.
+Trusted Boot uses systemd-boot as the bootloader with Unified Kernel Images. The build process compiles systemd-boot EFI binaries, generates UKI stub files, includes SBAT (Secure Boot Advanced Targeting) information, and produces EFI executables for boot. The EFI binaries are merged into the final image at `/usr/lib/systemd/boot/efi/`.
 
 ### UKI Generation
 
-When using systemd-boot, the build system can generate UKI images that combine:
+When using Trusted Boot, the build system generates UKI images that combine:
 
 - Linux kernel (vmlinuz)
 - Initramfs (if needed)
@@ -163,53 +145,54 @@ This single EFI executable simplifies the boot process and enables trusted boot 
 
 ## Boot Process Comparison
 
-### GRUB Boot Process
+### Standard Boot Process
 
-1. Firmware loads GRUB from EFI system partition or MBR
-2. GRUB reads configuration and displays boot menu
-3. GRUB loads kernel and initramfs
+1. BIOS firmware loads bootloader from MBR
+2. Bootloader reads configuration and displays boot menu
+3. Bootloader loads kernel and initramfs
 4. Kernel starts, initramfs is mounted
 5. dracut in initramfs discovers hardware and mounts root
 6. System switches to root filesystem
 7. systemd takes over as PID 1
 
-### systemd-boot Boot Process
+### Trusted Boot Process
 
-1. Firmware loads systemd-boot from EFI system partition
-2. systemd-boot loads Unified Kernel Image
+1. Firmware loads bootloader from EFI system partition
+2. Bootloader loads Unified Kernel Image
 3. UKI contains kernel and (optional) initramfs
 4. Kernel starts directly, or with embedded initramfs
 5. systemd takes over as PID 1
 6. Simpler, more direct boot path
 
-## Choosing a Bootloader
+## Choosing a Boot Mode
 
-**Use GRUB when:**
+**Use Standard Boot (BIOS) when:**
 
-- You need BIOS support
-- You want flexible boot configuration
+- You need BIOS support for legacy hardware
+- You're using systems with traditional BIOS firmware
+- You need flexible boot configuration
 - You need rescue mode capabilities
-- You're using traditional hardware
+- You're deploying on older hardware platforms
 
-**Use systemd-boot when:**
+**Use Trusted Boot (UEFI Secure Boot) when:**
 
-- You require trusted boot capabilities
-- You want Secure Boot support
-- You need TPM integration
+- You require Secure Boot support
+- You need trusted boot capabilities
+- You want TPM integration
 - You're building secure, immutable systems
-- You're using modern UEFI-only hardware
+- You're using modern UEFI hardware with Secure Boot enabled
 
 ## Boot Configuration
 
-Both bootloaders support configuration customization:
+Both boot modes support configuration customization:
 
-**GRUB Configuration**
+**Standard Boot Configuration**
 
 - Modify `/etc/default/grub` for boot parameters
 - Customize `/boot/grub/grub.cfg` for menu entries
 - Add kernel parameters for specific use cases
 
-**systemd-boot Configuration**
+**Trusted Boot Configuration**
 
 - Configure via systemd-boot loader entries
 - Set kernel parameters in loader entries
@@ -217,18 +200,17 @@ Both bootloaders support configuration customization:
 
 ## Integration with Kairos
 
-When used with [Kairos](https://kairos.io), both bootloaders gain additional capabilities:
+When used with [Kairos](https://kairos.io), both boot modes gain additional capabilities:
 
 - **A/B partition management**: Automatic partition switching for upgrades
 - **Boot assessment**: Automatic rollback on boot failure
 - **Image-based updates**: Seamless integration with container image updates
 - **Trusted boot workflows**: Full trusted boot chain with Kairos
 
-See the [Kairos documentation](https://kairos.io) for details on using Hadron bootloaders with Kairos lifecycle management.
+See the [Kairos documentation](https://kairos.io) for details on using Hadron boot modes with Kairos lifecycle management.
 
 ## See Also
 
 - [Core Components](/docs/architecture/core-components/) - Kernel and systemd details
-- [Build System](/docs/architecture/build-system/) - How bootloaders are built
-- [Kairos](https://kairos.io) - Lifecycle management with Hadron bootloaders
-
+- [Build System](/docs/architecture/build-system/) - How boot modes are built
+- [Kairos](https://kairos.io) - Lifecycle management with Hadron boot modes

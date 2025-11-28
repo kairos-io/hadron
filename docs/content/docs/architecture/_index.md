@@ -41,7 +41,7 @@ This combination delivers a small footprint with modern system management capabi
 
 ### Build System
 
-Hadron uses a multi-stage Docker build process that constructs the entire operating system from source. The build follows a Linux From Scratch (LFS) approach with modern containerization.
+Hadron uses a multi-stage Docker build process that constructs the entire operating system from source. The build follows a [Linux From Scratch (LFS)](https://www.linuxfromscratch.org/) approach with modern containerization.
 
 See the [Build System](/docs/architecture/build-system/) documentation for detailed information.
 
@@ -63,10 +63,10 @@ See the [Core Components](/docs/architecture/core-components/) documentation for
 
 ### Boot Architecture
 
-Hadron supports two bootloader configurations:
+Hadron supports two boot modes:
 
-- **GRUB**: Traditional bootloader with BIOS and UEFI support, used with dracut for initramfs generation
-- **systemd-boot**: Modern bootloader for trusted boot scenarios, supporting Secure Boot and TPM-based measurements
+- **Standard Boot (BIOS)**: Legacy BIOS boot support for older hardware
+- **Trusted Boot (UEFI Secure Boot)**: UEFI boot with Secure Boot enabled, supporting Secure Boot and TPM-based measurements
 
 See the [Boot Architecture](/docs/architecture/boot/) documentation for detailed information.
 
@@ -122,7 +122,7 @@ By including only essential components, Hadron reduces the attack surface:
 
 ### Trusted Boot Support
 
-With systemd-boot, Hadron supports Secure Boot and TPM-based measurements for trusted boot scenarios.
+With Trusted Boot (UEFI Secure Boot), Hadron supports Secure Boot and TPM-based measurements for trusted boot scenarios.
 
 ### Default Hardening
 
@@ -132,5 +132,5 @@ The build system applies security hardening by default, including stripped binar
 
 - [Build System](/docs/architecture/build-system/) - Detailed build process documentation
 - [Core Components](/docs/architecture/core-components/) - musl, systemd, and kernel details
-- [Boot Architecture](/docs/architecture/boot/) - Bootloader configurations and trusted boot
+- [Boot Architecture](/docs/architecture/boot/) - Boot modes and trusted boot
 - [Kairos](https://kairos.io) - Immutable OS lifecycle management with Hadron

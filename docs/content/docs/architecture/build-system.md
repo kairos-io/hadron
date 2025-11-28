@@ -96,11 +96,11 @@ Minimal base image with essential tools (bash, curl, coreutils, etc.). Suitable 
 
 **full-image-grub**
 
-Complete bootable image with GRUB bootloader and dracut for initramfs generation. Suitable for traditional BIOS and UEFI systems.
+Complete bootable image with Standard Boot (BIOS) support. Works on legacy BIOS systems. Uses GRUB as the bootloader with dracut for initramfs generation.
 
 **full-image-systemd**
 
-Complete bootable image with systemd-boot for trusted boot scenarios. Supports Secure Boot and TPM-based measurements.
+Complete bootable image with Trusted Boot (UEFI Secure Boot) support. Requires UEFI firmware with Secure Boot enabled. Supports Secure Boot and TPM-based measurements. Uses systemd-boot as the bootloader.
 
 **toolchain**
 
@@ -169,6 +169,6 @@ Only runtime-necessary files are included in final images. Development headers, 
 ## See Also
 
 - [Core Components](/docs/architecture/core-components/) - What gets built
-- [Boot Architecture](/docs/architecture/boot/) - Bootloader configurations
+- [Boot Architecture](/docs/architecture/boot/) - Boot modes and trusted boot
 - [Customization Guide](/docs/customization/) - Extending Hadron with custom packages
 
