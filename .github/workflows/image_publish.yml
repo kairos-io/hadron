@@ -43,8 +43,11 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}-toolchain
           tags: |
-            type=semver,pattern={{raw}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=ref,event=branch
+            type=ref,event=tag
           flavor: |
             latest=auto
             prefix=
@@ -108,8 +111,11 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}-container
           tags: |
-            type=semver,pattern={{raw}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=ref,event=branch
+            type=ref,event=tag
           flavor: |
             latest=auto
             prefix=
@@ -185,8 +191,11 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}
           tags: |
-            type=semver,pattern={{raw}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=ref,event=branch
+            type=ref,event=tag
           flavor: |
             latest=auto
             prefix=
@@ -260,8 +269,11 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted
           tags: |
-            type=semver,pattern={{raw}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=ref,event=branch
+            type=ref,event=tag
           flavor: |
             latest=auto
             prefix=
