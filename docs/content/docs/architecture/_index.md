@@ -119,6 +119,7 @@ By including only essential components, Hadron reduces the attack surface:
 - Fewer packages mean fewer potential vulnerabilities
 - No package manager reduces attack vectors
 - Upstream sources minimize supply chain risks
+- Close-to-source approach enables rapid CVE patching: fixes can be integrated directly from upstream without carrying patches or extensive QA, allowing security updates to reach the system quickly
 
 ### Trusted Boot Support
 
