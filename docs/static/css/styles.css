@@ -65,6 +65,10 @@ body {
     grid-template-columns: 480px 1fr;
 }
 
+#page-hero {
+    padding: 1rem;
+}
+
 /* left column text */
 .eyebrow {
     color: var(--accent);
