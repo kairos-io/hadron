@@ -7,6 +7,7 @@
 body {
     background: linear-gradient(145deg, #071026, #0e2540) !important;
     overflow-x: hidden;
+    overflow-y: auto;
 }
 /* Ensure landing page content is full width and height */
 .td-main {
@@ -19,12 +20,14 @@ body {
 #landing-container {
     position: relative;
     min-height: calc(100vh - 120px);
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
 }
 /* Adjust snap container for header/footer */
 .snap-container {
-    height: calc(100vh - 120px);
+    min-height: calc(100vh - 120px);
     position: relative;
+    overflow-y: visible;
 }
 /* Ensure showcase is visible */
 .showcase {
