@@ -478,6 +478,12 @@ ARG LIBXML2_VERSION=2.14.5
 ARG LIBXML2_VERSION_MAJOR_AND_MINOR=2.14
 RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz && mv libxml2-${LIBXML2_VERSION}.tar.xz libxml2.tar.xz
 
+
+# gzip
+ARG GZIP_VERSION=1.12
+RUN cd /sources/downloads && wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && mv gzip-${GZIP_VERSION}.tar.xz gzip.tar.xz
+
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -1107,7 +1113,7 @@ RUN cd /sources && \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --enable-install-program=hostname,su \
+    --enable-install-program=hostname,su,env \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
@@ -1491,6 +1497,17 @@ RUN tar -xf xz.tar.gz && mv xz-* xz
 WORKDIR /sources/xz
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-doc --enable-small --disable-scripts
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JOBS} install
+
+# gzip at least for the toolchain
+FROM rsync AS gzip
+COPY --from=sources-downloader /sources/downloads/gzip.tar.xz /sources/
+RUN mkdir -p /gzip
+WORKDIR /sources
+RUN tar -xf gzip.tar.xz && mv gzip-* gzip
+WORKDIR /sources/gzip
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make -s -j${JOBS} && make install DESTDIR=/gzip
 
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
@@ -2797,6 +2814,10 @@ RUN rsync -aHAX --keep-dirlinks  /diffutils/. /merge
 ## Kernel but only the headers
 COPY --from=kernel-headers /linux-headers/ /linux-headers
 RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /merge/usr/
+COPY --from=findutils /findutils /findutils
+RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
+COPY --from=gzip /gzip /gzip
+RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
@@ -2810,6 +2831,8 @@ ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
 ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
+ENV M4="/usr/bin/m4"
+ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=true"
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
