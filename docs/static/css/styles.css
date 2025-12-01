@@ -65,6 +65,10 @@ body {
     grid-template-columns: 480px 1fr;
 }
 
+#page-hero {
+    padding: 1rem;
+}
+
 /* left column text */
 .eyebrow {
     color: var(--accent);
@@ -365,14 +369,57 @@ footer {
 
 /* responsive */
 @media (max-width:920px) {
+    .snap-page {
+        height: auto;
+        min-height: 100vh;
+        align-items: flex-start;
+        padding: 2rem 1rem;
+    }
+
     .hero-inner {
         grid-template-columns: 1fr;
         gap: 1.6rem;
         padding-bottom: 2rem;
     }
 
+    .hero-left {
+        order: 1;
+    }
+
     .showcase {
-        order: -1;
+        order: 2;
+        min-height: auto;
+        padding: 1.5rem;
+    }
+
+    .showcase-inner {
+        padding: 0;
+    }
+
+    .eyebrow {
+        font-size: 1.8rem;
+        margin-bottom: 0.75rem;
+    }
+
+    h1 {
+        font-size: clamp(1.8rem, 6vw, 2.5rem);
+        margin-bottom: 0.75rem;
+    }
+
+    .lead {
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .ctas {
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
     }
 
     #hadron-logo {
