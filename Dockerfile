@@ -2,6 +2,7 @@
 ## small LFS system, starting from Alpine Linux.
 ## It uses mussel to build the system.
 ARG BOOTLOADER=grub
+ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
 ARG JOBS=24
 
@@ -270,7 +271,7 @@ RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirror
 
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.11.1
+ARG MULTIPATH_TOOLS_VERSION=0.11.3
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
 RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
@@ -1742,7 +1743,7 @@ RUN cd /sources && \
     make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
 
 ## kernel
-FROM rsync AS kernel
+FROM rsync AS kernel-base
 ARG JOBS
 ARG TARGETARCH
 COPY --from=bash /bash /bash
@@ -1790,9 +1791,20 @@ RUN mkdir -p /kernel && mkdir -p /modules
 
 WORKDIR /sources
 RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
+
+
+FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
-#RUN cp -rfv /sources/kernel-configs/hadron-${TARGETARCH}.config .config
-RUN cp -rfv /sources/kernel-configs/tinyconfig.config .config
+RUN cp -rfv /sources/kernel-configs/cloud.config .config
+
+FROM kernel-base AS kernel-default
+WORKDIR /sources/kernel
+RUN cp -rfv /sources/kernel-configs/default.config .config
+
+FROM kernel-${KERNEL_TYPE} AS kernel
+ARG JOBS
+ARG TARGETARCH
+WORKDIR /sources/kernel
 # This only builds the kernel
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage
 RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
@@ -1800,6 +1812,12 @@ RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 # This builds the modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+
+FROM kernel-base AS kernel-headers
+ARG JOBS
+ARG TARGETARCH
+WORKDIR /sources/kernel
+# This installs the headers
 RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
@@ -2464,18 +2482,10 @@ COPY --from=pax-utils /pax-utils /pax-utils
 RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 
 COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-# extract the aport patch to apply to multipath-tools
 RUN mkdir -p /multipath-tools
 WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
-# patch it
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/0001-Disable-O2.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-basename.patch
-RUN patch -p1 < /sources/patches/aport/main/multipath-tools/fix-implicit-function-declaration-error.patch
 ENV CC="gcc"
 # Set lib to /lib so it works in initramfs as well
 RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
@@ -2785,7 +2795,7 @@ RUN rsync -aHAX --keep-dirlinks  /grep/. /merge
 COPY --from=diffutils /diffutils /diffutils
 RUN rsync -aHAX --keep-dirlinks  /diffutils/. /merge
 ## Kernel but only the headers
-COPY --from=kernel /linux-headers/ /linux-headers
+COPY --from=kernel-headers /linux-headers/ /linux-headers
 RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /merge/usr/
 
 FROM scratch AS toolchain
@@ -2799,7 +2809,7 @@ ENV BUILD_ARCH=${BUILD_ARCH}
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
-ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
+ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
@@ -3191,10 +3201,8 @@ COPY files/login.defs /etc/login.defs
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 ## Create any missing users from scratch
 RUN systemd-sysusers
-
-### final image
-FROM full-image-final AS default
-CMD ["/bin/bash", "-l"]
+## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
+RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
 
 ## final image with debug
 FROM full-image-final AS debug
@@ -3209,3 +3217,7 @@ COPY files/verify_binaries.sh /verify_binaries.sh
 RUN chmod +x /verify_binaries.sh
 RUN /verify_binaries.sh
 
+### final image, last in case we call it without a target, it will build this one
+FROM scratch AS default
+COPY --from=full-image-final / /
+CMD ["/bin/bash", "-l"]

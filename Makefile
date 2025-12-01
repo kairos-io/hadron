@@ -5,22 +5,30 @@ TARGET ?= default
 JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.1
-BOOTLOADER ?= systemd
+BOOTLOADER ?= grub
+KERNEL_TYPE ?= default
+KEYS_DIR ?= ${PWD}/tests/assets/keys
 CURRENT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
-KEYS_DIR ?= $(CURRENT_DIR)/tests/assets/keys
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
 
 # Adjust IMAGE_NAME based on BOOTLOADER
-# If we are building with GRUB and the user has not overridden IMAGE_NAME,
-# we set it to the GRUB-specific image.
-# otherwise, we leave it as the default.
-ifeq ($(BOOTLOADER),grub)
-ifneq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
-  # User override, do nothing
-else
-  $(eval IMAGE_NAME := ghcr.io/kairos-io/hadron-grub:main)
+# If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
+# of the Hadron image. If the user has overridden IMAGE_NAME, we respect that.
+# If we are building with grub, we do nothing.
+ifeq ($(BOOTLOADER),systemd)
+	ifeq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
+          IMAGE_NAME := ghcr.io/kairos-io/hadron-trusted:main
+	endif
 endif
+
+# Check fi bootloader is grub or systemd
+ifeq ($(BOOTLOADER),grub)
+	# No change needed
+else ifeq ($(BOOTLOADER),systemd)
+	# No change needed
+else
+$(error "Invalid BOOTLOADER value: $(BOOTLOADER). Must be 'grub' or 'systemd'.")
 endif
 
 
@@ -56,7 +64,7 @@ help: targets
 
 
 .PHONY: build-scratch
-build-scratch: build-hadron-scratch build-kairos build-iso
+build-scratch: build-hadron build-kairos build-iso
 
 .PHONY: build
 build: pull-image build-kairos build-iso
@@ -66,12 +74,13 @@ pull-image:
 	@docker pull ${IMAGE_NAME}
 
 ## This builds the Hadron image from scratch
-build-hadron-scratch:
+build-hadron:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} \
 	--build-arg JOBS=${JOBS} \
 	--build-arg VERSION=${HADRON_VERSION} \
 	--build-arg BOOTLOADER=${BOOTLOADER} \
+	--build-arg KERNEL_TYPE=${KERNEL_TYPE} \
 	-t ${IMAGE_NAME} \
 	--target ${TARGET} .
 	@echo "Hadron image built successfully"
@@ -80,9 +89,9 @@ build-hadron-scratch:
 build-kairos:
 	@echo "Building Kairos image..."
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
-		TRUSTED_BOOT=true; \
+  		TRUSTED_BOOT="true"; \
 	else \
-		TRUSTED_BOOT=false; \
+		TRUSTED_BOOT="false"; \
 	fi; \
 	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
 	-f Dockerfile.init \
@@ -99,9 +108,9 @@ clean:
 	@docker rmi ${IMAGE_NAME}
 
 grub-iso:
-	@echo "Building GRUB ISO image..."
-	@docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -v $(CURRENT_DIR)/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME}
-	@echo "GRUB ISO image built successfully at $(shell ls -t1 build/kairos-hadron-${HADRON_VERSION}-*-${VERSION}*.iso | head -n1)"
+	@echo "Building BIOS ISO image..."
+	@docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME} && \
+	echo "GRUB ISO image built successfully at $$(ls -t1 build/kairos-hadron-*.iso | head -n1)"
 
 # Build an ISO image
 trusted-iso:
@@ -118,10 +127,10 @@ trusted-iso:
 	--sb-cert /keys/db.pem \
 	--output-type iso \
 	--sdboot-in-source \
-	docker:${INIT_IMAGE_NAME}
-	@echo "Trusted Boot ISO image built successfully at $(shell ls -t1 build/kairos-hadron-${HADRON_VERSION}-*-${VERSION}-uki.iso | head -n1)"
+	docker:${INIT_IMAGE_NAME} && \
+	echo "Trusted Boot ISO image built successfully at $$(ls -t1 build/kairos-hadron-*-uki.iso | head -n1)"
 
-# Default ISO is the Trusted Boot ISO
+# Default ISO is the Grub ISO
 build-iso:
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
 		$(MAKE) --no-print-directory trusted-iso; \
