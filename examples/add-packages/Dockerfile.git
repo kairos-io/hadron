@@ -1,0 +1,24 @@
+# This dockerfile builds git from source using the Hadron toolchain image.
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS builder
+
+ARG GIT_VERSION=2.52.0
+WORKDIR /build
+RUN curl -L https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz -o git.tar.xz && tar -xf git.tar.xz && rm git.tar.xz && mv git-* git-src
+WORKDIR /build/git-src
+RUN ln -s /usr/bin/gcc /usr/bin/cc
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --without-tcltk --without-gettext
+RUN make install prefix=/usr DESTDIR=/output NO_TCLTK=YesPlease NO_GETTEXT=YesPlease
+
+
+# This target will copy the built git binaries to a minimal image.
+# We can then use this as a layer on top of Hadron to extend it like
+# FROM ghcr.io/kairos-io/hadron:VERSION
+# COPY --from=OUR_IMAGE_NAME:TAG / /
+# Or create a sysextension witht he help of Auroraboot (https://github.com/kairos-io/auroraboot)
+FROM scratch AS default
+COPY --from=builder /output/ /
+
+## This one instead will pick the existing hadron image as base and add git on top of it.
+FROM ghcr.io/kairos-io/hadron:main AS hadron-extension
+COPY --from=builder /output/ /
