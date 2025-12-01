@@ -371,8 +371,12 @@ footer {
         padding-bottom: 2rem;
     }
 
+    .hero-left {
+        order: 1;
+    }
+
     .showcase {
-        order: -1;
+        order: 2;
     }
 
     #hadron-logo {
