@@ -2,7 +2,6 @@
 title: "Architecture Overview"
 linkTitle: "Architecture"
 icon: fa-regular fa-diagram-project
-draft: true
 weight: 4
 description: |
     Understanding Hadron's design and implementation
