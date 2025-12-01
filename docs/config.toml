@@ -90,7 +90,7 @@ github_branch = "main"
 #gcs_engine_id = "011737558837375720776:fsdu1nryfng"
 
 # Enable Lunr.js offline search
-offlineSearch = true
+offlineSearch = false
 
 latest_version = "v3.5.2"
 development = true
