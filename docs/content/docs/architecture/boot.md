@@ -143,27 +143,6 @@ When using Trusted Boot, the build system generates UKI images that combine:
 
 This single EFI executable simplifies the boot process and enables trusted boot scenarios.
 
-## Boot Process Comparison
-
-### Standard Boot Process
-
-1. BIOS firmware loads bootloader from MBR
-2. Bootloader reads configuration and displays boot menu
-3. Bootloader loads kernel and initramfs
-4. Kernel starts, initramfs is mounted
-5. dracut in initramfs discovers hardware and mounts root
-6. System switches to root filesystem
-7. systemd takes over as PID 1
-
-### Trusted Boot Process
-
-1. Firmware loads bootloader from EFI system partition
-2. Bootloader loads Unified Kernel Image
-3. UKI contains kernel and (optional) initramfs
-4. Kernel starts directly, or with embedded initramfs
-5. systemd takes over as PID 1
-6. Simpler, more direct boot path
-
 ## Choosing a Boot Mode
 
 **Use Standard Boot (BIOS) when:**
