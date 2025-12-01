@@ -106,6 +106,10 @@ With Trusted Boot, Hadron supports:
 - Chain of trust from firmware to kernel
 - Protection against boot-time attacks
 
+{{< alert title="User-Controlled Keys" color="info" >}}
+You maintain full control over your Secure Boot keys—no reliance on third-party certificate authorities like Microsoft, Fedora, or Ubuntu. You generate and manage your own Platform Key (PK), Key Exchange Key (KEK), and database keys, ensuring complete ownership of your boot security.
+{{< /alert >}}
+
 **TPM-Based Measurements**
 
 - PCR (Platform Configuration Register) measurements
