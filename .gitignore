@@ -7,6 +7,9 @@ tests/*.test
 docs/public/
 docs/resources/
 
+# Node.js dependencies
+docs/node_modules/
+
 # Internal strategy documents (not for public consumption)
 docs/_narrative-strategy.md
 docs/_seo-strategy.md

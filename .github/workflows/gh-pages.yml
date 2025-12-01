@@ -30,9 +30,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - name: Install dependencies
-        run: |
-          npm install -g postcss postcss-cli autoprefixer
+      - name: Install PostCSS dependencies
+        working-directory: ./docs
+        run: npm ci
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
