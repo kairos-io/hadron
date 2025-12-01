@@ -59,11 +59,11 @@ Modify kernel configuration files per architecture to enable or disable features
 
 Use the base container image as a starting point for your own Dockerfile, adding packages and configurations as needed.
 
-## Build Reproducibility
+## Build Consistency
 
 The entire build process is containerized, ensuring:
 
-- **Consistent builds**: Same inputs produce identical outputs
+- **Consistent builds**: Running the same command with the same inputs will produce the same container image contents and configuration each time
 - **Environment isolation**: No dependency on host system configuration
 - **Version control**: Build configuration is versioned and tracked
 - **CI/CD integration**: Easy integration with automated build pipelines
