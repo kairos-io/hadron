@@ -1,0 +1,405 @@
+# This dockerfile builds cage and all its dependencies from source using
+# a multi-stage build process. Each dependency is built in its own stage,
+# and the final stage copies the built artifacts into the final image.
+# This can be used to launch a kiosk environment using cage as the Wayland compositor.
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS wayland
+ARG WAYLAND_VERSION=1.24.0
+ARG WAYLAND_PROTOCOLS_VERSION=1.46
+RUN mkdir -p /wayland
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/wayland/wayland/-/archive/${WAYLAND_VERSION}/wayland-${WAYLAND_VERSION}.tar -o wayland.tar && tar -xf wayland.tar && rm wayland.tar && mv wayland-* wayland-src
+RUN curl -L https://gitlab.freedesktop.org/wayland/wayland-protocols/-/archive/${WAYLAND_PROTOCOLS_VERSION}/wayland-protocols-${WAYLAND_PROTOCOLS_VERSION}.tar -o wayland-protocols.tar && tar -xf wayland-protocols.tar && rm wayland-protocols.tar && mv wayland-protocols-* wayland-protocols-src
+RUN pip3 install meson ninja
+
+WORKDIR /build/wayland-src
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false -Ddocumentation=false -Dscanner=true -Dlibraries=true
+RUN DESTDIR=/wayland ninja -C buildDir install
+## Now install into the container so that wayland-scanner is available for wayland-protocols build
+RUN ninja -C buildDir install
+RUN find / -name wayland-scanner
+RUN wayland-scanner --version && pkg-config --modversion wayland-scanner
+
+WORKDIR /build/wayland-protocols-src
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false
+RUN DESTDIR=/wayland ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libdrm
+ARG LIBDRM_VERSION=2.4.129
+RUN mkdir -p /libdrm
+WORKDIR /build
+RUN curl -L https://dri.freedesktop.org/libdrm/libdrm-${LIBDRM_VERSION}.tar.xz -o libdrm.tar.xz && tar -xf libdrm.tar.xz && rm libdrm.tar.xz && mv libdrm-* libdrm-src
+WORKDIR /build/libdrm-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false
+RUN DESTDIR=/libdrm ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS mesa
+COPY --from=libdrm /libdrm /
+COPY --from=wayland /wayland /
+
+ARG MESA_VERSION=25.3.0
+RUN mkdir -p /mesa
+WORKDIR /build
+RUN curl -L https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz -o mesa.tar.xz && tar -xf mesa.tar.xz && rm mesa.tar.xz && mv mesa-* mesa-src
+WORKDIR /build/mesa-src
+RUN pip3 install meson ninja setuptools mako pyyaml
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dplatforms=wayland \
+    -Dgallium-drivers=virgl,softpipe,svga \
+    -Dglx=dri \
+    -Dopengl=true \
+    -Dgles1=enabled \
+    -Dgles2=enabled \
+    -Degl=enabled \
+    -Dvulkan-drivers= \
+    -Dllvm=false \
+    -Dglx=disabled \
+    -Dbuild-tests=false
+RUN DESTDIR=/mesa ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS xkeyboard-config
+ARG XKEYBOARD_CONFIG_VERSION=2.44
+RUN mkdir -p /xkeyboard-config
+WORKDIR /build
+RUN curl -L http://www.x.org/releases/individual/data/xkeyboard-config/xkeyboard-config-${XKEYBOARD_CONFIG_VERSION}.tar.xz -o xkeyboard-config.tar.xz && tar -xf xkeyboard-config.tar.xz && rm xkeyboard-config.tar.xz && mv xkeyboard-config-* xkeyboard-config-src
+WORKDIR /build/xkeyboard-config-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/xkeyboard-config ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libxkb
+COPY --from=wayland /wayland /
+COPY --from=xkeyboard-config /xkeyboard-config /
+ARG LIBXKBCOMMON_VERSION=1.13.0
+RUN mkdir -p /libxkb
+WORKDIR /build
+RUN curl -L https://github.com/xkbcommon/libxkbcommon/archive/refs/tags/xkbcommon-${LIBXKBCOMMON_VERSION}.tar.gz -o libxkbcommon.tar.gz && tar -xzf libxkbcommon.tar.gz && rm libxkbcommon.tar.gz && mv libxkbcommon-* libxkbcommon-src
+WORKDIR /build/libxkbcommon-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Denable-x11=false -Denable-xkbregistry=true -Denable-bash-completion=false
+RUN DESTDIR=/libxkb ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS pixman
+ARG PIXMAN_VERSION=0.46.0
+RUN mkdir -p /pixman
+WORKDIR /build
+RUN curl -L https://www.cairographics.org/releases/pixman-${PIXMAN_VERSION}.tar.gz -o pixman.tar.gz && tar -xzf pixman.tar.gz && rm pixman.tar.gz && mv pixman-* pixman-src
+WORKDIR /build/pixman-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/pixman ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libevdev
+ARG LIBEVDEV_VERSION=1.13.5
+RUN mkdir -p /libevdev
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/libevdev/libevdev/-/archive/libevdev-${LIBEVDEV_VERSION}/libevdev-libevdev-${LIBEVDEV_VERSION}.tar.gz -o libevdev.tar.gz && tar -xzf libevdev.tar.gz && rm libevdev.tar.gz && mv libevdev-* libevdev-src
+WORKDIR /build/libevdev-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=disabled -Ddocumentation=disabled -Dtools=disabled || cat /build/libevdev-src/buildDir/meson-logs/meson-log.txt
+RUN DESTDIR=/libevdev ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libinput
+COPY --from=libevdev /libevdev /
+ARG LIBINPUT_VERSION=1.30.0
+RUN mkdir -p /libinput
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/libinput/libinput/-/archive/${LIBINPUT_VERSION}/libinput-${LIBINPUT_VERSION}.tar.gz -o libinput.tar.gz && tar -xf libinput.tar.gz && rm libinput.tar.gz && mv libinput-* libinput-src
+WORKDIR /build/libinput-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dmtdev=false -Dlibwacom=false -Dtests=false -Ddebug-gui=false
+RUN DESTDIR=/libinput ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS seatd
+COPY --from=wayland /wayland /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+COPY --from=pixman /pixman /
+COPY --from=libinput /libinput /
+COPY --from=libevdev /libevdev /
+ARG SEATD_VERSION=0.9.1
+RUN mkdir -p /seatd
+WORKDIR /build
+RUN curl -L https://git.sr.ht/~kennylevinsen/seatd/archive/${SEATD_VERSION}.tar.gz -o seatd.tar.gz && tar -xf seatd.tar.gz && rm seatd.tar.gz && mv seatd-* seatd-src
+WORKDIR /build/seatd-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/seatd ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS hwdata
+ARG HWDATA_VERSION=0.401
+RUN mkdir -p /hwdata
+WORKDIR /build
+RUN curl -L https://github.com/vcrhonek/hwdata/archive/v${HWDATA_VERSION}/hwdata-${HWDATA_VERSION}.tar.gz -o hwdata.tar.xz && tar -xf hwdata.tar.xz && rm hwdata.tar.xz && mv hwdata-* hwdata-src
+WORKDIR /build/hwdata-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/hwdata
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libdisplay-info
+COPY --from=hwdata /hwdata /
+ARG LIBDISPLAY_INFO_VERSION=0.3.0
+RUN mkdir -p /libdisplay-info
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/emersion/libdisplay-info/-/releases/${LIBDISPLAY_INFO_VERSION}/downloads/libdisplay-info-${LIBDISPLAY_INFO_VERSION}.tar.xz -o libdisplay-info.tar.xz && tar -xf libdisplay-info.tar.xz && rm libdisplay-info.tar.xz && mv libdisplay-info-* libdisplay-info-src
+WORKDIR /build/libdisplay-info-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/libdisplay-info ninja -C buildDir install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS wlroots
+RUN mkdir -p /wlroots
+COPY --from=wayland /wayland /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+COPY --from=pixman /pixman /
+COPY --from=seatd /seatd /
+COPY --from=libinput /libinput /
+COPY --from=libevdev /libevdev /
+COPY --from=mesa /mesa /
+COPY --from=hwdata /hwdata /
+COPY --from=libdisplay-info /libdisplay-info /
+ARG WLROOTS_VERSION=0.19.0
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/${WLROOTS_VERSION}/wlroots-{WLROOTS_VERSION}.tar -o wlroots.tar && tar -xf wlroots.tar && rm wlroots.tar && mv wlroots-* wlroots-src
+WORKDIR /build/wlroots-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dexamples=false
+RUN DESTDIR=/wlroots ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS cairo
+COPY --from=pixman /pixman /
+ARG CAIRO_VERSION=1.18.0
+RUN mkdir -p /cairo
+WORKDIR /build
+RUN curl -L https://cairographics.org/releases/cairo-${CAIRO_VERSION}.tar.xz -o cairo.tar.xz && tar -xf cairo.tar.xz && rm cairo.tar.xz && mv cairo-* cairo-src
+WORKDIR /build/cairo-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=disabled -Dglib=disabled -Dspectre=disabled
+RUN DESTDIR=/cairo ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS cage
+COPY --from=wayland /wayland /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+COPY --from=pixman /pixman /
+COPY --from=libinput /libinput /
+COPY --from=cairo /cairo /
+COPY --from=seatd /seatd /
+COPY --from=mesa /mesa /
+COPY --from=libevdev /libevdev /
+COPY --from=wlroots /wlroots/ /
+COPY --from=libdisplay-info /libdisplay-info /
+COPY --from=hwdata /hwdata /
+ARG CAGE_VERSION=0.2.1
+RUN mkdir -p /cage
+WORKDIR /build
+RUN curl -L https://github.com/cage-kiosk/cage/releases/download/v${CAGE_VERSION}/cage-${CAGE_VERSION}.tar.gz -o cage.tar.gz && tar -xf cage.tar.gz && rm cage.tar.gz && mv cage-* cage-src
+WORKDIR /build/cage-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/cage ninja -C buildDir install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libffi
+ARG LIBFFI_VERSION=3.5.2
+RUN mkdir -p /libffi
+WORKDIR /build
+RUN curl -L https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -o libffi.tar.gz && tar -xf libffi.tar.gz && rm libffi.tar.gz && mv libffi-* libffi-src
+WORKDIR /build/libffi-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs --disable-dependency-tracking
+RUN make -s -j$(nproc) && make -s -j$(nproc) install DESTDIR=/libffi
+# Move stuff from /usr/lib64 to /usr/lib
+RUN mv /libffi/usr/lib64/* /libffi/usr/lib/ && rmdir /libffi/usr/lib64
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS sdl2
+COPY --from=wayland /wayland /
+COPY --from=mesa /mesa /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+ARG SDL2_VERSION=2.32.6
+RUN mkdir -p /sdl2
+WORKDIR /build
+RUN curl -L https://www.libsdl.org/release/SDL2-${SDL2_VERSION}.tar.gz -o sdl2.tar.gz && tar -xzf sdl2.tar.gz && rm sdl2.tar.gz && mv SDL2-* sdl2
+WORKDIR /build/sdl2
+RUN find / -name wayland-protocols.pc
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking  --enable-video-wayland --enable-video-kmsdrm --disable-wayland-shared --disable-video-x11 --disable-video-opengl
+RUN make -j$(nproc)
+RUN make DESTDIR=/sdl2 install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS sdl2-mixer
+COPY --from=sdl2 /sdl2 /
+COPY --from=wayland /wayland /
+COPY --from=mesa /mesa /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+ARG SDL2_MIXER_VERSION=2.8.1
+RUN mkdir -p /sdl2-mixer
+WORKDIR /build
+RUN curl -L https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-${SDL2_MIXER_VERSION}.tar.gz -o sdl2-mixer.tar.gz && tar -xzf sdl2-mixer.tar.gz && rm sdl2-mixer.tar.gz && mv SDL2_mixer-* sdl2-mixer
+WORKDIR /build/sdl2-mixer
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/sdl2-mixer install
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS sdl2-image
+COPY --from=sdl2 /sdl2 /
+COPY --from=wayland /wayland /
+COPY --from=mesa /mesa /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+ARG SDL2_IMAGE_VERSION=2.6.3
+RUN mkdir -p /sdl2-image
+WORKDIR /build
+RUN curl -L https://www.libsdl.org/projects/SDL_image/release/SDL2_image-${SDL2_IMAGE_VERSION}.tar.gz -o sdl2-image.tar.gz && tar -xzf sdl2-image.tar.gz && rm sdl2-image.tar.gz && mv SDL2_image-* sdl2-image
+WORKDIR /build/sdl2-image
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/sdl2-image install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS sdl2-net
+COPY --from=sdl2 /sdl2 /
+COPY --from=wayland /wayland /
+COPY --from=mesa /mesa /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+ARG SDL2_NET_VERSION=2.2.0
+RUN mkdir -p /sdl2-net
+WORKDIR /build
+RUN curl -L https://www.libsdl.org/projects/SDL_net/release/SDL2_net-${SDL2_NET_VERSION}.tar.gz -o sdl2-net.tar.gz && tar -xzf sdl2-net.tar.gz && rm sdl2-net.tar.gz && mv SDL2_net-* sdl2-net
+WORKDIR /build/sdl2-net
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/sdl2-net install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS xorgproto
+ARG XORGPROTO_VERSION=2024.1
+RUN mkdir -p /xorgproto
+WORKDIR /build
+RUN curl -L https://www.x.org/releases/individual/proto/xorgproto-${XORGPROTO_VERSION}.tar.xz -o xorgproto.tar.xz && tar -xf xorgproto.tar.xz && rm xorgproto.tar.xz && mv xorgproto-* xorgproto-src
+WORKDIR /build/xorgproto-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/xorgproto install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS xtrans
+ARG XTRANS_VERSION=1.4.0
+RUN mkdir -p /xtrans
+WORKDIR /build
+RUN curl -L https://gitlab.apertis.org/pkg/xtrans/-/archive/upstream/${XTRANS_VERSION}/xtrans-upstream-${XTRANS_VERSION}.tar.gz -o xtrans.tar.gz && tar -xf xtrans.tar.gz && rm xtrans.tar.gz && mv xtrans-* xtrans-src
+WORKDIR /build/xtrans-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/xtrans install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libxau
+COPY --from=xorgproto /xorgproto /
+ARG LIBXAU_VERSION=1.0.12
+RUN mkdir -p /libxau
+WORKDIR /build
+RUN curl -L https://www.x.org/releases/individual/lib/libXau-${LIBXAU_VERSION}.tar.xz -o libxau.tar.xz && tar -xf libxau.tar.xz && rm libxau.tar.xz && mv libXau-* libxau-src
+WORKDIR /build/libxau-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/libxau install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS xcb
+ARG XCB_VERSION=1.17.0
+RUN mkdir -p /xcb
+WORKDIR /build
+RUN curl -L https://xcb.freedesktop.org/dist/xcb-proto-${XCB_VERSION}.tar.gz -o xcb-proto.tar.gz && tar -xzf xcb-proto.tar.gz && rm xcb-proto.tar.gz && mv xcb-proto-* xcb-src
+WORKDIR /build/xcb-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/xcb install
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libxcb
+COPY --from=xorgproto /xorgproto /
+COPY --from=xtrans /xtrans /
+COPY --from=xcb /xcb /
+COPY --from=libxau /libxau /
+ARG LIBXCB_VERSION=1.17.0
+RUN mkdir -p /libxcb
+WORKDIR /build
+RUN curl -L https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz -o libxcb.tar.gz && tar -xzf libxcb.tar.gz && rm libxcb.tar.gz && mv libxcb-* libxcb-src
+WORKDIR /build/libxcb-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/libxcb install
+
+# We need the compose files only
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS libx11
+COPY --from=xorgproto /xorgproto /
+COPY --from=xtrans /xtrans /
+COPY --from=xcb /xcb /
+COPY --from=libxcb /libxcb /
+COPY --from=libxau /libxau /
+ARG LIBX11_VERSION=1.8.12
+RUN mkdir -p /libx11
+WORKDIR /build
+RUN curl -L https://www.x.org/releases/individual/lib/libX11-${LIBX11_VERSION}.tar.xz -o libx11.tar.xz && tar -xf libx11.tar.xz && rm libx11.tar.xz && mv libX11-* libx11-src
+WORKDIR /build/libx11-src
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking --disable-xf86bigfont --datadir=/usr/share
+RUN make -j$(nproc)
+RUN make install DESTDIR=/libx11
+
+FROM ghcr.io/kairos-io/hadron-toolchain:main AS chocolate-doom
+COPY --from=sdl2 /sdl2 /
+COPY --from=sdl2-mixer /sdl2-mixer /
+COPY --from=sdl2-image /sdl2-image /
+COPY --from=sdl2-net /sdl2-net /
+COPY --from=libx11 /libx11 /
+COPY --from=mesa /mesa /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+COPY --from=wayland /wayland /
+ARG CHOCOLATE_DOOM_VERSION=3.1.1
+ARG DEMO_WAG_URL="https://archive.org/download/doom-wads/Doom%20%28v1.9%29%20%28Demo%29.zip/DOOM1.WAD"
+RUN mkdir -p /chocolate-doom
+RUN mkdir -p /chocolate-doom/usr/share/games/doom
+RUN curl -L "${DEMO_WAG_URL}" -o /chocolate-doom/usr/share/games/doom/doom.wad
+WORKDIR /build
+RUN curl -L https://github.com/chocolate-doom/chocolate-doom/archive/refs/tags/chocolate-doom-${CHOCOLATE_DOOM_VERSION}.tar.gz -o chocolate-doom.tar.gz && tar -xzf chocolate-doom.tar.gz && rm chocolate-doom.tar.gz && mv chocolate-doom-* chocolate-doom-src
+WORKDIR /build/chocolate-doom-src
+RUN ln -s /usr/bin/perl /usr/sbin/perl
+RUN ./autogen.sh ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc)
+RUN make DESTDIR=/chocolate-doom install
+
+
+FROM scratch AS doom
+COPY --from=libffi /libffi /
+COPY --from=wayland /wayland /
+COPY --from=libdrm /libdrm /
+COPY --from=libxkb /libxkb /
+COPY --from=pixman /pixman /
+COPY --from=wlroots /wlroots/ /
+COPY --from=libinput /libinput /
+COPY --from=cairo /cairo /
+COPY --from=seatd /seatd /
+COPY --from=mesa /mesa /
+COPY --from=cage /cage /
+COPY --from=libevdev /libevdev /
+COPY --from=libdisplay-info /libdisplay-info /
+COPY --from=ghcr.io/kairos-io/hadron-toolchain:main /usr/lib/libstdc++.so.6 /usr/lib/libstdc++.so.6
+COPY --from=sdl2 /sdl2 /
+COPY --from=sdl2-mixer /sdl2-mixer /
+COPY --from=sdl2-net /sdl2-net /
+COPY --from=sdl2-image /sdl2-image /
+COPY --from=xkeyboard-config /xkeyboard-config /
+COPY --from=libx11 /libx11 /
+COPY --from=chocolate-doom /chocolate-doom /
+ENV XDG_RUNTIME_DIR=/tmp/xdg
+ENV CAGE_NO_XWAYLAND=1
+
+FROM ghcr.io/kairos-io/hadron:main AS default
+COPY --from=doom / /
