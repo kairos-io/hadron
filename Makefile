@@ -11,6 +11,8 @@ KEYS_DIR ?= ${PWD}/tests/assets/keys
 CURRENT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
+KUBERNETES_DISTRO ?=
+KUBERNETES_VERSION ?= latest
 
 # Adjust IMAGE_NAME based on BOOTLOADER
 # If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
@@ -54,6 +56,7 @@ help: targets
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.1."
 	@echo "The IMAGE_NAME variable can be set to the name of the Hadron image that its built. The default is 'hadron'."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
+	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
 	@echo "------------------------------------------------------------------------"
 	@echo "The expected keys in the KEYS_DIR are:"
@@ -93,11 +96,22 @@ build-kairos:
 	else \
 		TRUSTED_BOOT="false"; \
 	fi; \
-	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
-	-f Dockerfile.init \
-	--build-arg BASE_IMAGE=${IMAGE_NAME} \
-	--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
-	--build-arg VERSION=${VERSION} .
+	if [ -n "${KUBERNETES_DISTRO}" ]; then \
+		echo "Building standard image with Kubernetes distribution: ${KUBERNETES_DISTRO}"; \
+		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+		-f Dockerfile.init \
+		--build-arg BASE_IMAGE=${IMAGE_NAME} \
+		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
+		--build-arg VERSION=${VERSION} \
+		--build-arg KUBERNETES_DISTRO=${KUBERNETES_DISTRO} .; \
+	else \
+		echo "Building core image (no Kubernetes distribution)"; \
+		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+		-f Dockerfile.init \
+		--build-arg BASE_IMAGE=${IMAGE_NAME} \
+		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
+		--build-arg VERSION=${VERSION} .; \
+	fi
 	@echo "Kairos image built successfully"
 
 

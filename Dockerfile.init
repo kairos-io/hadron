@@ -7,7 +7,13 @@ FROM quay.io/kairos/kairos-init:${KAIROS_INIT} AS kairos-init
 FROM ${BASE_IMAGE} AS base-kairos
 ARG VERSION
 ARG TRUSTED_BOOT
+ARG KUBERNETES_DISTRO
 
 RUN --mount=type=bind,from=kairos-init,src=/kairos-init,dst=/kairos-init \
-    /kairos-init -l debug -s install --version "${VERSION}" -t "${TRUSTED_BOOT}" && \
-    /kairos-init -l debug -s init --version "${VERSION}" -t "${TRUSTED_BOOT}"
+    if [ -n "${KUBERNETES_DISTRO}" ]; then \
+        /kairos-init -l debug -s install --version "${VERSION}" -t "${TRUSTED_BOOT}" --provider "${KUBERNETES_DISTRO}" && \
+        /kairos-init -l debug -s init --version "${VERSION}" -t "${TRUSTED_BOOT}" --provider "${KUBERNETES_DISTRO}"; \
+    else \
+        /kairos-init -l debug -s install --version "${VERSION}" -t "${TRUSTED_BOOT}" && \
+        /kairos-init -l debug -s init --version "${VERSION}" -t "${TRUSTED_BOOT}"; \
+    fi
