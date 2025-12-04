@@ -461,6 +461,12 @@ header.td-header,
     display: none !important;
 }
 
+/* Temporarily hide footer */
+.td-footer,
+footer.td-footer {
+    display: none !important;
+}
+
 /* Override Docsy body styles for landing page */
 body {
     background: linear-gradient(145deg, #071026, #0e2540) !important;
