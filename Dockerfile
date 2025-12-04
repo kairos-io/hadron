@@ -264,14 +264,14 @@ ENV LIBAIO_VERSION=${LIBAIO_VERSION}
 RUN cd /sources/downloads && wget -q https://pagure.io/libaio/archive/libaio-${LIBAIO_VERSION}/libaio-libaio-${LIBAIO_VERSION}.tar.gz && mv libaio-libaio-${LIBAIO_VERSION}.tar.gz libaio.tar.gz
 
 ## lvm2
-ARG LVM2_VERSION=2.03.35
+ARG LVM2_VERSION=2.03.37
 ENV LVM2_VERSION=${LVM2_VERSION}
 
 RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz && mv LVM2.${LVM2_VERSION}.tgz lvm2.tgz
 
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.11.3
+ARG MULTIPATH_TOOLS_VERSION=0.13.0
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
 RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
@@ -290,7 +290,7 @@ ENV CMAKE_VERSION=${CMAKE_VERSION}
 RUN cd /sources/downloads && wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
 
 ## urcu
-ARG URCU_VERSION=0.15.2
+ARG URCU_VERSION=0.15.3
 ENV URCU_VERSION=${URCU_VERSION}
 RUN cd /sources/downloads && wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
 
@@ -1433,13 +1433,13 @@ RUN mv -v gmp-${GMP_VERSION} gdb/gmp
 RUN mv -v mpc-${MPC_VERSION} gdb/mpc
 WORKDIR /sources/gdb
 RUN ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
-    --target=${TARGET} \
+    --host=${TARGET}  AR=${TARGET}-ar RANLIB=${TARGET}-ranlib NM=${TARGET}-nm CC=${TARGET}-gcc LD=${TARGET}-ld STRIP=${TARGET}-strip \
     --with-sysroot=/ \
     --disable-nls \
     --with-libexpat-prefix=/usr \
     --disable-multilib
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS}
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/gdb install
+RUN make -j${JOBS}
+RUN make -j${JOBS} DESTDIR=/gdb install install-gdbserver
 
 
 ## dbus first pass without systemd support so we can build systemd afterwards
@@ -1923,17 +1923,21 @@ RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
-
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/libaio.tar.gz /sources/
 RUN mkdir -p /libaio
 WORKDIR /sources
 RUN tar -xf libaio.tar.gz && mv libaio-* libaio
 WORKDIR /sources/libaio
 ENV CC=gcc
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libaio
+# Avoid building the static libaio.a as we only need the shared one
+RUN sed -i '/install.*libaio.a/s/^/#/' src/Makefile
+RUN make -j${JOBS}
+RUN DESTDIR=/libaio make install
 
 ## lvm2 for dmsetup, devmapper and so on
-## We need to build it with systemd support so we can use it later with systemd rules and so on
+## TODO: build it with systemd support
 FROM rsync AS lvm2
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2422,7 +2426,6 @@ RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
 
 
-## multipath-tools with systemd support
 ## lvm2 for dmsetup, devmapper and so on
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
 ## This helps when a device is unlocked to makle the mapper show the device right away
@@ -2504,10 +2507,12 @@ WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
 ENV CC="gcc"
+COPY files/0001-multipathd-Dont-pthread_join-twice.patch /sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch
+RUN patch -p1 </sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch 
 # Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
-RUN make -s -j${JOBS} WARN_ONLY=1 SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
-RUN make -s -j${JOBS} WARN_ONLY=1 LIB=/lib install
+RUN make -s -j${JOBS} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
@@ -2971,7 +2976,7 @@ RUN rm -rf /skeleton/usr/share/local/info
 RUN find /skeleton -name '*.a' -delete
 
 # Strip binaries
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+#RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 # Remove python artifacts
@@ -3102,7 +3107,7 @@ COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
 # Strip binaries
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+#RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 # Remove python artifacts
@@ -3147,7 +3152,7 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 
 # Strip binaries
 # As this is added to the full-image-merge we still have to strip binaries here
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+#RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 
@@ -3232,6 +3237,8 @@ FROM full-image-final AS debug
 
 COPY --from=strace /strace /
 COPY --from=gdb-stage0 /gdb /
+COPY --from=python-build /python /
+RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro cp -a /mnt/libstdc++.so* /usr/lib/
 CMD ["/bin/bash", "-l"]
 
 ## Final verification stage
