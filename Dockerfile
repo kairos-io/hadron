@@ -989,7 +989,7 @@ RUN cd /sources && \
     --without-bash-malloc \
     --with-installed-readline && make -s -j${JOBS} y.tab.c && make -s -j${JOBS} builtins/libbuiltins.a && make -s -j${JOBS} && \
     mkdir -p /bash/etc/bash && \
-    install -Dm644  /sources/bashrc /bash/etc/bash/bashrc && \
+    install -Dm644  /sources/bashrc /bash/etc/bash.bashrc && \
     install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
     make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm -rf /bash/usr/share/locale
 
