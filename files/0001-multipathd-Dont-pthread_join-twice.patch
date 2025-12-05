@@ -1,0 +1,60 @@
+From ffcae852afb74948e85bcf9db62da20ac5896b35 Mon Sep 17 00:00:00 2001
+From: Itxaka <itxaka@kairos.io>
+Date: Thu, 4 Dec 2025 22:11:02 +0100
+Subject: [PATCH v2] multipathd: Dont pthread_join twice
+Content-Type: text/plain; charset="utf-8"
+
+Currently it seems that urcu would already call pthread_join when
+calling call_rcu_data_free since a couple of years ago (since version
+v0.14.0)[0] so calling pthread_join on the just released one is
+problematic under musl systems. It seems like under glibc this has
+several checks in place before trying to dereference the thread but
+under musl it has nothing in place to validate so this causes a coredump
+on program shutdown.
+
+This is currently present in all version when compiled under musl,
+running multipathd -d and sending a SIGTERM to it, you can see the
+coredump happening at this point in the code.
+
+The patch runs only the old behaviour in urcu older than 0.14.0 to
+maintain the same bahaviour. In higher versions its not neccesary so we
+skip it.
+
+[0] https://github.com/urcu/userspace-rcu/commit/1cf55ba47342156cdf25335264b9774a16e0bb2d
+
+Signed-off-by: Itxaka <itxaka@kairos.io>
+---
+ multipathd/main.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/multipathd/main.c b/multipathd/main.c
+index d11a8576..b30b151f 100644
+--- a/multipathd/main.c
++++ b/multipathd/main.c
+@@ -3739,18 +3739,21 @@ static struct call_rcu_data *mp_rcu_data;
+ 
+ static void cleanup_rcu(void)
+ {
+-	pthread_t rcu_thread;
+-
+ 	/* Wait for any pending RCU calls */
+ 	rcu_barrier();
+ 	if (mp_rcu_data != NULL) {
++#if (URCU_VERSION < 0x000E00)
++	        pthread_t rcu_thread;
+ 		rcu_thread = get_call_rcu_thread(mp_rcu_data);
++#endif
+ 		/* detach this thread from the RCU thread */
+ 		set_thread_call_rcu_data(NULL);
+ 		synchronize_rcu();
+ 		/* tell RCU thread to exit */
+ 		call_rcu_data_free(mp_rcu_data);
++#if (URCU_VERSION < 0x000E00)
+ 		pthread_join(rcu_thread, NULL);
++#endif
+ 	}
+ 	rcu_unregister_thread();
+ }
+-- 
+2.52.0
+
