@@ -101,7 +101,7 @@ build-kairos:
 	fi; \
 	if [ -n "${KUBERNETES_DISTRO}" ]; then \
 		echo "Building standard image with Kubernetes distribution: ${KUBERNETES_DISTRO}"; \
-		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+		docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
@@ -109,7 +109,7 @@ build-kairos:
 		--build-arg KUBERNETES_DISTRO=${KUBERNETES_DISTRO} .; \
 	else \
 		echo "Building core image (no Kubernetes distribution)"; \
-		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+		docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
