@@ -46,6 +46,52 @@ And you can run it in a VM with:
 make run-qemu
 ```
 
+### Building Kairos Images
+
+**Note**: The following examples are for testing purposes only. The Dockerfile used for building Kairos images is automatically fetched from the [kairos repository](https://github.com/kairos-io/kairos) and should not be modified locally.
+
+#### Building a Core Kairos Image
+
+To build a core Kairos image (without Kubernetes distribution) based on Hadron:
+
+```bash
+# Pull the base Hadron image and build the Kairos image
+make pull-image build-kairos BOOTLOADER=grub VERSION=v0.0.1
+
+# Or for Trusted Boot:
+make pull-image build-kairos BOOTLOADER=systemd VERSION=v0.0.1
+```
+
+This will:
+- Fetch the latest Dockerfile from the kairos repository
+- Build a core Kairos image named `hadron-init` based on the Hadron base image
+- Use the specified bootloader (grub or systemd) and version
+
+#### Building a Standard Image with Kubernetes
+
+To build a standard image with a Kubernetes distribution (e.g., k3s or k0s):
+
+```bash
+# Build with k3s
+make pull-image build-kairos BOOTLOADER=grub VERSION=v0.0.1 KUBERNETES_DISTRO=k3s
+
+# Build with k0s
+make pull-image build-kairos BOOTLOADER=grub VERSION=v0.0.1 KUBERNETES_DISTRO=k0s
+
+# Optionally specify Kubernetes version
+make pull-image build-kairos BOOTLOADER=grub VERSION=v0.0.1 KUBERNETES_DISTRO=k3s KUBERNETES_VERSION=v1.28.0
+```
+
+After building the Kairos image, you can create an ISO:
+
+```bash
+# For GRUB bootloader
+make grub-iso
+
+# For Trusted Boot
+make trusted-iso
+```
+
 ## License
 
 Apache 2.0

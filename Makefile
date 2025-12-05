@@ -91,6 +91,9 @@ build-hadron:
 ## This builds the Kairos image based off Hadron
 build-kairos:
 	@echo "Building Kairos image..."
+	@echo "Fetching Dockerfile from kairos repository..."
+	@mkdir -p build
+	@curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos || (echo "Error: Failed to fetch Dockerfile from kairos repository" && exit 1)
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
   		TRUSTED_BOOT="true"; \
 	else \
@@ -99,7 +102,7 @@ build-kairos:
 	if [ -n "${KUBERNETES_DISTRO}" ]; then \
 		echo "Building standard image with Kubernetes distribution: ${KUBERNETES_DISTRO}"; \
 		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
-		-f Dockerfile.init \
+		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 		--build-arg VERSION=${VERSION} \
@@ -107,7 +110,7 @@ build-kairos:
 	else \
 		echo "Building core image (no Kubernetes distribution)"; \
 		docker build --no-cache ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
-		-f Dockerfile.init \
+		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 		--build-arg VERSION=${VERSION} .; \
