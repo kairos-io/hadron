@@ -2,55 +2,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/styles.css">
-<style>
-/* Temporarily hide header */
-.td-header,
-header.td-header,
-.navbar,
-.td-navbar {
-    display: none !important;
-}
-/* Override Docsy body styles for landing page */
-body {
-    background: linear-gradient(145deg, #071026, #0e2540) !important;
-    overflow-x: hidden;
-    overflow-y: auto;
-}
-/* Ensure landing page content is full width and height */
-.td-main {
-    padding: 0 !important;
-    margin: 0 !important;
-    max-width: 100% !important;
-    position: relative;
-}
-/* Make landing page container fill available space */
-#landing-container {
-    position: relative;
-    min-height: calc(100vh - 120px);
-    overflow-x: hidden;
-    overflow-y: visible;
-}
-/* Adjust snap container for header/footer */
-.snap-container {
-    min-height: calc(100vh - 120px);
-    position: relative;
-    overflow-y: visible;
-}
-/* Ensure showcase is visible */
-.showcase {
-    display: flex !important;
-}
-/* Mobile responsive adjustments */
-@media (max-width:920px) {
-    .snap-container {
-        height: auto;
-        min-height: calc(100vh - 120px);
-    }
-    #landing-container {
-        overflow: visible;
-    }
-}
-</style>
 <div id="landing-container">
     <!-- decorative blobs -->
     <div class="blob one" aria-hidden="true"></div>
@@ -65,10 +16,10 @@ body {
     <section id="page-hero" class="snap-page hero" role="banner" aria-label="Hadron hero">
         <div class="hero-inner">
             <div class="hero-left">
-                <div class="eyebrow" style="display: flex; align-items: center; gap: 0.75rem;">
-                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" style="height: 1.5em; width: auto; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));">
+                <div class="eyebrow">
+                    <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24">
                     <span>HADRON</span>
-                    <span style="font-size: 0.7em; opacity: 0.8; font-weight: 300;">by Kairos</span>
+                    <span>by Kairos</span>
                 </div>
                 <h1>The foundation for image-based systems.</h1>
                 <p class="lead">
@@ -89,10 +40,10 @@ body {
 
             <!-- FEATURE LIST (moved to right side) -->
             <aside class="showcase" aria-label="Hadron features">
-                <div class="showcase-inner" style="align-items: flex-start; text-align: left;">
-                    <ul class="feature-list" style="width: 100%; list-style: none; margin: 0; padding: 0;">
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                <div class="showcase-inner">
+                    <ul class="feature-list">
+                        <li class="feature">
+                            <div class="dot" aria-hidden="true">
                                 <!-- package/box icon for core components -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
@@ -104,14 +55,14 @@ body {
                                     <line x1="12" y1="22.08" x2="12" y2="12"></line>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Core Components</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">musl, systemd, vanilla kernels.
+                            <div><strong>Core Components</strong>
+                                <div class="muted">musl, systemd, vanilla kernels.
                                 </div>
                             </div>
                         </li>
 
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                        <li class="feature">
+                            <div class="dot" aria-hidden="true">
                                 <!-- arrow up icon for upstream alignment -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
@@ -119,13 +70,13 @@ body {
                                     <path d="M12 19V5M5 12l7-7 7 7"></path>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Upstream First</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Minimal changes. Maximum compatibility.</div>
+                            <div><strong>Upstream First</strong>
+                                <div class="muted">Minimal changes. Maximum compatibility.</div>
                             </div>
                         </li>
 
-                        <li class="feature" style="align-items: flex-start; display: flex; gap: 0.9rem;">
-                            <div class="dot" aria-hidden="true" style="flex-shrink: 0;">
+                        <li class="feature">
+                            <div class="dot" aria-hidden="true">
                                 <!-- star icon for independent -->
                                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="white"
                                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
@@ -133,8 +84,8 @@ body {
                                     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                                 </svg>
                             </div>
-                            <div style="flex: 1; min-width: 0; line-height: 1.4;"><strong>Independent</strong>
-                                <div class="muted" style="margin-top: 0.25rem;">Built from scratch. No package manager.
+                            <div><strong>Independent</strong>
+                                <div class="muted">Built from scratch. No package manager.
                                 </div>
                             </div>
                         </li>

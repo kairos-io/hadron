@@ -4,5 +4,5 @@ if [ -n "$BASH_VERSION" ] && [ "$BASH" != "/bin/sh" ]; then
 	# and only /etc/profile on login (-l). so, make it do both on login.
 	# this ensures that login-shell bash (e.g. -bash or bash -l) still sources the
 	# system bashrc, which e.g. loads bash-completion
-	. /etc/bash/bashrc
+	. /etc/bash.bashrc
 fi
