@@ -550,8 +550,9 @@ ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz /sources/
-RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
+RUN . /arch-env.sh && cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl && \
     ./configure --disable-warnings \
       CROSS_COMPILE=${TARGET}- \
       --prefix=/usr \
@@ -614,8 +615,9 @@ ENV MAKE_VERSION=${MAKE_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/make-${MAKE_VERSION}.tar.gz /sources/
 
-RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
+RUN . /arch-env.sh && cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl && \
     ./configure --quiet --prefix=/usr \
     --build=${BUILD_ARCH} --host=${TARGET} && \
     make -s -j${JOBS} && \
@@ -634,6 +636,8 @@ COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.t
 RUN tar -xf binutils-${BINUTILS_VERSION}.tar.xz
 
 RUN <<EOT bash
+    . /arch-env.sh
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
     cd binutils-${BINUTILS_VERSION} && 
     ./configure --quiet \
        --prefix=/usr \
