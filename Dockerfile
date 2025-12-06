@@ -264,14 +264,14 @@ ENV LIBAIO_VERSION=${LIBAIO_VERSION}
 RUN cd /sources/downloads && wget -q https://pagure.io/libaio/archive/libaio-${LIBAIO_VERSION}/libaio-libaio-${LIBAIO_VERSION}.tar.gz && mv libaio-libaio-${LIBAIO_VERSION}.tar.gz libaio.tar.gz
 
 ## lvm2
-ARG LVM2_VERSION=2.03.35
+ARG LVM2_VERSION=2.03.37
 ENV LVM2_VERSION=${LVM2_VERSION}
 
 RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz && mv LVM2.${LVM2_VERSION}.tgz lvm2.tgz
 
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.11.3
+ARG MULTIPATH_TOOLS_VERSION=0.13.0
 ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 
 RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
@@ -290,7 +290,7 @@ ENV CMAKE_VERSION=${CMAKE_VERSION}
 RUN cd /sources/downloads && wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
 
 ## urcu
-ARG URCU_VERSION=0.15.2
+ARG URCU_VERSION=0.15.3
 ENV URCU_VERSION=${URCU_VERSION}
 RUN cd /sources/downloads && wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
 
@@ -394,11 +394,6 @@ ARG POPT_VERSION=1.19
 ENV POPT_VERSION=${POPT_VERSION}
 RUN cd /sources/downloads && wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz
 
-## ncurses
-ARG NCURSES_VERSION=6.5
-ENV NCURSES_VERSION=${NCURSES_VERSION}
-RUN cd /sources/downloads && wget -q http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz
-
 ## m4
 ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
@@ -482,6 +477,23 @@ RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/libxml2/
 # gzip
 ARG GZIP_VERSION=1.12
 RUN cd /sources/downloads && wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && mv gzip-${GZIP_VERSION}.tar.xz gzip.tar.xz
+
+
+ARG BASH_VERSION=5.3
+# Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
+ARG PATCH_LEVEL=8
+# Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
+# They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
+# But the index starts at 1
+
+RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
+WORKDIR /sources/downloads/bash
+RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
+        echo "Applying bash patch bash${BASH_VERSION//./}-00${i}"; \
+        wget -q https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-00${i} -O bash-patch-${i}.patch; \
+        patch -p0 < bash-patch-${i}.patch; \
+    done
+WORKDIR /
 
 
 FROM stage0 AS skeleton
@@ -917,30 +929,6 @@ RUN make -s -j${JOBS} DESTDIR=/binutils
 RUN make -s -j${JOBS} DESTDIR=/binutils install
 RUN make -s -j${JOBS} install
 
-## ncurses
-FROM stage1 AS ncurses
-
-ARG NCURSES_VERSION=6.5
-ENV NCURSES_VERSION=${NCURSES_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/ncurses-${NCURSES_VERSION}.tar.gz /sources/
-RUN cd /sources && \
-    tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
-    cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
-    cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
-    ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
-    --mandir=/usr/share/man \
-    --with-manpage-format=normal \
-    --with-shared \
-    --without-debug \
-    --without-ada \
-    --without-normal \
-    --disable-stripping \
-    --enable-widec && \
-    make -s -j${JOBS} && \
-    make -s DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make -s -j${JOBS} install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
-    cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
-
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
 
@@ -965,45 +953,15 @@ RUN cd /sources && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 
-## bash
-FROM readline AS bash
+## flex
+FROM m4 AS flex
+ARG FLEX_VERSION=2.6.4
+ENV FLEX_VERSION=${FLEX_VERSION}
 
-ARG BASH_VERSION=5.3
-ENV BASH_VERSION=${BASH_VERSION}
+COPY --from=sources-downloader /sources/downloads/flex-${FLEX_VERSION}.tar.gz /sources/
 
-COPY ./files/bash/bashrc /sources/bashrc
-COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
-COPY --from=sources-downloader /sources/downloads/bash-${BASH_VERSION}.tar.gz /sources/
-RUN cd /sources && \
-    tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash && \
-    cd bash && mkdir -p /bash && ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
-    --build=${BUILD} \
-    --host=${TARGET} \
-    --prefix=/usr \
-    --bindir=/bin \
-    --mandir=/usr/share/man \
-    --infodir=/usr/share/info \
-    #--with-curses \
-    --disable-nls \
-    --enable-readline \
-    --without-bash-malloc \
-    --with-installed-readline && make -s -j${JOBS} y.tab.c && make -s -j${JOBS} builtins/libbuiltins.a && make -s -j${JOBS} && \
-    mkdir -p /bash/etc/bash && \
-    install -Dm644  /sources/bashrc /bash/etc/bash/bashrc && \
-    install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh && \
-    make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm -rf /bash/usr/share/locale
-
-## libcap
-FROM bash AS libcap
-
-ARG LIBCAP_VERSION=2.76
-ENV LIBCAP_VERSION=${LIBCAP_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf libcap-${LIBCAP_VERSION}.tar.xz && mv libcap-${LIBCAP_VERSION} libcap && \
-    cd libcap && mkdir -p /libcap && make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" && \
-    make -s -j${JOBS} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
+RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && mv flex-${FLEX_VERSION} flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --docdir=/usr/share/doc/flex-${FLEX_VERSION} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
+    make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
 
 ## perl
 FROM m4 AS perl
@@ -1049,6 +1007,70 @@ RUN cd /sources && \
        -Dusenm \
        -Duse64bitint && make -s -j${JOBS} libperl.so && \
         make -s -j${JOBS} DESTDIR=/perl && make -s -j${JOBS} DESTDIR=/perl install && make -s -j${JOBS} install
+
+## bison
+FROM rsync AS bison
+
+ARG BISON_VERSION=3.8.2
+ENV BISON_VERSION=${BISON_VERSION}
+
+COPY --from=flex /flex /flex
+RUN rsync -aHAX --keep-dirlinks  /flex/. /
+
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
+COPY --from=sources-downloader /sources/downloads/bison-${BISON_VERSION}.tar.xz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xvf bison-${BISON_VERSION}.tar.xz && mv bison-${BISON_VERSION} bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
+    make DESTDIR=/bison install && make install
+
+## bash
+FROM readline AS bash
+
+COPY --from=bison /bison /
+COPY --from=flex /flex /
+
+COPY ./files/bash/bashrc /sources/bashrc
+COPY ./files/bash/profile-bashrc.sh /sources/profile-bashrc.sh
+COPY --from=sources-downloader /sources/downloads/bash /sources/bash
+# If NON_INTERACTIVE_LOGIN_SHELLS is defined, all login shells read the
+# startup files, even if they are not interactive.
+# This makes something like ssh user@host 'command' work as expected, otherwise you would get
+# an error saying that its not a tty
+ENV CFLAGS="${CFLAGS} -DNON_INTERACTIVE_LOGIN_SHELLS -DSSH_SOURCE_BASHRC"
+RUN mkdir -p /bash
+WORKDIR /sources/bash
+RUN CFLAGS="${CFLAGS}" ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
+    --build=${BUILD} \
+    --host=${TARGET} \
+    --prefix=/usr \
+    --bindir=/bin \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --disable-nls \
+    --enable-readline \
+    --without-bash-malloc \
+    --with-installed-readline
+RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} builtins/libbuiltins.a && make -s -j${JOBS}
+RUN mkdir -p /bash/etc/bash
+RUN install -Dm644  /sources/bashrc /bash/etc/bash.bashrc
+RUN install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh
+RUN make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm -rf /bash/usr/share/locale
+
+## libcap
+FROM bash AS libcap
+
+ARG LIBCAP_VERSION=2.76
+ENV LIBCAP_VERSION=${LIBCAP_VERSION}
+
+COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
+
+RUN mkdir -p /sources && cd /sources && tar -xf libcap-${LIBCAP_VERSION}.tar.xz && mv libcap-${LIBCAP_VERSION} libcap && \
+    cd libcap && mkdir -p /libcap && make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" && \
+    make -s -j${JOBS} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## openssl
 FROM rsync AS openssl
@@ -1244,51 +1266,6 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && m
     --without-libssh2 && make -s -j${JOBS} DESTDIR=/curl && \
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
 
-## openssh
-## TODO: if we want a separate user for sshd we can drop a file onto /usr/lib/sysusers.d/sshd.conf
-## with:
-# u sshd - "sshd priv user"
-## And enable --with-privsep-user=sshd during configure
-FROM rsync AS openssh
-
-ARG OPENSSH_VERSION=9.9p1
-ENV OPENSSH_VERSION=${OPENSSH_VERSION}
-
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
-
-COPY --from=sources-downloader /sources/downloads/openssh-${OPENSSH_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /openssh
-WORKDIR /sources
-RUN tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh
-
-WORKDIR /sources/openssh
-RUN ./configure ${COMMON_CONFIGURE_ARGS} \
-    --prefix=/usr \
-    --sysconfdir=/etc/ssh \
-    --libexecdir=/usr/lib/ssh \
-    --datadir=/usr/share/openssh \
-    --with-privsep-path=/var/empty \
-    --with-privsep-user=nobody \
-    --with-md5-passwords \
-    --with-ssl-engine
-
-RUN make -s -j${JOBS}
-RUN make -s -j${JOBS} DESTDIR=/openssh install
-RUN make -s -j${JOBS} install
-## Provide the proper files and dirs for sshd to run properly with systemd
-COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
-COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
-COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
-# Add sshd_config.d dir for droping extra configs
-RUN mkdir -p /openssh/etc/ssh/sshd_config.d
-RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
-RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
-
 FROM rsync AS libffi
 
 COPY --from=sources-downloader /sources/downloads/libffi.tar.gz /sources/
@@ -1371,7 +1348,6 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     && make -s -j${JOBS} DESTDIR=/util-linux && \
     make -s -j${JOBS} DESTDIR=/util-linux install && make -s -j${JOBS} install
 
-
 ## gperf
 FROM stage1 AS gperf
 
@@ -1433,13 +1409,13 @@ RUN mv -v gmp-${GMP_VERSION} gdb/gmp
 RUN mv -v mpc-${MPC_VERSION} gdb/mpc
 WORKDIR /sources/gdb
 RUN ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
-    --target=${TARGET} \
+    --host=${TARGET}  AR=${TARGET}-ar RANLIB=${TARGET}-ranlib NM=${TARGET}-nm CC=${TARGET}-gcc LD=${TARGET}-ld STRIP=${TARGET}-strip \
     --with-sysroot=/ \
     --disable-nls \
     --with-libexpat-prefix=/usr \
     --disable-multilib
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS}
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/gdb install
+RUN make -j${JOBS}
+RUN make -j${JOBS} DESTDIR=/gdb install install-gdbserver
 
 
 ## dbus first pass without systemd support so we can build systemd afterwards
@@ -1488,6 +1464,86 @@ RUN DESTDIR=/pam ninja -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
 
+# shadow-base only deps
+FROM rsync AS shadow-base
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+
+# Shadow with PAM support, no systemd
+FROM shadow-base AS shadow
+COPY --from=pam /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
+RUN mkdir -p /shadow
+WORKDIR /sources
+RUN tar -xf shadow.tar.xz && mv shadow-* shadow
+WORKDIR /sources/shadow
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
+RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
+
+
+## openssh
+## TODO: if we want a separate user for sshd we can drop a file onto /usr/lib/sysusers.d/sshd.conf
+## with:
+# u sshd - "sshd priv user"
+## And enable --with-privsep-user=sshd during configure
+FROM rsync AS openssh
+
+ARG OPENSSH_VERSION=9.9p1
+ENV OPENSSH_VERSION=${OPENSSH_VERSION}
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=pam /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+
+COPY --from=shadow /shadow /shadow
+
+COPY --from=sources-downloader /sources/downloads/openssh-${OPENSSH_VERSION}.tar.gz /sources/
+
+RUN mkdir -p /openssh
+WORKDIR /sources
+RUN tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh
+
+WORKDIR /sources/openssh
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+    --prefix=/usr \
+    --sysconfdir=/etc/ssh \
+    --libexecdir=/usr/lib/ssh \
+    --datadir=/usr/share/openssh \
+    --with-privsep-path=/var/empty \
+    --with-privsep-user=nobody \
+    --with-md5-passwords \
+    --with-ssl-engine \
+    --with-pam
+
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} DESTDIR=/openssh install
+RUN make -s -j${JOBS} install
+## Provide the proper files and dirs for sshd to run properly with systemd
+COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
+COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
+COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
+# Add sshd_config.d dir for droping extra configs
+RUN mkdir -p /openssh/etc/ssh/sshd_config.d
+RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
+RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
+# Add Hadron config with enabled pam
+RUN echo "# Hadron specific sshd config" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
+RUN echo "UsePAM yes" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
+
+
 ## xz and liblzma
 FROM rsync AS xz
 COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
@@ -1532,35 +1588,6 @@ WORKDIR /sources/kmod
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
 RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
-
-## flex
-FROM m4 AS flex
-ARG FLEX_VERSION=2.6.4
-ENV FLEX_VERSION=${FLEX_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/flex-${FLEX_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && mv flex-${FLEX_VERSION} flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --docdir=/usr/share/doc/flex-${FLEX_VERSION} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
-    make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
-
-## bison
-FROM rsync AS bison
-
-ARG BISON_VERSION=3.8.2
-ENV BISON_VERSION=${BISON_VERSION}
-
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
-
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
-
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
-
-COPY --from=sources-downloader /sources/downloads/bison-${BISON_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf bison-${BISON_VERSION}.tar.xz && mv bison-${BISON_VERSION} bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
-    make DESTDIR=/bison install && make install
 
 
 ## autoconf
@@ -1923,17 +1950,21 @@ RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
-
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/libaio.tar.gz /sources/
 RUN mkdir -p /libaio
 WORKDIR /sources
 RUN tar -xf libaio.tar.gz && mv libaio-* libaio
 WORKDIR /sources/libaio
 ENV CC=gcc
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libaio
+# Avoid building the static libaio.a as we only need the shared one
+RUN sed -i '/install.*libaio.a/s/^/#/' src/Makefile
+RUN make -j${JOBS}
+RUN DESTDIR=/libaio make install
 
 ## lvm2 for dmsetup, devmapper and so on
-## We need to build it with systemd support so we can use it later with systemd rules and so on
+## TODO: build it with systemd support
 FROM rsync AS lvm2
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2422,7 +2453,6 @@ RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
 
 
-## multipath-tools with systemd support
 ## lvm2 for dmsetup, devmapper and so on
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
 ## This helps when a device is unlocked to makle the mapper show the device right away
@@ -2504,10 +2534,12 @@ WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
 ENV CC="gcc"
+COPY files/0001-multipathd-Dont-pthread_join-twice.patch /sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch
+RUN patch -p1 </sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch 
 # Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} WARN_ONLY=1 sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
-RUN make -s -j${JOBS} WARN_ONLY=1 SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
-RUN make -s -j${JOBS} WARN_ONLY=1 LIB=/lib install
+RUN make -s -j${JOBS} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
@@ -2561,33 +2593,9 @@ COPY files/pam/* /pam/etc/pam.d/
 COPY files/shells /pam/etc/shells
 RUN chmod 644 /pam/etc/shells
 
-# install shadow now that we have pam to get a proper login binary
-FROM rsync AS shadow-base
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=bash /bash /bash
-RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-
-
 # Shadow with systemd support via PAM
 FROM shadow-base AS shadow-systemd
 COPY --from=pam-systemd /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
-COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
-RUN mkdir -p /shadow
-WORKDIR /sources
-RUN tar -xf shadow.tar.xz && mv shadow-* shadow
-WORKDIR /sources/shadow
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
-RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
-
-# Shadow with PAM support, no systemd
-FROM shadow-base AS shadow
-COPY --from=pam /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
 RUN mkdir -p /shadow
@@ -3208,8 +3216,11 @@ RUN find / -name '*.a' -delete
 RUN rm -Rf /usr/share/pkgconfig
 ## Small configs
 # set a default locale
-RUN echo "export LANG=C.UTF-8" >> /etc/profile.d/locale.sh
-RUN echo "export LANG=C.UTF-8" >> /etc/bash.bashrc
+RUN echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
+RUN echo "en_US.UTF-8" > /etc/locale.conf
+# Export no colors for systemd
+# Make it a check so if we move to the proper less it will not hit this
+RUN echo "if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi" >> /etc/profile.d/systemd-no-colors.sh
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
@@ -3232,6 +3243,8 @@ FROM full-image-final AS debug
 
 COPY --from=strace /strace /
 COPY --from=gdb-stage0 /gdb /
+COPY --from=python-build /python /
+RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro cp -a /mnt/libstdc++.so* /usr/lib/
 CMD ["/bin/bash", "-l"]
 
 ## Final verification stage

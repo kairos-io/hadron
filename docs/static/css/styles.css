@@ -32,8 +32,10 @@ body {
 
 /* Snap container */
 .snap-container {
+    min-height: calc(100vh - 120px);
     height: 100vh;
-    overflow-y: auto;
+    position: relative;
+    overflow-y: visible;
     scroll-snap-type: y mandatory;
     scroll-behavior: smooth;
 }
@@ -135,12 +137,14 @@ h1 {
 
 /* Monochrome icon dots */
 .feature-list {
+    width: 100%;
     margin-top: 1.6rem;
     display: grid;
     gap: 0.9rem;
     list-style: none;
     margin-left: 0;
-    padding-left: 0;
+    margin-right: 0;
+    padding: 0;
 }
 
 .feature {
@@ -175,7 +179,7 @@ h1 {
     box-shadow: 0 20px 60px rgba(3, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.04);
     min-height: 320px;
-    display: flex;
+    display: flex !important;
     align-items: center;
     justify-content: center;
     position: relative;
@@ -186,9 +190,9 @@ h1 {
     width: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 1.1rem;
-    text-align: center;
+    text-align: left;
     padding: 2rem 1rem;
 }
 
@@ -444,5 +448,94 @@ footer {
 
     html {
         scroll-behavior: auto;
+    }
+}
+
+/* Styles moved from inline styles in index.html */
+
+/* Temporarily hide header */
+.td-header,
+header.td-header,
+.navbar,
+.td-navbar {
+    display: none !important;
+}
+
+/* Temporarily hide footer */
+.td-footer,
+footer.td-footer {
+    display: none !important;
+}
+
+/* Override Docsy body styles for landing page */
+body {
+    background: linear-gradient(145deg, #071026, #0e2540) !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Ensure landing page content is full width and height */
+.td-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    position: relative;
+}
+
+/* Make landing page container fill available space */
+#landing-container {
+    position: relative;
+    min-height: calc(100vh - 120px);
+    overflow-x: hidden;
+    overflow-y: visible;
+}
+
+
+/* Ensure showcase is visible */
+.showcase {
+    display: flex !important;
+}
+
+/* Eyebrow flex layout */
+.eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Logo image in eyebrow */
+.eyebrow img {
+    height: 1.5em;
+    width: auto;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));
+}
+
+/* By Kairos text */
+.eyebrow span:last-of-type {
+    font-size: 0.7em;
+    opacity: 0.8;
+    font-weight: 300;
+}
+
+/* Feature content wrapper */
+.feature > div:last-child {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+/* Muted text in features */
+.feature .muted {
+    margin-top: 0.25rem;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width:920px) {
+    .snap-container {
+        height: auto;
+        min-height: calc(100vh - 120px);
+    }
+    #landing-container {
+        overflow: visible;
     }
 }
