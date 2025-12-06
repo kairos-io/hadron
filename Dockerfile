@@ -394,11 +394,6 @@ ARG POPT_VERSION=1.19
 ENV POPT_VERSION=${POPT_VERSION}
 RUN cd /sources/downloads && wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz
 
-## ncurses
-ARG NCURSES_VERSION=6.5
-ENV NCURSES_VERSION=${NCURSES_VERSION}
-RUN cd /sources/downloads && wget -q http://ftpmirror.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz
-
 ## m4
 ARG M4_VERSION=1.4.20
 ENV M4_VERSION=${M4_VERSION}
@@ -934,30 +929,6 @@ RUN make -s -j${JOBS} DESTDIR=/binutils
 RUN make -s -j${JOBS} DESTDIR=/binutils install
 RUN make -s -j${JOBS} install
 
-## ncurses
-FROM stage1 AS ncurses
-
-ARG NCURSES_VERSION=6.5
-ENV NCURSES_VERSION=${NCURSES_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/ncurses-${NCURSES_VERSION}.tar.gz /sources/
-RUN cd /sources && \
-    tar -xf ncurses-${NCURSES_VERSION}.tar.gz && mv ncurses-${NCURSES_VERSION} ncurses && \
-    cd ncurses && mkdir -p /ncurses && sed -i s/mawk// configure && mkdir build && \
-    cd build && ../configure --quiet ${COMMON_CONFIGURE_ARGS} && make -s -C include &&  make -s -C progs tic && cd .. && \
-    ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
-    --mandir=/usr/share/man \
-    --with-manpage-format=normal \
-    --with-shared \
-    --without-debug \
-    --without-ada \
-    --without-normal \
-    --disable-stripping \
-    --enable-widec && \
-    make -s -j${JOBS} && \
-    make -s DESTDIR=/ncurses TIC_PATH=/sources/ncurses/build/progs/tic install && make -s -j${JOBS} install && echo "INPUT(-lncursesw)" > /ncurses/usr/lib/libncurses.so && \
-    cp /ncurses/usr/lib/libncurses.so /usr/lib/libncurses.so
-
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
 
@@ -981,7 +952,6 @@ RUN cd /sources && \
     tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
-
 
 ## flex
 FROM m4 AS flex
@@ -1037,7 +1007,6 @@ RUN cd /sources && \
        -Dusenm \
        -Duse64bitint && make -s -j${JOBS} libperl.so && \
         make -s -j${JOBS} DESTDIR=/perl && make -s -j${JOBS} DESTDIR=/perl install && make -s -j${JOBS} install
-
 
 ## bison
 FROM rsync AS bison
@@ -1378,7 +1347,6 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     --with-sysusersdir=/usr/lib/sysusers.d/ \
     && make -s -j${JOBS} DESTDIR=/util-linux && \
     make -s -j${JOBS} DESTDIR=/util-linux install && make -s -j${JOBS} install
-
 
 ## gperf
 FROM stage1 AS gperf
@@ -3248,8 +3216,11 @@ RUN find / -name '*.a' -delete
 RUN rm -Rf /usr/share/pkgconfig
 ## Small configs
 # set a default locale
-RUN echo "export LANG=C.UTF-8" >> /etc/profile.d/locale.sh
-RUN echo "export LANG=C.UTF-8" >> /etc/bash.bashrc
+RUN echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
+RUN echo "en_US.UTF-8" > /etc/locale.conf
+# Export no colors for systemd
+# Make it a check so if we move to the proper less it will not hit this
+RUN echo "if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi" >> /etc/profile.d/systemd-no-colors.sh
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
