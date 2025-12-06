@@ -17,12 +17,22 @@ FROM alpine:${ALPINE_VERSION} AS stage0
 #
 ########################################################
 
+ARG TARGETARCH
 ARG VENDOR="hadron"
 ENV VENDOR=${VENDOR}
-ARG ARCH="x86-64"
-ENV ARCH=${ARCH}
-ARG BUILD_ARCH="x86_64"
-ENV BUILD_ARCH=${BUILD_ARCH}
+
+# Map Docker's TARGETARCH to build-specific architecture values
+# TARGETARCH is automatically set by Docker buildx (amd64, arm64, etc.)
+# We convert it to the formats needed by our build tools:
+#   - ARCH: mussel architecture name (x86-64 or aarch64)
+#   - BUILD_ARCH: GNU triplet architecture (x86_64 or aarch64)  
+#   - KERNEL_ARCH: Linux kernel arch directory name (x86_64 or arm64)
+RUN if [ "${TARGETARCH}" = "arm64" ]; then \
+        printf '#!/bin/sh\nexport ARCH=aarch64\nexport BUILD_ARCH=aarch64\nexport KERNEL_ARCH=arm64\n' > /arch-env.sh; \
+    else \
+        printf '#!/bin/sh\nexport ARCH=x86-64\nexport BUILD_ARCH=x86_64\nexport KERNEL_ARCH=x86_64\n' > /arch-env.sh; \
+    fi && chmod +x /arch-env.sh && cat /arch-env.sh
+
 ARG JOBS
 ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
@@ -30,12 +40,25 @@ ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
 RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
-RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
+RUN . /arch-env.sh && cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
+
+# Set architecture-dependent environment variables
+# We need to source arch-env.sh and then set these dynamically
+RUN . /arch-env.sh && \
+    echo "ARCH=${ARCH}" >> /etc/environment && \
+    echo "BUILD_ARCH=${BUILD_ARCH}" >> /etc/environment && \
+    echo "KERNEL_ARCH=${KERNEL_ARCH}" >> /etc/environment && \
+    echo "TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl" >> /etc/environment && \
+    echo "BUILD=${BUILD_ARCH}-pc-linux-musl" >> /etc/environment
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
 ENV LC_ALL=POSIX
-ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
-ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+# These will be overridden at runtime, defaults to x86_64
+ENV ARCH=x86-64
+ENV BUILD_ARCH=x86_64
+ENV KERNEL_ARCH=x86_64
+ENV TARGET=x86_64-hadron-linux-musl
+ENV BUILD=x86_64-pc-linux-musl
 
 ### This stage is used to download the sources for the packages
 ### This runs in parallel with stage0 to improve build time since it's network-bound while stage0 is CPU-bound
@@ -517,10 +540,12 @@ ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 /sources/ 
 
-RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
+RUN . /arch-env.sh && \
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl && \
+    cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     cd busybox-${BUSYBOX_VERSION} && \
     make -s distclean && \
-    make -s ARCH="${ARCH}" defconfig && \
+    make -s ARCH="${KERNEL_ARCH}" defconfig && \
     sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
     sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
@@ -528,8 +553,8 @@ RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
     sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} CONFIG_PREFIX="/sysroot" install
+    make -s ARCH="${KERNEL_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
+    make -s ARCH="${KERNEL_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} CONFIG_PREFIX="/sysroot" install
 
 ###
 ### MUSL
@@ -539,8 +564,9 @@ ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz /sources/
-RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
+RUN . /arch-env.sh && cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
     cd musl-${MUSL_VERSION} && \
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl && \
     ./configure --disable-warnings \
       CROSS_COMPILE=${TARGET}- \
       --prefix=/usr \
@@ -571,6 +597,7 @@ RUN tar -xf mpc-${MPC_VERSION}.tar.gz
 RUN tar -xf mpfr-${MPFR_VERSION}.tar.bz2
 
 RUN <<EOT bash
+    . /arch-env.sh
     mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
     mv -v mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc
     mv -v gmp-${GMP_VERSION} gcc-${GCC_VERSION}/gmp
@@ -602,8 +629,9 @@ ENV MAKE_VERSION=${MAKE_VERSION}
 
 COPY --from=sources-downloader /sources/downloads/make-${MAKE_VERSION}.tar.gz /sources/
 
-RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
+RUN . /arch-env.sh && cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
     cd make-${MAKE_VERSION} && \
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl && \
     ./configure --quiet --prefix=/usr \
     --build=${BUILD_ARCH} --host=${TARGET} && \
     make -s -j${JOBS} && \
@@ -622,6 +650,8 @@ COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.t
 RUN tar -xf binutils-${BINUTILS_VERSION}.tar.xz
 
 RUN <<EOT bash
+    . /arch-env.sh
+    TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
     cd binutils-${BINUTILS_VERSION} && 
     ./configure --quiet \
        --prefix=/usr \
@@ -695,19 +725,24 @@ RUN cp aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig && chmod +x /skeleto
 
 FROM scratch AS stage1
 
+ARG TARGETARCH
 ARG VENDOR="hadron"
-ARG ARCH="x86-64"
-ARG BUILD_ARCH="x86_64"
 ARG CFLAGS
 ENV VENDOR=${VENDOR}
-ENV BUILD_ARCH=${BUILD_ARCH}
-ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
-ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+
+# Set default architecture values (x86_64)
+# These will be overridden in RUN commands by sourcing /arch-env.sh
+ENV ARCH=x86-64
+ENV BUILD_ARCH=x86_64
+ENV KERNEL_ARCH=x86_64
+ENV TARGET=x86_64-hadron-linux-musl
+ENV BUILD=x86_64-pc-linux-musl
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
 ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
 # TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
 
 COPY --from=stage1-merge /skeleton /
+COPY --from=stage1-merge /arch-env.sh /arch-env.sh
 
 
 # This environment now should be vanilla, ready to build the rest of the system
@@ -1790,6 +1825,11 @@ RUN cd /sources && \
 FROM rsync AS kernel-base
 ARG JOBS
 ARG TARGETARCH
+
+# Copy the arch-env.sh from an earlier stage (it's in stage1)
+# This script sets ARCH, BUILD_ARCH, and KERNEL_ARCH based on TARGETARCH
+COPY --from=stage1 /arch-env.sh /arch-env.sh
+
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
@@ -1824,6 +1864,9 @@ COPY --from=diffutils /diffutils /diffutils
 RUN rsync -aHAX --keep-dirlinks  /diffutils/. /
 
 ARG KERNEL_VERSION=6.16.7
+# Set ARCH for kernel builds - note this is different from mussel ARCH
+# For kernel: x86_64 architecture uses ARCH=x86_64, arm64 uses ARCH=arm64
+# We'll set this dynamically in RUN commands by sourcing arch-env.sh
 ENV ARCH=x86_64
 
 COPY --from=sources-downloader /sources/downloads/linux-${KERNEL_VERSION}.tar.xz /sources/
@@ -1838,31 +1881,48 @@ RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
 
 
 FROM kernel-base AS kernel-cloud
+ARG TARGETARCH
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/cloud.config .config
+# For x86_64 use the provided optimized config, for ARM64 use defconfig
+# TODO: Add optimized ARM64 kernel configs to files/kernel/ directory
+RUN if [ "${TARGETARCH}" = "arm64" ]; then \
+        . /arch-env.sh && make ARCH="${KERNEL_ARCH}" defconfig; \
+    else \
+        cp -rfv /sources/kernel-configs/cloud.config .config; \
+    fi
 
 FROM kernel-base AS kernel-default
+ARG TARGETARCH
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/default.config .config
+# For x86_64 use the provided optimized config, for ARM64 use defconfig
+# TODO: Add optimized ARM64 kernel configs to files/kernel/ directory
+RUN if [ "${TARGETARCH}" = "arm64" ]; then \
+        . /arch-env.sh && make ARCH="${KERNEL_ARCH}" defconfig; \
+    else \
+        cp -rfv /sources/kernel-configs/default.config .config; \
+    fi
 
 FROM kernel-${KERNEL_TYPE} AS kernel
 ARG JOBS
 ARG TARGETARCH
+ARG VENDOR="hadron"
 WORKDIR /sources/kernel
 # This only builds the kernel
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage
-RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
+# Source arch-env.sh to get KERNEL_ARCH for the correct architecture path
+RUN . /arch-env.sh && KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ARCH="${KERNEL_ARCH}" make -s -j${JOBS} bzImage
+RUN . /arch-env.sh && cp arch/${KERNEL_ARCH}/boot/bzImage /kernel/vmlinuz
 
 # This builds the modules
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+RUN . /arch-env.sh && KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ARCH="${KERNEL_ARCH}" make -s -j${JOBS} modules
+RUN . /arch-env.sh && KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ARCH="${KERNEL_ARCH}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
 ARG TARGETARCH
+ARG VENDOR="hadron"
 WORKDIR /sources/kernel
 # This installs the headers
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
+RUN . /arch-env.sh && KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ARCH="${KERNEL_ARCH}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
@@ -2830,19 +2890,22 @@ RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
 FROM scratch AS toolchain
 # These are the default values for the toolchain
 # Set them so anything using the toolchain will use the default values
+ARG TARGETARCH
 ENV VENDOR="hadron"
+# Default to x86_64, these will be overridden by sourcing /arch-env.sh in RUN commands
 ENV ARCH="x86-64"
 ENV BUILD_ARCH="x86_64"
-ENV VENDOR=${VENDOR}
-ENV BUILD_ARCH=${BUILD_ARCH}
-ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
-ENV BUILD=${BUILD_ARCH}-pc-linux-musl
+ENV KERNEL_ARCH="x86_64"
+ENV TARGET=x86_64-hadron-linux-musl
+ENV BUILD=x86_64-pc-linux-musl
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
 ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
 ENV M4="/usr/bin/m4"
 ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=true"
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
+# Copy the architecture environment script
+COPY --from=stage1 /arch-env.sh /arch-env.sh
 RUN ln -s /bin/bash /bin/sh
 CMD ["/bin/bash", "-l"]
 
