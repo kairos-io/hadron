@@ -322,10 +322,14 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
+      - name: Download Dockerfile from kairos repository
+        run: |
+          mkdir -p build
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          file: ./Dockerfile.init
+          file: ./build/Dockerfile.kairos
           push: true
           tags: ttl.sh/hadron-init-bios:${{ github.sha }}
           build-args: |
@@ -343,10 +347,14 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
+      - name: Download Dockerfile from kairos repository
+        run: |
+          mkdir -p build
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          file: ./Dockerfile.init
+          file: ./build/Dockerfile.kairos
           push: true
           tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
           build-args: |
