@@ -404,11 +404,6 @@ ARG READLINE_VERSION=8.3
 ENV READLINE_VERSION=${READLINE_VERSION}
 RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz
 
-## bash
-ARG BASH_VERSION=5.3
-ENV BASH_VERSION=${BASH_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz
-
 ## perl
 ARG PERL_VERSION=5.42.0
 ENV PERL_VERSION=${PERL_VERSION}
@@ -1040,6 +1035,11 @@ COPY --from=sources-downloader /sources/downloads/bash /sources/bash
 # startup files, even if they are not interactive.
 # This makes something like ssh user@host 'command' work as expected, otherwise you would get
 # an error saying that its not a tty
+# bash_cv_getcwd_malloc=yes avoids bash using its own getcwd which is broken under overlays
+# bash_cv_job_control_missing=no avoids bash thinking that job control is missing in some environments
+# bash_cv_sys_named_pipes=no avoids bash thinking that named pipes are broken in some environments
+# bash_cv_printf_a_format=yes avoids issues with bash printf implementation
+# This settings are enabled by a test which doesnt run when cross compiling so we have to enable them manually
 ENV CFLAGS="${CFLAGS} -DNON_INTERACTIVE_LOGIN_SHELLS -DSSH_SOURCE_BASHRC"
 RUN mkdir -p /bash
 WORKDIR /sources/bash
@@ -1053,7 +1053,12 @@ RUN CFLAGS="${CFLAGS}" ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --disable-nls \
     --enable-readline \
     --without-bash-malloc \
-    --with-installed-readline
+    --with-installed-readline \
+    bash_cv_getcwd_malloc=yes \
+    bash_cv_job_control_missing=nomissing \
+    bash_cv_sys_named_pipes=nomissing \
+    bash_cv_printf_a_format=yes \
+
 RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} builtins/libbuiltins.a && make -s -j${JOBS}
 RUN mkdir -p /bash/etc/bash
 RUN install -Dm644  /sources/bashrc /bash/etc/bash.bashrc
