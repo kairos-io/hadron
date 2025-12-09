@@ -1,9 +1,5 @@
 # System-wide /etc/bash.bashrc file for interactive bash shells.
 
-# Disable systemd color codes if 'less' doesn't support them
-# Set this here even if not interactive, as some commands may require decent systemd output
-if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi
-
 if [[ $- != *i* ]] ; then
 	# Shell is non-interactive.  Be done now!
 	return

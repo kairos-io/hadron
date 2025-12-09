@@ -3221,6 +3221,8 @@ RUN echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
 RUN echo "en_US.UTF-8" > /etc/locale.conf
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
+# Disable systemd colors until we have a proper less or pager that supports colors
+RUN echo "SYSTEMD_COLORS=0" >> /etc/environment
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
 RUN systemctl preset-all
