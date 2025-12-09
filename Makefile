@@ -11,6 +11,8 @@ KEYS_DIR ?= ${PWD}/tests/assets/keys
 CURRENT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
+KUBERNETES_DISTRO ?=
+KUBERNETES_VERSION ?= latest
 
 # Adjust IMAGE_NAME based on BOOTLOADER
 # If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
@@ -54,6 +56,7 @@ help: targets
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.1."
 	@echo "The IMAGE_NAME variable can be set to the name of the Hadron image that its built. The default is 'hadron'."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
+	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
 	@echo "------------------------------------------------------------------------"
 	@echo "The expected keys in the KEYS_DIR are:"
@@ -86,18 +89,34 @@ build-hadron:
 	@echo "Hadron image built successfully"
 
 ## This builds the Kairos image based off Hadron
+# Build EXTRA_ARGS conditionally based on KUBERNETES_DISTRO
+ifneq ($(KUBERNETES_DISTRO),)
+	EXTRA_ARGS := --build-arg KUBERNETES_DISTRO=${KUBERNETES_DISTRO} --build-arg KUBERNETES_VERSION=${KUBERNETES_VERSION}
+else
+	EXTRA_ARGS :=
+endif
+
 build-kairos:
 	@echo "Building Kairos image..."
+	@echo "Fetching Dockerfile from kairos repository..."
+	@mkdir -p build
+	@curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos || (echo "Error: Failed to fetch Dockerfile from kairos repository" && exit 1)
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
   		TRUSTED_BOOT="true"; \
 	else \
 		TRUSTED_BOOT="false"; \
 	fi; \
+	if [ -n "${KUBERNETES_DISTRO}" ]; then \
+		echo "Building standard image with Kubernetes distribution: ${KUBERNETES_DISTRO}, version: ${KUBERNETES_VERSION}"; \
+	else \
+		echo "Building core image (no Kubernetes distribution)"; \
+	fi; \
 	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
-	-f Dockerfile.init \
-	--build-arg BASE_IMAGE=${IMAGE_NAME} \
-	--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
-	--build-arg VERSION=${VERSION} .
+		-f build/Dockerfile.kairos \
+		--build-arg BASE_IMAGE=${IMAGE_NAME} \
+		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
+		--build-arg VERSION=${VERSION} \
+		${EXTRA_ARGS} .
 	@echo "Kairos image built successfully"
 
 
