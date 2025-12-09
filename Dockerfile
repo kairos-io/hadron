@@ -2381,6 +2381,7 @@ RUN /usr/bin/meson setup buildDir \
       -D dev-kvm-mode=0660    \
       -D nobody-group=nogroup \
       -D sysupdate=disabled   \
+      -Durlify=false \
       -D ukify=disabled
 RUN ninja -C buildDir
 RUN DESTDIR=/systemd ninja -C buildDir install
