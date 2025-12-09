@@ -1040,7 +1040,6 @@ COPY --from=sources-downloader /sources/downloads/bash /sources/bash
 # startup files, even if they are not interactive.
 # This makes something like ssh user@host 'command' work as expected, otherwise you would get
 # an error saying that its not a tty
-# If SSH_SOURCE_BASHRC is defined, bash will source /etc/bash.bashrc for ssh non-interactive sessions
 ENV CFLAGS="${CFLAGS} -DNON_INTERACTIVE_LOGIN_SHELLS -DSSH_SOURCE_BASHRC"
 RUN mkdir -p /bash
 WORKDIR /sources/bash
@@ -3219,10 +3218,11 @@ RUN rm -Rf /usr/share/pkgconfig
 # set a default locale
 RUN echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
 RUN echo "en_US.UTF-8" > /etc/locale.conf
+# Export no colors for systemd
+# Make it a check so if we move to the proper less it will not hit this
+RUN echo "if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi" >> /etc/profile.d/systemd-no-colors.sh
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
-# Disable systemd colors until we have a proper less or pager that supports colors
-RUN echo "SYSTEMD_COLORS=0" >> /etc/environment
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
 RUN systemctl preset-all
