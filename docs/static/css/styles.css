@@ -163,7 +163,10 @@ h1 {
     justify-content: center;
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.04);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    /* subtle ambient glow so non-Kairos icons match Kairos visual weight */
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.6),
+        0 0 16px rgba(0, 194, 255, 0.18);
     flex-shrink: 0;
 }
 
@@ -184,9 +187,11 @@ h1 {
 }
 
 .dot-kairos {
+    /* keep the same size/shape as .dot, only change accent */
     background: radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.9), rgba(7, 16, 38, 0.9));
     border-color: rgba(139, 92, 246, 0.7);
-    box-shadow: 0 10px 30px rgba(88, 28, 135, 0.65);
+    /* tighter purple glow so the silhouette doesn't feel larger than base icons */
+    box-shadow: 0 4px 14px rgba(88, 28, 135, 0.75);
 }
 
 .badge-kairos {
