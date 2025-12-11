@@ -1,6 +1,6 @@
 IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
-AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.16.0
+AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.16.1
 TARGET ?= default
 JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
