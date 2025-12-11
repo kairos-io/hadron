@@ -3,6 +3,7 @@
     --bg-2: #0e2540;
     --accent: #00C2FF;
     --accent-2: #6B5CFF;
+    --kairos-accent: #8B5CF6;
     --muted: #9aa4b2;
     --card-bg: rgba(255, 255, 255, 0.035);
     --white: #ffffff;
@@ -162,12 +163,49 @@ h1 {
     justify-content: center;
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.04);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    /* subtle ambient glow so non-Kairos icons match Kairos visual weight */
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.6),
+        0 0 16px rgba(0, 194, 255, 0.18);
     flex-shrink: 0;
 }
 
 .dot svg {
     display: block;
+}
+
+/* Kairos-dependent features */
+.feature-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.feature-kairos strong {
+    color: var(--kairos-accent);
+}
+
+.dot-kairos {
+    /* keep the same size/shape as .dot, only change accent */
+    background: radial-gradient(circle at 30% 20%, rgba(139, 92, 246, 0.9), rgba(7, 16, 38, 0.9));
+    border-color: rgba(139, 92, 246, 0.7);
+    /* tighter purple glow so the silhouette doesn't feel larger than base icons */
+    box-shadow: 0 4px 14px rgba(88, 28, 135, 0.75);
+}
+
+.badge-kairos {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(139, 92, 246, 0.16);
+    color: var(--kairos-accent);
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
 }
 
 /* Showcase */
