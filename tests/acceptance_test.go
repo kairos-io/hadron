@@ -57,7 +57,7 @@ var _ = Describe("kairos basic test", func() {
 
 	It("passes checks", Label("acceptance"), func() {
 		By("checking grubenv file", func() {
-			out, err := vm.Sudo("cat /oem/grub_oem_env")
+			out, err := vm.Sudo("cat /oem/grubenv")
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(out).To(ContainSubstring("foobarzz"))
 		})
