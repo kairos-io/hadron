@@ -373,7 +373,7 @@ jobs:
           --override-name kairos-hadron-bios-${{ github.sha }} \
           docker:ttl.sh/hadron-init-bios:${{ github.sha }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: kairos-hadron-bios-${{ github.sha }}.iso.zip
           path: build/*.iso
@@ -405,7 +405,7 @@ jobs:
           --sdboot-in-source \
           docker:ttl.sh/hadron-init-trusted:${{ github.sha }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
           path: build/*.iso
@@ -433,7 +433,7 @@ jobs:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: kairos-hadron-bios-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
@@ -455,7 +455,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: failure()
         with:
           name: acceptance-${{github.sha}}.logs.zip
@@ -483,7 +483,7 @@ jobs:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
@@ -508,7 +508,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: failure()
         with:
           name: acceptance-trusted-${{github.sha}}.logs.zip
