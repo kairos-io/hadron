@@ -2344,6 +2344,8 @@ WORKDIR /sources/systemd
 ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 ## Superhack to get tpm2-setup binary and service to build without having bootloader=enabled
 RUN sed -i "/'name' *: *'systemd-tpm2-setup'/,/},/s/'ENABLE_BOOTLOADER', *//" src/tpm2-setup/meson.build
+## Superhack to build systemd-bless-boot binary and generator
+RUN sed -i "/'conditions' *: *\[/,/\]/s/'ENABLE_BOOTLOADER',* *//g" src/bless-boot/meson.build
 ## Superhack to enable units that are linked to booloader build but we cant build them directly
 RUN sed -i "/'file' *: *'systemd-bless-boot.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
 RUN sed -i "/'file' *: *'systemd-pcrextend@.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
