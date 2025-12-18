@@ -2314,6 +2314,8 @@ RUN mkdir -p /systemd
 RUN python3 -m pip install meson ninja jinja2 pyelftools
 
 WORKDIR /sources/systemd
+COPY files/fix_oom.patch .
+RUN patch -p1 < fix_oom.patch
 
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
