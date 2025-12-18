@@ -16,9 +16,9 @@ jobs:
         run: |
           go install github.com/wader/bump/cmd/bump@latest
       - name: Bump version and create PR
-        env:
-          GITHUB_ACTION: ""
         run: |
+          unset GITHUB_ACTION
+          env
           bump diff
           bump update
       - name: Create Pull Request
