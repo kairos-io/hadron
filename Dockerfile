@@ -469,6 +469,32 @@ ARG LIBXML2_VERSION_MAJOR_AND_MINOR=2.14
 RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz && mv libxml2-${LIBXML2_VERSION}.tar.xz libxml2.tar.xz
 
 
+# fwupd
+ARG FWUPD_VERSION=2.0.17
+RUN cd /sources/downloads && wget -q https://github.com/fwupd/fwupd/releases/download/${FWUPD_VERSION}/fwupd-${FWUPD_VERSION}.tar.xz && mv fwupd-${FWUPD_VERSION}.tar.xz fwupd.tar.xz
+
+# glib
+ARG GLIB_VERSION=2.86.2
+RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/glib/2.86/glib-${GLIB_VERSION}.tar.xz && mv glib-${GLIB_VERSION}.tar.xz glib.tar.xz
+
+
+ARG PCRE2_VERSION=10.47
+RUN cd /sources/downloads && wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz && mv pcre2-${PCRE2_VERSION}.tar.gz pcre2.tar.gz
+
+ARG LIBXMLB_VERSION=0.3.24
+RUN cd /sources/downloads && wget -q https://github.com/hughsie/libxmlb/releases/download/${LIBXMLB_VERSION}/libxmlb-${LIBXMLB_VERSION}.tar.xz && mv libxmlb-${LIBXMLB_VERSION}.tar.xz libxmlb.tar.xz
+
+ARG LIBUSB_VERSION=1.0.29
+RUN cd /sources/downloads && wget -q https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2 && mv libusb-${LIBUSB_VERSION}.tar.bz2 libusb.tar.bz2
+
+ARG LIBJCAT_VERSION=0.2.5
+RUN cd /sources/downloads && wget -q https://github.com/hughsie/libjcat/releases/download/${LIBJCAT_VERSION}/libjcat-${LIBJCAT_VERSION}.tar.xz && mv libjcat-${LIBJCAT_VERSION}.tar.xz libjcat.tar.xz
+
+ARG JSON_GLIB_VERSION=1.10.8
+RUN cd /sources/downloads && wget -q https://gitlab.gnome.org/GNOME/json-glib/-/archive/${JSON_GLIB_VERSION}/json-glib-${JSON_GLIB_VERSION}.tar.gz && mv json-glib-${JSON_GLIB_VERSION}.tar.gz json-glib.tar.gz
+
+ARG GETTEXT_VERSION=0.26
+RUN cd /sources/downloads && wget -q http://ftpmirror.gnu.org/gettext/gettext-${GETTEXT_VERSION}.tar.xz && mv gettext-${GETTEXT_VERSION}.tar.xz gettext.tar.xz
 # gzip
 ARG GZIP_VERSION=1.12
 RUN cd /sources/downloads && wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && mv gzip-${GZIP_VERSION}.tar.xz gzip.tar.xz
@@ -1219,7 +1245,8 @@ ENV SQLITE3_VERSION=${SQLITE3_VERSION}
 ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
 
 COPY --from=sources-downloader /sources/downloads/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz /sources/
-
+# disable --enable-lto as its a not known flag for sqlite configure script
+ENV COMMON_CONFIGURE_ARGS="${COMMON_CONFIGURE_ARGS//--enable-lto/}"
 RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
     mv sqlite-autoconf-${SQLITE3_VERSION} sqlite3 && \
     cd sqlite3 && mkdir -p /sqlite3 && ./configure ${COMMON_CONFIGURE_ARGS} \
@@ -2673,7 +2700,6 @@ WORKDIR /sources/openscsi
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
 RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
 
-
 FROM rsync AS libxml
 RUN mkdir -p /libxml
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2686,6 +2712,155 @@ WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libxml && make -s -j${JOBS} install
 
+FRom rsync AS pcre2
+
+COPY --from=sources-downloader /sources/downloads/pcre2.tar.gz /sources/
+RUN mkdir -p /pcre2
+WORKDIR /sources
+RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
+WORKDIR /sources/pcre2
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-jit --enable-utf --enable-unicode-properties
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/pcre2 && make -s -j${JOBS} install
+
+FROM python-build AS glib
+
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /
+COPY --from=sources-downloader /sources/downloads/glib.tar.xz /sources/
+RUN mkdir -p /glib
+WORKDIR /sources
+RUN tar -xf glib.tar.xz && mv glib-* glib
+WORKDIR /sources/glib
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dselinux=disabled -Dxattr=false \
+    -Dlibmount=disabled -Dman-pages=disabled -Ddtrace=disabled -Dsystemtap=disabled -Dsysprof=disabled \
+    -Ddocumentation=false -Dtests=false -Dinstalled_tests=false -Dnls=disabled \
+    -Dglib_debug=disabled -Dglib_assert=false -Dglib_checks=false -Dlibelf=disabled -Dintrospection=disabled
+RUN DESTDIR=/glib ninja -C buildDir install
+
+FROM python-build AS libxmlb
+
+COPY --from=glib /glib /glib
+RUN rsync -aHAX --keep-dirlinks  /glib/. /
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /
+
+COPY --from=sources-downloader /sources/downloads/libxmlb.tar.xz /sources/
+RUN mkdir -p /libxmlb
+WORKDIR /sources
+RUN tar -xf libxmlb.tar.xz && mv libxmlb-* libxmlb
+WORKDIR /sources/libxmlb
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dgtkdoc=false -Dtests=false \
+    -Dintrospection=false -Dstemmer=false -Dcli=false -Dlzma=disabled -Dzstd=disabled
+RUN DESTDIR=/libxmlb ninja -C buildDir install
+
+
+FROM rsync AS libusb
+
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+
+COPY --from=sources-downloader /sources/downloads/libusb.tar.bz2 /sources/
+RUN mkdir -p /libusb
+WORKDIR /sources
+RUN tar -xf libusb.tar.bz2 && mv libusb-* libusb
+WORKDIR /sources/libusb
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libusb && make -s -j${JOBS} install
+
+FROM python-build AS json-glib
+
+COPY --from=glib /glib /glib
+RUN rsync -aHAX --keep-dirlinks  /glib/. /
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /
+
+COPY --from=sources-downloader /sources/downloads/json-glib.tar.gz /sources/
+RUN mkdir -p /json-glib
+WORKDIR /sources
+RUN tar -xf json-glib.tar.gz && mv json-glib-* json-glib
+WORKDIR /sources/json-glib
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dintrospection=disabled -Dtests=false
+RUN DESTDIR=/json-glib ninja -C buildDir install
+
+FROM python-build AS libjcat
+
+COPY --from=glib /glib /glib
+RUN rsync -aHAX --keep-dirlinks  /glib/. /
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /
+COPY --from=json-glib /json-glib /json-glib
+RUN rsync -aHAX --keep-dirlinks  /json-glib/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
+COPY --from=sources-downloader /sources/downloads/libjcat.tar.xz /sources/
+RUN mkdir -p /libjcat
+WORKDIR /sources
+RUN tar -xf libjcat.tar.xz && mv libjcat-* libjcat
+WORKDIR /sources/libjcat
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false -Dintrospection=false -Dgnutls_ed25519=false -Dgnutls_pkcs7=false -Dgpg=false
+RUN DESTDIR=/libjcat ninja -C buildDir install
+
+FROM rsync AS gettext
+
+COPY --from=sources-downloader /sources/downloads/gettext.tar.xz /sources/
+RUN mkdir -p /gettext
+WORKDIR /sources
+RUN tar -xf gettext.tar.xz && mv gettext-* gettext
+WORKDIR /sources/gettext
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-threads=posix --disable-java
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/gettext && make -s -j${JOBS} install
+
+FROM python-build AS fwupd
+
+COPY --from=cmake /cmake /cmake
+RUN rsync -aHAX --keep-dirlinks  /cmake/. /
+COPY --from=systemd /systemd /systemd
+RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=glib /glib /glib
+RUN rsync -aHAX --keep-dirlinks  /glib/. /
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /
+COPY --from=libxmlb /libxmlb /libxmlb
+RUN rsync -aHAX --keep-dirlinks  /libxmlb/. /
+COPY --from=libusb /libusb /libusb
+RUN rsync -aHAX --keep-dirlinks  /libusb/. /
+COPY --from=sqlite3 /sqlite3 /sqlite3
+RUN rsync -aHAX --keep-dirlinks  /sqlite3/. /
+COPY --from=json-glib /json-glib /json-glib
+RUN rsync -aHAX --keep-dirlinks  /json-glib/. /
+COPY --from=libjcat /libjcat /libjcat
+RUN rsync -aHAX --keep-dirlinks  /libjcat/. /
+COPY --from=curl /curl /curl
+RUN rsync -aHAX --keep-dirlinks  /curl/. /
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=xz /xz /xz
+RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=gettext /gettext /gettext
+RUN rsync -aHAX --keep-dirlinks  /gettext/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+
+
+COPY --from=sources-downloader /sources/downloads/fwupd.tar.xz /sources/
+RUN mkdir -p /fwupd
+WORKDIR /sources
+RUN tar -xf fwupd.tar.xz && mv fwupd-* fwupd
+WORKDIR /sources/fwupd
+RUN pip3 install meson ninja jinja2
+
+RUN /usr/sbin/python3 -c 'import jinja2; print(jinja2.__version__)'
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dintrospection=disabled -Dbash_completion=false \
+    -Dblkid=disabled -Dbluez=disabled -Dcbor=disabled -Ddocs=disabled -Dfish_completion=false -Dgnutls=disabled \
+    -Dfirmware-packager=false -Dhsi=disabled -Dlibarchive=disabled -Dlibdrm=disabled -Dlibmnl=disabled -Dman=false \
+    -Dp2p_policy=none -Dpassim=disabled -Dpolkit=disabled -Dprotobuf=disabled -Dqubes=false -Dsupported_build=disabled -Dplugin_flashrom=disabled \
+    -Dtests=false -Dumockdev_tests=disabled -Dvalgrind=disabled -Db_lto=true -Dvendor_ids_dir=/usr/share/hwdata/ -Dplugin_uefi_capsule_splash=false
+RUN DESTDIR=/fwupd ninja -C buildDir install
 
 ## Build image with all the deps on it
 ## Busybox provides the following tools for the final images:
