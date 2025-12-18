@@ -95,7 +95,9 @@ ARG LIBCAP_VERSION=2.76
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 ARG UTIL_LINUX_VERSION=2.41.1
-RUN wget -q https://github.com/util-linux/util-linux/archive/refs/tags/v${UTIL_LINUX_VERSION}.tar.gz/ -O util-linux.tar.gz
+RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
+    && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
+    && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
 ARG PYTHON_VERSION=3.12.11
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
@@ -343,8 +345,10 @@ RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_T
 
 # libxml
 ARG LIBXML2_VERSION=2.14.5
-RUN wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz -O libxml2.tar.xz
-
+RUN major="${LIBXML2_VERSION%%.*}" \
+ && minor="${LIBXML2_VERSION#*.}"; minor="${minor%%.*}" \
+ && LIBXML2_VERSION_MAJOR_AND_MINOR="${major}.${minor}" \
+ && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz -O libxml2.tar.xz
 # gzip
 ARG GZIP_VERSION=1.12
 RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar.xz
@@ -380,7 +384,7 @@ RUN chmod +x ./setup_rootfs.sh && SYSROOT=/sysroot ./setup_rootfs.sh
 ### Busybox
 ###
 FROM stage0 AS busybox-stage0
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 
 RUN cd /sources && tar -xf busybox.tar.bz2 && \
@@ -401,7 +405,7 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
 ### MUSL
 ###
 FROM stage0 AS musl-stage0
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources/
 RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
     cd musl && \
@@ -417,6 +421,7 @@ RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
 ### GCC
 ###
 FROM stage0 AS gcc-stage0
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gcc.tar.xz .
 COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
 COPY --from=sources-downloader /sources/downloads/mpc.tar.gz .
@@ -449,7 +454,7 @@ EOT
 ### Make
 ###
 FROM stage0 AS make-stage0
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/make.tar.gz /sources/
 
 RUN cd /sources && tar -xf make.tar.gz && mv make-* make && \
@@ -464,7 +469,7 @@ RUN cd /sources && tar -xf make.tar.gz && mv make-* make && \
 ### Binutils
 ###
 FROM stage0 AS binutils-stage0
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/binutils.tar.xz .
 RUN tar -xf binutils.tar.xz && mv binutils-* binutils
 
@@ -577,7 +582,7 @@ RUN ./test
 
 ## musl
 FROM stage1 AS musl
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz .
 RUN tar -xf musl.tar.gz && mv musl-* musl && \
     cd musl && \
@@ -589,7 +594,7 @@ RUN tar -xf musl.tar.gz && mv musl-* musl && \
 
 ## pkgconfig
 FROM stage1 AS pkgconfig
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/pkgconf.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* pkgconfig && \
@@ -603,16 +608,16 @@ RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* p
 
 ## xxhash
 FROM stage1 AS xxhash
-
-COPY --from=sources-downloader /sources/downloads/xxHash.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/xxhash.tar.gz /sources/
 ENV CC="gcc"
-RUN mkdir -p /sources && cd /sources && tar -xf xxHash.tar.gz && mv xxHash-* xxhash && \
+RUN mkdir -p /sources && cd /sources && tar -xf xxhash.tar.gz && mv xxHash-* xxhash && \
     cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash && \
     make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash install && make -s -j${JOBS} prefix=/usr install
 
 ## zstd
 FROM xxhash AS zstd
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/zstd.tar.gz /sources/
 RUN mkdir -p /zstd
 WORKDIR /sources
@@ -625,7 +630,7 @@ RUN make -s -j${JOBS} prefix=/usr install
 
 ## lz4
 FROM zstd AS lz4
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/lz4.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
@@ -634,7 +639,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
 
 ## attr
 FROM lz4 AS attr
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/attr.tar.gz /sources/
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
 
@@ -657,7 +662,7 @@ RUN make -s -j${JOBS} install
 
 ## acl
 FROM attr AS acl
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/acl.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
@@ -666,7 +671,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
 
 ## popt
 FROM acl AS popt
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/popt.tar.gz /sources/
 RUN cd /sources && \
     tar -xf popt.tar.gz && mv popt-* popt && \
@@ -675,7 +680,7 @@ RUN cd /sources && \
 
 ## zlib
 FROM popt AS zlib
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/zlib.tar.gz /sources/
 RUN mkdir -p /zlib
 WORKDIR /sources
@@ -689,7 +694,7 @@ RUN make -s -j${JOBS} install
 ## gawk
 
 FROM zlib AS gawk
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gawk.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk && \
@@ -702,7 +707,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk &&
 
 ## rsync
 FROM gawk AS rsync
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/rsync.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync && \
@@ -724,7 +729,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync
 
 ## binutils
 FROM stage1 AS binutils
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/binutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf binutils.tar.xz && mv binutils-* binutils && \
@@ -740,7 +745,7 @@ RUN make -s -j${JOBS} install
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/m4.tar.xz /sources/
 RUN cd /sources && \
     tar -xf m4.tar.xz && mv m4-* m4 && \
@@ -749,7 +754,7 @@ RUN cd /sources && \
 
 ## readline
 FROM stage1 AS readline
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
     tar -xf readline.tar.gz && mv readline-* readline && \
@@ -758,7 +763,7 @@ RUN cd /sources && \
 
 ## flex
 FROM m4 AS flex
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/flex.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf flex.tar.gz && mv flex-* flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
@@ -766,7 +771,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf flex.tar.gz && mv flex-* flex &
 
 ## perl
 FROM m4 AS perl
-
+ARG JOBS
 ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
@@ -808,7 +813,7 @@ RUN cd /sources && \
 
 ## bison
 FROM rsync AS bison
-
+ARG JOBS
 COPY --from=flex /flex /flex
 RUN rsync -aHAX --keep-dirlinks  /flex/. /
 
@@ -824,7 +829,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf bison.tar.xz && mv bison-* biso
 
 ## bash
 FROM readline AS bash
-
+ARG JOBS
 COPY --from=bison /bison /
 COPY --from=flex /flex /
 
@@ -866,7 +871,7 @@ RUN make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm
 
 ## libcap
 FROM bash AS libcap
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libcap.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* libcap && \
@@ -875,7 +880,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* lib
 
 ## openssl
 FROM rsync AS openssl
-
+ARG JOBS
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
@@ -895,7 +900,7 @@ RUN cd /sources && tar -xf openssl.tar.gz && mv openssl-* openssl && \
 ## Busybox (from stage1, ready to be used in the final image)
 ## with a tiny config as we have other tools
 FROM openssl AS busybox
-
+ARG JOBS
 COPY --from=busybox-stage0 /sources /sources
 
 WORKDIR /sources
@@ -908,7 +913,7 @@ RUN make -s -j${JOBS} install
 
 ## coreutils
 FROM rsync AS coreutils
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -937,7 +942,7 @@ RUN cd /sources && \
 
 ## findutils
 FROM stage1 AS findutils
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/findutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf findutils.tar.xz && mv findutils-* findutils && \
@@ -946,7 +951,7 @@ RUN cd /sources && \
 
 ## grep
 FROM stage1 AS grep
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/grep.tar.xz /sources/
 RUN cd /sources && \
     tar -xf grep.tar.xz && mv grep-* grep && \
@@ -955,7 +960,7 @@ RUN cd /sources && \
 
 ## ca-certificates
 FROM rsync AS ca-certificates
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -992,7 +997,7 @@ RUN bash /sources/post_install.sh
 
 ## sqlite3 
 FROM rsync AS sqlite3
-
+ARG JOBS
 ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
 
 COPY --from=sources-downloader /sources/downloads/sqlite-autoconf.tar.gz /sources/
@@ -1012,7 +1017,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf.tar.gz && \
 
 ## curl
 FROM rsync AS curl
-
+ARG JOBS
 COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
 
@@ -1045,7 +1050,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl.tar.gz && mv curl-* curl &&
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
 
 FROM rsync AS libffi
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libffi.tar.gz /sources/
 RUN mkdir -p /libffi
 WORKDIR /sources
@@ -1056,7 +1061,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libffi
 
 ## python
 FROM rsync AS python-build
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1096,9 +1101,9 @@ RUN make -s -j${JOBS} install 2>&1
 ## util-linux
 FROM bash AS util-linux
 
-COPY --from=sources-downloader /sources/downloads/util-linux.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux.tar.gz && \
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux.tar.xz && \
     mv util-linux-* util-linux && \
     cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
@@ -1124,7 +1129,7 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
 
 ## gperf
 FROM stage1 AS gperf
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gperf.tar.gz /sources/
 RUN cd /sources && \
     tar -xf gperf.tar.gz && mv gperf-* gperf && \
@@ -1134,6 +1139,7 @@ RUN cd /sources && \
 
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
+ARG JOBS
 COPY --from=gperf /gperf /gperf
 RUN rsync -aHAX --keep-dirlinks  /gperf/. /
 COPY --from=sources-downloader /sources/downloads/libseccomp.tar.gz /sources/
@@ -1147,6 +1153,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libseccomp
 
 ## expat
 FROM bash AS expat
+ARG JOBS
 ## Force bash as shell otherwise it defaults to /bin/sh and fails
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 COPY --from=sources-downloader /sources/downloads/expat.tar.gz /sources/
@@ -1158,7 +1165,7 @@ RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
 
 FROM stage0 AS gdb-stage0
-
+ARG JOBS
 RUN mkdir -p /gdb
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/gdb.tar.gz .
@@ -1188,7 +1195,7 @@ RUN make -j${JOBS} DESTDIR=/gdb install install-gdbserver
 
 ## dbus first pass without systemd support so we can build systemd afterwards
 FROM python-build AS dbus
-
+ARG JOBS
 COPY --from=expat /expat /expat
 RUN rsync -aHAX --keep-dirlinks  /expat/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -1203,12 +1210,12 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/dbus ninja -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 
 # first pam build so we can build systemd against it
 FROM python-build AS pam
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -1228,7 +1235,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/pam ninja -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
 
@@ -1246,6 +1253,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
 # Shadow with PAM support, no systemd
 FROM shadow-base AS shadow
+ARG JOBS
 COPY --from=pam /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
@@ -1263,7 +1271,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DES
 # u sshd - "sshd priv user"
 ## And enable --with-privsep-user=sshd during configure
 FROM rsync AS openssh
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1311,6 +1319,7 @@ RUN echo "UsePAM yes" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
 
 ## xz and liblzma
 FROM rsync AS xz
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
 RUN mkdir -p /xz
 WORKDIR /sources
@@ -1321,6 +1330,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JO
 
 # gzip at least for the toolchain
 FROM rsync AS gzip
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gzip.tar.xz /sources/
 RUN mkdir -p /gzip
 WORKDIR /sources
@@ -1333,6 +1343,7 @@ RUN make -s -j${JOBS} && make install DESTDIR=/gzip
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
 FROM python-build AS kmod
+ARG JOBS
 ## we need liblzma from xz to build
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
@@ -1352,12 +1363,12 @@ RUN tar -xf kmod.tar.gz && mv kmod-* kmod
 WORKDIR /sources/kmod
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
-RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
+RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
 ## autoconf
 FROM rsync AS autoconf
-
+ARG JOBS
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
@@ -1374,7 +1385,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf autoconf.tar.xz && mv autoconf-
 
 ## automake
 FROM rsync AS automake
-
+ARG JOBS
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
@@ -1393,7 +1404,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf automake.tar.xz && mv automake-
 
 ## argp-standalone
 FROM rsync AS argp-standalone
-
+ARG JOBS
 ENV CFLAGS="-fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
@@ -1414,7 +1425,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone.tar.gz && mv ar
 
 ## libtool
 FROM rsync AS libtool
-
+ARG JOBS
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
@@ -1428,7 +1439,7 @@ gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-depen
 
 ## fts
 FROM rsync AS fts
-
+ARG JOBS
 ARG CFLAGS
 ENV CFLAGS="$CFLAGS -fPIC"
 
@@ -1457,7 +1468,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts.tar.gz && mv musl-fts-
 
 ## musl-obstack
 FROM rsync AS musl-obstack
-
+ARG JOBS
 COPY --from=autoconf /autoconf /autoconf
 RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
 
@@ -1484,7 +1495,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack.tar.gz && mv musl-
 
 ## elfutils
 FROM rsync AS elfutils
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
@@ -1523,7 +1534,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils.tar.bz2 && mv elfutils
 
 
 FROM rsync AS diffutils
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/diffutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf diffutils.tar.xz && mv diffutils-* diffutils && \
@@ -1533,7 +1544,7 @@ RUN cd /sources && \
 
 ## kernel
 FROM rsync AS kernel-base
-
+ARG JOBS
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
@@ -1587,8 +1598,9 @@ WORKDIR /sources/kernel
 RUN cp -rfv /sources/kernel-configs/default.config .config
 
 FROM kernel-${KERNEL_TYPE} AS kernel
+ARG JOBS
 WORKDIR /sources/kernel
-
+ENV ARCH=x86_64
 # This only builds the kernel
 RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} bzImage
 RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
@@ -1598,14 +1610,14 @@ RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} modules
 RUN LOCALVERSION="-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 FROM kernel-base AS kernel-headers
-
+ARG JOBS
 WORKDIR /sources/kernel
 # This installs the headers
 RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
@@ -1628,7 +1640,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/kbd
 
 ## strace
 FROM rsync AS strace
-
+ARG JOBS
 COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /
 COPY --from=sources-downloader /sources/downloads/strace.tar.xz /sources/
@@ -1641,6 +1653,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/strace
 
 ## libmnl
 FROM rsync AS libmnl
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libmnl.tar.bz2 /sources/
 RUN mkdir -p /libmnl
 WORKDIR /sources
@@ -1651,7 +1664,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libmnl
 
 ## libnftnl
 FROM rsync AS libnftnl
-
+ARG JOBS
 COPY --from=libmnl /libmnl /libmnl
 RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -1666,7 +1679,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libnftnl
 
 ## iptables
 FROM rsync AS iptables
-
+ARG JOBS
 COPY --from=libmnl /libmnl /libmnl
 RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
 COPY --from=libnftnl /libnftnl /libnftnl
@@ -1689,6 +1702,7 @@ RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
+ARG JOBS
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/libaio.tar.gz /sources/
@@ -1705,7 +1719,7 @@ RUN DESTDIR=/libaio make install
 ## lvm2 for dmsetup, devmapper and so on
 ## TODO: build it with systemd support
 FROM rsync AS lvm2
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libaio /libaio /libaio
@@ -1730,7 +1744,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${
 
 
 FROM rsync AS cmake
-
+ARG JOBS
 COPY --from=curl /curl /curl
 RUN rsync -aHAX --keep-dirlinks  /curl/. /
 COPY --from=openssl /openssl /openssl
@@ -1747,7 +1761,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cmake && make -s -j$
 
 
 FROM rsync AS jsonc
-
+ARG JOBS
 COPY --from=cmake /cmake /cmake
 RUN rsync -aHAX --keep-dirlinks  /cmake/. /
 COPY --from=bash /bash /bash
@@ -1768,7 +1782,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j$
 
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/pax-utils.tar.xz /sources/
 RUN mkdir -p /pax-utils
 WORKDIR /sources
@@ -1776,11 +1790,11 @@ RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false
-RUN DESTDIR=/pax-utils ninja -C buildDir install
-RUN ninja -C buildDir install
+RUN DESTDIR=/pax-utils ninja -j${JOBS} -C buildDir install
+RUN ninja -j${JOBS} -C buildDir install
 
 FROM rsync AS urcu
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libcap /libcap /libcap
@@ -1798,7 +1812,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=util-linux /util-linux /util-linux
@@ -1815,7 +1829,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/e2fsprogs && make -s
 
 ## Provides mkfs.fat and fsck.fat
 FROM rsync AS dosfstools
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/dosfstools.tar.gz /sources/
 RUN mkdir -p /dosfstools
 WORKDIR /sources
@@ -1827,6 +1841,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools && make -
 
 ## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
 FROM rsync AS cryptsetup
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -1860,7 +1875,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -
 
 
 FROM rsync AS parted
-
+ARG JOBS
 ## device-mapper from lvm2
 COPY --from=lvm2 /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
@@ -1912,6 +1927,7 @@ RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
 
 FROM grub-base AS grub-efi
+ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
@@ -1919,6 +1935,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-efi
 
 
 FROM grub-base AS grub-bios
+ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror
@@ -1926,6 +1943,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios
 
 
 FROM rsync AS tpm2-tss
+ARG JOBS
 RUN mkdir -p /tpm2-tss
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2029,6 +2047,7 @@ RUN python3 -m pip install meson ninja jinja2 pyelftools
 ## But in here we want to build all those needed pieces, so we hack the meson.build files to remove the bootloader dependency
 ## We know we are going to need them later and we are going to be using sdboot from the separate stage below so its ok
 FROM systemd-base AS systemd
+ARG JOBS
 WORKDIR /sources/systemd
 ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
 ## Superhack to get tpm2-setup binary and service to build without having bootloader=enabled
@@ -2076,8 +2095,8 @@ RUN /usr/bin/meson setup buildDir \
       -D sysupdate=disabled   \
       -Durlify=false \
       -D ukify=disabled
-RUN ninja -C buildDir
-RUN DESTDIR=/systemd ninja -C buildDir install
+RUN ninja -j${JOBS} -C buildDir
+RUN DESTDIR=/systemd ninja -j${JOBS} -C buildDir install
 
 ## In here we only build the sdboot files
 ## with musl, we cannot compile the full systemd-boot due to missing wchar_t definition
@@ -2086,6 +2105,7 @@ RUN DESTDIR=/systemd ninja -C buildDir install
 ## using meson to compile it (not install as that builds more stuff)
 ## and copying the resulting .efi files
 FROM systemd-base AS systemd-bootloader
+ARG JOBS
 ARG VERSION
 WORKDIR /sources/systemd
 ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wchar_t"
@@ -2107,7 +2127,7 @@ RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
 
 
 FROM rsync AS dracut
-
+ARG JOBS
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
@@ -2151,7 +2171,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
 ## This helps when a device is unlocked to makle the mapper show the device right away
 FROM rsync AS lvm2-systemd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libaio /libaio /libaio
@@ -2188,7 +2208,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${
 
 ## needed for dracut and other tools
 FROM rsync AS multipath-tools
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 # devmapper
@@ -2238,7 +2258,7 @@ RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
-
+ARG JOBS
 COPY --from=expat /expat /expat
 RUN rsync -aHAX --keep-dirlinks  /expat/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2255,11 +2275,11 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/dbus ninja -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -2281,7 +2301,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/pam ninja -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
 COPY files/shells /pam/etc/shells
@@ -2289,6 +2309,7 @@ RUN chmod 644 /pam/etc/shells
 
 # Shadow with systemd support via PAM
 FROM shadow-base AS shadow-systemd
+ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
@@ -2312,6 +2333,7 @@ COPY --from=pax-utils /pax-utils /pax-utils
 RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 
 FROM sudo-base AS sudo-systemd
+ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
@@ -2323,6 +2345,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
 
 FROM sudo-base AS sudo
+ARG JOBS
 COPY --from=pam /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
@@ -2334,7 +2357,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
 
 FROM python-build AS openscsi
-
+ARG JOBS
 # Wee need cmake, libkmod, liblzma, mount, systemd, perl
 COPY --from=cmake /cmake /cmake
 RUN rsync -aHAX --keep-dirlinks  /cmake/. /
@@ -2358,10 +2381,11 @@ WORKDIR /sources
 RUN tar -xf openscsi.tar.gz && mv open-iscsi-* openscsi
 WORKDIR /sources/openscsi
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
-RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
+RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
 FROM rsync AS libxml
+ARG JOBS
 RUN mkdir -p /libxml
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /

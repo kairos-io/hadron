@@ -1,176 +1,182 @@
 # Hadron Dockerfile bump config
+# $NAME is configuration name
+# $CURRENT is current version
+# $LATEST is latest version available
 
 # The following section is simple semver checks.
 
-ALPINE /ALPINE_VERSION=([0-9A-Za-z\.\-]+)/ docker:alpine|^3
+alpine /ALPINE_VERSION=([0-9A-Za-z\.\-]+)/ docker:alpine|^3
+alpine link "Changeset" https://git.alpinelinux.org/aports/log/?h=v$LATEST
 
-CURL /CURL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://curl.se/download/|/curl-([0-9\.]+)\.tar\.gz/|semver:*
+curl /CURL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://curl.se/download/|/curl-([0-9\.]+)\.tar\.gz/|semver:*
+curl link "Changes" https://curl.se/ch/$LATEST.html
 
-RSYNC /RSYNC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.samba.org/pub/rsync/|/rsync-([0-9\.]+)\.tar\.gz/|semver:*
+rsync /RSYNC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.samba.org/pub/rsync/|/rsync-([0-9\.]+)\.tar\.gz/|semver:*
 
-XXHASH /XXHASH_VERSION="?([0-9]+\.[0-9.]+)"?/ git:https://github.com/Cyan4973/xxHash.git|re:/v?([0-9]+\.[0-9.]+)/|semver:*
+xxhash /XXHASH_VERSION="?([0-9]+\.[0-9.]+)"?/ git:https://github.com/Cyan4973/xxHash.git|re:/v?([0-9]+\.[0-9.]+)/|semver:*
 
-ZSTD /ZSTD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/facebook/zstd.git|semver:*
+zstd /ZSTD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/facebook/zstd.git|semver:*
 
-LZ4 /LZ4_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/lz4/lz4.git|semver:*
+lz4 /LZ4_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/lz4/lz4.git|semver:*
 
-ZLIB /ZLIB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://zlib.net/fossils/|/zlib-([0-9\.]+)\.tar\.gz/|semver:*
+zlib /ZLIB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://zlib.net/fossils/|/zlib-([0-9\.]+)\.tar\.gz/|semver:*
 
-ACL /ACL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.savannah.gnu.org/releases/acl/|/acl-([0-9\.]+)\.tar\.gz/|semver:*
+acl /ACL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.savannah.gnu.org/releases/acl/|/acl-([0-9\.]+)\.tar\.gz/|semver:*
 
-ATTR /ATTR_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.savannah.nongnu.org/releases/attr/|/attr-([0-9\.]+)\.tar\.gz/|semver:*
+attr /ATTR_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.savannah.nongnu.org/releases/attr/|/attr-([0-9\.]+)\.tar\.gz/|semver:*
 
-GAWK /GAWK_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/gawk/|/gawk-([0-9\.]+)\.tar\.xz/|semver:*
+gawk /GAWK_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/gawk/|/gawk-([0-9\.]+)\.tar\.xz/|semver:*
 
-SYSTEMD /SYSTEMD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/systemd/systemd.git|semver:*
+systemd /SYSTEMD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/systemd/systemd.git|semver:*
 
-LIBCAP /LIBCAP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/|/libcap-([0-9\.]+)\.tar\.xz/|*
+libcap /LIBCAP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/|/libcap-([0-9\.]+)\.tar\.xz/|*
 
-PYTHON /PYTHON_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.python.org/ftp/python/|/([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
+python /PYTHON_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.python.org/ftp/python/|/([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
 
-OPENSSL /OPENSSL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.openssl.org/source/|/openssl-([0-9\.]+)\.tar\.gz/|semver:*
+openssl /OPENSSL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.openssl.org/source/|/openssl-([0-9\.]+)\.tar\.gz/|semver:*
 
-OPENSSH /OPENSSH_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/|/openssh-([0-9A-Za-z0-9\.p]+)\.tar\.gz/
+openssh /OPENSSH_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/|/openssh-([0-9A-Za-z0-9\.p]+)\.tar\.gz/
 
-PKGCONFIG /PKGCONFIG_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://distfiles.dereferenced.org/pkgconf/|/pkgconf-([0-9\.]+)\.tar\.xz/|semver:*
+pkgconfig /PKGCONFIG_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://distfiles.dereferenced.org/pkgconf/|/pkgconf-([0-9\.]+)\.tar\.xz/|semver:*
 
-DBUS /DBUS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://dbus.freedesktop.org/releases/dbus/|/dbus-([0-9\.]+)\.tar\.xz/|semver:*
+dbus /DBUS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://dbus.freedesktop.org/releases/dbus/|/dbus-([0-9\.]+)\.tar\.xz/|semver:*
 
-EXPAT /EXPAT_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://api.github.com/repos/libexpat/libexpat/releases|/expat-([0-9\.]+)\.tar\.gz/|semver:*
+expat /EXPAT_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://api.github.com/repos/libexpat/libexpat/releases|/expat-([0-9\.]+)\.tar\.gz/|semver:*
 
-SECCOMP /SECCOMP_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/seccomp/libseccomp.git|semver:*
+seccomp /SECCOMP_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/seccomp/libseccomp.git|semver:*
 
-KBD /KBD_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/utils/kbd/|/kbd-([0-9\.]+)\.tar\.gz/|semver:*
+kbd /KBD_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/utils/kbd/|/kbd-([0-9\.]+)\.tar\.gz/|semver:*
 
-IPTABLES /IPTABLES_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/iptables/files/|/iptables-([0-9\.]+)\.tar\.xz/|semver:*
+iptables /IPTABLES_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/iptables/files/|/iptables-([0-9\.]+)\.tar\.xz/|semver:*
 
-LIBMNL /LIBMNL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/libmnl/files/|/libmnl-([0-9\.]+)\.tar\.bz2/|semver:*
+libmnl /LIBMNL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/libmnl/files/|/libmnl-([0-9\.]+)\.tar\.bz2/|semver:*
 
-LIBNFTNL /LIBNFTNL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/libnftnl/files/|/libnftnl-([0-9\.]+)\.tar\.xz/|semver:*
+libnftnl /LIBNFTNL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.netfilter.org/projects/libnftnl/files/|/libnftnl-([0-9\.]+)\.tar\.xz/|semver:*
 
-FLEX /FLEX_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/westes/flex.git|semver:*
+flex /FLEX_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/westes/flex.git|semver:*
 
-BISON /BISON_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/bison/|/bison-([0-9\.]+)\.tar\.xz/|semver:*
+bison /BISON_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/bison/|/bison-([0-9\.]+)\.tar\.xz/|semver:*
 
-AUTOMAKE /ARG AUTOMAKE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/automake/|/automake-([0-9\.]+)\.tar\.xz/|semver:*
+automake /ARG AUTOMAKE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/automake/|/automake-([0-9\.]+)\.tar\.xz/|semver:*
 
-FTS /FTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/pullmoll/musl-fts.git|semver:*
+fts /FTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/pullmoll/musl-fts.git|semver:*
 
-LIBTOOL /LIBTOOL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/libtool/|/libtool-([0-9\.]+)\.tar\.xz/|semver:*
+libtool /LIBTOOL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/libtool/|/libtool-([0-9\.]+)\.tar\.xz/|semver:*
 
-MUSL_OBSTACK /MUSL_OBSTACK_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/void-linux/musl-obstack.git|semver:*
+musl_obstack /MUSL_OBSTACK_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/void-linux/musl-obstack.git|semver:*
 
-XZUTILS /XZUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://tukaani.org/xz/|/xz-([0-9\.]+)\.tar\.gz/|semver:*
+xzutils /XZUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://tukaani.org/xz/|/xz-([0-9\.]+)\.tar\.gz/|semver:*
 
-LVM2 /LVM2_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/|/LVM2\.([0-9\.]+)\.tgz/|semver:*
+lvm2 /LVM2_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/|/LVM2\.([0-9\.]+)\.tgz/|semver:*
 
-MULTIPATH_TOOLS /MULTIPATH_TOOLS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/opensvc/multipath-tools.git|semver:*
+multipath /MULTIPATH_TOOLS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/opensvc/multipath-tools.git|semver:*
 
-CMAKE /ARG CMAKE_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/Kitware/CMake.git|semver:*
+cmake /ARG CMAKE_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/Kitware/CMake.git|semver:*
 
-URCU /URCU_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://lttng.org/files/urcu/|/userspace-rcu-([0-9\.]+)\.tar\.bz2/|semver:*
+urcu /URCU_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://lttng.org/files/urcu/|/userspace-rcu-([0-9\.]+)\.tar\.bz2/|semver:*
 
-E2FSPROGS /E2FSPROGS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/|/v([0-9\.]+)/|semver:*
+e2fsprogs /E2FSPROGS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/|/v([0-9\.]+)/|semver:*
 
-PAM /PAM_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/linux-pam/linux-pam.git|semver:*
+pam /PAM_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/linux-pam/linux-pam.git|semver:*
 
-SHADOW /SHADOW_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/shadow-maint/shadow.git|semver:*
+shadow /SHADOW_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/shadow-maint/shadow.git|semver:*
 
-APORTS /APORTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.alpinelinux.org/alpine/aports.git|semver:*
+aports /APORTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.alpinelinux.org/alpine/aports.git|semver:*
 
 # Sucks but busybox page is broken half the time
-BUSYBOX /BUSYBOX_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://launchpad.net/busybox/+download|/busybox-([0-9\.]+)\.tar\.bz2/|semver:*
+busybox /BUSYBOX_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://launchpad.net/busybox/+download|/busybox-([0-9\.]+)\.tar\.bz2/|semver:*
 # BUSYBOX BUSYBOX_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://busybox.net/downloads/|/busybox-([0-9\.]+)\.tar\.bz2/|*
 
-MUSL /MUSL_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://musl.libc.org/releases.html|/musl-([0-9\.]+)\.tar\.gz/|semver:*
+musl /MUSL_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://musl.libc.org/releases.html|/musl-([0-9\.]+)\.tar\.gz/|semver:*
 
-GCC /GCC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/gcc/|/gcc-([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
+gcc /GCC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/gcc/|/gcc-([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
 
-GMP /GMP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/gmp/|/gmp-([0-9\.]+)\.tar\.bz2/|semver:*
+gmp /GMP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/gmp/|/gmp-([0-9\.]+)\.tar\.bz2/|semver:*
 
-MPC /MPC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/mpc/|/mpc-([0-9\.]+)\.tar\.gz/|semver:*
+mpc /MPC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/mpc/|/mpc-([0-9\.]+)\.tar\.gz/|semver:*
 
-MPFR /MPFR_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/mpfr/|/mpfr-([0-9\.]+)\.tar\.bz2/|semver:*
+mpfr /MPFR_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/mpfr/|/mpfr-([0-9\.]+)\.tar\.bz2/|semver:*
 
-MAKE /ARG MAKE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/make/|/make-([0-9\.]+)\.tar\.gz/|semver:*
+make /ARG MAKE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/make/|/make-([0-9\.]+)\.tar\.gz/|semver:*
 
-M4 /M4_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/m4/|/m4-([0-9\.]+)\.tar\.xz/|semver:*
+m4 /M4_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/m4/|/m4-([0-9\.]+)\.tar\.xz/|semver:*
 
-PERL /PERL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.cpan.org/src/5.0/|/perl-([0-9\.]+)\.tar\.xz/|semver:*
+perl /PERL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.cpan.org/src/5.0/|/perl-([0-9\.]+)\.tar\.xz/|semver:*
 
-FINDUTILS /FINDUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/findutils/|/findutils-([0-9\.]+)\.tar\.xz/|semver:*
+findutils /FINDUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/findutils/|/findutils-([0-9\.]+)\.tar\.xz/|semver:*
 
-GREP /GREP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/grep/|/grep-([0-9\.]+)\.tar\.xz/|semver:*
+grep /GREP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/grep/|/grep-([0-9\.]+)\.tar\.xz/|semver:*
 
-SUDO /SUDO_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.sudo.ws/dist/|/sudo-([0-9\.p]+)\.tar\.gz/|semver:*
+sudo /SUDO_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.sudo.ws/dist/|/sudo-([0-9\.p]+)\.tar\.gz/|semver:*
 
-PAX_UTILS /PAX_UTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/|/pax-utils-([0-9\.]+)\.tar\.xz/|semver:*
+pax_utils /PAX_UTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/|/pax-utils-([0-9\.]+)\.tar\.xz/|semver:*
 
-OPEN_SCSI /OPEN_SCSI_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/open-iscsi/open-iscsi.git|semver:*
+open_iscsi /OPEN_SCSI_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/open-iscsi/open-iscsi.git|semver:*
 
-LIBFFI /LIBFFI_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/libffi/libffi.git|semver:*
+libffi /LIBFFI_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/libffi/libffi.git|semver:*
 
-TPM2_TSS /TPM2_TSS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/tpm2-software/tpm2-tss.git|semver:*
+tpm2_tss /TPM2_TSS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/tpm2-software/tpm2-tss.git|semver:*
 
-LIBXML2 /LIBXML2_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://gitlab.gnome.org/GNOME/libxml2.git|semver:*
+libxml2 /LIBXML2_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://gitlab.gnome.org/GNOME/libxml2.git|re:/[0-9]+(?:\.[0-9]{1,2}){2}/|semver:*
 
-SQLITE3 /SQLITE3_VERSION="?([0-9]+)"?/ git:https://github.com/sqlite/sqlite.git|semver:*
+sqlite3 /SQLITE3_VERSION="?([0-9]+)"?/ git:https://github.com/sqlite/sqlite.git|semver:*
 
-CRYPTSETUP /CRYPTSETUP_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.com/cryptsetup/cryptsetup.git|semver:*
+cryptsetup /CRYPTSETUP_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.com/cryptsetup/cryptsetup.git|semver:*
 
-BINUTILS /BINUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftp.gnu.org/gnu/binutils/|/binutils-([0-9\.]+)\.tar\.xz/|semver:*
+binutils /BINUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftp.gnu.org/gnu/binutils/|/binutils-([0-9\.]+)\.tar\.xz/|semver:*
 
-UTIL_LINUX /UTIL_LINUX_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/util-linux/util-linux.git|semver:*
+util_linux /UTIL_LINUX_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/util-linux/util-linux.git|semver:*
 
-LIBAIO /LIBAIO_VERSION=([0-9A-Za-z\.\-]+)/ git:https://pagure.io/libaio.git|semver:*
+libaio /LIBAIO_VERSION=([0-9A-Za-z\.\-]+)/ git:https://pagure.io/libaio.git|semver:*
 
 ######################
 #### special ones ####
 ######################
 
 # the following are only major.minor versions
-ARGP_STANDALONE /ARGP_STANDALONE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.lysator.liu.se/~nisse/misc/|/argp-standalone-([0-9\.]+)\.tar\.gz/|*
+argp_standalone /ARGP_STANDALONE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.lysator.liu.se/~nisse/misc/|/argp-standalone-([0-9\.]+)\.tar\.gz/|*
 
-AUTOCONF /AUTOCONF_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/autoconf/|/autoconf-([0-9\.]+)\.tar\.xz/|*
+autoconf /AUTOCONF_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/autoconf/|/autoconf-([0-9\.]+)\.tar\.xz/|*
 
-PARTED /PARTED_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/parted/|/parted-([0-9\.]+)\.tar\.xz/|*
+parted /PARTED_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/parted/|/parted-([0-9\.]+)\.tar\.xz/|*
 
-DOSFSTOOLS /DOSFSTOOLS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/dosfstools/dosfstools.git|*
+dosfstools /DOSFSTOOLS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/dosfstools/dosfstools.git|*
 
-POPT /POPT_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftp.rpm.org/popt/releases/popt-1.x/|/popt-([0-9\.]+)\.tar\.gz/|*
+popt /POPT_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftp.rpm.org/popt/releases/popt-1.x/|/popt-([0-9\.]+)\.tar\.gz/|*
 
-GRUB /GRUB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirrors.edge.kernel.org/gnu/grub/|/grub-([0-9\.]+)\.tar\.xz/|*
+grub /GRUB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirrors.edge.kernel.org/gnu/grub/|/grub-([0-9\.]+)\.tar\.xz/|*
 
-READLINE /READLINE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/readline/|/readline-([0-9\.]+)\.tar\.gz/|*
+readline /READLINE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/readline/|/readline-([0-9\.]+)\.tar\.gz/|*
 
-COREUTILS /COREUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/coreutils/|/coreutils-([0-9\.]+)\.tar\.xz/|*
+coreutils /COREUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/coreutils/|/coreutils-([0-9\.]+)\.tar\.xz/|*
 
-GPERF /GPERF_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/gperf/|/gperf-([0-9\.]+)\.tar\.gz/|*
+gperf /GPERF_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/gperf/|/gperf-([0-9\.]+)\.tar\.gz/|*
 
-DIFFUTILS /DIFFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftpmirror.gnu.org/diffutils/|/diffutils-([0-9\.]+)\.tar\.xz/|*
+diffutils /DIFFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://ftpmirror.gnu.org/diffutils/|/diffutils-([0-9\.]+)\.tar\.xz/|*
 
-GDB /GDB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/pub/gdb/releases/|/gdb-([0-9\.]+)\.tar\.gz/|*
+gdb /GDB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/pub/gdb/releases/|/gdb-([0-9\.]+)\.tar\.gz/|*
 
-GZIP /GZIP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftp.gnu.org/gnu/gzip/|/gzip-([0-9\.]+)\.tar\.xz/|*
+gzip /GZIP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftp.gnu.org/gnu/gzip/|/gzip-([0-9\.]+)\.tar\.xz/|*
 
-BASH /BASH_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/bash/|/bash-([0-9\.]+)\.tar\.gz/|*
+bash /BASH_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/bash/|/bash-([0-9\.]+)\.tar\.gz/|*
 
-JSONC /JSONC_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://github.com/json-c/json-c.git|re:/^([0-9]+\.[0-9]+(?:\.[0-9]+)?)-[0-9]+$/|*
+jsonc /JSONC_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://github.com/json-c/json-c.git|re:/^([0-9]+\.[0-9]+(?:\.[0-9]+)?)-[0-9]+$/|*
 
-STRACE /STRACE_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/strace/strace|semver:*
+strace /STRACE_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/strace/strace|semver:*
 
 # we fetch the latest stable from the kernel finger banner
-KERNEL /KERNEL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/kdist/finger_banner|re:/latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+\.[0-9]+)/
+kernel /KERNEL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/kdist/finger_banner|re:/latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+\.[0-9]+)/
 
 # ca-certificates uses date based versioning
-CA_CERTIFICATES /CA_CERTIFICATES_VERSION=([0-9]{8})/ git:https://gitlab.alpinelinux.org/alpine/ca-certificates.git|/([0-9]{8})/|*
+ca_certificates /CA_CERTIFICATES_VERSION=([0-9]{8})/ git:https://gitlab.alpinelinux.org/alpine/ca-certificates.git|/([0-9]{8})/|*
 
 # version are 0.XXX
-ELFUTILS /ELFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/elfutils/ftp/|re:#href="([0-9]+\.[0-9]+)/"#|sort|re:/^([0-9]+\.[0-9]+)$/
+elfutils /ELFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/elfutils/ftp/|re:#href="([0-9]+\.[0-9]+)/"#|sort|re:/^([0-9]+\.[0-9]+)$/
 
 # Versions are just major like 42, 43, 44
-KMOD /KMOD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git|semver:*
-DRACUT /DRACUT_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/dracut-ng/dracut-ng.git|*
+kmod /KMOD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git|semver:*
+
+dracut /DRACUT_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/dracut-ng/dracut-ng.git|*
 
 # Scan this file for the configured versions
 Dockerfile
