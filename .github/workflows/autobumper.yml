@@ -5,11 +5,28 @@ on:
     - cron: '0 9 * * *'
   # enable manual trigger of version updates
   workflow_dispatch:
+  pull_request:
 jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: wader/bump/action@master
+      - uses: actions/setup-go@v6
+      - name: install bump
+        run: |
+          go install github.com/wader/bump/cmd/bump@latest
+      - name: Bump version and create PR
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTION: ""
+        run: |
+          bump diff
+          bump update
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          signoff: true
+          title: 'chore: bump version'
+          body: 'Automated version bump'
+          team-reviewers: 'kairos-io/maintainers'
+          add-paths: |
+            Dockerfile
