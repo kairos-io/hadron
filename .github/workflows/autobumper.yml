@@ -2,10 +2,9 @@ name: 'Automatic version updates'
 on:
   schedule:
     # minute hour dom month dow (UTC)
-    - cron: '0 9 * * *'
+    - cron: '0 22 * * *'
   # enable manual trigger of version updates
   workflow_dispatch:
-  pull_request:
 jobs:
   bump:
     runs-on: ubuntu-latest
