@@ -18,8 +18,11 @@ jobs:
       - name: Bump version and create PR
         run: |
           unset GITHUB_ACTION
-          env
-          bump diff
+          
+          echo '```diff' >> $GITHUB_STEP_SUMMARY
+          echo "$(bump diff)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
           bump update
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
@@ -28,5 +31,6 @@ jobs:
           title: 'chore: bump version'
           body: 'Automated version bump'
           team-reviewers: 'kairos-io/maintainers'
+          base: 'main'
           add-paths: |
             Dockerfile
