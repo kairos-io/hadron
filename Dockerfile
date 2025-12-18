@@ -102,8 +102,8 @@ RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
 ARG PYTHON_VERSION=3.12.11
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
-ARG SQLITE3_VERSION=3500400
-RUN wget -q https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz -O sqlite-autoconf.tar.gz
+ARG SQLITE3_VERSION=3.51.1
+RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 ARG OPENSSL_VERSION=3.5.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
@@ -1000,10 +1000,11 @@ FROM rsync AS sqlite3
 ARG JOBS
 ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
 
-COPY --from=sources-downloader /sources/downloads/sqlite-autoconf.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf.tar.gz && \
-    mv sqlite-autoconf-* sqlite3 && \
+COPY --from=sources-downloader /sources/downloads/sqlite3.tar.gz /sources/
+# remove lto flag from sqlite as it causes issues with linking later
+ENV COMMON_CONFIGURE_ARGS="${COMMON_CONFIGURE_ARGS//--enable-lto/}"
+RUN mkdir -p /sources && cd /sources && tar -xf sqlite3.tar.gz && \
+    mv sqlite-* sqlite3 && \
     cd sqlite3 && mkdir -p /sqlite3 && ./configure ${COMMON_CONFIGURE_ARGS} \
 		--enable-threadsafe \
 		--enable-session \
