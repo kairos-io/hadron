@@ -15,9 +15,9 @@ rsync /RSYNC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.samba.org/pub/rs
 
 xxhash /XXHASH_VERSION="?([0-9]+\.[0-9.]+)"?/ git:https://github.com/Cyan4973/xxHash.git|re:/v?([0-9]+\.[0-9.]+)/|semver:*
 
-zstd /ZSTD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/facebook/zstd.git|semver:*
+zstd /ZSTD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/facebook/zstd.git|/([0-9]+\.[0-9]+\.[0-9])/|semver:*
 
-lz4 /LZ4_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/lz4/lz4.git|semver:*
+lz4 /LZ4_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/lz4/lz4.git|/([0-9]+\.[0-9]+\.[0-9])/|semver:*
 
 zlib /ZLIB_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://zlib.net/fossils/|/zlib-([0-9\.]+)\.tar\.gz/|semver:*
 
@@ -87,7 +87,7 @@ aports /APORTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.alpinelinux.org/al
 busybox /BUSYBOX_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://launchpad.net/busybox/+download|/busybox-([0-9\.]+)\.tar\.bz2/|semver:*
 # BUSYBOX BUSYBOX_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://busybox.net/downloads/|/busybox-([0-9\.]+)\.tar\.bz2/|*
 
-musl /MUSL_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://musl.libc.org/releases.html|/musl-([0-9\.]+)\.tar\.gz/|semver:*
+musl /MUSL_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:http://musl.libc.org/releases.html|/musl-([0-9\.]+)\.tar\.gz/|semver:*
 
 gcc /GCC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/gcc/|/gcc-([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
 
@@ -107,7 +107,8 @@ findutils /FINDUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at
 
 grep /GREP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/grep/|/grep-([0-9\.]+)\.tar\.xz/|semver:*
 
-sudo /SUDO_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.sudo.ws/dist/|/sudo-([0-9\.p]+)\.tar\.gz/|semver:*
+# supo patch versions have optionally a pX suffix
+sudo /SUDO_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://api.github.com/repos/sudo-project/sudo/releases |/sudo-([0-9]+\.[0-9]+\.[0-9]+(?:p[0-9]+)?)\.tar\.gz/
 
 pax_utils /PAX_UTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/|/pax-utils-([0-9\.]+)\.tar\.xz/|semver:*
 
