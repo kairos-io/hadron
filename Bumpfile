@@ -79,9 +79,9 @@ e2fsprogs /E2FSPROGS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirrors.edge.kern
 
 pam /PAM_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/linux-pam/linux-pam.git|semver:*
 
-shadow /SHADOW_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/shadow-maint/shadow.git|semver:*
+shadow /SHADOW_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/shadow-maint/shadow.git|/([0-9]+\.[0-9]+\.[0-9])/|semver:*
 
-aports /APORTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.alpinelinux.org/alpine/aports.git|semver:*
+aports /APORTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.alpinelinux.org/alpine/aports.git|/([0-9]+\.[0-9]+\.[0-9])/|semver:*
 
 # Sucks but busybox page is broken half the time
 busybox /BUSYBOX_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://launchpad.net/busybox/+download|/busybox-([0-9\.]+)\.tar\.bz2/|semver:*
@@ -120,7 +120,7 @@ tpm2_tss /TPM2_TSS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/tpm2-softw
 
 libxml2 /LIBXML2_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://gitlab.gnome.org/GNOME/libxml2.git|re:/[0-9]+(?:\.[0-9]{1,2}){2}/|semver:*
 
-sqlite3 /SQLITE3_VERSION="?([0-9]+)"?/ git:https://github.com/sqlite/sqlite.git|semver:*
+sqlite3 /SQLITE3_VERSION="?([0-9A-Za-z\.\-]+)"?/ git:https://github.com/sqlite/sqlite.git|semver:*
 
 cryptsetup /CRYPTSETUP_VERSION=([0-9A-Za-z\.\-]+)/ git:https://gitlab.com/cryptsetup/cryptsetup.git|semver:*
 
