@@ -1612,6 +1612,7 @@ RUN LOCALVERSION="-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
+ENV ARCH=x86_64
 WORKDIR /sources/kernel
 # This installs the headers
 RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
