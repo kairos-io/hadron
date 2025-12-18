@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=hadron
-ARG KAIROS_INIT=v0.6.5
+ARG KAIROS_INIT=v0.6.7
 ARG TRUSTED_BOOT=true
 
 FROM quay.io/kairos/kairos-init:${KAIROS_INIT} AS kairos-init
