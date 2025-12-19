@@ -82,7 +82,8 @@ jobs:
                 if [ -z "$MERGED_AT" ]; then
                   echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                   if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
-                    echo "Failed to reopen PR. Manual intervention may be required."
+                    echo "Failed to reopen PR. Creating a new one."
+                    gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
                   fi
                 else
                   echo "PR #$PR_NUMBER is merged. Nothing to do."
@@ -113,7 +114,8 @@ jobs:
               if [ -z "$MERGED_AT" ]; then
                 echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                 if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
-                  echo "Failed to reopen PR. Manual intervention may be required."
+                  echo "Failed to reopen PR. Creating a new one."
+                  gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
                 fi
               else
                 echo "PR #$PR_NUMBER is merged. Nothing to do."
