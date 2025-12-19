@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
-      - name: install bump
+      - name: Install bump
         run: |
           go install github.com/wader/bump/cmd/bump@latest
       - name: Bump version and create PR
@@ -46,7 +46,9 @@ jobs:
           git checkout -B $WORK_BRANCH
 
           # Run bump and commit changes
-          bump update
+          ls -ltra
+          bump update -v
+          
           git add Dockerfile
           git config user.name "$GIT_AUTHOR_NAME"
           git config user.email "$GIT_AUTHOR_EMAIL"
