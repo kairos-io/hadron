@@ -38,12 +38,18 @@ jobs:
             echo "Fork already exists."
           fi
 
-          # Clone fork using PAT for authentication
-          git clone https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git fork
+          # Configure Git to use the PAT via credential helper (avoids exposing it in command arguments)
+          git config --global credential.helper store
+          cat <<EOF >> ~/.git-credentials
+          https://ci-forks:${GITHUB_TOKEN}@github.com
+          EOF
+
+          # Clone fork using HTTPS; authentication is handled by the credential helper
+          git clone https://github.com/ci-forks/hadron.git fork
           cd fork
 
-          # Ensure all pushes use the PAT
-          git remote set-url origin https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git
+          # Ensure all pushes go to the fork; credentials come from the helper
+          git remote set-url origin https://github.com/ci-forks/hadron.git
 
           # Add upstream and sync main
           git remote add upstream https://github.com/kairos-io/hadron || true
