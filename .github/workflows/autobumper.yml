@@ -71,14 +71,27 @@ jobs:
 
           # Check if there are staged changes
           if git diff --cached --quiet; then
-            echo "No changes to commit. Checking for open PR."
-            PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --json number,state -q '.[0]')
+            echo "No changes to commit. Checking PR state."
+            PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
             PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
-            if [ -n "$PR_NUMBER" ] && [ "$PR_STATE" = "OPEN" ]; then
-              echo "Open PR #$PR_NUMBER already exists. Nothing to do."
+            if [ -n "$PR_NUMBER" ]; then
+              if [ "$PR_STATE" = "CLOSED" ]; then
+                # Check if PR is merged
+                MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+                if [ -z "$MERGED_AT" ]; then
+                  echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
+                  if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
+                    echo "Failed to reopen PR. Manual intervention may be required."
+                  fi
+                else
+                  echo "PR #$PR_NUMBER is merged. Nothing to do."
+                fi
+              else
+                echo "Open PR #$PR_NUMBER already exists. Nothing to do."
+              fi
             else
-              echo "No open PR and no changes to commit. Nothing to do."
+              echo "No PR found and no changes to commit. Nothing to do."
             fi
             exit 0
           fi
