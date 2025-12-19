@@ -1,15 +1,21 @@
 # Hadron Dockerfile bump config
-# $NAME is configuration name
-# $CURRENT is current version
-# $LATEST is latest version available
+########################
+# Full readme: https://github.com/wader/bump/blob/master/README.md
+# the format is simple:
+# <NAME> /REGEXP/ PIPELINE
+# NAME is a configuration name, this is just for human reference
+# REGEXP is a regexp with one submatch to find current version
+# PIPELINE is a filter pipeline: FILTER|FILTER|...
+# A pipeline consist of one or more filters executed in sequence.
+# Usually it starts with a filter that produces versions from some source like a git repository.
+# After that one or more filters can select, transform and sort versions to narrow it down to one version.
+# If a pipeline ends up producing more than one version the first will be used.
 
 # The following section is simple semver checks.
 
 alpine /ALPINE_VERSION=([0-9A-Za-z\.\-]+)/ docker:alpine|^3
-alpine link "Changeset" https://git.alpinelinux.org/aports/log/?h=v$LATEST
 
 curl /CURL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://curl.se/download/|/curl-([0-9\.]+)\.tar\.gz/|semver:*
-curl link "Changes" https://curl.se/ch/$LATEST.html
 
 rsync /RSYNC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.samba.org/pub/rsync/|/rsync-([0-9\.]+)\.tar\.gz/|semver:*
 
