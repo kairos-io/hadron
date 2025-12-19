@@ -55,20 +55,27 @@ jobs:
           # Create and checkout work branch
           git checkout -B bumps
 
-          # Run bump and commit changes
+          # Run bump and stage changes
           bump update -v
           git add Dockerfile
+
+          # Check if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Exiting."
+            exit 0
+          fi
+
+          # Commit and push changes
           git config user.name "ci-robbot"
           git config user.email "robot@c3os.io"
-          git commit -s -m "Bump packages" || echo "No changes to commit"
+          git commit -s -m "Bump packages"
           git push origin bumps --force
 
           # Check if PR already exists
-          PR_NUMBER=$(gh pr list --head ci-forks:bumps --base main --repo kairos-io/hadron --json number -q '.[0].number')
-          if [ -n "$PR_NUMBER" ]; then
-            echo "PR #$PR_NUMBER already exists. Updating title/body/labels."
-            gh pr edit $PR_NUMBER --title "Automatic version bumps" --body "This PR contains automatic version bumps." --add-label "auto-bump" --repo kairos-io/hadron
-          else
+          PR_NUMBER=$(gh pr list --head bumps --base main --repo kairos-io/hadron --json number -q '.[0].number')
+          if [ -z "$PR_NUMBER" ]; then
             echo "No PR found. Creating a new one."
-            gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head ci-forks:bumps --base main --repo kairos-io/hadron --label "auto-bump"
+            gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+          else
+            echo "PR #$PR_NUMBER already exists. No need to update, just pushed new changes."
           fi
