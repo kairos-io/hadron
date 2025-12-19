@@ -15,7 +15,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/bin
-          key: go-bump-${{ runner.os }}-${{ env.GITHUB_REF_NAME }}
+          key: go-bump-${{ runner.os }}-${{ github.ref_name }}
           restore-keys: |
             go-bump-${{ runner.os }}-
       - uses: actions/setup-go@v6
