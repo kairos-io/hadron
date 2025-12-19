@@ -9,7 +9,15 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Cache Go build cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/bin
+          key: go-bump-${{ runner.os }}-${{ env.GITHUB_REF_NAME }}
+          restore-keys: |
+            go-bump-${{ runner.os }}-
       - uses: actions/setup-go@v6
       - name: Install bump
         run: |
@@ -23,12 +31,17 @@ jobs:
           UPSTREAM_REPO: "https://github.com/kairos-io/hadron"
           FORK_REPO: "https://github.com/ci-forks/hadron.git"
         run: |
-          # Disable this var so bumnp does not think it's running as an action
+          # Disable this var so bump does not think it's running as an action
           unset GITHUB_ACTION
           set -e
           
-          # Ensure fork exists
-          gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks || true
+          # Check if fork exists, create if not
+          if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
+            echo "Fork does not exist. Creating fork..."
+            gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks
+          else
+            echo "Fork already exists."
+          fi
 
           # Clone fork using PAT for authentication
           git clone https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git fork
@@ -50,7 +63,6 @@ jobs:
           # Run bump and commit changes
           ls -ltra
           bump update -v
-          
           git add Dockerfile
           git config user.name "$GIT_AUTHOR_NAME"
           git config user.email "$GIT_AUTHOR_EMAIL"
