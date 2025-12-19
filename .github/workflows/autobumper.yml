@@ -71,7 +71,22 @@ jobs:
 
           # Check if there are staged changes
           if git diff --cached --quiet; then
-            echo "No changes to commit. Exiting."
+            echo "No changes to commit. Checking PR state."
+            # Check if PR exists (open or closed)
+            PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+            PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              if [ "$PR_STATE" = "CLOSED" ]; then
+                echo "PR #$PR_NUMBER is closed. Reopening."
+                gh pr reopen $PR_NUMBER --repo kairos-io/hadron
+              else
+                echo "PR #$PR_NUMBER already exists and is open. Nothing to do."
+              fi
+            else
+              echo "No PR found. Creating a new one."
+              gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+            fi
             exit 0
           fi
 
@@ -81,11 +96,18 @@ jobs:
           git commit -s -m "Bump packages"
           git push origin bumps --force
 
-          # Check if PR already exists
-          PR_NUMBER=$(gh pr list --head bumps --base main --repo kairos-io/hadron --json number -q '.[0].number')
-          if [ -z "$PR_NUMBER" ]; then
+          # Check if PR already exists (open or closed)
+          PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+          PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            if [ "$PR_STATE" = "CLOSED" ]; then
+              echo "PR #$PR_NUMBER is closed. Reopening."
+              gh pr reopen $PR_NUMBER --repo kairos-io/hadron
+            else
+              echo "PR #$PR_NUMBER already exists and is open. Just pushed new changes."
+            fi
+          else
             echo "No PR found. Creating a new one."
             gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
-          else
-            echo "PR #$PR_NUMBER already exists. No need to update, just pushed new changes."
           fi
