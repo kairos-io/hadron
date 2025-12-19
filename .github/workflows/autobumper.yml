@@ -52,8 +52,18 @@ jobs:
           git reset --hard upstream/main
           git push origin main --force
 
-          # Create and checkout work branch
-          git checkout -B bumps
+          # Fetch all branches
+          git fetch origin
+
+          # Check if remote bumps branch exists
+          if git ls-remote --exit-code --heads origin bumps > /dev/null; then
+            echo "Remote 'bumps' branch exists. Checking it out."
+            git checkout bumps
+            git merge --ff-only upstream/main || git rebase upstream/main || true
+          else
+            echo "Remote 'bumps' branch does not exist. Creating from upstream/main."
+            git checkout -B bumps upstream/main
+          fi
 
           # Run bump and stage changes
           bump update -v
