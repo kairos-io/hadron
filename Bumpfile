@@ -33,7 +33,8 @@ attr /ATTR_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://download.savannah.nongnu.or
 
 gawk /GAWK_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/gawk/|/gawk-([0-9\.]+)\.tar\.xz/|semver:*
 
-systemd /SYSTEMD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/systemd/systemd.git|semver:*
+# Stick to systemd 257 for now as we dont have patches for later versions to build with musl and 259+musl is not ready yet
+systemd /SYSTEMD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/systemd/systemd.git|^257
 
 libcap /LIBCAP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/|/libcap-([0-9\.]+)\.tar\.xz/|*
 
