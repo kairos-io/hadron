@@ -23,6 +23,8 @@ jobs:
           UPSTREAM_REPO: "https://github.com/kairos-io/hadron"
           FORK_REPO: "https://github.com/ci-forks/hadron.git"
         run: |
+          # Disable this var so bumnp does not think it's running as an action
+          unset GITHUB_ACTION
           set -e
           
           # Ensure fork exists
