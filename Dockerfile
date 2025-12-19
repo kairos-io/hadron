@@ -347,6 +347,9 @@ RUN cd /sources/downloads && wget -q --no-check-certificate https://busybox.net/
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 RUN cd /sources/downloads && wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
+# For sd259 we need a newer musl version from git as it fixes a lot of crap
+# this is for testing purpouses only, dont use musl from git please
+RUN cd /sources/downloads && git clone --depth 1 https://git.musl-libc.org/git/musl musl-latest
 
 ## gcc and dependencies
 ARG GCC_VERSION=14.3.0
@@ -712,10 +715,9 @@ FROM stage1 AS musl
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz .
-RUN tar -xf musl-${MUSL_VERSION}.tar.gz && \
-    cd musl-${MUSL_VERSION} && \
-    ./configure --disable-warnings \
+COPY --from=sources-downloader /sources/downloads/musl-latest /musl-latest
+WORKDIR /musl-latest
+RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
       make -s -j${JOBS} && \
@@ -2314,8 +2316,8 @@ RUN mkdir -p /systemd
 RUN python3 -m pip install meson ninja jinja2 pyelftools
 
 WORKDIR /sources/systemd
-COPY files/fix_oom.patch .
-RUN patch -p1 < fix_oom.patch
+#COPY files/fix_oom.patch .
+#RUN patch -p1 < fix_oom.patch
 
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
@@ -3120,6 +3122,7 @@ COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
 COPY --from=dracut-final /skeleton /dracut-final
 RUN rsync -aHAX --keep-dirlinks  /dracut-final/. /skeleton/
+# TODO: Remove the sd-boot efi files to save space
 
 ## We merge the base container + stage2-merge (kernel, sudo, systemd, etc) into a single dir
 FROM alpine:${ALPINE_VERSION} AS full-image-pre-systemd
@@ -3127,6 +3130,8 @@ RUN apk add rsync
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
+# Remove the pcrlock.json as we lock via tpm policies
+RUN rm /skeleton/var/lib/systemd/pcrlock.json
 # No dracut for systemd-boot
 
 ## Final image for grub
