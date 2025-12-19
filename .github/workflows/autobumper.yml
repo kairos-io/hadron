@@ -16,60 +16,39 @@ jobs:
           go install github.com/wader/bump/cmd/bump@latest
       - name: Bump version and create PR
         env:
-          TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-          GITHUB_PRIVATE_KEY: "${{ secrets.BOT_PRIVATE_KEY }}"
-          GITHUB_PUBLIC_KEY: "${{ secrets.BOT_PUBLIC_KEY }}"
           GIT_AUTHOR_NAME: "ci-robbot"
           GIT_AUTHOR_EMAIL: robot@c3os.io
-          GIT_COMMITTER_NAME: "ci-robbot"
-          GIT_COMMITTER_EMAIL: robot@c3os.io
           WORK_BRANCH: bumps
           UPSTREAM_REPO: "https://github.com/kairos-io/hadron"
-          FORK_REPO: "git@github.com:ci-forks/hadron.git"
+          FORK_REPO: "https://github.com/ci-forks/hadron.git"
         run: |
-          unset GITHUB_ACTION
+          set -e
           
-          echo '```diff' >> $GITHUB_STEP_SUMMARY
-          echo "$(bump diff)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          
-          mkdir -p $HOME/.ssh
-          mkdir -p $HOME/.config
-          echo "$GITHUB_PRIVATE_KEY" > $HOME/.ssh/id_rsa
-          echo "$GITHUB_PUBLIC_KEY" > $HOME/.ssh/id_rsa.pub
-          chmod 700 ~/.ssh
-          chmod 600 ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa.pub
+          # Ensure fork exists
+          gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks || true
 
-          git config --global user.name "$GIT_AUTHOR_NAME"
-          git config --global user.email "$GIT_AUTHOR_EMAIL"
-
-          # Ensure fork exists before cloning
-          if ! gh repo view ci-forks/hadron > /dev/null 2>&1; then
-            echo "Fork does not exist. Creating fork..."
-            gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks
-          else
-            echo "Fork already exists."
-          fi
-
-          git clone $FORK_REPO fork
+          # Clone fork using PAT for authentication
+          git clone https://github.com/ci-forks/hadron.git fork
           cd fork
-          git remote add upstream $UPSTREAM_REPO
-          git fetch --all
-          git reset --hard upstream/main
-          git push -fv
-          echo "Removing working branch if present"
-          git branch -D $WORK_BRANCH || true
 
-          git checkout -b $WORK_BRANCH
+          # Add upstream and sync main
+          git remote add upstream $UPSTREAM_REPO || true
+          git fetch upstream
+          git checkout main
           git reset --hard upstream/main
-          git push -fv -u origin $WORK_BRANCH
-          
+          git push origin main --force
+
+          # Create and checkout work branch
+          git checkout -B $WORK_BRANCH
+
+          # Run bump and commit changes
           bump update
-          
           git add Dockerfile
-          git commit -s --author="$GIT_AUTHOR_NAME <$GIT_AUTHOR_EMAIL>" -m "Bump packages"
-          git push -f -v origin $WORK_BRANCH
-          gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head $WORK_BRANCH --base main
-          
+          git config user.name "$GIT_AUTHOR_NAME"
+          git config user.email "$GIT_AUTHOR_EMAIL"
+          git commit -s -m "Bump packages" || echo "No changes to commit"
+          git push origin $WORK_BRANCH --force
+
+          # Create PR
+          gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head ci-forks:$WORK_BRANCH --base main --repo kairos-io/hadron --label "auto-bump"
