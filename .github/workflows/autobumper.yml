@@ -78,8 +78,17 @@ jobs:
             PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
             if [ -n "$PR_NUMBER" ]; then
               if [ "$PR_STATE" = "CLOSED" ]; then
-                echo "PR #$PR_NUMBER is closed. Reopening."
-                gh pr reopen $PR_NUMBER --repo kairos-io/hadron
+                # Check if PR is merged
+                MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+                if [ -z "$MERGED_AT" ]; then
+                  echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
+                  if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
+                    echo "Failed to reopen PR. Creating a new one."
+                    gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+                  fi
+                else
+                  echo "PR #$PR_NUMBER is merged. Nothing to do."
+                fi
               else
                 echo "PR #$PR_NUMBER already exists and is open. Nothing to do."
               fi
@@ -102,8 +111,17 @@ jobs:
           PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
           if [ -n "$PR_NUMBER" ]; then
             if [ "$PR_STATE" = "CLOSED" ]; then
-              echo "PR #$PR_NUMBER is closed. Reopening."
-              gh pr reopen $PR_NUMBER --repo kairos-io/hadron
+              # Check if PR is merged
+              MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+              if [ -z "$MERGED_AT" ]; then
+                echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
+                if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
+                  echo "Failed to reopen PR. Creating a new one."
+                  gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+                fi
+              else
+                echo "PR #$PR_NUMBER is merged. Nothing to do."
+              fi
             else
               echo "PR #$PR_NUMBER already exists and is open. Just pushed new changes."
             fi
