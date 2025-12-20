@@ -43,56 +43,39 @@ FROM alpine:${ALPINE_VERSION} AS sources-downloader
 
 # Install packages needed for downloading and patching sources
 RUN apk update && apk add wget git patch tar bash coreutils findutils
+RUN mkdir -p /sources/downloads
+
+WORKDIR /sources/downloads
 
 ARG CURL_VERSION=8.5.0
-ENV CURL_VERSION=${CURL_VERSION}
-
-RUN mkdir -p /sources/downloads && cd /sources/downloads && wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz 
+RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 ARG RSYNC_VERSION=3.4.1
-ENV RSYNC_VERSION=${RSYNC_VERSION}
-
-RUN cd /sources/downloads && wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz
+RUN wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
 ARG XXHASH_VERSION=0.8.3
-ENV XXHASH_VERSION=${XXHASH_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxHash-${XXHASH_VERSION}.tar.gz
+RUN wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxhash.tar.gz
 
 ARG ZSTD_VERSION=1.5.7
-ENV ZSTD_VERSION=${ZSTD_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd-${ZSTD_VERSION}.tar.gz
+RUN wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd.tar.gz
 
 ARG LZ4_VERSION=1.10.0
-ENV LZ4_VERSION=${LZ4_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4-${LZ4_VERSION}.tar.gz
+RUN wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4.tar.gz
 
 ARG ZLIB_VERSION=1.3.1
-ENV ZLIB_VERSION=${ZLIB_VERSION}
-
-RUN cd /sources/downloads && wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib-${ZLIB_VERSION}.tar.gz
+RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
 ARG ACL_VERSION=2.3.2
-ENV ACL_VERSION=${ACL_VERSION}
-
-RUN cd /sources/downloads && wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl-${ACL_VERSION}.tar.gz
+RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl.tar.gz
 
 ARG ATTR_VERSION=2.5.2
-ENV ATTR_VERSION=${ATTR_VERSION}
-
-RUN cd /sources/downloads && wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr-${ATTR_VERSION}.tar.gz
+RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
 ARG GAWK_VERSION=5.3.2
-ENV GAWK_VERSION=${GAWK_VERSION}
-
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk-${GAWK_VERSION}.tar.xz
+RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
 
 ARG CA_CERTIFICATES_VERSION=20250619
-ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
-
-RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2
+RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
 ARG SYSTEMD_VERSION=259
 ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
@@ -100,362 +83,266 @@ ENV SYSTEMD_VERSION=${SYSTEMD_VERSION}
 RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 ARG LIBCAP_VERSION=2.76
-ENV LIBCAP_VERSION=${LIBCAP_VERSION}
-
-RUN cd /sources/downloads && wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap-${LIBCAP_VERSION}.tar.xz
+RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 ARG UTIL_LINUX_VERSION=2.41.1
-ARG UTIL_LINUX_VERSION_MAJOR=2.41
-ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
-
-RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux-${UTIL_LINUX_VERSION}.tar.xz
+RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
+    && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
+    && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
 ARG PYTHON_VERSION=3.12.11
-ENV PYTHON_VERSION=${PYTHON_VERSION}
-RUN cd /sources/downloads && wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python-${PYTHON_VERSION}.tar.xz
+RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
-ARG SQLITE3_VERSION=3500400
-ENV SQLITE3_VERSION=${SQLITE3_VERSION}
-
-RUN cd /sources/downloads && wget -q https://www.sqlite.org/2025/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz -O sqlite-autoconf-${SQLITE3_VERSION}.tar.gz
+ARG SQLITE3_VERSION=3.51.1
+RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 ARG OPENSSL_VERSION=3.5.2
-ENV OPENSSL_VERSION=${OPENSSL_VERSION}
-RUN cd /sources/downloads && wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz 
+RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
 
 ARG OPENSSH_VERSION=9.9p1
-ENV OPENSSH_VERSION=${OPENSSH_VERSION}
-RUN cd /sources/downloads && wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz
+RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 ARG PKGCONFIG_VERSION=1.8.1
-ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
-RUN cd /sources/downloads && wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz
+RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
 ARG DBUS_VERSION=1.16.2
-RUN cd /sources/downloads && wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
+RUN wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
 
+# libexpat
 ARG EXPAT_VERSION=2.7.3
-ARG EXPAT_VERSION_MAJOR=2
-ARG EXPAT_VERSION_MINOR=7
-ARG EXPAT_VERSION_PATCH=3
-# expat
-RUN cd /sources/downloads && wget -q https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz && mv expat-2.7.3.tar.gz expat.tar.gz
+# Use a single var and extract major/minor/patch to build the URL
+RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
+ && EXPAT_VERSION_MINOR="${EXPAT_VERSION#*.}"; EXPAT_VERSION_MINOR="${EXPAT_VERSION_MINOR%.*}" \
+ && EXPAT_VERSION_PATCH="${EXPAT_VERSION##*.}" \
+ && wget -q \
+ "https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz" \
+ -O expat.tar.gz
 
 ARG SECCOMP_VERSION=2.6.0
 # seccomp
-RUN cd /sources/downloads && wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz && mv libseccomp-${SECCOMP_VERSION}.tar.gz libseccomp.tar.gz
+RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
 ARG STRACE_VERSION=6.16
-RUN cd /sources/downloads && wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz && mv strace-${STRACE_VERSION}.tar.xz strace.tar.xz
+RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 ARG KBD_VERSION=2.9.0
-RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz && mv kbd-${KBD_VERSION}.tar.gz kbd.tar.gz
+RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
 ARG IPTABLES_VERSION=1.8.11
-RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz && mv iptables-${IPTABLES_VERSION}.tar.xz iptables.tar.xz
+RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz -O iptables.tar.xz
 
 ARG LIBMNL_VERSION=1.0.5
-RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 && mv libmnl-${LIBMNL_VERSION}.tar.bz2 libmnl.tar.bz2
+RUN wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 -O libmnl.tar.bz2
 
 ARG LIBNFTNL_VERSION=1.3.0
-RUN cd /sources/downloads && wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz && mv libnftnl-${LIBNFTNL_VERSION}.tar.xz libnftnl.tar.xz
+RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 ## kernel
 ARG KERNEL_VERSION=6.16.7
-ENV KERNEL_VERSION=${KERNEL_VERSION}
-RUN cd /sources/downloads && wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz
+RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 ## flex
-
 ARG FLEX_VERSION=2.6.4
-ENV FLEX_VERSION=${FLEX_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz
+RUN wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz -O flex.tar.gz
 
 ## bison
-
 ARG BISON_VERSION=3.8.2
-ENV BISON_VERSION=${BISON_VERSION}
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz
-
+RUN wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz -O bison.tar.xz
 
 ## argp-standalone
-
 ARG ARGP_STANDALONE_VERSION=1.3
-ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
-RUN cd /sources/downloads && wget -q http://www.lysator.liu.se/~nisse/misc/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz
+RUN wget -q http://www.lysator.liu.se/~nisse/misc/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
 ## autoconf
-
 ARG AUTOCONF_VERSION=2.71
-ENV AUTOCONF_VERSION=${AUTOCONF_VERSION}
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz
+RUN wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz -O autoconf.tar.xz
 
 ## automake
-
 ARG AUTOMAKE_VERSION=1.18.1
-ENV AUTOMAKE_VERSION=${AUTOMAKE_VERSION}
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz
+RUN wget -q https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz -O automake.tar.xz
 
 ## fts
-
 ARG FTS_VERSION=1.2.7
-ENV FTS_VERSION=${FTS_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts-${FTS_VERSION}.tar.gz
+RUN wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts.tar.gz
 
 ## libtool
-
 ARG LIBTOOL_VERSION=2.5.4
-ENV LIBTOOL_VERSION=${LIBTOOL_VERSION}
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz
+RUN wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz -O libtool.tar.xz
 
 ## musl-obstack
 ARG MUSL_OBSTACK_VERSION=1.2.3
-ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz
+RUN wget -q https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack.tar.gz
 
 ## elfutils
-
 ARG ELFUTILS_VERSION=0.193
-ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
-RUN cd /sources/downloads && wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2
-
-RUN cd /sources/downloads && mkdir -p elfutils-patches && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
+RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
+RUN mkdir -p elfutils-patches && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
 
 ## xzutils
 ARG XZUTILS_VERSION=5.8.1
-ENV XZUTILS_VERSION=${XZUTILS_VERSION}
-
-RUN cd /sources/downloads && wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz && mv xz-${XZUTILS_VERSION}.tar.gz xz.tar.gz
+RUN wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz -O xz.tar.gz
 
 ## kmod
 ARG KMOD_VERSION=34
-ENV KMOD_VERSION=${KMOD_VERSION}
-
-RUN cd /sources/downloads && wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz && mv kmod-${KMOD_VERSION}.tar.gz kmod.tar.gz
+RUN wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz -O kmod.tar.gz
 
 ## dracut
 ARG DRACUT_VERSION=108
-ENV DRACUT_VERSION=${DRACUT_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz && mv ${DRACUT_VERSION}.tar.gz dracut.tar.gz
+RUN wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz -O dracut.tar.gz
 
 ## libaio
-
 ARG LIBAIO_VERSION=0.3.113
-ENV LIBAIO_VERSION=${LIBAIO_VERSION}
-
-RUN cd /sources/downloads && wget -q https://pagure.io/libaio/archive/libaio-${LIBAIO_VERSION}/libaio-libaio-${LIBAIO_VERSION}.tar.gz && mv libaio-libaio-${LIBAIO_VERSION}.tar.gz libaio.tar.gz
+RUN wget -q https://releases.pagure.org/libaio/libaio-${LIBAIO_VERSION}.tar.gz -O libaio.tar.gz
 
 ## lvm2
 ARG LVM2_VERSION=2.03.37
-ENV LVM2_VERSION=${LVM2_VERSION}
-
-RUN cd /sources/downloads && wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz && mv LVM2.${LVM2_VERSION}.tgz lvm2.tgz
-
+RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 ## multipath-tools
 ARG MULTIPATH_TOOLS_VERSION=0.13.0
-ENV MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz && mv ${MULTIPATH_TOOLS_VERSION}.tar.gz multipath-tools.tar.gz
-
+RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 ## jsonc
 ARG JSONC_VERSION=0.18
-ENV JSONC_VERSION=${JSONC_VERSION}
-
-RUN cd /sources/downloads && wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz && mv json-c-${JSONC_VERSION}.tar.gz json-c.tar.gz
+RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 ## cmake
 ARG CMAKE_VERSION=4.1.1
-ENV CMAKE_VERSION=${CMAKE_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz && mv cmake-${CMAKE_VERSION}.tar.gz cmake.tar.gz
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 ## urcu
 ARG URCU_VERSION=0.15.3
-ENV URCU_VERSION=${URCU_VERSION}
-RUN cd /sources/downloads && wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 && mv userspace-rcu-${URCU_VERSION}.tar.bz2 urcu.tar.bz2
-
+RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
 ## parted
 ARG PARTED_VERSION=3.6
-ENV PARTED_VERSION=${PARTED_VERSION}
-
-RUN cd /sources/downloads && wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz && mv parted-${PARTED_VERSION}.tar.xz parted.tar.xz
+RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
 ## e2fsprogs
 ARG E2FSPROGS_VERSION=1.46.6
-ENV E2FSPROGS_VERSION=${E2FSPROGS_VERSION}
-
-RUN cd /sources/downloads && wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz && mv e2fsprogs-${E2FSPROGS_VERSION}.tar.xz e2fsprogs.tar.xz
+RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
 ## dosfstools
 ARG DOSFSTOOLS_VERSION=4.2
-ENV DOSFSTOOLS_VERSION=${DOSFSTOOLS_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz && mv dosfstools-${DOSFSTOOLS_VERSION}.tar.gz dosfstools.tar.gz
-
-## sgdisk
-ARG SGDISK_VERSION=1.0.8
-ENV SGDISK_VERSION=${SGDISK_VERSION}
-RUN cd /sources/downloads && wget -q https://downloads.sourceforge.net/project/gptfdisk/gptfdisk/${SGDISK_VERSION}/gptfdisk-${SGDISK_VERSION}.tar.gz && mv gptfdisk-${SGDISK_VERSION}.tar.gz gptfdisk.tar.gz
-
+RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
 ## cryptsetup
 ARG CRYPTSETUP_VERSION=2.8.1
-ENV CRYPTSETUP_VERSION=${CRYPTSETUP_VERSION}
-RUN cd /sources/downloads && wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz && mv cryptsetup-${CRYPTSETUP_VERSION}.tar.xz cryptsetup.tar.xz
-
+RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 ## grub
 ARG GRUB_VERSION=2.12
-ENV GRUB_VERSION=${GRUB_VERSION}
-RUN cd /sources/downloads && wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz && mv grub-${GRUB_VERSION}.tar.xz grub.tar.xz
-
+RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
 
 ## PAM
 ARG PAM_VERSION=1.7.1
-ENV PAM_VERSION=${PAM_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz && mv Linux-PAM-${PAM_VERSION}.tar.xz pam.tar.xz
+RUN wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz -O pam.tar.xz
 
 # shadow
 ARG SHADOW_VERSION=4.18.0
-ENV SHADOW_VERSION=${SHADOW_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz && mv shadow-${SHADOW_VERSION}.tar.xz shadow.tar.xz
-
-
-# cloud-utils for growpart
-ARG CLOUD_UTILS_VERSION=0.33
-ENV CLOUD_UTILS_VERSION=${CLOUD_UTILS_VERSION}
-RUN cd /sources/downloads && wget -q https://github.com/canonical/cloud-utils/archive/refs/tags/${CLOUD_UTILS_VERSION}.tar.gz && mv ${CLOUD_UTILS_VERSION}.tar.gz cloud-utils.tar.gz
-
+RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 # alpine aports repo for patches to build under musl
 ARG APORTS_VERSION=3.22.1
-ENV APORTS_VERSION=${APORTS_VERSION}
-
-RUN cd /sources/downloads && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz && mv aports-v${APORTS_VERSION}.tar.gz aports.tar.gz
+RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 ## busybox
 ARG BUSYBOX_VERSION=1.37.0
-ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 # XXX: Temporary workaround as busybox currently have expired certificates
-RUN cd /sources/downloads && wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2
+RUN wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 -O busybox.tar.bz2
 
 ## musl
 ARG MUSL_VERSION=1.2.5
-ENV MUSL_VERSION=${MUSL_VERSION}
-RUN cd /sources/downloads && wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
+RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 ## gcc and dependencies
 ARG GCC_VERSION=14.3.0
-ENV GCC_VERSION=${GCC_VERSION}
+RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
+
 ARG GMP_VERSION=6.3.0
-ENV GMP_VERSION=${GMP_VERSION}
+RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
+
 ARG MPC_VERSION=1.3.1
-ENV MPC_VERSION=${MPC_VERSION}
+RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
+
 ARG MPFR_VERSION=4.2.2
-ENV MPFR_VERSION=${MPFR_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
-RUN cd /sources/downloads && wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2
-RUN cd /sources/downloads && wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz
-RUN cd /sources/downloads && wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2
+RUN wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 -O mpfr.tar.bz2
 
 ## make
 ARG MAKE_VERSION=4.4.1
-ENV MAKE_VERSION=${MAKE_VERSION}
-RUN cd /sources/downloads && wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz
+RUN wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz -O make.tar.gz
 
 ## binutils (for stage0)
 ARG BINUTILS_VERSION=2.44
-ENV BINUTILS_VERSION=${BINUTILS_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
+RUN wget -q http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
 ## popt
 ARG POPT_VERSION=1.19
-ENV POPT_VERSION=${POPT_VERSION}
-RUN cd /sources/downloads && wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz
+RUN wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz -O popt.tar.gz
 
 ## m4
 ARG M4_VERSION=1.4.20
-ENV M4_VERSION=${M4_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz
+RUN wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz -O m4.tar.xz
 
 ## readline
 ARG READLINE_VERSION=8.3
-ENV READLINE_VERSION=${READLINE_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz
+RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
 ## perl
 ARG PERL_VERSION=5.42.0
-ENV PERL_VERSION=${PERL_VERSION}
-RUN cd /sources/downloads && wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz
+RUN wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz -O perl.tar.xz
 
 ## coreutils
 ARG COREUTILS_VERSION=9.6
-ENV COREUTILS_VERSION=${COREUTILS_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz
+RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
 
 ## findutils
 ARG FINDUTILS_VERSION=4.10.0
-ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz
+RUN wget -q http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz -O findutils.tar.xz
 
 ## grep
 ARG GREP_VERSION=3.12
-ENV GREP_VERSION=${GREP_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz
+RUN wget -q http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz -O grep.tar.xz
 
 ## gperf
 ARG GPERF_VERSION=3.3
-ENV GPERF_VERSION=${GPERF_VERSION}
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz
+RUN wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -O gperf.tar.gz
 
 ## diffutils
 ARG DIFFUTILS_VERSION=3.9
-ENV DIFFUTILS_VERSION=${DIFFUTILS_VERSION}
-RUN cd /sources/downloads && wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz
+RUN wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz -O diffutils.tar.xz
 
 ## sudo
 ARG SUDO_VERSION=1.9.17p2
-ENV SUDO_VERSION=${SUDO_VERSION}
-RUN cd /sources/downloads && wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz && mv sudo-${SUDO_VERSION}.tar.gz sudo.tar.gz
+RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
 ## pax-utils
 ARG PAX_UTILS_VERSION=1.3.8
-ENV PAX_UTILS_VERSION=${PAX_UTILS_VERSION}
-RUN cd /sources/downloads && wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz && mv pax-utils-${PAX_UTILS_VERSION}.tar.xz pax-utils.tar.xz
+RUN wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz -O pax-utils.tar.xz
 
 ## openscsi
-
 ARG OPEN_SCSI_VERSION=2.1.11
-ENV OPEN_SCSI_VERSION=${OPEN_SCSI_VERSION}
-
-RUN cd /sources/downloads && wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz && mv ${OPEN_SCSI_VERSION}.tar.gz openscsi.tar.gz
-
+RUN wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz -O openscsi.tar.gz
 
 # GDB
 ARG GDB_VERSION=16.3
-RUN cd /sources/downloads && wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz && mv gdb-${GDB_VERSION}.tar.gz gdb.tar.gz
-
+RUN wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz -O gdb.tar.gz
 
 ARG LIBFFI_VERSION=3.5.2
-RUN cd /sources/downloads && wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz && mv libffi-${LIBFFI_VERSION}.tar.gz libffi.tar.gz
+RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
 ARG TPM2_TSS_VERSION=4.1.3
-RUN cd /sources/downloads && wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz && mv tpm2-tss-${TPM2_TSS_VERSION}.tar.gz tpm2-tss.tar.gz
+RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
 # libxml
 ARG LIBXML2_VERSION=2.14.5
-ARG LIBXML2_VERSION_MAJOR_AND_MINOR=2.14
-RUN cd /sources/downloads && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz && mv libxml2-${LIBXML2_VERSION}.tar.xz libxml2.tar.xz
-
-
+RUN major="${LIBXML2_VERSION%%.*}" \
+ && minor="${LIBXML2_VERSION#*.}"; minor="${minor%%.*}" \
+ && LIBXML2_VERSION_MAJOR_AND_MINOR="${major}.${minor}" \
+ && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz -O libxml2.tar.xz
 # gzip
 ARG GZIP_VERSION=1.12
-RUN cd /sources/downloads && wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz && mv gzip-${GZIP_VERSION}.tar.xz gzip.tar.xz
-
+RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar.xz
 
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
@@ -463,15 +350,14 @@ ARG PATCH_LEVEL=8
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
 # But the index starts at 1
-
-RUN cd /sources/downloads && wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
+RUN wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
 WORKDIR /sources/downloads/bash
 RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
         echo "Applying bash patch bash${BASH_VERSION//./}-00${i}"; \
         wget -q https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-00${i} -O bash-patch-${i}.patch; \
         patch -p0 < bash-patch-${i}.patch; \
     done
-WORKDIR /
+WORKDIR /sources/downloads
 
 
 FROM stage0 AS skeleton
@@ -489,14 +375,11 @@ RUN chmod +x ./setup_rootfs.sh && SYSROOT=/sysroot ./setup_rootfs.sh
 ### Busybox
 ###
 FROM stage0 AS busybox-stage0
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 
-ARG BUSYBOX_VERSION=1.37.0
-ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 /sources/ 
-
-RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
-    cd busybox-${BUSYBOX_VERSION} && \
+RUN cd /sources && tar -xf busybox.tar.bz2 && \
+    mv busybox-* busybox && cd busybox && \
     make -s distclean && \
     make -s ARCH="${ARCH}" defconfig && \
     sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
@@ -513,12 +396,10 @@ RUN cd /sources && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2 && \
 ### MUSL
 ###
 FROM stage0 AS musl-stage0
-ARG MUSL_VERSION=1.2.5
-ENV MUSL_VERSION=${MUSL_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz /sources/
-RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
-    cd musl-${MUSL_VERSION} && \
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources/
+RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
+    cd musl && \
     ./configure --disable-warnings \
       CROSS_COMPILE=${TARGET}- \
       --prefix=/usr \
@@ -531,29 +412,19 @@ RUN cd /sources && tar -xf musl-${MUSL_VERSION}.tar.gz && \
 ### GCC
 ###
 FROM stage0 AS gcc-stage0
-ARG GCC_VERSION=14.3.0
-ENV GCC_VERSION=${GCC_VERSION}
-ARG GMP_VERSION=6.3.0
-ENV GMP_VERSION=${GMP_VERSION}
-ARG MPC_VERSION=1.3.1
-ENV MPC_VERSION=${MPC_VERSION}
-ARG MPFR_VERSION=4.2.2
-ENV MPFR_VERSION=${MPFR_VERSION}
-COPY --from=sources-downloader /sources/downloads/gcc-${GCC_VERSION}.tar.xz .
-COPY --from=sources-downloader /sources/downloads/gmp-${GMP_VERSION}.tar.bz2 .
-COPY --from=sources-downloader /sources/downloads/mpc-${MPC_VERSION}.tar.gz .
-COPY --from=sources-downloader /sources/downloads/mpfr-${MPFR_VERSION}.tar.bz2 .
-RUN tar -xf gcc-${GCC_VERSION}.tar.xz
-RUN tar -xf gmp-${GMP_VERSION}.tar.bz2
-RUN tar -xf mpc-${MPC_VERSION}.tar.gz
-RUN tar -xf mpfr-${MPFR_VERSION}.tar.bz2
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/gcc.tar.xz .
+COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
+COPY --from=sources-downloader /sources/downloads/mpc.tar.gz .
+COPY --from=sources-downloader /sources/downloads/mpfr.tar.bz2 .
+RUN tar -xf gcc.tar.xz && mv gcc-* gcc
+RUN tar -xf gmp.tar.bz2 && mv -v gmp-* gcc/gmp
+RUN tar -xf mpc.tar.gz && mv -v mpc-* gcc/mpc
+RUN tar -xf mpfr.tar.bz2 && mv -v mpfr-* gcc/mpfr
 
 RUN <<EOT bash
-    mv -v mpfr-${MPFR_VERSION} gcc-${GCC_VERSION}/mpfr
-    mv -v mpc-${MPC_VERSION} gcc-${GCC_VERSION}/mpc
-    mv -v gmp-${GMP_VERSION} gcc-${GCC_VERSION}/gmp
     mkdir -p /sysroot/usr/include
-    cd gcc-${GCC_VERSION} && mkdir -v build && cd build && ../configure --quiet \
+    cd gcc && mkdir -v build && cd build && ../configure --quiet \
         --prefix=/usr \
         --build=${BUILD_ARCH} \
         --host=${TARGET} \
@@ -574,14 +445,11 @@ EOT
 ### Make
 ###
 FROM stage0 AS make-stage0
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/make.tar.gz /sources/
 
-ARG MAKE_VERSION=4.4.1
-ENV MAKE_VERSION=${MAKE_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/make-${MAKE_VERSION}.tar.gz /sources/
-
-RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
-    cd make-${MAKE_VERSION} && \
+RUN cd /sources && tar -xf make.tar.gz && mv make-* make && \
+    cd make && \
     ./configure --quiet --prefix=/usr \
     --build=${BUILD_ARCH} --host=${TARGET} && \
     make -s -j${JOBS} && \
@@ -592,15 +460,12 @@ RUN cd /sources && tar -xf make-${MAKE_VERSION}.tar.gz && \
 ### Binutils
 ###
 FROM stage0 AS binutils-stage0
-
-ENV BINUTILS_VERSION=2.44
-ENV BINUTILS_VERSION=${BINUTILS_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.tar.xz .
-RUN tar -xf binutils-${BINUTILS_VERSION}.tar.xz
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/binutils.tar.xz .
+RUN tar -xf binutils.tar.xz && mv binutils-* binutils
 
 RUN <<EOT bash
-    cd binutils-${BINUTILS_VERSION} && 
+    cd binutils &&
     ./configure --quiet \
        --prefix=/usr \
        --build=${BUILD_ARCH} \
@@ -726,13 +591,10 @@ RUN ./configure --disable-warnings \
 
 ## pkgconfig
 FROM stage1 AS pkgconfig
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/pkgconf.tar.xz /sources/
 
-ARG PKGCONFIG_VERSION=1.8.1
-ENV PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/pkgconf-${PKGCONFIG_VERSION}.tar.xz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf pkgconf-${PKGCONFIG_VERSION}.tar.xz && mv pkgconf-${PKGCONFIG_VERSION} pkgconfig && \
+RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* pkgconfig && \
     cd pkgconfig && mkdir -p /pkgconfig && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
@@ -743,27 +605,20 @@ RUN mkdir -p /sources && cd /sources && tar -xf pkgconf-${PKGCONFIG_VERSION}.tar
 
 ## xxhash
 FROM stage1 AS xxhash
-
-ARG XXHASH_VERSION=0.8.3
-ENV XXHASH_VERSION=${XXHASH_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/xxHash-${XXHASH_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/xxhash.tar.gz /sources/
 ENV CC="gcc"
-RUN mkdir -p /sources && cd /sources && tar -xf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
-    tar -xf xxHash-${XXHASH_VERSION}.tar.gz && mv xxHash-${XXHASH_VERSION} xxhash && \
+RUN mkdir -p /sources && cd /sources && tar -xf xxhash.tar.gz && mv xxHash-* xxhash && \
     cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash && \
     make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash install && make -s -j${JOBS} prefix=/usr install
 
 ## zstd
 FROM xxhash AS zstd
-
-ARG ZSTD_VERSION=1.5.7
-ENV ZSTD_VERSION=${ZSTD_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/zstd-${ZSTD_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/zstd.tar.gz /sources/
 RUN mkdir -p /zstd
 WORKDIR /sources
-RUN tar -xf zstd-${ZSTD_VERSION}.tar.gz && mv zstd-${ZSTD_VERSION} zstd
+RUN tar -xf zstd.tar.gz && mv zstd-* zstd
 WORKDIR /sources/zstd
 ENV CC=gcc
 RUN make -s -j${JOBS} DESTDIR=/zstd prefix=/usr
@@ -772,23 +627,17 @@ RUN make -s -j${JOBS} prefix=/usr install
 
 ## lz4
 FROM zstd AS lz4
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/lz4.tar.gz /sources/
 
-ARG LZ4_VERSION=1.10.0
-ENV LZ4_VERSION=${LZ4_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/lz4-${LZ4_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf lz4-${LZ4_VERSION}.tar.gz && mv lz4-${LZ4_VERSION} lz4 && \
+RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
     cd lz4 && mkdir -p /lz4 && CC=gcc make -s -j${JOBS} prefix=/usr DESTDIR=/lz4 && \
     make -s -j${JOBS} prefix=/usr DESTDIR=/lz4 install && make -s -j${JOBS} prefix=/usr install
 
 ## attr
 FROM lz4 AS attr
-
-ARG ATTR_VERSION=2.5.2
-ENV ATTR_VERSION=${ATTR_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/attr-${ATTR_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/attr.tar.gz /sources/
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
 
 RUN mkdir -p /attr
@@ -797,7 +646,7 @@ RUN mkdir -p /attr
 WORKDIR /sources/patches
 RUN tar -xf aports.tar.gz && mv aports-* aport
 WORKDIR /sources
-RUN tar -xf attr-${ATTR_VERSION}.tar.gz && mv attr-${ATTR_VERSION} attr
+RUN tar -xf attr.tar.gz && mv attr-* attr
 WORKDIR /sources/attr
 RUN patch -p1 < /sources/patches/aport/main/attr/attr-basename.patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconfdir=/etc \
@@ -810,39 +659,29 @@ RUN make -s -j${JOBS} install
 
 ## acl
 FROM attr AS acl
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/acl.tar.gz /sources/
 
-ARG ACL_VERSION=2.3.2
-ENV ACL_VERSION=${ACL_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/acl-${ACL_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
-    tar -xf acl-${ACL_VERSION}.tar.gz && mv acl-${ACL_VERSION} acl && \
+RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
     cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
     make -s -j${JOBS} DESTDIR=/acl install && make -s -j${JOBS} install
 
 ## popt
 FROM acl AS popt
-
-ARG POPT_VERSION=1.19
-ENV POPT_VERSION=${POPT_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/popt-${POPT_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/popt.tar.gz /sources/
 RUN cd /sources && \
-    tar -xf popt-${POPT_VERSION}.tar.gz && mv popt-${POPT_VERSION} popt && \
+    tar -xf popt.tar.gz && mv popt-* popt && \
     cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
     make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
 
 ## zlib
 FROM popt AS zlib
-
-ARG ZLIB_VERSION=1.3.1
-ENV ZLIB_VERSION=${ZLIB_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/zlib-${ZLIB_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/zlib.tar.gz /sources/
 RUN mkdir -p /zlib
 WORKDIR /sources
-RUN tar -xf zlib-${ZLIB_VERSION}.tar.gz && mv zlib-${ZLIB_VERSION} zlib
+RUN tar -xf zlib.tar.gz && mv zlib-* zlib
 WORKDIR /sources/zlib
 RUN ./configure --shared --prefix=/usr
 RUN make -s -j${JOBS} DESTDIR=/zlib
@@ -852,13 +691,10 @@ RUN make -s -j${JOBS} install
 ## gawk
 
 FROM zlib AS gawk
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/gawk.tar.xz /sources/
 
-ARG GAWK_VERSION=5.3.2
-ENV GAWK_VERSION=${GAWK_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/gawk-${GAWK_VERSION}.tar.xz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf gawk-${GAWK_VERSION}.tar.xz && mv gawk-${GAWK_VERSION} gawk && \
+RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk && \
     cd gawk && mkdir -p /gawk && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr -sysconfdir=/etc \
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
@@ -868,13 +704,10 @@ RUN mkdir -p /sources && cd /sources && tar -xf gawk-${GAWK_VERSION}.tar.xz && m
 
 ## rsync
 FROM gawk AS rsync
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/rsync.tar.gz /sources/
 
-ARG RSYNC_VERSION=3.4.1
-ENV RSYNC_VERSION=${RSYNC_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/rsync-${RSYNC_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf rsync-${RSYNC_VERSION}.tar.gz && mv rsync-${RSYNC_VERSION} rsync && \
+RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync && \
     cd rsync && mkdir -p /rsync && \
     ./configure ${COMMON_CONFIGURE_ARGS} \
     --sysconfdir=/etc \
@@ -893,13 +726,10 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync-${RSYNC_VERSION}.tar.gz &&
 
 ## binutils
 FROM stage1 AS binutils
-
-ARG BINUTILS_VERSION=2.44
-ENV BINUTILS_VERSION=${BINUTILS_VERSION}
 ARG JOBS
-COPY --from=sources-downloader /sources/downloads/binutils-${BINUTILS_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/binutils.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf binutils-${BINUTILS_VERSION}.tar.xz && mv binutils-${BINUTILS_VERSION} binutils && \
+    tar -xf binutils.tar.xz && mv binutils-* binutils && \
     cd binutils && mkdir -p /binutils
 WORKDIR /sources/binutils
 ENV AR=ar
@@ -912,51 +742,40 @@ RUN make -s -j${JOBS} install
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
-
-ARG M4_VERSION=1.4.20
-ENV M4_VERSION=${M4_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/m4-${M4_VERSION}.tar.xz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/m4.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf m4-${M4_VERSION}.tar.xz && mv m4-${M4_VERSION} m4 && \
+    tar -xf m4.tar.xz && mv m4-* m4 && \
     cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
     make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
 
 ## readline
 FROM stage1 AS readline
-
-ARG READLINE_VERSION=8.3
-ENV READLINE_VERSION=${READLINE_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/readline-${READLINE_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
-    tar -xf readline-${READLINE_VERSION}.tar.gz && mv readline-${READLINE_VERSION} readline && \
+    tar -xf readline.tar.gz && mv readline-* readline && \
     cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 
 ## flex
 FROM m4 AS flex
-ARG FLEX_VERSION=2.6.4
-ENV FLEX_VERSION=${FLEX_VERSION}
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/flex.tar.gz /sources/
 
-COPY --from=sources-downloader /sources/downloads/flex-${FLEX_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xvf flex-${FLEX_VERSION}.tar.gz && mv flex-${FLEX_VERSION} flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --docdir=/usr/share/doc/flex-${FLEX_VERSION} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
+RUN mkdir -p /sources && cd /sources && tar -xvf flex.tar.gz && mv flex-* flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
     make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
 
 ## perl
 FROM m4 AS perl
-
-ARG PERL_VERSION=5.42.0
-ENV PERL_VERSION=${PERL_VERSION}
-
+ARG JOBS
 ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 
-COPY --from=sources-downloader /sources/downloads/perl-${PERL_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/perl.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf perl-${PERL_VERSION}.tar.xz && mv perl-${PERL_VERSION} perl && \
+    tar -xf perl.tar.xz && mv perl-* perl && \
     cd perl && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
        -Dccdlflags='-rdynamic' \
@@ -991,10 +810,7 @@ RUN cd /sources && \
 
 ## bison
 FROM rsync AS bison
-
-ARG BISON_VERSION=3.8.2
-ENV BISON_VERSION=${BISON_VERSION}
-
+ARG JOBS
 COPY --from=flex /flex /flex
 RUN rsync -aHAX --keep-dirlinks  /flex/. /
 
@@ -1004,13 +820,13 @@ RUN rsync -aHAX --keep-dirlinks  /m4/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
-COPY --from=sources-downloader /sources/downloads/bison-${BISON_VERSION}.tar.xz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf bison-${BISON_VERSION}.tar.xz && mv bison-${BISON_VERSION} bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
+COPY --from=sources-downloader /sources/downloads/bison.tar.xz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xvf bison.tar.xz && mv bison-* bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
     make DESTDIR=/bison install && make install
 
 ## bash
 FROM readline AS bash
-
+ARG JOBS
 COPY --from=bison /bison /
 COPY --from=flex /flex /
 
@@ -1052,31 +868,25 @@ RUN make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm
 
 ## libcap
 FROM bash AS libcap
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/libcap.tar.xz /sources/
 
-ARG LIBCAP_VERSION=2.76
-ENV LIBCAP_VERSION=${LIBCAP_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/libcap-${LIBCAP_VERSION}.tar.xz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf libcap-${LIBCAP_VERSION}.tar.xz && mv libcap-${LIBCAP_VERSION} libcap && \
+RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* libcap && \
     cd libcap && mkdir -p /libcap && make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" && \
     make -s -j${JOBS} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## openssl
 FROM rsync AS openssl
-
-ARG OPENSSL_VERSION=3.5.2
-ENV OPENSSL_VERSION=${OPENSSL_VERSION}
-
+ARG JOBS
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
 COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /
 
-COPY --from=sources-downloader /sources/downloads/openssl-${OPENSSL_VERSION}.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/openssl.tar.gz /sources/
 
-RUN cd /sources && tar -xf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPENSSL_VERSION} openssl && \
+RUN cd /sources && tar -xf openssl.tar.gz && mv openssl-* openssl && \
     cd openssl && mkdir -p /openssl && ./Configure --prefix=/usr         \
     --openssldir=/etc/ssl \
     --libdir=lib          \
@@ -1087,14 +897,12 @@ RUN cd /sources && tar -xf openssl-${OPENSSL_VERSION}.tar.gz && mv openssl-${OPE
 ## Busybox (from stage1, ready to be used in the final image)
 ## with a tiny config as we have other tools
 FROM openssl AS busybox
-
+ARG JOBS
 COPY --from=busybox-stage0 /sources /sources
 
-ARG BUSYBOX_VERSION=1.37.0
-ENV BUSYBOX_VERSION=${BUSYBOX_VERSION}
 WORKDIR /sources
-RUN rm -rfv busybox-${BUSYBOX_VERSION} && tar -xf busybox-${BUSYBOX_VERSION}.tar.bz2
-WORKDIR /sources/busybox-${BUSYBOX_VERSION}
+RUN rm -rfv busybox && tar -xf busybox.tar.bz2 && mv busybox-* busybox
+WORKDIR /sources/busybox
 COPY ./files/busybox/minimal.config .config
 RUN make oldconfig
 RUN make -s -j${JOBS} CONFIG_PREFIX="/sysroot" install
@@ -1102,10 +910,7 @@ RUN make -s -j${JOBS} install
 
 ## coreutils
 FROM rsync AS coreutils
-
-ARG COREUTILS_VERSION=9.6
-ENV COREUTILS_VERSION=${COREUTILS_VERSION}
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1115,9 +920,9 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
-COPY --from=sources-downloader /sources/downloads/coreutils-${COREUTILS_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/coreutils.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf coreutils-${COREUTILS_VERSION}.tar.xz && mv coreutils-${COREUTILS_VERSION} coreutils && \
+    tar -xf coreutils.tar.xz && mv coreutils-* coreutils && \
     cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --bindir=/bin \
@@ -1134,34 +939,25 @@ RUN cd /sources && \
 
 ## findutils
 FROM stage1 AS findutils
-
-ARG FINDUTILS_VERSION=4.10.0
-ENV FINDUTILS_VERSION=${FINDUTILS_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/findutils-${FINDUTILS_VERSION}.tar.xz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/findutils.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf findutils-${FINDUTILS_VERSION}.tar.xz && mv findutils-${FINDUTILS_VERSION} findutils && \
+    tar -xf findutils.tar.xz && mv findutils-* findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
 
 ## grep
 FROM stage1 AS grep
-
-ARG GREP_VERSION=3.12
-ENV GREP_VERSION=${GREP_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/grep-${GREP_VERSION}.tar.xz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/grep.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf grep-${GREP_VERSION}.tar.xz && mv grep-${GREP_VERSION} grep && \
+    tar -xf grep.tar.xz && mv grep-* grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
     make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
 
 ## ca-certificates
 FROM rsync AS ca-certificates
-
-ARG CA_CERTIFICATES_VERSION=20250619
-ENV CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1187,9 +983,9 @@ RUN rsync -aHAX --keep-dirlinks  /attr/. /
 COPY --from=findutils /findutils /findutils
 RUN rsync -aHAX --keep-dirlinks  /findutils/. /
 
-COPY --from=sources-downloader /sources/downloads/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 /sources/
+COPY --from=sources-downloader /sources/downloads/ca-certificates.tar.bz2 /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xf ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 && mv ca-certificates-${CA_CERTIFICATES_VERSION} ca-certificates && \
+RUN mkdir -p /sources && cd /sources && tar -xf ca-certificates.tar.bz2 && mv ca-certificates-* ca-certificates && \
     cd ca-certificates && mkdir -p /ca-certificates && CC=gcc make -s -j${JOBS} && \
     make -s -j${JOBS} DESTDIR=/ca-certificates install
 
@@ -1198,16 +994,14 @@ RUN bash /sources/post_install.sh
 
 ## sqlite3 
 FROM rsync AS sqlite3
-
-ARG SQLITE3_VERSION=3500400
-ENV SQLITE3_VERSION=${SQLITE3_VERSION}
-
+ARG JOBS
 ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
 
-COPY --from=sources-downloader /sources/downloads/sqlite-autoconf-${SQLITE3_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf-${SQLITE3_VERSION}.tar.gz && \
-    mv sqlite-autoconf-${SQLITE3_VERSION} sqlite3 && \
+COPY --from=sources-downloader /sources/downloads/sqlite3.tar.gz /sources/
+# remove lto flag from sqlite as it causes issues with linking later
+ENV COMMON_CONFIGURE_ARGS="${COMMON_CONFIGURE_ARGS//--enable-lto/}"
+RUN mkdir -p /sources && cd /sources && tar -xf sqlite3.tar.gz && \
+    mv sqlite-* sqlite3 && \
     cd sqlite3 && mkdir -p /sqlite3 && ./configure ${COMMON_CONFIGURE_ARGS} \
 		--enable-threadsafe \
 		--enable-session \
@@ -1221,7 +1015,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf sqlite-autoconf-${SQLITE3_VERSIO
 
 ## curl
 FROM rsync AS curl
-
+ARG JOBS
 COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
 
@@ -1231,12 +1025,9 @@ RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 COPY --from=zstd /zstd /zstd
 RUN rsync -aHAX --keep-dirlinks  /zstd/. /
 
-ARG CURL_VERSION=8.5.0
-ENV CURL_VERSION=${CURL_VERSION}
+COPY --from=sources-downloader /sources/downloads/curl.tar.gz /sources/
 
-COPY --from=sources-downloader /sources/downloads/curl-${CURL_VERSION}.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && mv curl-${CURL_VERSION} curl && \
+RUN mkdir -p /sources && cd /sources && tar -xf curl.tar.gz && mv curl-* curl && \
     cd curl && mkdir -p /curl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --enable-ipv6 \
     --enable-unix-sockets \
     --enable-static \
@@ -1257,7 +1048,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl-${CURL_VERSION}.tar.gz && m
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
 
 FROM rsync AS libffi
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libffi.tar.gz /sources/
 RUN mkdir -p /libffi
 WORKDIR /sources
@@ -1269,9 +1060,6 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libffi
 ## python
 FROM rsync AS python-build
 ARG JOBS
-ARG PYTHON_VERSION=3.12.11
-ENV PYTHON_VERSION=${PYTHON_VERSION}
-
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1290,9 +1078,9 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libffi /libffi /libffi
 RUN rsync -aHAX --keep-dirlinks  /libffi/. /
 
-COPY --from=sources-downloader /sources/downloads/Python-${PYTHON_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/Python.tar.xz /sources/
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf Python-${PYTHON_VERSION}.tar.xz && mv Python-${PYTHON_VERSION} python && \
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf Python.tar.xz && mv Python-* python && \
     cd python && mkdir -p /python
 WORKDIR /sources/python
 RUN ./configure --quiet --prefix=/usr \
@@ -1306,16 +1094,15 @@ RUN ./configure --quiet --prefix=/usr \
 RUN make -s -j${JOBS} DESTDIR=/python
 RUN make -s -j${JOBS} DESTDIR=/python install
 RUN make -s -j${JOBS} install 2>&1
+
+
 ## util-linux
 FROM bash AS util-linux
 
-ARG UTIL_LINUX_VERSION=2.41.1
-ENV UTIL_LINUX_VERSION=${UTIL_LINUX_VERSION}
+COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 
-COPY --from=sources-downloader /sources/downloads/util-linux-${UTIL_LINUX_VERSION}.tar.xz /sources/
-
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux-${UTIL_LINUX_VERSION}.tar.xz && \
-    mv util-linux-${UTIL_LINUX_VERSION} util-linux && \
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux.tar.xz && \
+    mv util-linux-* util-linux && \
     cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
     --disable-silent-rules \
@@ -1340,19 +1127,17 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
 
 ## gperf
 FROM stage1 AS gperf
-
-ARG GPERF_VERSION=3.3
-ENV GPERF_VERSION=${GPERF_VERSION}
-
-COPY --from=sources-downloader /sources/downloads/gperf-${GPERF_VERSION}.tar.gz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/gperf.tar.gz /sources/
 RUN cd /sources && \
-    tar -xf gperf-${GPERF_VERSION}.tar.gz && mv gperf-${GPERF_VERSION} gperf && \
+    tar -xf gperf.tar.gz && mv gperf-* gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
     make -s -j${JOBS} DESTDIR=/gperf install && make -s -j${JOBS} install
 
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
+ARG JOBS
 COPY --from=gperf /gperf /gperf
 RUN rsync -aHAX --keep-dirlinks  /gperf/. /
 COPY --from=sources-downloader /sources/downloads/libseccomp.tar.gz /sources/
@@ -1366,6 +1151,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libseccomp
 
 ## expat
 FROM bash AS expat
+ARG JOBS
 ## Force bash as shell otherwise it defaults to /bin/sh and fails
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 COPY --from=sources-downloader /sources/downloads/expat.tar.gz /sources/
@@ -1377,26 +1163,23 @@ RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
 
 FROM stage0 AS gdb-stage0
-ARG GMP_VERSION=6.3.0
-ARG MPFR_VERSION=4.2.2
-ARG MPC_VERSION=1.3.1
-
+ARG JOBS
 RUN mkdir -p /gdb
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/gdb.tar.gz .
-COPY --from=sources-downloader /sources/downloads/gmp-${GMP_VERSION}.tar.bz2 .
-COPY --from=sources-downloader /sources/downloads/mpfr-${MPFR_VERSION}.tar.bz2 .
-COPY --from=sources-downloader /sources/downloads/mpc-${MPC_VERSION}.tar.gz .
+COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
+COPY --from=sources-downloader /sources/downloads/mpfr.tar.bz2 .
+COPY --from=sources-downloader /sources/downloads/mpc.tar.gz .
 COPY --from=expat /expat /
 COPY --from=python-build /python /
 
-RUN tar -xf gmp-${GMP_VERSION}.tar.bz2
-RUN tar -xf mpfr-${MPFR_VERSION}.tar.bz2
+RUN tar -xf gmp.tar.bz2
+RUN tar -xf mpfr.tar.bz2
 RUN tar -xf gdb.tar.gz && mv gdb-* gdb
-RUN tar -xf mpc-${MPC_VERSION}.tar.gz
-RUN mv -v mpfr-${MPFR_VERSION} gdb/mpfr
-RUN mv -v gmp-${GMP_VERSION} gdb/gmp
-RUN mv -v mpc-${MPC_VERSION} gdb/mpc
+RUN tar -xf mpc.tar.gz
+RUN mv -v mpfr-* gdb/mpfr
+RUN mv -v gmp-* gdb/gmp
+RUN mv -v mpc-* gdb/mpc
 WORKDIR /sources/gdb
 RUN ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --host=${TARGET}  AR=${TARGET}-ar RANLIB=${TARGET}-ranlib NM=${TARGET}-nm CC=${TARGET}-gcc LD=${TARGET}-ld STRIP=${TARGET}-strip \
@@ -1410,7 +1193,7 @@ RUN make -j${JOBS} DESTDIR=/gdb install install-gdbserver
 
 ## dbus first pass without systemd support so we can build systemd afterwards
 FROM python-build AS dbus
-
+ARG JOBS
 COPY --from=expat /expat /expat
 RUN rsync -aHAX --keep-dirlinks  /expat/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -1425,12 +1208,12 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/dbus ninja -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 
 # first pam build so we can build systemd against it
 FROM python-build AS pam
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -1450,7 +1233,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/pam ninja -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
 
@@ -1468,6 +1251,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
 # Shadow with PAM support, no systemd
 FROM shadow-base AS shadow
+ARG JOBS
 COPY --from=pam /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
@@ -1485,10 +1269,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DES
 # u sshd - "sshd priv user"
 ## And enable --with-privsep-user=sshd during configure
 FROM rsync AS openssh
-
-ARG OPENSSH_VERSION=9.9p1
-ENV OPENSSH_VERSION=${OPENSSH_VERSION}
-
+ARG JOBS
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 
@@ -1500,11 +1281,11 @@ RUN rsync -aHAX --keep-dirlinks  /pam/. /
 
 COPY --from=shadow /shadow /shadow
 
-COPY --from=sources-downloader /sources/downloads/openssh-${OPENSSH_VERSION}.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/openssh.tar.gz /sources/
 
 RUN mkdir -p /openssh
 WORKDIR /sources
-RUN tar -xf openssh-${OPENSSH_VERSION}.tar.gz && mv openssh-${OPENSSH_VERSION} openssh
+RUN tar -xf openssh.tar.gz && mv openssh-* openssh
 
 WORKDIR /sources/openssh
 RUN ./configure ${COMMON_CONFIGURE_ARGS} \
@@ -1536,6 +1317,7 @@ RUN echo "UsePAM yes" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
 
 ## xz and liblzma
 FROM rsync AS xz
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
 RUN mkdir -p /xz
 WORKDIR /sources
@@ -1546,6 +1328,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JO
 
 # gzip at least for the toolchain
 FROM rsync AS gzip
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gzip.tar.xz /sources/
 RUN mkdir -p /gzip
 WORKDIR /sources
@@ -1558,6 +1341,7 @@ RUN make -s -j${JOBS} && make install DESTDIR=/gzip
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
 FROM python-build AS kmod
+ARG JOBS
 ## we need liblzma from xz to build
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
@@ -1577,16 +1361,12 @@ RUN tar -xf kmod.tar.gz && mv kmod-* kmod
 WORKDIR /sources/kmod
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -Dmanpages=false
-RUN DESTDIR=/kmod ninja -C buildDir install && ninja -C buildDir install
+RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
 ## autoconf
 FROM rsync AS autoconf
-
-ARG AUTOCONF_VERSION=2.71
-ENV AUTOCONF_VERSION=${AUTOCONF_VERSION}
-
-
+ARG JOBS
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
@@ -1594,20 +1374,16 @@ RUN rsync -aHAX --keep-dirlinks  /m4/. /
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
-COPY --from=sources-downloader /sources/downloads/autoconf-${AUTOCONF_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/autoconf.tar.xz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf autoconf-${AUTOCONF_VERSION}.tar.xz && mv autoconf-${AUTOCONF_VERSION} autoconf && \
+RUN mkdir -p /sources && cd /sources && tar -xvf autoconf.tar.xz && mv autoconf-* autoconf && \
     cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/autoconf && \
     make DESTDIR=/autoconf install && make install
 
 
 ## automake
 FROM rsync AS automake
-
-ARG AUTOMAKE_VERSION=1.18.1
-ENV AUTOMAKE_VERSION=${AUTOMAKE_VERSION}
-
-
+ARG JOBS
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
@@ -1617,18 +1393,16 @@ RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
-COPY --from=sources-downloader /sources/downloads/automake-${AUTOMAKE_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/automake.tar.xz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf automake-${AUTOMAKE_VERSION}.tar.xz && mv automake-${AUTOMAKE_VERSION} automake && \
+RUN mkdir -p /sources && cd /sources && tar -xvf automake.tar.xz && mv automake-* automake && \
     cd automake && mkdir -p /automake && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/automake && \
     make DESTDIR=/automake install && make install
 
 
 ## argp-standalone
 FROM rsync AS argp-standalone
-
-ARG ARGP_STANDALONE_VERSION=1.3
-ENV ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
+ARG JOBS
 ENV CFLAGS="-fPIC"
 
 COPY --from=autoconf /autoconf /autoconf
@@ -1643,22 +1417,19 @@ RUN rsync -aHAX --keep-dirlinks  /automake/. /
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
-COPY --from=sources-downloader /sources/downloads/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz && mv argp-standalone-${ARGP_STANDALONE_VERSION} argp-standalone && cd argp-standalone && mkdir -p /argp-standalone && autoreconf -vif && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared -sysconfdir=/etc --localstatedir=/var && \
+COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone.tar.gz && mv argp-standalone-* argp-standalone && cd argp-standalone && mkdir -p /argp-standalone && autoreconf -vif && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared -sysconfdir=/etc --localstatedir=/var && \
     make DESTDIR=/argp-standalone install && make install && install -D -m644 argp.h /argp-standalone/usr/include/argp.h && install -D -m755 libargp.a /argp-standalone/usr/lib/libargp.a
 
 ## libtool
 FROM rsync AS libtool
-
-ARG LIBTOOL_VERSION=2.5.4
-ENV LIBTOOL_VERSION=${LIBTOOL_VERSION}
-
+ARG JOBS
 COPY --from=m4 /m4 /m4
 RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
-COPY --from=sources-downloader /sources/downloads/libtool-${LIBTOOL_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/libtool.tar.xz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf libtool-${LIBTOOL_VERSION}.tar.xz && mv libtool-${LIBTOOL_VERSION} libtool && cd libtool && mkdir -p /libtool && sed -i \
+RUN mkdir -p /sources && cd /sources && tar -xvf libtool.tar.xz && mv libtool-* libtool && cd libtool && mkdir -p /libtool && sed -i \
 -e "s|test-funclib-quote.sh||" \
 -e "s|test-option-parser.sh||" \
 gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
@@ -1666,8 +1437,7 @@ gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-depen
 
 ## fts
 FROM rsync AS fts
-ARG FTS_VERSION=1.2.7
-ENV FTS_VERSION=${FTS_VERSION}
+ARG JOBS
 ARG CFLAGS
 ENV CFLAGS="$CFLAGS -fPIC"
 
@@ -1689,16 +1459,14 @@ RUN rsync -aHAX --keep-dirlinks  /libtool/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
-COPY --from=sources-downloader /sources/downloads/musl-fts-${FTS_VERSION}.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/musl-fts.tar.gz /sources/
 
-RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts-${FTS_VERSION}.tar.gz && mv musl-fts-${FTS_VERSION} fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
+RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts.tar.gz && mv musl-fts-* fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
     make DESTDIR=/fts install && make install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
 ## musl-obstack
 FROM rsync AS musl-obstack
-ARG MUSL_OBSTACK_VERSION=1.2.3
-ENV MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
-
+ARG JOBS
 COPY --from=autoconf /autoconf /autoconf
 RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
 
@@ -1718,17 +1486,14 @@ COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
 
-COPY --from=sources-downloader /sources/downloads/musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz /sources/
-RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack-${MUSL_OBSTACK_VERSION}.tar.gz && mv musl-obstack-${MUSL_OBSTACK_VERSION} musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
+COPY --from=sources-downloader /sources/downloads/musl-obstack.tar.gz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack.tar.gz && mv musl-obstack-* musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
     make DESTDIR=/musl-obstack install && make install
 
 
 ## elfutils
 FROM rsync AS elfutils
-
-ARG ELFUTILS_VERSION=0.193
-ENV ELFUTILS_VERSION=${ELFUTILS_VERSION}
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
@@ -1750,10 +1515,10 @@ RUN rsync -aHAX --keep-dirlinks  /m4/. /
 COPY --from=musl-obstack /musl-obstack /musl-obstack
 RUN rsync -aHAX --keep-dirlinks  /musl-obstack/. /
 
-COPY --from=sources-downloader /sources/downloads/elfutils-${ELFUTILS_VERSION}.tar.bz2 /sources/
+COPY --from=sources-downloader /sources/downloads/elfutils.tar.bz2 /sources/
 COPY --from=sources-downloader /sources/downloads/elfutils-patches /sources/downloads/elfutils-patches
 
-RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.tar.bz2 && mv elfutils-${ELFUTILS_VERSION} elfutils && cd elfutils && mkdir -p /elfutils && patch -p1 -i /sources/downloads/elfutils-patches/musl-macros.patch && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
+RUN mkdir -p /sources && cd /sources && tar -xvf elfutils.tar.bz2 && mv elfutils-* elfutils && cd elfutils && mkdir -p /elfutils && patch -p1 -i /sources/downloads/elfutils-patches/musl-macros.patch && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared \
 --sysconfdir=/etc \
 --localstatedir=/var \
 --disable-werror \
@@ -1767,11 +1532,10 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils-${ELFUTILS_VERSION}.ta
 
 
 FROM rsync AS diffutils
-ARG DIFFUTILS_VERSION=3.9
-
-COPY --from=sources-downloader /sources/downloads/diffutils-${DIFFUTILS_VERSION}.tar.xz /sources/
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/diffutils.tar.xz /sources/
 RUN cd /sources && \
-    tar -xf diffutils-${DIFFUTILS_VERSION}.tar.xz && mv diffutils-${DIFFUTILS_VERSION} diffutils && \
+    tar -xf diffutils.tar.xz && mv diffutils-* diffutils && \
     cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
     make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
     make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
@@ -1779,7 +1543,6 @@ RUN cd /sources && \
 ## kernel
 FROM rsync AS kernel-base
 ARG JOBS
-ARG TARGETARCH
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
@@ -1813,10 +1576,7 @@ RUN rsync -aHAX --keep-dirlinks  /findutils/. /
 COPY --from=diffutils /diffutils /diffutils
 RUN rsync -aHAX --keep-dirlinks  /diffutils/. /
 
-ARG KERNEL_VERSION=6.16.7
-ENV ARCH=x86_64
-
-COPY --from=sources-downloader /sources/downloads/linux-${KERNEL_VERSION}.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
 
 RUN mkdir -p /sources/kernel-configs
 COPY ./files/kernel/* /sources/kernel-configs/
@@ -1824,7 +1584,7 @@ COPY ./files/kernel/* /sources/kernel-configs/
 RUN mkdir -p /kernel && mkdir -p /modules
 
 WORKDIR /sources
-RUN tar -xf linux-${KERNEL_VERSION}.tar.xz && mv linux-${KERNEL_VERSION} kernel
+RUN tar -xf linux.tar.xz && mv linux-* kernel
 
 
 FROM kernel-base AS kernel-cloud
@@ -1837,26 +1597,26 @@ RUN cp -rfv /sources/kernel-configs/default.config .config
 
 FROM kernel-${KERNEL_TYPE} AS kernel
 ARG JOBS
-ARG TARGETARCH
 WORKDIR /sources/kernel
+ENV ARCH=x86_64
 # This only builds the kernel
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} bzImage
+RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} bzImage
 RUN cp arch/$ARCH/boot/bzImage /kernel/vmlinuz
 
 # This builds the modules
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} modules
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} modules
+RUN LOCALVERSION="-${VENDOR}" ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
-ARG TARGETARCH
+ENV ARCH=x86_64
 WORKDIR /sources/kernel
 # This installs the headers
-RUN KBUILD_BUILD_VERSION="$KERNEL_VERSION-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
+RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
@@ -1879,7 +1639,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/kbd
 
 ## strace
 FROM rsync AS strace
-
+ARG JOBS
 COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /
 COPY --from=sources-downloader /sources/downloads/strace.tar.xz /sources/
@@ -1892,6 +1652,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/strace
 
 ## libmnl
 FROM rsync AS libmnl
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libmnl.tar.bz2 /sources/
 RUN mkdir -p /libmnl
 WORKDIR /sources
@@ -1902,7 +1663,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libmnl
 
 ## libnftnl
 FROM rsync AS libnftnl
-
+ARG JOBS
 COPY --from=libmnl /libmnl /libmnl
 RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -1917,7 +1678,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libnftnl
 
 ## iptables
 FROM rsync AS iptables
-
+ARG JOBS
 COPY --from=libmnl /libmnl /libmnl
 RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
 COPY --from=libnftnl /libnftnl /libnftnl
@@ -1940,6 +1701,7 @@ RUN make -s -s && make -s -s install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
+ARG JOBS
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/libaio.tar.gz /sources/
@@ -1956,7 +1718,7 @@ RUN DESTDIR=/libaio make install
 ## lvm2 for dmsetup, devmapper and so on
 ## TODO: build it with systemd support
 FROM rsync AS lvm2
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libaio /libaio /libaio
@@ -1982,7 +1744,6 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${
 
 FROM rsync AS cmake
 ARG JOBS
-
 COPY --from=curl /curl /curl
 RUN rsync -aHAX --keep-dirlinks  /curl/. /
 COPY --from=openssl /openssl /openssl
@@ -1999,7 +1760,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cmake && make -s -j$
 
 
 FROM rsync AS jsonc
-
+ARG JOBS
 COPY --from=cmake /cmake /cmake
 RUN rsync -aHAX --keep-dirlinks  /cmake/. /
 COPY --from=bash /bash /bash
@@ -2020,7 +1781,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j$
 
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/pax-utils.tar.xz /sources/
 RUN mkdir -p /pax-utils
 WORKDIR /sources
@@ -2028,11 +1789,11 @@ RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false
-RUN DESTDIR=/pax-utils ninja -C buildDir install
-RUN ninja -C buildDir install
+RUN DESTDIR=/pax-utils ninja -j${JOBS} -C buildDir install
+RUN ninja -j${JOBS} -C buildDir install
 
 FROM rsync AS urcu
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libcap /libcap /libcap
@@ -2050,7 +1811,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=util-linux /util-linux /util-linux
@@ -2067,7 +1828,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/e2fsprogs && make -s
 
 ## Provides mkfs.fat and fsck.fat
 FROM rsync AS dosfstools
-
+ARG JOBS
 COPY --from=sources-downloader /sources/downloads/dosfstools.tar.gz /sources/
 RUN mkdir -p /dosfstools
 WORKDIR /sources
@@ -2077,41 +1838,9 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools && make -s -j${JOBS} install
 
 
-FROM rsync AS gptfdisk
-COPY --from=util-linux /util-linux /util-linux
-RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-## We need libstdc++ and libgcc to build gptfdisk
-COPY --from=gcc-stage0 /sysroot /gcc-stage0
-RUN rsync -aHAX --keep-dirlinks  /gcc-stage0/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-
-COPY --from=sources-downloader /sources/downloads/gptfdisk.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-
-RUN mkdir -p /gptfdisk
-
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-WORKDIR /sources
-RUN tar -xf gptfdisk.tar.gz && mv gptfdisk-* gptfdisk
-WORKDIR /sources/gptfdisk
-RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-musl.patch
-RUN patch -p1 < /sources/patches/aport/main/gptfdisk/fix-wrong-include.patch
-## Making it static makes the binary around 9MB
-## But allows us to not ship the full libstdc++
-## which saves about 20MB for libstdc++
-## LDFLAGS explanation:
-## -Wl,--as-needed: Only link libraries actually used.
-## -Wl,-Bstatic -lstdc++ -static-libgcc: Statically link libstdc++ and libgcc to avoid shipping large C++ runtime libraries.
-## -Wl,-Bdynamic -luuid -lpopt: Dynamically link libuuid and libpopt, as static versions may not be available or desired.
-ENV GPTFDISK_LDFLAGS="-Wl,--as-needed -Wl,-Bstatic -lstdc++ -static-libgcc -Wl,-Bdynamic -luuid -lpopt"
-RUN make -s -j${JOBS} sgdisk CXXFLAGS='-O2 -pipe' LDFLAGS="${GPTFDISK_LDFLAGS}"
-RUN install -Dm0755 -t /gptfdisk/usr/bin sgdisk
-
-
 ## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
 FROM rsync AS cryptsetup
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -2145,7 +1874,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -
 
 
 FROM rsync AS parted
-
+ARG JOBS
 ## device-mapper from lvm2
 COPY --from=lvm2 /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
@@ -2163,15 +1892,6 @@ WORKDIR /sources/parted
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/parted && make -s -j${JOBS} install
 
-## growpart from cloud-utils
-# its just a simple pyton script
-FROM stage0 AS growpart
-RUN mkdir -p /growpart/usr/bin
-COPY --from=sources-downloader /sources/downloads/cloud-utils.tar.gz /sources/
-WORKDIR /sources
-RUN tar -xf cloud-utils.tar.gz && mv cloud-utils-* cloud-utils
-RUN stat /sources/cloud-utils/bin
-RUN cp /sources/cloud-utils/bin/growpart /growpart/usr/bin/growpart
 
 ## grub for bootloader installation
 FROM python-build AS grub-base
@@ -2206,6 +1926,7 @@ RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
 
 FROM grub-base AS grub-efi
+ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
@@ -2213,6 +1934,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-efi
 
 
 FROM grub-base AS grub-bios
+ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror
@@ -2220,6 +1942,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios
 
 
 FROM rsync AS tpm2-tss
+ARG JOBS
 RUN mkdir -p /tpm2-tss
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2362,7 +2085,7 @@ RUN DESTDIR=/systemd ninja -C buildDir install
 
 
 FROM rsync AS dracut
-
+ARG JOBS
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
@@ -2406,7 +2129,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
 ## This helps when a device is unlocked to makle the mapper show the device right away
 FROM rsync AS lvm2-systemd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libaio /libaio /libaio
@@ -2443,7 +2166,7 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${
 
 ## needed for dracut and other tools
 FROM rsync AS multipath-tools
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 # devmapper
@@ -2493,7 +2216,7 @@ RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
-
+ARG JOBS
 COPY --from=expat /expat /expat
 RUN rsync -aHAX --keep-dirlinks  /expat/. /
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -2510,11 +2233,11 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/dbus ninja -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
-
+ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=openssl /openssl /openssl
@@ -2536,7 +2259,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
-RUN DESTDIR=/pam ninja -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
 COPY files/shells /pam/etc/shells
@@ -2544,6 +2267,7 @@ RUN chmod 644 /pam/etc/shells
 
 # Shadow with systemd support via PAM
 FROM shadow-base AS shadow-systemd
+ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
@@ -2567,6 +2291,7 @@ COPY --from=pax-utils /pax-utils /pax-utils
 RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
 
 FROM sudo-base AS sudo-systemd
+ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
@@ -2578,6 +2303,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
 
 FROM sudo-base AS sudo
+ARG JOBS
 COPY --from=pam /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
@@ -2589,7 +2315,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
 
 FROM python-build AS openscsi
-
+ARG JOBS
 # Wee need cmake, libkmod, liblzma, mount, systemd, perl
 COPY --from=cmake /cmake /cmake
 RUN rsync -aHAX --keep-dirlinks  /cmake/. /
@@ -2613,10 +2339,11 @@ WORKDIR /sources
 RUN tar -xf openscsi.tar.gz && mv open-iscsi-* openscsi
 WORKDIR /sources/openscsi
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
-RUN DESTDIR=/openscsi ninja -C buildDir install && ninja -C buildDir install
+RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
 FROM rsync AS libxml
+ARG JOBS
 RUN mkdir -p /libxml
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /

@@ -157,3 +157,9 @@ run-qemu:
 		-device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
 		-drive if=virtio,media=disk,file=disk.img \
 		-drive if=ide,media=cdrom,file=$(ISO_FILE)
+
+
+bump-deps:
+	@echo "Installing bump tool and updating dependencies..."
+	@go install github.com/wader/bump/cmd/bump@latest
+	@bump update
