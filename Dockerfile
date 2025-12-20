@@ -574,8 +574,8 @@ FROM stage1 AS musl
 ARG JOBS
 
 WORKDIR /sources
-COPY --from=sources-downloader /sources/downloads/musl.tar.gz .
-RUN tar -xf musl.tar.gz && mv musl-${MUSL_VERSION} musl
+COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources
+RUN tar -xf musl.tar.gz && mv musl-* musl
 WORKDIR /sources/musl
 COPY patches/0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch .
 RUN patch -p1 < 0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch
