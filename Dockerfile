@@ -574,12 +574,10 @@ RUN ./test
 ## musl
 FROM stage1 AS musl
 
-ARG MUSL_VERSION=1.2.5
-ENV MUSL_VERSION=${MUSL_VERSION}
 
 WORKDIR /sources
-COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz .
-RUN tar -xf musl-${MUSL_VERSION}.tar.gz && mv musl-${MUSL_VERSION} musl
+COPY --from=sources-downloader /sources/downloads/musl.tar.gz .
+RUN tar -xf musl.tar.gz && mv musl-${MUSL_VERSION} musl
 WORKDIR /sources/musl
 COPY patches/0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch .
 RUN patch -p1 < 0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch
