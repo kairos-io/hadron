@@ -347,9 +347,6 @@ RUN cd /sources/downloads && wget -q --no-check-certificate https://busybox.net/
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 RUN cd /sources/downloads && wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz
-# For sd259 we need a newer musl version from git as it fixes a lot of crap
-# this is for testing purpouses only, dont use musl from git please
-RUN cd /sources/downloads && git clone --depth 1 https://git.musl-libc.org/git/musl musl-latest
 
 ## gcc and dependencies
 ARG GCC_VERSION=14.3.0
@@ -715,8 +712,12 @@ FROM stage1 AS musl
 ARG MUSL_VERSION=1.2.5
 ENV MUSL_VERSION=${MUSL_VERSION}
 
-COPY --from=sources-downloader /sources/downloads/musl-latest /musl-latest
-WORKDIR /musl-latest
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/musl-${MUSL_VERSION}.tar.gz .
+RUN tar -xf musl-${MUSL_VERSION}.tar.gz && mv musl-${MUSL_VERSION} musl
+WORKDIR /sources/musl
+COPY patches/0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch .
+RUN patch -p1 < 0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch
 RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
@@ -3130,8 +3131,6 @@ RUN apk add rsync
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
-# Remove the pcrlock.json as we lock via tpm policies
-RUN rm /skeleton/var/lib/systemd/pcrlock.json
 # No dracut for systemd-boot
 
 ## Final image for grub
@@ -3176,6 +3175,12 @@ RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
 RUN systemctl preset-all
+# Disable systemd-make-policy as we don't use it and it conflicts with
+# measurements with PCR policies
+# This is automatically brough in and creates a /var/lib/systemnd/pcrlock.json with measurements
+# This conflicts with PCR policies that we want to enforce, as it tries to mix them
+# This is new under 259 it seems, as before it would ignore the file and use the PCR policies instead
+RUN systemctl disable systemd-pcrlock-make-policy && systemctl mask systemd-pcrlock-make-policy
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
 COPY files/sysctl/* /etc/sysctl.d/
