@@ -571,7 +571,7 @@ RUN ./test
 
 ## musl
 FROM stage1 AS musl
-
+ARG JOBS
 
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz .
