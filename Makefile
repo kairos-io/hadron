@@ -13,6 +13,7 @@ PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
+FIPS ?= "no-fips"
 
 # Adjust IMAGE_NAME based on BOOTLOADER
 # If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version

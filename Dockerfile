@@ -5,6 +5,7 @@ ARG BOOTLOADER=grub
 ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
 ARG JOBS=24
+ARG FIPS="no-fips"
 
 ARG ALPINE_VERSION=3.23.2
 ARG CFLAGS
@@ -95,7 +96,9 @@ ARG SQLITE3_VERSION=3.51.1
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 ARG OPENSSL_VERSION=3.6.0
+ARG OPENSSL_FIPS_VERSION=3.1.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
+RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz  -O openssl-fips.tar.gz
 
 ARG OPENSSH_VERSION=10.0p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
@@ -872,7 +875,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* lib
     make -s -j${JOBS} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## openssl
-FROM rsync AS openssl
+FROM rsync AS openssl-no-fips
 ARG JOBS
 COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
@@ -881,14 +884,40 @@ COPY --from=zlib /zlib /zlib
 RUN rsync -aHAX --keep-dirlinks  /zlib/. /
 
 COPY --from=sources-downloader /sources/downloads/openssl.tar.gz /sources/
-
-RUN cd /sources && tar -xf openssl.tar.gz && mv openssl-* openssl && \
-    cd openssl && mkdir -p /openssl && ./Configure --prefix=/usr         \
+WORKDIR /sources
+RUN tar -xf openssl.tar.gz && mv openssl-* openssl
+WORKDIR /sources/openssl
+RUN ./Configure --prefix=/usr         \
     --openssldir=/etc/ssl \
     --libdir=lib          \
-    shared zlib-dynamic 2>&1 && \
-    make -s -j${JOBS} DESTDIR=/openssl 2>&1  && \
-    make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} install_sw install_ssldirs
+    shared zlib-dynamic 2>&1
+RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
+RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} install_sw install_ssldirs
+
+FROM rsync AS openssl-fips
+
+ARG JOBS
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=sources-downloader /sources/downloads/openssl-fips.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf openssl-fips.tar.gz && rm openssl-fips.tar.gz && mv openssl-* openssl-fips
+WORKDIR /sources/openssl-fips
+RUN ./Configure --prefix=/usr         \
+    --openssldir=/etc/ssl \
+    --libdir=lib          \
+    shared zlib-dynamic enable-fips 2>&1
+RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
+RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
+RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs install_fips
+RUN make -s -j${JOBS} install_sw install_ssldirs install_fips
+
+
+FROM openssl-${FIPS} AS openssl
 
 ## Busybox (from stage1, ready to be used in the final image)
 ## with a tiny config as we have other tools
