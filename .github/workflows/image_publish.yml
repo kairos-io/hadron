@@ -369,7 +369,7 @@ jobs:
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.16.1 --debug build-iso --output /output/ \
+          quay.io/kairos/auroraboot:v0.16.2 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios-${{ github.sha }} \
           docker:ttl.sh/hadron-init-bios:${{ github.sha }}
       - name: Upload artifact
@@ -395,14 +395,13 @@ jobs:
           -v $PWD/tests/assets/keys:/keys \
           -v $PWD/build/:/output \
           -v $PWD/tests/assets/sysext/:/overlay \
-          quay.io/kairos/auroraboot:v0.16.1 --debug build-uki \
+          quay.io/kairos/auroraboot:v0.16.2 --debug build-uki \
           --output-dir /output/ --public-keys /keys \
           --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
           --sb-key /keys/db.key \
           --sb-cert /keys/db.pem \
           --output-type iso \
           --overlay-iso /overlay \
-          --sdboot-in-source \
           docker:ttl.sh/hadron-init-trusted:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v6
