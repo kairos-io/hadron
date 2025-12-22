@@ -915,6 +915,10 @@ RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
 RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
 RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs install_fips
 RUN make -s -j${JOBS} install_sw install_ssldirs install_fips
+# Generate fipsmodule.cnf with the fips config
+RUN /openssl/usr/bin/openssl fipsinstall -out /openssl/etc/ssl/fipsmodule.cnf -module /openssl/usr/lib/ossl-modules/fips.so
+# copy hardened openssl config
+COPY ./files/openssl/openssl.cnf /openssl/etc/ssl/openssl.cnf
 
 
 FROM openssl-${FIPS} AS openssl

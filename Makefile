@@ -1,6 +1,6 @@
 IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
-AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.16.1
+AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.16.2
 TARGET ?= default
 JOBS ?= $(shell nproc)
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
@@ -85,6 +85,7 @@ build-hadron:
 	--build-arg VERSION=${HADRON_VERSION} \
 	--build-arg BOOTLOADER=${BOOTLOADER} \
 	--build-arg KERNEL_TYPE=${KERNEL_TYPE} \
+	--build-arg FIPS=${FIPS} \
 	-t ${IMAGE_NAME} \
 	--target ${TARGET} .
 	@echo "Hadron image built successfully"
@@ -112,6 +113,7 @@ build-kairos:
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 		--build-arg VERSION=${VERSION} \
+		--build-arg FIPS=${FIPS} \
 		$$KUBERNETES_ARGS .
 	@echo "Kairos image built successfully"
 
