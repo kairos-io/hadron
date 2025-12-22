@@ -928,11 +928,7 @@ RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
 RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
 RUN make -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs
 RUN make -j${JOBS} DESTDIR=/openssl install_fips
-RUN stat /openssl/etc/ssl/openssl.cnf
-RUN stat /openssl/etc/ssl/fipsmodule.cnf
-RUN sed -i 's/^default\s=\sdefault_sect/# default = default_sect/' /openssl/etc/ssl/openssl.cnf
-RUN sed -i 's/^#\s\.include\sfipsmodule.cnf/\.include \/etc\/ssl\/fipsmodule.cnf/' /openssl/etc/ssl/openssl.cnf
-RUN sed -i 's/^#\sfips\s=\sfips_sect/fips = fips_sect\nbase = base_sect\n\n[base_sect]\nactivate=1/' /openssl/etc/ssl/openssl.cnf
+COPY ./files/openssl/openssl.cnf.fips /openssl/etc/ssl/openssl.cnf
 
 FROM openssl-${FIPS} AS openssl
 
@@ -2977,9 +2973,6 @@ RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
 RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
-RUN sha256sum /etc/ssl/fipsmodule.cnf
-RUN sha256sum /usr/lib/ossl-modules/fips.so
-RUN openssl list -provider fips -providers -verbose
 
 ## final image with debug
 FROM full-image-final AS debug
