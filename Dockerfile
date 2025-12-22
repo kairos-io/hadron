@@ -910,23 +910,46 @@ WORKDIR /sources/openssl-fips
 RUN ./Configure --prefix=/usr         \
     --openssldir=/etc/ssl \
     --libdir=lib          \
-    shared zlib-dynamic enable-fips 2>&1
+    enable-fips \
+    enable-ktls \
+    shared \
+    no-async \
+    no-comp \
+    no-idea \
+    no-mdc2 \
+    no-rc5 \
+    no-ec2m \
+    no-ssl3 \
+    no-seed \
+    no-weak-ssl-ciphers \
+    zlib-dynamic \
+     2>&1
 RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
 RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
-RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs install_fips
-RUN make -s -j${JOBS} install_sw install_ssldirs install_fips
-# Generate fipsmodule.cnf with the fips config
-RUN /openssl/usr/bin/openssl fipsinstall -out /openssl/etc/ssl/fipsmodule.cnf -module /openssl/usr/lib/ossl-modules/fips.so
-# copy hardened openssl config
-COPY ./files/openssl/openssl.cnf /openssl/etc/ssl/openssl.cnf
-
+RUN make -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs
+RUN make -j${JOBS} DESTDIR=/openssl install_fips
+RUN stat /openssl/etc/ssl/openssl.cnf
+RUN stat /openssl/etc/ssl/fipsmodule.cnf
+RUN sed -i 's/^default\s=\sdefault_sect/# default = default_sect/' /openssl/etc/ssl/openssl.cnf
+RUN sed -i 's/^#\s\.include\sfipsmodule.cnf/\.include \/etc\/ssl\/fipsmodule.cnf/' /openssl/etc/ssl/openssl.cnf
+RUN sed -i 's/^#\sfips\s=\sfips_sect/fips = fips_sect\nbase = base_sect\n\n[base_sect]\nactivate=1/' /openssl/etc/ssl/openssl.cnf
 
 FROM openssl-${FIPS} AS openssl
 
 ## Busybox (from stage1, ready to be used in the final image)
 ## with a tiny config as we have other tools
-FROM openssl AS busybox
+FROM rsync AS busybox
 ARG JOBS
+
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+
+COPY --from=zlib /zlib /zlib
+RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+
 COPY --from=busybox-stage0 /sources /sources
 
 WORKDIR /sources
@@ -1881,8 +1904,6 @@ FROM rsync AS cryptsetup
 ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
 COPY --from=lvm2 /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
 COPY --from=openssl /openssl /openssl
@@ -2589,11 +2610,6 @@ RUN rsync -aHAX --keep-dirlinks  /coreutils/. /skeleton/
 COPY --from=curl /curl /curl
 RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
 
-## OpenSSL
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
-
-
 ## ca-certificates
 COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /skeleton/
@@ -2674,6 +2690,10 @@ COPY --from=sources-downloader /sources/downloads/aports.tar.gz /
 RUN tar xf /aports.tar.gz && mv aports-* aports
 RUN cp /aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig
 
+## OpenSSL
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
+
 # make sure they are both executable
 RUN chmod 755 /skeleton/sbin/ldconfig
 
@@ -2693,7 +2713,7 @@ RUN rm -rf /skeleton/usr/share/local/info
 RUN find /skeleton -name '*.a' -delete
 
 # Strip binaries
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 # Remove python artifacts
@@ -2735,6 +2755,8 @@ RUN ldd /bin/bash
 FROM alpine:${ALPINE_VERSION} AS full-image-merge
 RUN apk add rsync pax-utils binutils
 
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
 
 ## openssh
 COPY --from=openssh /openssh /openssh
@@ -2824,7 +2846,7 @@ COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
 # Strip binaries
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 # Remove python artifacts
@@ -2869,7 +2891,7 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 
 # Strip binaries
 # As this is added to the full-image-merge we still have to strip binaries here
-RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
+RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
 ### Assemble the image depending on our bootloader
@@ -2955,6 +2977,9 @@ RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
 RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
+RUN sha256sum /etc/ssl/fipsmodule.cnf
+RUN sha256sum /usr/lib/ossl-modules/fips.so
+RUN openssl list -provider fips -providers -verbose
 
 ## final image with debug
 FROM full-image-final AS debug
