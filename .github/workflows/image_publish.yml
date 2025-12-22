@@ -329,6 +329,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
           file: ./build/Dockerfile.kairos
           push: true
           tags: ttl.sh/hadron-init-bios:${{ github.sha }}
@@ -354,6 +356,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
           file: ./build/Dockerfile.kairos
           push: true
           tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
