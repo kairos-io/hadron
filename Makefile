@@ -89,13 +89,6 @@ build-hadron:
 	@echo "Hadron image built successfully"
 
 ## This builds the Kairos image based off Hadron
-# Build EXTRA_ARGS conditionally based on KUBERNETES_DISTRO
-ifneq ($(KUBERNETES_DISTRO),)
-	EXTRA_ARGS := --build-arg KUBERNETES_DISTRO=${KUBERNETES_DISTRO} --build-arg KUBERNETES_VERSION=${KUBERNETES_VERSION}
-else
-	EXTRA_ARGS :=
-endif
-
 build-kairos:
 	@echo "Building Kairos image..."
 	@echo "Fetching Dockerfile from kairos repository..."
@@ -108,15 +101,18 @@ build-kairos:
 	fi; \
 	if [ -n "${KUBERNETES_DISTRO}" ]; then \
 		echo "Building standard image with Kubernetes distribution: ${KUBERNETES_DISTRO}, version: ${KUBERNETES_VERSION}"; \
+		EXTRA_ARGS="--build-arg KUBERNETES_DISTRO=${KUBERNETES_DISTRO} --build-arg KUBERNETES_VERSION=${KUBERNETES_VERSION}"; \
 	else \
 		echo "Building core image (no Kubernetes distribution)"; \
+		EXTRA_ARGS=""; \
 	fi; \
 	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+	  --progress plain \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 		--build-arg VERSION=${VERSION} \
-		${EXTRA_ARGS} .
+		$$EXTRA_ARGS .
 	@echo "Kairos image built successfully"
 
 
