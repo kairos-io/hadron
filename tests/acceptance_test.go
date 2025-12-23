@@ -28,7 +28,11 @@ var _ = Describe("kairos basic test", func() {
 	var datasource string
 
 	BeforeEach(func() {
-		datasource = CreateDatasource("assets/acceptance.yaml")
+		datafile := "assets/acceptance.yaml"
+		if os.Getenv("FIPS") == "fips" {
+			datafile = "assets/acceptance-fips.yaml"
+		}
+		datasource = CreateDatasource(datafile)
 		Expect(os.Setenv("DATASOURCE", datasource)).ToNot(HaveOccurred())
 		_, vm = startVM()
 		vm.EventuallyConnects(600)
@@ -56,6 +60,13 @@ var _ = Describe("kairos basic test", func() {
 	})
 
 	It("passes checks", Label("acceptance"), func() {
+		if os.Getenv("FIPS") == "fips" {
+			By("Checking that FIPS is enabled", func() {
+				out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
+				Expect(err).ToNot(HaveOccurred(), out)
+				Expect(out).To(ContainSubstring("1"))
+			})
+		}
 		By("checking grubenv file", func() {
 			out, err := vm.Sudo("cat /oem/grubenv")
 			Expect(err).ToNot(HaveOccurred(), out)
@@ -206,6 +217,14 @@ var _ = Describe("kairos basic test", func() {
 		})
 	})
 	It("resets", Label("reset"), func() {
+		if os.Getenv("FIPS") == "fips" {
+			By("Checking that FIPS is enabled", func() {
+				out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
+				Expect(err).ToNot(HaveOccurred(), out)
+				Expect(out).To(ContainSubstring("1"))
+			})
+		}
+
 		Eventually(func() string {
 			out, _ := vm.Sudo("cat /oem/grubenv")
 			return out
@@ -213,6 +232,7 @@ var _ = Describe("kairos basic test", func() {
 			Or(
 				ContainSubstring("foobarzz"),
 			))
+
 		By("Creating files on persistent and oem")
 		_, err := vm.Sudo("touch /usr/local/test")
 		Expect(err).ToNot(HaveOccurred())

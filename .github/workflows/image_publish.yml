@@ -311,6 +311,85 @@ jobs:
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
+  hadron-bios-fips:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs:
+      - hadron-bios  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud" ]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-fips
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=tag
+          flavor: |
+            latest=auto
+            prefix=
+            suffix=
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.ref_name }}
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+      - name: Build PR
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}-fips
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: type=gha,scope=hadron/ci-image-main
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=fips
   build-kairos-bios:
     runs-on: ubuntu-latest
     needs:
@@ -365,6 +444,28 @@ jobs:
             BASE_IMAGE=ttl.sh/hadron-cloud-trusted:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=true
+  build-kairos-bios-fips:
+    runs-on: ubuntu-latest
+    needs:
+      - hadron-bios-fips
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          file: ./Dockerfile.init
+          push: true
+          tags: ttl.sh/hadron-init-bios-fips:${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ttl.sh/hadron-cloud-fips:${{ github.sha }}
+            VERSION=v0.0.1-${{ github.sha }}
+            TRUSTED_BOOT=false
+            FIPS=fips
   build-bios-iso:
     runs-on: ubuntu-latest
     needs:
@@ -419,6 +520,30 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
+          path: build/*.iso
+  build-bios-fips-iso:
+    runs-on: ubuntu-latest
+    needs:
+      - build-kairos-bios-fips
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build ISO
+        run: |
+          mkdir build
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          -v $PWD/build/:/output \
+          quay.io/kairos/auroraboot:v0.16.2 --debug build-iso --output /output/ \
+          --override-name kairos-hadron-bios-fips-${{ github.sha }} \
+          docker:ttl.sh/hadron-init-bios-fips:${{ github.sha }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: kairos-hadron-bios-fips-${{ github.sha }}.iso.zip
           path: build/*.iso
   tests-bios:
     runs-on: fast # Custom runner, more memory and CPU
@@ -523,6 +648,58 @@ jobs:
         if: failure()
         with:
           name: acceptance-trusted-${{github.sha}}.logs.zip
+          path: tests/**/logs/*
+          if-no-files-found: warn
+  tests-bios-fips:
+    runs-on: fast # Custom runner, more memory and CPU
+    name: ${{ matrix.test }} tests (FIPS)
+    needs:
+      - build-bios-fips-iso
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        test:
+          - "acceptance"
+          - "reset"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v6
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: kairos-hadron-bios-fips-${{ github.sha }}.iso.zip
+      - name: Enable KVM group perms
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
+          sudo setfacl -m u:runner:rwx /dev/kvm
+      - name: Run tests
+        env:
+          USE_QEMU: true
+          KVM: true
+          MEMORY: 5000
+          DRIVE_SIZE: 50000
+          CREATE_VM: true
+          CPUS: 4
+          FIPS: true
+        run: |
+          export ISO=$PWD/$(ls *.iso|grep -v ipxe | head -1 )
+          echo "ISO is: $ISO"
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: failure()
+        with:
+          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
