@@ -38,7 +38,7 @@ systemd /SYSTEMD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/systemd/syst
 
 libcap /LIBCAP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/|/libcap-([0-9\.]+)\.tar\.xz/|*
 
-python /PYTHON_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.python.org/ftp/python/|/([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
+python /PYTHON_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/python/cpython.git|semver:*
 
 openssl /OPENSSL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.openssl.org/source/|/openssl-([0-9\.]+)\.tar\.gz/|semver:*
 
@@ -96,7 +96,8 @@ busybox /BUSYBOX_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:https://launchpad.net/bus
 
 musl /MUSL_VERSION="?([0-9A-Za-z\.\-]+)"?/ fetch:http://musl.libc.org/releases.html|/musl-([0-9\.]+)\.tar\.gz/|semver:*
 
-gcc /GCC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/gcc/|/gcc-([0-9]+\.[0-9]+\.[0-9]+)/|semver:*
+# Dont jump into gcc 15 yet as it wont build
+gcc /GCC_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gnu/gcc/|/gcc-([0-9]+\.[0-9]+\.[0-9]+)/|^14
 
 gmp /GMP_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.netcologne.de/gnu/gmp/|/gmp-([0-9\.]+)\.tar\.bz2/|semver:*
 
@@ -108,7 +109,8 @@ make /ARG MAKE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://mirror.netcologne.de/gn
 
 m4 /M4_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/m4/|/m4-([0-9\.]+)\.tar\.xz/|semver:*
 
-perl /PERL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.cpan.org/src/5.0/|/perl-([0-9\.]+)\.tar\.xz/|semver:*
+# Only even minor versions are stable releases
+perl /PERL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.cpan.org/src/5.0/|/perl-([0-9]+\.(?:[0-9]*[02468])\.[0-9]+)\.tar\.xz/|semver:*
 
 findutils /FINDUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://mirror.easyname.at/gnu/findutils/|/findutils-([0-9\.]+)\.tar\.xz/|semver:*
 

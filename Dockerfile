@@ -47,7 +47,7 @@ RUN mkdir -p /sources/downloads
 
 WORKDIR /sources/downloads
 
-ARG CURL_VERSION=8.5.0
+ARG CURL_VERSION=8.17.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 ARG RSYNC_VERSION=3.4.1
@@ -74,44 +74,33 @@ RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSI
 ARG GAWK_VERSION=5.3.2
 RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
 
-ARG CA_CERTIFICATES_VERSION=20250619
+ARG CA_CERTIFICATES_VERSION=20251003
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
-ARG SYSTEMD_VERSION=257.8
-RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
+ARG SYSTEMD_VERSION=259
+RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
-## systemd patches
-ARG OE_CORE_VERSION=30140cb9354fa535f68fab58e73b76f0cca342e4
-# Extract systemd and apply patches
-RUN tar -xvf systemd.tar.gz && mv systemd-* systemd
-RUN git clone https://github.com/openembedded/openembedded-core && \
-    cd openembedded-core && \
-    git checkout ${OE_CORE_VERSION}
-COPY patches/apply_all.sh /apply_all.sh
-RUN chmod +x /apply_all.sh
-RUN /apply_all.sh /sources/downloads/openembedded-core/meta/recipes-core/systemd/systemd/ /sources/downloads/systemd
-
-ARG LIBCAP_VERSION=2.76
+ARG LIBCAP_VERSION=2.77
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
-ARG UTIL_LINUX_VERSION=2.41.1
+ARG UTIL_LINUX_VERSION=2.41.3
 RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
-ARG PYTHON_VERSION=3.12.11
+ARG PYTHON_VERSION=3.14.2
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
 ARG SQLITE3_VERSION=3.51.1
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
-ARG OPENSSL_VERSION=3.5.2
+ARG OPENSSL_VERSION=3.6.0
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
 
-ARG OPENSSH_VERSION=9.9p1
+ARG OPENSSH_VERSION=10.0p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
-ARG PKGCONFIG_VERSION=1.8.1
+ARG PKGCONFIG_VERSION=2.5.1
 RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
 ARG DBUS_VERSION=1.16.2
@@ -131,7 +120,7 @@ ARG SECCOMP_VERSION=2.6.0
 # seccomp
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
-ARG STRACE_VERSION=6.16
+ARG STRACE_VERSION=6.18
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 ARG KBD_VERSION=2.9.0
@@ -143,11 +132,11 @@ RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLE
 ARG LIBMNL_VERSION=1.0.5
 RUN wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 -O libmnl.tar.bz2
 
-ARG LIBNFTNL_VERSION=1.3.0
+ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 ## kernel
-ARG KERNEL_VERSION=6.16.7
+ARG KERNEL_VERSION=6.18.2
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 ## flex
@@ -163,7 +152,7 @@ ARG ARGP_STANDALONE_VERSION=1.3
 RUN wget -q http://www.lysator.liu.se/~nisse/misc/argp-standalone-${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
 ## autoconf
-ARG AUTOCONF_VERSION=2.71
+ARG AUTOCONF_VERSION=2.72
 RUN wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz -O autoconf.tar.xz
 
 ## automake
@@ -183,20 +172,20 @@ ARG MUSL_OBSTACK_VERSION=1.2.3
 RUN wget -q https://github.com/void-linux/musl-obstack/archive/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack.tar.gz
 
 ## elfutils
-ARG ELFUTILS_VERSION=0.193
+ARG ELFUTILS_VERSION=0.194
 RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
 RUN mkdir -p elfutils-patches && wget -q https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/elfutils/musl-macros.patch -O elfutils-patches/musl-macros.patch
 
 ## xzutils
-ARG XZUTILS_VERSION=5.8.1
+ARG XZUTILS_VERSION=5.8.2
 RUN wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz -O xz.tar.gz
 
 ## kmod
-ARG KMOD_VERSION=34
+ARG KMOD_VERSION=34.2
 RUN wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz -O kmod.tar.gz
 
 ## dracut
-ARG DRACUT_VERSION=108
+ARG DRACUT_VERSION=109
 RUN wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz -O dracut.tar.gz
 
 ## libaio
@@ -204,7 +193,7 @@ ARG LIBAIO_VERSION=0.3.113
 RUN wget -q https://releases.pagure.org/libaio/libaio-${LIBAIO_VERSION}.tar.gz -O libaio.tar.gz
 
 ## lvm2
-ARG LVM2_VERSION=2.03.37
+ARG LVM2_VERSION=2.03.38
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 ## multipath-tools
@@ -216,11 +205,11 @@ ARG JSONC_VERSION=0.18
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 ## cmake
-ARG CMAKE_VERSION=4.1.1
+ARG CMAKE_VERSION=4.2.1
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 ## urcu
-ARG URCU_VERSION=0.15.3
+ARG URCU_VERSION=0.15.5
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
 ## parted
@@ -228,7 +217,7 @@ ARG PARTED_VERSION=3.6
 RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
 ## e2fsprogs
-ARG E2FSPROGS_VERSION=1.46.6
+ARG E2FSPROGS_VERSION=1.47.3
 RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
 ## dosfstools
@@ -236,7 +225,7 @@ ARG DOSFSTOOLS_VERSION=4.2
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
 ## cryptsetup
-ARG CRYPTSETUP_VERSION=2.8.1
+ARG CRYPTSETUP_VERSION=2.8.3
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 ## grub
@@ -252,7 +241,7 @@ ARG SHADOW_VERSION=4.18.0
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 # alpine aports repo for patches to build under musl
-ARG APORTS_VERSION=3.22.1
+ARG APORTS_VERSION=3.23.2
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 ## busybox
@@ -282,7 +271,7 @@ ARG MAKE_VERSION=4.4.1
 RUN wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz -O make.tar.gz
 
 ## binutils (for stage0)
-ARG BINUTILS_VERSION=2.44
+ARG BINUTILS_VERSION=2.45.1
 RUN wget -q http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
 ## popt
@@ -302,7 +291,7 @@ ARG PERL_VERSION=5.42.0
 RUN wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz -O perl.tar.xz
 
 ## coreutils
-ARG COREUTILS_VERSION=9.6
+ARG COREUTILS_VERSION=9.9
 RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
 
 ## findutils
@@ -318,7 +307,7 @@ ARG GPERF_VERSION=3.3
 RUN wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -O gperf.tar.gz
 
 ## diffutils
-ARG DIFFUTILS_VERSION=3.9
+ARG DIFFUTILS_VERSION=3.12
 RUN wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz -O diffutils.tar.xz
 
 ## sudo
@@ -326,7 +315,7 @@ ARG SUDO_VERSION=1.9.17p2
 RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
 ## pax-utils
-ARG PAX_UTILS_VERSION=1.3.8
+ARG PAX_UTILS_VERSION=1.3.9
 RUN wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz -O pax-utils.tar.xz
 
 ## openscsi
@@ -344,13 +333,13 @@ ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
 # libxml
-ARG LIBXML2_VERSION=2.14.5
+ARG LIBXML2_VERSION=2.15.1
 RUN major="${LIBXML2_VERSION%%.*}" \
  && minor="${LIBXML2_VERSION#*.}"; minor="${minor%%.*}" \
  && LIBXML2_VERSION_MAJOR_AND_MINOR="${major}.${minor}" \
  && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz -O libxml2.tar.xz
 # gzip
-ARG GZIP_VERSION=1.12
+ARG GZIP_VERSION=1.14
 RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar.xz
 
 ARG BASH_VERSION=5.3
@@ -583,10 +572,14 @@ RUN ./test
 ## musl
 FROM stage1 AS musl
 ARG JOBS
-COPY --from=sources-downloader /sources/downloads/musl.tar.gz .
-RUN tar -xf musl.tar.gz && mv musl-* musl && \
-    cd musl && \
-    ./configure --disable-warnings \
+
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources
+RUN tar -xf musl.tar.gz && mv musl-* musl
+WORKDIR /sources/musl
+COPY patches/0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch .
+RUN patch -p1 < 0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch
+RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
       make -s -j${JOBS} && \
@@ -1047,6 +1040,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl.tar.gz && mv curl-* curl &&
     --with-nghttp2 \
     --disable-ldap \
     --with-pic \
+    --without-libpsl \
     --without-libssh2 && make -s -j${JOBS} DESTDIR=/curl && \
     make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
 
@@ -1536,12 +1530,20 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils.tar.bz2 && mv elfutils
 
 FROM rsync AS diffutils
 ARG JOBS
+RUN mkdir -p /diffutils
 COPY --from=sources-downloader /sources/downloads/diffutils.tar.xz /sources/
-RUN cd /sources && \
-    tar -xf diffutils.tar.xz && mv diffutils-* diffutils && \
-    cd diffutils && mkdir -p /diffutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
-    make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils && \
-    make -s -j${JOBS} DESTDIR=/diffutils install && make -s -j${JOBS} install
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+WORKDIR /sources
+RUN tar xf diffutils.tar.xz && mv diffutils-* diffutils
+WORKDIR /sources/diffutils
+# define nullptr for older gcc versions
+ENV CFLAGS="${CFLAGS:-} -Dnullptr=NULL"
+# Set HOST to TARGET for cross compiling to avoid it trying to run tests
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --libdir=/usr/lib --host=${HOST}
+RUN make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils
+RUN make -s -j${JOBS} DESTDIR=/diffutils install
+RUN make -s -j${JOBS} install
 
 ## kernel
 FROM rsync AS kernel-base
@@ -1974,13 +1976,10 @@ RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/tpm2-tss && make -s 
 ## systemd
 ## Try to build it at the end so we have most libraries already built
 ## Anything that depends on systemd should be built after this stage
-FROM rsync AS systemd-base
+FROM rsync AS systemd
 
 COPY --from=gperf /gperf /gperf
 RUN rsync -aHAX --keep-dirlinks  /gperf/. /
-
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
@@ -2039,37 +2038,18 @@ RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
 COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /
 
-COPY --from=sources-downloader /sources/downloads/systemd /sources/systemd
+COPY --from=sources-downloader /sources/downloads/systemd.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf systemd.tar.gz && mv systemd-* systemd
 RUN mkdir -p /systemd
 RUN python3 -m pip install meson ninja jinja2 pyelftools
 
-## systemd-bless and other systemd-tpm releated tools need to be ebable by setting the BOOTLOADER to true
-## but that tries to build systemd-boot as well which fails due to the missing wchar_t definition in musl
-## we avoid this by only building the bootloader in a separate stage below
-## But in here we want to build all those needed pieces, so we hack the meson.build files to remove the bootloader dependency
-## We know we are going to need them later and we are going to be using sdboot from the separate stage below so its ok
-FROM systemd-base AS systemd
-ARG JOBS
 WORKDIR /sources/systemd
-ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE"
-## Superhack to get tpm2-setup binary and service to build without having bootloader=enabled
-RUN sed -i "/'name' *: *'systemd-tpm2-setup'/,/},/s/'ENABLE_BOOTLOADER', *//" src/tpm2-setup/meson.build
-## Superhack to build systemd-bless-boot binary and generator
-RUN sed -i "/'conditions' *: *\[/,/\]/s/'ENABLE_BOOTLOADER',* *//g" src/bless-boot/meson.build
-## Superhack to enable units that are linked to booloader build but we cant build them directly
-RUN sed -i "/'file' *: *'systemd-bless-boot.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-pcrextend@.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-pcrextend.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-tpm2-setup.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-tpm2-setup-early.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-pcrlock@.service.in'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-pcrlock.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
-RUN sed -i "/'file' *: *'systemd-pcrlock.socket'/,/},/s/'ENABLE_BOOTLOADER', *//" units/meson.build
+
 RUN /usr/bin/meson setup buildDir \
       --prefix=/usr           \
       --buildtype=minsize -Dstrip=true     \
       -D dbus=enabled  \
-      -D bootloader=disabled  \
       -D tpm2=enabled          \
       -D pam=enabled \
       -D libcryptsetup=enabled  \
@@ -2097,37 +2077,16 @@ RUN /usr/bin/meson setup buildDir \
       -D dev-kvm-mode=0660    \
       -D nobody-group=nogroup \
       -D sysupdate=disabled   \
-      -Durlify=false \
-      -D ukify=disabled
-RUN ninja -j${JOBS} -C buildDir
-RUN DESTDIR=/systemd ninja -j${JOBS} -C buildDir install
-
-## In here we only build the sdboot files
-## with musl, we cannot compile the full systemd-boot due to missing wchar_t definition
-## and with it, we cannot compile other things
-## So we workaround by building only the bootloader in this separate stage
-## using meson to compile it (not install as that builds more stuff)
-## and copying the resulting .efi files
-FROM systemd-base AS systemd-bootloader
-ARG JOBS
-ARG VERSION
-WORKDIR /sources/systemd
-ENV CFLAGS="$CFLAGS -D __UAPI_DEF_ETHHDR=0 -D _LARGEFILE64_SOURCE -D__DEFINED_wchar_t"
-RUN /usr/bin/meson setup buildDir \
-    --prefix=/usr \
-    --buildtype=minsize \
-    -D mode=release         \
-    -D strip=true -Dman=false \
-    -D bootloader=true -Defi=true \
-    -D sbat-distro="Hadron" \
-    -D sbat-distro-url="hadron.kairos.io" \
-    -Dsbat-distro-summary="Hadron Linux" \
-    -Dsbat-distro-version="${VERSION}"
-RUN /usr/bin/meson compile systemd-boot -C buildDir
-## Mimic the efi install places other distros and the full systemd install does.
-RUN mkdir -p /systemd/usr/lib/systemd/boot/efi/
-RUN cp buildDir/src/boot/*.efi /systemd/usr/lib/systemd/boot/efi/
-RUN cp buildDir/src/boot/*.efi.stub /systemd/usr/lib/systemd/boot/efi/
+      -D libc=musl \
+      -D urlify=false \
+      -D ukify=disabled \
+      -D bootloader=true -Defi=true \
+      -D sbat-distro="Hadron" \
+      -D sbat-distro-url="hadron-linux.io" \
+      -Dsbat-distro-summary="Hadron Linux" \
+      -Dsbat-distro-version="${VERSION}"
+RUN ninja -C buildDir
+RUN DESTDIR=/systemd ninja -C buildDir install
 
 
 FROM rsync AS dracut
@@ -2252,7 +2211,7 @@ WORKDIR /sources
 RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
 ENV CC="gcc"
-COPY files/0001-multipathd-Dont-pthread_join-twice.patch /sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch
+COPY patches/0001-multipathd-Dont-pthread_join-twice.patch /sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch
 RUN patch -p1 </sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch 
 # Set lib to /lib so it works in initramfs as well
 RUN make -s -j${JOBS} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
@@ -2880,7 +2839,6 @@ RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
 RUN find /skeleton -type f -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
 
-
 ### Assemble the image depending on our bootloader
 ## either grub or systemd-boot for trusted boot
 ## To not merge things and have extra software where we dont want it we prepare a base image with all the
@@ -2895,6 +2853,7 @@ COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
 COPY --from=dracut-final /skeleton /dracut-final
 RUN rsync -aHAX --keep-dirlinks  /dracut-final/. /skeleton/
+# TODO: Remove the sd-boot efi files to save space
 
 ## We merge the base container + stage2-merge (kernel, sudo, systemd, etc) into a single dir
 FROM alpine:${ALPINE_VERSION} AS full-image-pre-systemd
@@ -2902,8 +2861,6 @@ RUN apk add rsync
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
-COPY --from=systemd-bootloader /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
 # No dracut for systemd-boot
 
 ## Final image for grub
@@ -2948,6 +2905,12 @@ RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
 RUN systemctl preset-all
+# Disable systemd-make-policy as we don't use it and it conflicts with
+# measurements with PCR policies
+# This is automatically brough in and creates a /var/lib/systemnd/pcrlock.json with measurements
+# This conflicts with PCR policies that we want to enforce, as it tries to mix them
+# This is new under 259 it seems, as before it would ignore the file and use the PCR policies instead
+RUN systemctl disable systemd-pcrlock-make-policy && systemctl mask systemd-pcrlock-make-policy
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
 COPY files/sysctl/* /etc/sysctl.d/
