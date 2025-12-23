@@ -107,7 +107,6 @@ build-kairos:
 		EXTRA_ARGS=""; \
 	fi; \
 	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
-	  --progress plain \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
