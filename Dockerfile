@@ -2800,7 +2800,7 @@ RUN ldd /bin/bash
 
 # stage2-merge is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
-FROM alpine:${ALPINE_VERSION} AS full-image-merge
+FROM alpine:${ALPINE_VERSION} AS full-image-merge-base
 RUN apk add rsync pax-utils binutils
 
 COPY --from=openssl /openssl /openssl
@@ -2901,6 +2901,16 @@ RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobann
 RUN find /skeleton -name "*.pyc" -delete
 RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
+
+FROM full-image-merge-base AS full-image-merge-no-fips
+# no-op
+
+FROM full-image-merge-base AS full-image-merge-fips
+COPY --from=libkcapi /libkcapi /libkcapi
+RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /skeleton
+
+
+FROM full-image-merge-${FIPS} AS full-image-merge
 
 ## This target will assemble dracut and all its dependencies into the skeleton
 FROM stage0 AS dracut-final
