@@ -1695,7 +1695,7 @@ RUN kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vml
 # link vmlinuz to our kernel
 RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-version) /kernel/vmlinuz
 
-FROM kernel-build AS kernel-non-fips
+FROM kernel-build AS kernel-no-fips
 # Nothing to do here, just a placeholder
 
 
