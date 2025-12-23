@@ -1704,8 +1704,8 @@ FROM kernel-build AS kernel-fips
 WORKDIR /sources/
 COPY --from=libkcapi /libkcapi /libkcapi
 RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /
-# Use openssl-fips to generate the HMAC for the kernel
-RUN kver=$(cat /kernel/kernel-version) && sha512hmac /kernel/vmlinuz-${kver} > /kernel/.vmlinuz-${kver}.hmac
+# Use generate the HMAC for the kernel, make sure to set the path to the runtime path
+RUN kver=$(cat /kernel/kernel-version) && sha512hmac /kernel/vmlinuz-${kver} | sed 's|  /kernel/|  /boot/|' > /kernel/.vmlinuz-${kver}.hmac
 RUN kver=$(cat /kernel/kernel-version) && chmod 0644 /kernel/.vmlinuz-${kver}.hmac
 
 FROM kernel-${FIPS} AS kernel
