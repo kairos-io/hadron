@@ -9,27 +9,118 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Cache Go build cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/bin
+          key: go-bump-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            go-bump-${{ runner.os }}-
       - uses: actions/setup-go@v6
-      - name: install bump
+      - name: Install bump
         run: |
           go install github.com/wader/bump/cmd/bump@latest
       - name: Bump version and create PR
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          # Disable this var so bump does not think it's running as an action
           unset GITHUB_ACTION
+          set -e
           
-          echo '```diff' >> $GITHUB_STEP_SUMMARY
-          echo "$(bump diff)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          
-          bump update
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8
-        with:
-          signoff: true
-          title: 'chore: bump version'
-          body: 'Automated version bump'
-          team-reviewers: 'kairos-io/maintainers'
-          base: 'main'
-          add-paths: |
-            Dockerfile
+          # Check if fork exists, create if not
+          if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
+            echo "Fork does not exist. Creating fork..."
+            gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks
+          else
+            echo "Fork already exists."
+          fi
+
+          # Clone fork using HTTPS with the token embedded in the URL; credentials are not stored on disk
+          git clone "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git" fork
+          cd fork
+
+          # Ensure all pushes go to the fork using the authenticated URL
+          git remote set-url origin "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git"
+
+          # Add upstream and sync main
+          git remote add upstream https://github.com/kairos-io/hadron || true
+          git fetch upstream
+          git checkout main
+          git reset --hard upstream/main
+          git push origin main --force
+
+          # Fetch all branches
+          git fetch origin
+
+          # Check if remote bumps branch exists
+          if git ls-remote --exit-code --heads origin bumps > /dev/null; then
+            echo "Remote 'bumps' branch exists. Checking it out."
+            git checkout bumps
+            git merge --ff-only upstream/main || git rebase upstream/main || true
+          else
+            echo "Remote 'bumps' branch does not exist. Creating from upstream/main."
+            git checkout -B bumps upstream/main
+          fi
+
+          # Run bump and stage changes
+          bump update -v
+          git add Dockerfile
+
+          # Check if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Checking PR state."
+            PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+            PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              if [ "$PR_STATE" = "CLOSED" ]; then
+                # Check if PR is merged
+                MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+                if [ -z "$MERGED_AT" ]; then
+                  echo "PR #$PR_NUMBER is closed and not merged. Deleting remote 'bumps' branch to allow clean recreation."
+                  git push origin --delete bumps || echo "Remote branch already deleted."
+                else
+                  echo "PR #$PR_NUMBER is merged. Nothing to do."
+                fi
+              else
+                echo "Open PR #$PR_NUMBER already exists. Nothing to do."
+              fi
+            else
+              echo "No PR found and no changes to commit. Nothing to do."
+            fi
+            exit 0
+          fi
+
+          # Commit and push changes
+          git config user.name "ci-robbot"
+          git config user.email "robot@c3os.io"
+          git commit -s -m "Bump packages"
+          git push origin bumps --force
+
+          # Check if PR already exists (open or closed)
+          PR_INFO=$(gh pr list --head bumps --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+          PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            if [ "$PR_STATE" = "CLOSED" ]; then
+              # Check if PR is merged
+              MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+              if [ -z "$MERGED_AT" ]; then
+                echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
+                if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
+                  echo "Failed to reopen PR. Creating a new one."
+                  gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+                fi
+              else
+                echo "PR #$PR_NUMBER is merged. Nothing to do."
+              fi
+            else
+              echo "PR #$PR_NUMBER already exists and is open. Just pushed new changes."
+            fi
+          else
+            echo "No PR found. Creating a new one."
+            gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps --base main --repo kairos-io/hadron --label "auto-bump"
+          fi
