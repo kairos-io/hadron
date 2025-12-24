@@ -6,6 +6,7 @@ ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
 ARG JOBS=24
 ARG FIPS="no-fips"
+ARG TARGETARCH
 
 ARG ALPINE_VERSION=3.23.2
 ARG CFLAGS
@@ -351,7 +352,7 @@ ARG PATCH_LEVEL=8
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
 # But the index starts at 1
-RUN wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xvf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
+RUN wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
 WORKDIR /sources/downloads/bash
 RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
         echo "Applying bash patch bash${BASH_VERSION//./}-00${i}"; \
@@ -392,6 +393,7 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
     sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
+    if [ "${ARCH}" == "aarch64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
     make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
     make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} CONFIG_PREFIX="/sysroot" install
 
