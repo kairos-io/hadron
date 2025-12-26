@@ -544,14 +544,19 @@ RUN cp aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig && chmod +x /skeleto
 FROM scratch AS stage1
 
 ARG VENDOR="hadron"
-ARG ARCH="x86-64"
-ARG BUILD_ARCH="x86_64"
-ARG CFLAGS
 ENV VENDOR=${VENDOR}
+ARG ARCH="x86-64"
+ENV ARCH=${ARCH}
+ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
+ARG BUILD_ARCH
+ENV BUILD_ARCH=${BUILD_ARCH}
+ARG TARGET
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
+ARG BUILD
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
+ARG CFLAGS
 ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables"
 # TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
 
@@ -692,7 +697,6 @@ RUN make -s -j${JOBS} DESTDIR=/zlib install
 RUN make -s -j${JOBS} install
 
 ## gawk
-
 FROM zlib AS gawk
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gawk.tar.xz /sources/
@@ -738,6 +742,9 @@ WORKDIR /sources/binutils
 ENV AR=ar
 ENV GCC=gcc
 ENV AS=as
+ENV STRIP=strip
+ENV NM=nm
+ENV RANLIB=ranlib
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} DESTDIR=/binutils
 RUN make -s -j${JOBS} DESTDIR=/binutils install
@@ -936,27 +943,18 @@ COPY ./files/openssl/openssl.cnf.fips /openssl/etc/ssl/openssl.cnf
 
 FROM openssl-${FIPS} AS openssl
 
-## Busybox (from stage1, ready to be used in the final image)
+## Busybox from scratch, minimalist build for final image
 ## with a tiny config as we have other tools
-FROM rsync AS busybox
+FROM stage1 AS busybox
 ARG JOBS
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
-
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
-
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-
-COPY --from=busybox-stage0 /sources /sources
-
+COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 WORKDIR /sources
 RUN rm -rfv busybox && tar -xf busybox.tar.bz2 && mv busybox-* busybox
 WORKDIR /sources/busybox
+RUN make -s distclean
 COPY ./files/busybox/minimal.config .config
-RUN make oldconfig
+RUN make -j${JOBS} silentoldconfig
 RUN make -s -j${JOBS} CONFIG_PREFIX="/sysroot" install
 RUN make -s -j${JOBS} install
 
@@ -1680,20 +1678,39 @@ RUN tar -xf linux.tar.xz && mv linux-* kernel
 
 FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/cloud.config .config
+RUN if [ ${ARCH} = "aarch64" ] ; then \
+    cp -rfv /sources/kernel-configs/cloud-arm64.config .config ; \
+    else \
+    cp -rfv /sources/kernel-configs/cloud.config .config ; \
+    fi
 
 FROM kernel-base AS kernel-default
 WORKDIR /sources/kernel
-RUN cp -rfv /sources/kernel-configs/default.config .config
+RUN if [ ${ARCH} = "aarch64" ] ; then \
+    cp -rfv /sources/kernel-configs/default-arm64.config .config ; \
+    else \
+    cp -rfv /sources/kernel-configs/default.config .config ; \
+    fi
 
 FROM kernel-${KERNEL_TYPE} AS kernel-build
 ARG JOBS
 WORKDIR /sources/kernel
-ENV ARCH=x86_64
 # This only builds the kernel
-RUN make -s -j${JOBS} bzImage
-RUN make -s -j${JOBS} kernelrelease > /kernel/kernel-version
-RUN kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver}
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    ARCH=arm64 make -s -j${JOBS} Image; \
+    else \
+    ARCH=$ARCH make -s -j${JOBS} bzImage; \
+    fi
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=$ARCH;\
+    fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-version
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    ARCH=arm64 kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
+    else \
+    ARCH=$ARCH kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
+    fi
 # link vmlinuz to our kernel
 RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-version) /kernel/vmlinuz
 
@@ -1714,16 +1731,28 @@ FROM kernel-${FIPS} AS kernel
 
 FROM kernel-build AS kernel-modules
 # This builds the modules
-ENV ARCH=x86_64
-RUN make -s -j${JOBS} modules
-RUN ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+ENV ARCH=${ARCH}
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=$ARCH;\
+    fi;  make -s -j${JOBS} modules
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=$ARCH;\
+    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
-ENV ARCH=x86_64
+ENV ARCH=${ARCH}
 WORKDIR /sources/kernel
 # This installs the headers
-RUN LOCALVERSION="-${VENDOR}" make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=$ARCH;\
+    fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
