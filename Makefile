@@ -14,6 +14,7 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
+TARGETARCH ?= amd64
 
 # Adjust IMAGE_NAME based on BOOTLOADER
 # If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
@@ -75,12 +76,12 @@ build: pull-image build-kairos build-iso
 
 pull-image:
 	@echo "Pulling base Hadron image from ${IMAGE_NAME}..."
-	@docker pull ${IMAGE_NAME}
+	@docker pull --platform=${ARCH} ${IMAGE_NAME}
 
 ## This builds the Hadron image from scratch
 build-hadron:
 	@echo "Building Hadron image..."
-	@docker build ${PROGRESS_FLAG} \
+	@docker build ${PROGRESS_FLAG} --platform=${ARCH} \
 	--build-arg JOBS=${JOBS} \
 	--build-arg VERSION=${HADRON_VERSION} \
 	--build-arg BOOTLOADER=${BOOTLOADER} \
@@ -108,7 +109,7 @@ build-kairos:
 		echo "Building core image (no Kubernetes distribution)"; \
 		KUBERNETES_ARGS=""; \
 	fi; \
-	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} \
+	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} --platform=${ARCH} \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
@@ -132,7 +133,7 @@ grub-iso:
 # Build an ISO image
 trusted-iso:
 	@echo "Building Trusted Boot ISO image..."
-	@docker run -v /var/run/docker.sock:/var/run/docker.sock \
+	@docker run -v /var/run/docker.sock:/var/run/docker.sock --platform=${ARCH} \
 	-v $(CURRENT_DIR)/build/:/output \
 	-v ${KEYS_DIR}:/keys \
 	${AURORA_IMAGE} \
