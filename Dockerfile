@@ -30,6 +30,10 @@ ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
+# Validate that the arches are correct
+RUN if [ "${ARCH}" = "x86-64" ] && [ "${BUILD_ARCH}" != "x86_64" ]; then echo "For ARCH x86-64, BUILD_ARCH must be x86_64"; exit 1; fi
+RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo "For ARCH aarch64, BUILD_ARCH must be aarch64"; exit 1; fi
+
 RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
@@ -782,7 +786,6 @@ ARG JOBS
 ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
-
 COPY --from=sources-downloader /sources/downloads/perl.tar.xz /sources/
 RUN cd /sources && \
     tar -xf perl.tar.xz && mv perl-* perl && \

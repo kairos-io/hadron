@@ -14,7 +14,27 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
-TARGETARCH ?= amd64
+# Docker architecture settings + build defaults derived from this
+ARCH ?= amd64
+# Build architecture settings
+TARGET_ARCH = x86-64
+BUILD_ARCH = x86_64
+
+
+
+# Adjust ARCH variable to match Docker platform naming conventions
+# in case we pass x86_64 or aarch64 we set the proper values
+ifeq ($(ARCH),aarch64)
+	ARCH := arm64
+	TARGET_ARCH := aarch64
+	BUILD_ARCH := aarch64
+else ifeq ($(ARCH),arm64)
+	TARGET_ARCH := aarch64
+	BUILD_ARCH := aarch64
+# Exit if invalid arch
+else
+$(error "Architecture $(ARCH) is not supported. Please use 'amd64' or 'arm64'.")
+endif
 
 # Adjust IMAGE_NAME based on BOOTLOADER
 # If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
@@ -55,6 +75,9 @@ targets:
 help: targets
 	@echo "------------------------------------------------------------------------"
 	@echo "The BOOTLOADER variable can be set to 'grub' or 'systemd'. The default is 'systemd' to build a Trusted Boot image."
+	@echo "The KERNEL_TYPE variable can be set to 'default' or 'cloud'. The default is 'default'."
+	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'."
+	@ECHO "The ARCH variable can be set to 'amd64' or 'arm64'. The default is 'amd64'. It will build for x86-64 or aarch64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.1."
 	@echo "The IMAGE_NAME variable can be set to the name of the Hadron image that its built. The default is 'hadron'."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
@@ -83,6 +106,8 @@ build-hadron:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} \
 	--build-arg JOBS=${JOBS} \
+	--build-arg ARCH=${TARGET_ARCH} \
+	--build-arg BUILD_ARCH=${BUILD_ARCH} \
 	--build-arg VERSION=${HADRON_VERSION} \
 	--build-arg BOOTLOADER=${BOOTLOADER} \
 	--build-arg KERNEL_TYPE=${KERNEL_TYPE} \
