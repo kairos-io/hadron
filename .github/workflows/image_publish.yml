@@ -28,7 +28,7 @@ jobs:
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 16
+              max-parallelism = 2
       - name: Log in to the Container registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
@@ -96,7 +96,7 @@ jobs:
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 16
+              max-parallelism = 2
       - name: Log in to the Container registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
@@ -180,7 +180,7 @@ jobs:
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 16
+              max-parallelism = 2
       - name: Log in to the Container registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
@@ -260,7 +260,7 @@ jobs:
         with:
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 16
+              max-parallelism = 2
       - name: Log in to the Container registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
