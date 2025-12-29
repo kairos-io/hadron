@@ -2076,8 +2076,9 @@ FROM grub-base AS grub-bios
 ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror
-RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios
+# Protect against building grub-bios on aarch64 host which is not supported
+RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
+RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios;fi
 
 
 FROM rsync AS tpm2-tss
