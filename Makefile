@@ -152,7 +152,7 @@ clean:
 
 grub-iso:
 	@echo "Building BIOS ISO image..."
-	@docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME} && \
+	@docker run --privileged -v /var/run/docker.sock:/var/run/docker.sock -v ${PWD}/build/:/output --platform=${ARCH} ${AURORA_IMAGE} build-iso --output /output/ docker:${INIT_IMAGE_NAME} && \
 	echo "GRUB ISO image built successfully at $$(ls -t1 build/kairos-hadron-*.iso | head -n1)"
 
 # Build an ISO image

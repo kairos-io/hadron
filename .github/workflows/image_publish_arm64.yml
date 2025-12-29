@@ -204,7 +204,7 @@ jobs:
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: |
-            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -243,7 +243,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           push: true
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: type=gha,scope=hadron/ci-image-main
