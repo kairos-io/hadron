@@ -1702,17 +1702,17 @@ WORKDIR /sources/kernel
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 make -s -j${JOBS} Image; \
     else \
-    ARCH=$ARCH make -s -j${JOBS} bzImage; \
+    ARCH=x86_64 make -s -j${JOBS} bzImage; \
     fi
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
-    export ARCH=$ARCH;\
+    export ARCH=x86_64;\
     fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-version
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
     else \
-    ARCH=$ARCH kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
+    ARCH=x86_64 kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
     fi
 # link vmlinuz to our kernel
 RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-version) /kernel/vmlinuz
@@ -1734,27 +1734,25 @@ FROM kernel-${FIPS} AS kernel
 
 FROM kernel-build AS kernel-modules
 # This builds the modules
-ENV ARCH=${ARCH}
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
-    export ARCH=$ARCH;\
+    export ARCH=x86_64;\
     fi;  make -s -j${JOBS} modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
-    export ARCH=$ARCH;\
+    export ARCH=x86_64;\
     fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
-ENV ARCH=${ARCH}
 WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
-    export ARCH=$ARCH;\
+    export ARCH=x86_64;\
     fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
