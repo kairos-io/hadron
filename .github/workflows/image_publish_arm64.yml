@@ -9,7 +9,7 @@ on:
     tags:
       - '*'
 concurrency:
-  group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: ci-image-arm64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
   toolchain:
