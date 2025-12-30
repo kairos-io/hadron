@@ -84,8 +84,8 @@ jobs:
           tags: ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
   toolchain:
     needs:
       - toolchain-amd64
@@ -189,8 +189,8 @@ jobs:
           tags: ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           target: container
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
   container:
     needs:
       - container-amd64
@@ -260,8 +260,8 @@ jobs:
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           target: default
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -312,8 +312,8 @@ jobs:
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           target: default
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -389,8 +389,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
           target: default
           build-args: |
             BOOTLOADER=systemd
@@ -437,8 +437,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=hadron/ci-image-main
-          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          cache-from: type=gha,scope=hadron/ci-image-main-arm64
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main-arm64
           target: default
           build-args: |
             BOOTLOADER=systemd
