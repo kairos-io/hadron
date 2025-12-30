@@ -2804,16 +2804,16 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container-pre
-ARG BUILD_ARCH
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
 ## Link sh to bash
 RUN ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
-RUN ln -s /lib/ld-musl-${BUILD_ARCH}.so.1 /bin/ldd
-
-FROM scratch AS container
-COPY --from=container-pre / /
+RUN if [ "${ARCH}" == "aarch64" ]; then \
+    ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    else \
+    ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
+    fi
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
