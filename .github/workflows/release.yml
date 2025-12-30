@@ -1,0 +1,471 @@
+name: Release images
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: ci-image-release-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: false # We want all releases to complete
+jobs:
+  toolchain-amd64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: toolchain
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+  toolchain-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: toolchain
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+  toolchain:
+    needs:
+      - toolchain-amd64
+      - toolchain-arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}-toolchain
+      - uses: int128/docker-manifest-create-action@v2
+        id: build
+        with:
+          index-annotations: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          sources: |
+            ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-arm64
+  container-amd64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs:
+      - toolchain
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: container
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+  container-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs:
+      - toolchain
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: container
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+  container:
+    needs:
+      - container-amd64
+      - container-arm64
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}-container
+      - uses: int128/docker-manifest-create-action@v2
+        id: build
+        with:
+          index-annotations: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          sources: |
+            ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
+  hadron-bios-amd64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs:
+      - container  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+        fips: [ "no-fips" ]
+        include:
+          - kernel: "cloud"
+            fips: "fips"
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
+  hadron-bios-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs:
+      - container  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+        fips: [ "no-fips" ]
+        include:
+          - kernel: "cloud"
+            fips: "fips"
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
+  hadron-bios:
+    needs:
+      - hadron-bios-amd64
+      - hadron-bios-arm64
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+        fips: [ "no-fips" ]
+        include:
+          - kernel: "cloud"
+            fips: "fips"
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}
+      - uses: int128/docker-manifest-create-action@v2
+        id: build
+        with:
+          index-annotations: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          sources: |
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64
+  hadron-trusted-amd64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs:
+      - container  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          target: default
+          build-args: |
+            BOOTLOADER=systemd
+            KERNEL_TYPE=${{ matrix.kernel }}
+
+  hadron-trusted-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs:
+      - container  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=hadron/ci-image-main
+          cache-to: type=gha,mode=max,scope=hadron/ci-image-main
+          target: default
+          build-args: |
+            BOOTLOADER=systemd
+            KERNEL_TYPE=${{ matrix.kernel }}
+  hadron-trusted:
+    needs:
+      - hadron-trusted-amd64
+      - hadron-trusted-arm64
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        kernel: [ "cloud", "default" ]
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted
+      - uses: int128/docker-manifest-create-action@v2
+        id: build
+        with:
+          index-annotations: ${{ steps.metadata.outputs.labels }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          sources: |
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64

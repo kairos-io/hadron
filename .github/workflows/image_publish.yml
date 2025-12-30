@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - '*'
 concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
