@@ -2833,7 +2833,6 @@ RUN getfacl --version
 RUN setfacl --version
 RUN busybox --list
 RUN openssl version
-RUN ldd /bin/bash
 
 # stage2-merge is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
