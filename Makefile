@@ -31,6 +31,8 @@ ifeq ($(ARCH),aarch64)
 else ifeq ($(ARCH),arm64)
 	TARGET_ARCH := aarch64
 	BUILD_ARCH := aarch64
+else ifeq ($(ARCH),amd64)
+	# do nothing
 # Exit if invalid arch
 else
 $(error "Architecture $(ARCH) is not supported. Please use 'amd64' or 'arm64'.")

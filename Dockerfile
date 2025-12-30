@@ -2811,10 +2811,10 @@ SHELL ["/bin/bash", "-c"]
 RUN ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN ln -s /lib/ld-musl-${BUILD_ARCH}.so.1 /bin/ldd
-CMD ["/bin/bash", "-l"]
 
 FROM scratch AS container
 COPY --from=container-pre / /
+CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
 FROM container AS container-test
