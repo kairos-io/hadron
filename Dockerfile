@@ -2803,7 +2803,7 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 
 # Container base image, it has the minimal required to run as a container
-FROM scratch AS container-pre
+FROM scratch AS container
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
 ## Link sh to bash
