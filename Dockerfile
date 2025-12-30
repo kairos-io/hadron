@@ -2817,7 +2817,7 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
-FROM container AS container
+FROM container AS container-test
 RUN bash --version
 RUN ldconfig bash
 RUN curl --version
