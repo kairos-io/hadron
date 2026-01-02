@@ -34,7 +34,7 @@ ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 RUN if [ "${ARCH}" = "x86-64" ] && [ "${BUILD_ARCH}" != "x86_64" ]; then echo "For ARCH x86-64, BUILD_ARCH must be x86_64"; exit 1; fi
 RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo "For ARCH aarch64, BUILD_ARCH must be aarch64"; exit 1; fi
 
-RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
+RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
@@ -488,9 +488,20 @@ RUN <<EOT bash
        make -s -j${JOBS} DESTDIR=/sysroot install ;
 EOT
 
-## This is a hack to avoid to need the kernel headers to compile things like busybox
-FROM alpine:${ALPINE_VERSION} AS alpine-hack
-RUN apk add linux-headers
+FROM make-stage0 AS kernel-headers-stage0
+ARG JOBS
+
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
+
+WORKDIR /sources
+RUN tar -xf linux.tar.xz && mv linux-* kernel
+WORKDIR /sources/kernel
+# This installs the headers
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=x86_64;\
+    fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ########################################################
 #
@@ -500,8 +511,6 @@ RUN apk add linux-headers
 
 # Here we assemble our building image that we will use to build all the other packages, and assemble again from scratch+skeleton
 FROM stage0 AS stage1-merge
-
-RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 
@@ -525,18 +534,8 @@ RUN rsync -aHAX --keep-dirlinks /make/. /skeleton/
 COPY --from=binutils-stage0 /sysroot /binutils
 RUN rsync -aHAX --keep-dirlinks /binutils/. /skeleton/
 
-## This is a hack to avoid to need the kernel headers to compile things like busybox
-COPY --from=alpine-hack /usr/include/linux /linux
-RUN mkdir -p /skeleton/usr/include/linux && rsync -aHAX --keep-dirlinks  /linux/. /skeleton/usr/include/linux
-
-COPY --from=alpine-hack /usr/include/asm /asm
-RUN mkdir -p /skeleton/usr/include/asm && rsync -aHAX --keep-dirlinks  /asm/. /skeleton/usr/include/asm
-
-COPY --from=alpine-hack /usr/include/asm-generic /asm-generic
-RUN mkdir -p /skeleton/usr/include/asm-generic && rsync -aHAX --keep-dirlinks  /asm-generic/. /skeleton/usr/include/asm-generic
-
-COPY --from=alpine-hack /usr/include/mtd /mtd
-RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks  /mtd/. /skeleton/usr/include/mtd
+COPY --from=kernel-headers-stage0 /linux-headers /linux-headers
+RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /skeleton/usr/
 
 # Provide ldconfig in the image
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /aports/aports.tar.gz
