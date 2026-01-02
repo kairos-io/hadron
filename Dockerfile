@@ -29,7 +29,7 @@ ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
-RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar
+RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
@@ -484,7 +484,7 @@ EOT
 
 FROM make-stage0 AS kernel-headers-stage0
 ARG JOBS
-RUN apk add rsync
+
 COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
 
 WORKDIR /sources
@@ -505,8 +505,6 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
 
 # Here we assemble our building image that we will use to build all the other packages, and assemble again from scratch+skeleton
 FROM stage0 AS stage1-merge
-
-RUN apk add rsync
 
 COPY --from=skeleton /sysroot /skeleton
 
