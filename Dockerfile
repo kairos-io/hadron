@@ -482,9 +482,20 @@ RUN <<EOT bash
        make -s -j${JOBS} DESTDIR=/sysroot install ;
 EOT
 
-## This is a hack to avoid to need the kernel headers to compile things like busybox
-FROM alpine:${ALPINE_VERSION} AS alpine-hack
-RUN apk add linux-headers
+FROM make-stage0 AS kernel-headers-stage0
+ARG JOBS
+RUN apk add rsync
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
+
+WORKDIR /sources
+RUN tar -xf linux.tar.xz && mv linux-* kernel
+WORKDIR /sources/kernel
+# This installs the headers
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    else \
+    export ARCH=x86_64;\
+    fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ########################################################
 #
@@ -519,18 +530,8 @@ RUN rsync -aHAX --keep-dirlinks /make/. /skeleton/
 COPY --from=binutils-stage0 /sysroot /binutils
 RUN rsync -aHAX --keep-dirlinks /binutils/. /skeleton/
 
-## This is a hack to avoid to need the kernel headers to compile things like busybox
-COPY --from=alpine-hack /usr/include/linux /linux
-RUN mkdir -p /skeleton/usr/include/linux && rsync -aHAX --keep-dirlinks  /linux/. /skeleton/usr/include/linux
-
-COPY --from=alpine-hack /usr/include/asm /asm
-RUN mkdir -p /skeleton/usr/include/asm && rsync -aHAX --keep-dirlinks  /asm/. /skeleton/usr/include/asm
-
-COPY --from=alpine-hack /usr/include/asm-generic /asm-generic
-RUN mkdir -p /skeleton/usr/include/asm-generic && rsync -aHAX --keep-dirlinks  /asm-generic/. /skeleton/usr/include/asm-generic
-
-COPY --from=alpine-hack /usr/include/mtd /mtd
-RUN mkdir -p /skeleton/usr/include/mtd && rsync -aHAX --keep-dirlinks  /mtd/. /skeleton/usr/include/mtd
+COPY --from=kernel-headers-stage0 /linux-headers /linux-headers
+RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /skeleton/usr/
 
 # Provide ldconfig in the image
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /aports/aports.tar.gz
