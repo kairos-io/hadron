@@ -666,20 +666,20 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/acl.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
-    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
+    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-nls --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
     make -s -j${JOBS} DESTDIR=/acl install && make -s -j${JOBS} install
 
-## popt
+## popt as static as only cryptsetup needs it
 FROM acl AS popt
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/popt.tar.gz /sources/
 RUN cd /sources && \
     tar -xf popt.tar.gz && mv popt-* popt && \
-    cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
-    make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
+    cd popt && mkdir -p /popt && ./configure  --quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --disable-dependency-tracking --disable-shared --enable-static && make -s -j${JOBS} DESTDIR=/popt && \
+    make -s -j${JOBS} DESTDIR=/popt install
 
 ## zlib
-FROM popt AS zlib
+FROM acl AS zlib
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/zlib.tar.gz /sources/
 RUN mkdir -p /zlib
@@ -724,6 +724,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync
     --without-included-popt \
     --without-included-zlib \
     --disable-md2man \
+    --disable-nls \
     --disable-openssl && make -s -j${JOBS} DESTDIR=/rsync && \
     make -s -j${JOBS} DESTDIR=/rsync install && make -s -j${JOBS} install
 
@@ -1318,7 +1319,7 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
 
 
@@ -1356,7 +1357,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --with-privsep-user=nobody \
     --with-md5-passwords \
     --with-ssl-engine \
-    --with-pam
+    --with-pam --disable-lastlog --disable-utmp --disable-wtmp --disable-utmpx --disable-wtmpx
 
 RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} DESTDIR=/openssh install
@@ -1393,7 +1394,7 @@ RUN mkdir -p /gzip
 WORKDIR /sources
 RUN tar -xf gzip.tar.xz && mv gzip-* gzip
 WORKDIR /sources/gzip
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make -s -j${JOBS} && make install DESTDIR=/gzip
 
@@ -1741,7 +1742,7 @@ WORKDIR /sources/iptables
 RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
 
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables  --disable-legacy-utils --disable-bpf-compiler --disable-nfs --disable-libipq
-RUN make -s -s && make -s -s install DESTDIR=/iptables
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
@@ -1758,7 +1759,7 @@ WORKDIR /sources/libaio
 # Avoid building the static libaio.a as we only need the shared one
 RUN sed -i '/install.*libaio.a/s/^/#/' src/Makefile
 RUN make -j${JOBS}
-RUN DESTDIR=/libaio make install
+RUN DESTDIR=/libaio make -j${JOBS} install
 
 ## lvm2 for dmsetup, devmapper and so on
 ## TODO: build it with systemd support
@@ -1783,9 +1784,10 @@ RUN tar -xf lvm2.tgz && mv LVM2* lvm2
 WORKDIR /sources/lvm2
 # patch it
 RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
-RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${JOBS} install
-
+# Note: lvm2 ignores opt flags like -Os so we have to set it directly during configure
+# This is the diff between a 4Mb lvm2 vs a 600Kb!!
+RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --with-optimisation=-Os
+RUN make -s -j${JOBS} && make -s -j${JOBS} install_device-mapper DESTDIR=/lvm2
 
 FROM rsync AS cmake
 ARG JOBS
@@ -1825,9 +1827,8 @@ RUN mkdir -p /jsonc
 WORKDIR /sources
 RUN tar -xf json-c.tar.gz && mv json-c-* jsonc
 WORKDIR /sources/jsonc-build/
-RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_BUILD_TYPE=release -DBUILD_STATIC_LIBS=OFF -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}"
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j${JOBS} install
-
 
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
@@ -1838,12 +1839,14 @@ WORKDIR /sources
 RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false -Duse_fuzzing=false
 RUN DESTDIR=/pax-utils ninja -j${JOBS} -C buildDir install
 RUN ninja -j${JOBS} -C buildDir install
 
+# Build URCU static as its only used by multipathd and never reused again, we can save space this way
 FROM rsync AS urcu
 ARG JOBS
+ENV CFLAGS="${CFLAGS} -fPIC"
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=libcap /libcap /libcap
@@ -1856,7 +1859,7 @@ WORKDIR /sources
 RUN mkdir -p /urcu
 RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
+RUN ./configure --quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --disable-shared --enable-static --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${JOBS} install
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
@@ -1872,7 +1875,7 @@ RUN mkdir -p /e2fsprogs
 WORKDIR /sources
 RUN tar -xf e2fsprogs.tar.xz && mv e2fsprogs-* e2fsprogs
 WORKDIR /sources/e2fsprogs
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install --disable-more
 RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/e2fsprogs && make -s -j${JOBS} install
 
 
@@ -1885,10 +1888,10 @@ WORKDIR /sources
 RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools && make -s -j${JOBS} install
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools
 
 
-## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
+## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
 ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -1911,14 +1914,17 @@ COPY --from=readline /readline /readline
 RUN rsync -aHAX --keep-dirlinks  /readline/. /
 COPY --from=pax-utils /pax-utils /pax-utils
 RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+COPY --from=popt /popt /popt
+RUN rsync -aHAX --keep-dirlinks  /popt/. /
 
 COPY --from=sources-downloader /sources/downloads/cryptsetup.tar.xz /sources/
 RUN mkdir -p /cryptsetup
 WORKDIR /sources
 RUN tar -xf cryptsetup.tar.xz && mv cryptsetup-* cryptsetup
 WORKDIR /sources/cryptsetup
+# TODO: --enable-fips           enable FIPS mode restrictions
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -s -j${JOBS} install
+RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup
 
 
 FROM rsync AS parted
@@ -2142,7 +2148,7 @@ RUN /usr/bin/meson setup buildDir \
       -D sysupdate=disabled   \
       -D repart=disabled \
       -D coredump=false \
-      -D analyze=disabled \
+      -D analyze=false \
       -D link-udev-shared=true \
       -D link-systemctl-shared=true \
       -D link-journalctl-shared=true \
@@ -2361,7 +2367,7 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls
 RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
 
 
@@ -2470,7 +2476,6 @@ FROM stage1 AS full-toolchain-merge
 COPY --link --from=rsync /rsync /
 COPY --link --from=attr /attr /
 COPY --link --from=acl /acl /
-COPY --link --from=popt /popt /
 COPY --link --from=zstd /zstd /
 COPY --link --from=zlib /zlib /
 COPY --link --from=lz4 /lz4 /
@@ -2519,8 +2524,6 @@ COPY --from=gawk /gawk /gawk
 RUN rsync -aHAX --keep-dirlinks  /gawk/. /merge
 COPY --from=jsonc /jsonc /jsonc
 RUN rsync -aHAX --keep-dirlinks  /jsonc/. /merge
-COPY --from=urcu /urcu /urcu
-RUN rsync -aHAX --keep-dirlinks  /urcu/. /merge
 COPY --from=libaio /libaio /libaio
 RUN rsync -aHAX --keep-dirlinks  /libaio/. /merge
 COPY --from=coreutils /coreutils /coreutils
@@ -2571,8 +2574,6 @@ COPY --from=lz4 /lz4 /lz4
 RUN rsync -aHAX --keep-dirlinks  /lz4/. /merge
 COPY --from=xxhash /xxhash /xxhash
 RUN rsync -aHAX --keep-dirlinks  /xxhash/. /merge
-COPY --from=popt /popt /popt
-RUN rsync -aHAX --keep-dirlinks  /popt/. /merge
 COPY --from=libxml /libxml /libxml
 RUN rsync -aHAX --keep-dirlinks  /libxml/. /merge
 COPY --from=grep /grep /grep
@@ -2697,10 +2698,6 @@ RUN rsync -aHAX --keep-dirlinks  /libaio/. /skeleton/
 COPY --from=rsync /rsync /rsync
 RUN rsync -aHAX --keep-dirlinks  /rsync/. /skeleton/
 
-## popt for rsync
-COPY --from=popt /popt /popt
-RUN rsync -aHAX --keep-dirlinks  /popt/. /skeleton
-
 COPY --from=lz4 /lz4 /lz4
 RUN rsync -aHAX --keep-dirlinks  /lz4/. /skeleton
 
@@ -2712,21 +2709,21 @@ RUN rsync -aHAX --keep-dirlinks  /xxhash/. /skeleton
 COPY --from=kbd /kbd /kbd
 RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
 
-# This provides readelf needed by ldconfig
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /skeleton
+# This is mostly for debugging purposes, not needed for final image
+# This provides scanelf needed by ldconfig
+#COPY --from=pax-utils /pax-utils /pax-utils
+#RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /skeleton
 
 ## Copy ldconfig from alpine musl
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /
-RUN tar xf /aports.tar.gz && mv aports-* aports
-RUN cp /aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig
+#COPY --from=sources-downloader /sources/downloads/aports.tar.gz /
+#RUN tar xf /aports.tar.gz && mv aports-* aports
+#RUN cp /aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig
+# make sure they are both executable
+#RUN chmod 755 /skeleton/sbin/ldconfig
 
 ## OpenSSL
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
-
-# make sure they are both executable
-RUN chmod 755 /skeleton/sbin/ldconfig
 
 # TODO: Do we need sudo in the container image?
 ## Cleanup
@@ -2765,7 +2762,6 @@ CMD ["/bin/bash", "-l"]
 # Target that tests to see if the binaries work or we are missing some libs
 FROM container AS container-test
 RUN bash --version
-RUN ldconfig bash
 RUN curl --version
 RUN rsync --version
 RUN grep --version
@@ -2828,10 +2824,6 @@ RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
 ## we will resolve the symlinks and copy the real files multiple times
 ## Copy libgcc_s.so.1 for multipathd deps
 RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/usr/lib && cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/
-
-## liburcu needed by multipath-tools
-COPY --from=urcu /urcu /urcu
-RUN rsync -aHAX --keep-dirlinks  /urcu/. /skeleton
 
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
