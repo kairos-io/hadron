@@ -4,7 +4,9 @@
 ARG BOOTLOADER=grub
 ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
-ARG JOBS=24
+ARG JOBS=16
+## Maximum load for make -l
+ARG MAX_LOAD=32
 ARG FIPS="no-fips"
 ARG TARGETARCH
 
@@ -398,8 +400,8 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
     if [ "${ARCH}" == "aarch64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} CONFIG_PREFIX="/sysroot" install
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
 
 ###
 ### MUSL
@@ -415,7 +417,7 @@ RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
       --disable-static \
       --target=${TARGET} && \
       make -s -j${JOBS} && \
-      DESTDIR=/sysroot make -s -j${JOBS} install
+      DESTDIR=/sysroot make -s -j${JOBS} -l${MAX_LOAD} install
 
 ###
 ### GCC
@@ -446,8 +448,8 @@ RUN <<EOT bash
         --disable-libmudflap \
         --disable-multilib \
         --disable-libsanitizer && \
-        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} && \
-        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" DESTDIR=/sysroot install ;
+        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
+        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install ;
 EOT
 
 ###
@@ -461,8 +463,8 @@ RUN cd /sources && tar -xf make.tar.gz && mv make-* make && \
     cd make && \
     ./configure --quiet --prefix=/usr \
     --build=${BUILD_ARCH} --host=${TARGET} && \
-    make -s -j${JOBS} && \
-    make -s -j${JOBS} DESTDIR=/sysroot install
+    make -s -j${JOBS} -l${MAX_LOAD} && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
 
 
 ###
@@ -484,8 +486,8 @@ RUN <<EOT bash
        --disable-nls \
        --disable-multilib \
        --enable-shared && \
-       make -s -j${JOBS} && \
-       make -s -j${JOBS} DESTDIR=/sysroot install ;
+       make -s -j${JOBS} -l${MAX_LOAD} && \
+       make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install ;
 EOT
 
 FROM make-stage0 AS kernel-headers-stage0
@@ -598,7 +600,7 @@ RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
       make -s -j${JOBS} && \
-      DESTDIR=/sysroot make -s -j${JOBS} install
+      DESTDIR=/sysroot make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## pkgconfig
 FROM stage1 AS pkgconfig
@@ -611,8 +613,8 @@ RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* p
     --infodir=/usr/share/info \
     --localstatedir=/var \
     --with-pkg-config-dir=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig && \
-    make -s -j${JOBS} && \
-    make -s -j${JOBS} DESTDIR=/pkgconfig install && make -s -j${JOBS} install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
+    make -s -j${JOBS} -l${MAX_LOAD} && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/pkgconfig install && make -s -j${JOBS} -l${MAX_LOAD} install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 ## xxhash
 FROM stage1 AS xxhash
@@ -620,8 +622,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/xxhash.tar.gz /sources/
 ENV CC="gcc"
 RUN mkdir -p /sources && cd /sources && tar -xf xxhash.tar.gz && mv xxHash-* xxhash && \
-    cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash && \
-    make -s -j${JOBS} prefix=/usr DESTDIR=/xxhash install && make -s -j${JOBS} prefix=/usr install
+    cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/xxhash && \
+    make -s -j${JOBS} prefix=/usr -l${MAX_LOAD} DESTDIR=/xxhash install && make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
 
 ## zstd
 FROM xxhash AS zstd
@@ -632,9 +634,9 @@ WORKDIR /sources
 RUN tar -xf zstd.tar.gz && mv zstd-* zstd
 WORKDIR /sources/zstd
 ENV CC=gcc
-RUN make -s -j${JOBS} DESTDIR=/zstd prefix=/usr
-RUN make -s -j${JOBS} DESTDIR=/zstd prefix=/usr install
-RUN make -s -j${JOBS} prefix=/usr install
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zstd prefix=/usr
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zstd prefix=/usr install
+RUN make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
 
 ## lz4
 FROM zstd AS lz4
@@ -642,8 +644,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/lz4.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
-    cd lz4 && mkdir -p /lz4 && CC=gcc make -s -j${JOBS} prefix=/usr DESTDIR=/lz4 && \
-    make -s -j${JOBS} prefix=/usr DESTDIR=/lz4 install && make -s -j${JOBS} prefix=/usr install
+    cd lz4 && mkdir -p /lz4 && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/lz4 && \
+    make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/lz4 install && make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
 
 ## attr
 FROM lz4 AS attr
@@ -664,9 +666,9 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconf
     --mandir=/usr/share/man \
     --localstatedir=/var \
     --disable-nls
-RUN make -s -j${JOBS} DESTDIR=/attr
-RUN make -s -j${JOBS} DESTDIR=/attr install
-RUN make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/attr
+RUN make -s -j${JOBS} -l${MAX_LOAD}  DESTDIR=/attr install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## acl
 FROM attr AS acl
@@ -674,8 +676,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/acl.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
-    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} DESTDIR=/acl && \
-    make -s -j${JOBS} DESTDIR=/acl install && make -s -j${JOBS} install
+    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --libexecdir=/usr/libexec && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/acl && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/acl install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## popt
 FROM acl AS popt
@@ -683,8 +685,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/popt.tar.gz /sources/
 RUN cd /sources && \
     tar -xf popt.tar.gz && mv popt-* popt && \
-    cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} DESTDIR=/popt && \
-    make -s -j${JOBS} DESTDIR=/popt install && make -s -j${JOBS} install
+    cd popt && mkdir -p /popt && ./configure  ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/popt && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/popt install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## zlib
 FROM popt AS zlib
@@ -695,9 +697,9 @@ WORKDIR /sources
 RUN tar -xf zlib.tar.gz && mv zlib-* zlib
 WORKDIR /sources/zlib
 RUN ./configure --shared --prefix=/usr
-RUN make -s -j${JOBS} DESTDIR=/zlib
-RUN make -s -j${JOBS} DESTDIR=/zlib install
-RUN make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zlib
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zlib install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## gawk
 FROM zlib AS gawk
@@ -709,8 +711,8 @@ RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk &&
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --disable-pma && make -s -j${JOBS} DESTDIR=/gawk && \
-    make -s -j${JOBS} DESTDIR=/gawk install && make -s -j${JOBS} install
+    --disable-pma && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gawk && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gawk install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## rsync
 FROM gawk AS rsync
@@ -731,8 +733,8 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync
     --without-included-popt \
     --without-included-zlib \
     --disable-md2man \
-    --disable-openssl && make -s -j${JOBS} DESTDIR=/rsync && \
-    make -s -j${JOBS} DESTDIR=/rsync install && make -s -j${JOBS} install
+    --disable-openssl && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/rsync && \
+    make -s -j${JOBS} DESTDIR=/rsync -l${MAX_LOAD} install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## binutils
 FROM stage1 AS binutils
@@ -749,9 +751,9 @@ ENV STRIP=strip
 ENV NM=nm
 ENV RANLIB=ranlib
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} DESTDIR=/binutils
-RUN make -s -j${JOBS} DESTDIR=/binutils install
-RUN make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
@@ -759,8 +761,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/m4.tar.xz /sources/
 RUN cd /sources && \
     tar -xf m4.tar.xz && mv m4-* m4 && \
-    cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/m4 && \
-    make -s -j${JOBS} DESTDIR=/m4 install && make -s -j${JOBS} install
+    cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## readline
 FROM stage1 AS readline
@@ -768,8 +770,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
     tar -xf readline.tar.gz && mv readline-* readline && \
-    cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/readline && \
-    make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
+    cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/readline && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/readline install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## flex
 FROM m4 AS flex
@@ -777,7 +779,7 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/flex.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf flex.tar.gz && mv flex-* flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
-    make DESTDIR=/flex install && make install && ln -s flex /flex/usr/bin/lex
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/flex install && make -j${JOBS} -l${MAX_LOAD} install && ln -s flex /flex/usr/bin/lex
 
 ## perl
 FROM m4 AS perl
@@ -818,7 +820,7 @@ RUN cd /sources && \
        -Ud_off64_t \
        -Dusenm \
        -Duse64bitint && make -s -j${JOBS} libperl.so && \
-        make -s -j${JOBS} DESTDIR=/perl && make -s -j${JOBS} DESTDIR=/perl install && make -s -j${JOBS} install
+        make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/perl && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/perl install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## bison
 FROM rsync AS bison
@@ -834,7 +836,7 @@ RUN rsync -aHAX --keep-dirlinks  /perl/. /
 
 COPY --from=sources-downloader /sources/downloads/bison.tar.xz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xvf bison.tar.xz && mv bison-* bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
-    make DESTDIR=/bison install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/bison install && make -j${JOBS} -l${MAX_LOAD} install
 
 ## bash
 FROM readline AS bash
@@ -872,11 +874,11 @@ RUN CFLAGS="${CFLAGS}" ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     bash_cv_job_control_missing=nomissing \
     bash_cv_sys_named_pipes=nomissing \
     bash_cv_printf_a_format=yes
-RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} builtins/libbuiltins.a && make -s -j${JOBS}
+RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} -l${MAX_LOAD} builtins/libbuiltins.a && make -s -j${JOBS} -l${MAX_LOAD}
 RUN mkdir -p /bash/etc/bash
 RUN install -Dm644  /sources/bashrc /bash/etc/bash.bashrc
 RUN install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh
-RUN make -s -j${JOBS} DESTDIR=/bash install && make -s -j${JOBS} install # && rm -rf /bash/usr/share/locale
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/bash install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## libcap
 FROM bash AS libcap
@@ -884,8 +886,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/libcap.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* libcap && \
-    cd libcap && mkdir -p /libcap && make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" && \
-    make -s -j${JOBS} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
+    cd libcap && mkdir -p /libcap && make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} -l${MAX_LOAD} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## openssl
 FROM rsync AS openssl-no-fips
@@ -904,8 +906,8 @@ RUN ./Configure --prefix=/usr         \
     --openssldir=/etc/ssl \
     --libdir=lib          \
     shared zlib-dynamic 2>&1
-RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
-RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} install_sw install_ssldirs
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl 2>&1
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} -l${MAX_LOAD} install_sw install_ssldirs
 
 FROM rsync AS openssl-fips
 
@@ -937,10 +939,10 @@ RUN ./Configure --prefix=/usr         \
     no-weak-ssl-ciphers \
     zlib-dynamic \
      2>&1
-RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl 2>&1
 RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
-RUN make -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs
-RUN make -j${JOBS} DESTDIR=/openssl install_fips
+RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl install_sw install_ssldirs
+RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl install_fips
 COPY ./files/openssl/openssl.cnf.fips /openssl/etc/ssl/openssl.cnf
 
 FROM openssl-${FIPS} AS openssl
@@ -956,9 +958,9 @@ RUN rm -rfv busybox && tar -xf busybox.tar.bz2 && mv busybox-* busybox
 WORKDIR /sources/busybox
 RUN make -s distclean
 COPY ./files/busybox/minimal.config .config
-RUN make -j${JOBS} silentoldconfig
-RUN make -s -j${JOBS} CONFIG_PREFIX="/sysroot" install
-RUN make -s -j${JOBS} install
+RUN make -j${JOBS} -l${MAX_LOAD} silentoldconfig
+RUN make -s -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## coreutils
 FROM rsync AS coreutils
@@ -986,8 +988,8 @@ RUN cd /sources && \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
-    --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/coreutils && \
-    make -s -j${JOBS} DESTDIR=/coreutils install
+    --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/coreutils && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/coreutils install
 
 ## findutils
 FROM stage1 AS findutils
@@ -995,8 +997,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/findutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf findutils.tar.xz && mv findutils-* findutils && \
-    cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/findutils && \
-    make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
+    cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/findutils && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/findutils install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## grep
 FROM stage1 AS grep
@@ -1004,8 +1006,8 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/grep.tar.xz /sources/
 RUN cd /sources && \
     tar -xf grep.tar.xz && mv grep-* grep && \
-    cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} DESTDIR=/grep && \
-    make -s -j${JOBS} DESTDIR=/grep install && make -s -j${JOBS} install
+    cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/grep && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/grep install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## ca-certificates
 FROM rsync AS ca-certificates
@@ -1038,8 +1040,8 @@ RUN rsync -aHAX --keep-dirlinks  /findutils/. /
 COPY --from=sources-downloader /sources/downloads/ca-certificates.tar.bz2 /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf ca-certificates.tar.bz2 && mv ca-certificates-* ca-certificates && \
-    cd ca-certificates && mkdir -p /ca-certificates && CC=gcc make -s -j${JOBS} && \
-    make -s -j${JOBS} DESTDIR=/ca-certificates install
+    cd ca-certificates && mkdir -p /ca-certificates && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/ca-certificates install
 
 COPY ./files/ca-certificates/post_install.sh /sources/post_install.sh
 RUN bash /sources/post_install.sh
@@ -1062,8 +1064,8 @@ RUN mkdir -p /sources && cd /sources && tar -xf sqlite3.tar.gz && \
 		--enable-fts4 \
 		--enable-fts5 \
 		--soname=legacy && \
-    make -s -j${JOBS} && \
-    make -s -j${JOBS} DESTDIR=/sqlite3 install && make -s -j${JOBS} install
+    make -s -j${JOBS} -l${MAX_LOAD} && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sqlite3 install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## curl
 FROM rsync AS curl
@@ -1097,8 +1099,8 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl.tar.gz && mv curl-* curl &&
     --disable-ldap \
     --with-pic \
     --without-libpsl \
-    --without-libssh2 && make -s -j${JOBS} DESTDIR=/curl && \
-    make -s -j${JOBS} DESTDIR=/curl install && make -s -j${JOBS} install
+    --without-libssh2 && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/curl && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/curl install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 FROM rsync AS libffi
 ARG JOBS
@@ -1108,7 +1110,7 @@ WORKDIR /sources
 RUN tar -xf libffi.tar.gz && mv libffi-* libffi
 WORKDIR /sources/libffi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libffi
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libffi
 
 ## python
 FROM rsync AS python-build
@@ -1144,9 +1146,9 @@ RUN ./configure --quiet --prefix=/usr \
     --with-computed-gotos \
     --disable-test-modules \
     --with-dbmliborder=gdbm:ndbm
-RUN make -s -j${JOBS} DESTDIR=/python
-RUN make -s -j${JOBS} DESTDIR=/python install
-RUN make -s -j${JOBS} install 2>&1
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/python
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/python install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install 2>&1
 
 
 ## util-linux
@@ -1175,8 +1177,8 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources &&
     --disable-bfs \
     --without-python \
     --with-sysusersdir=/usr/lib/sysusers.d/ \
-    && make -s -j${JOBS} DESTDIR=/util-linux && \
-    make -s -j${JOBS} DESTDIR=/util-linux install && make -s -j${JOBS} install
+    && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## gperf
 FROM stage1 AS gperf
@@ -1185,8 +1187,8 @@ COPY --from=sources-downloader /sources/downloads/gperf.tar.gz /sources/
 RUN cd /sources && \
     tar -xf gperf.tar.gz && mv gperf-* gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
-    make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
-    make -s -j${JOBS} DESTDIR=/gperf install && make -s -j${JOBS} install
+    make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gperf install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
@@ -1199,7 +1201,7 @@ WORKDIR /sources
 RUN tar -xf libseccomp.tar.gz && mv libseccomp-* libseccomp
 WORKDIR /sources/libseccomp
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libseccomp
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libseccomp
 
 
 ## expat
@@ -1213,7 +1215,7 @@ WORKDIR /sources
 RUN tar -xf expat.tar.gz && mv expat-* expat
 WORKDIR /sources/expat
 RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/expat
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/expat
 
 FROM stage0 AS gdb-stage0
 ARG JOBS
@@ -1240,8 +1242,8 @@ RUN ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --disable-nls \
     --with-libexpat-prefix=/usr \
     --disable-multilib
-RUN make -j${JOBS}
-RUN make -j${JOBS} DESTDIR=/gdb install install-gdbserver
+RUN make -j${JOBS} -l${MAX_LOAD}
+RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/gdb install install-gdbserver
 
 
 ## dbus first pass without systemd support so we can build systemd afterwards
@@ -1313,7 +1315,7 @@ WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
-RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## openssh
@@ -1352,9 +1354,9 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --with-ssl-engine \
     --with-pam
 
-RUN make -s -j${JOBS}
-RUN make -s -j${JOBS} DESTDIR=/openssh install
-RUN make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssh install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
 COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
@@ -1377,7 +1379,7 @@ WORKDIR /sources
 RUN tar -xf xz.tar.gz && mv xz-* xz
 WORKDIR /sources/xz
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-doc --enable-small --disable-scripts
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/xz && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/xz && make -s -j${JOBS} -l${MAX_LOAD} install
 
 # gzip at least for the toolchain
 FROM rsync AS gzip
@@ -1388,8 +1390,8 @@ WORKDIR /sources
 RUN tar -xf gzip.tar.xz && mv gzip-* gzip
 WORKDIR /sources/gzip
 RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
-RUN make -j$(nproc)
-RUN make -s -j${JOBS} && make install DESTDIR=/gzip
+RUN make -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -j${JOBS} -l${MAX_LOAD} install DESTDIR=/gzip
 
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
@@ -1431,7 +1433,7 @@ COPY --from=sources-downloader /sources/downloads/autoconf.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf autoconf.tar.xz && mv autoconf-* autoconf && \
     cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/autoconf && \
-    make DESTDIR=/autoconf install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/autoconf install && make -j${JOBS} -l${MAX_LOAD} install
 
 
 ## automake
@@ -1450,7 +1452,7 @@ COPY --from=sources-downloader /sources/downloads/automake.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf automake.tar.xz && mv automake-* automake && \
     cd automake && mkdir -p /automake && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/automake && \
-    make DESTDIR=/automake install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/automake install && make -j${JOBS} -l${MAX_LOAD} install
 
 
 ## argp-standalone
@@ -1472,7 +1474,7 @@ RUN rsync -aHAX --keep-dirlinks  /m4/. /
 
 COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xvf argp-standalone.tar.gz && mv argp-standalone-* argp-standalone && cd argp-standalone && mkdir -p /argp-standalone && autoreconf -vif && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared -sysconfdir=/etc --localstatedir=/var && \
-    make DESTDIR=/argp-standalone install && make install && install -D -m644 argp.h /argp-standalone/usr/include/argp.h && install -D -m755 libargp.a /argp-standalone/usr/lib/libargp.a
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/argp-standalone install && make -j${JOBS} -l${MAX_LOAD} install && install -D -m644 argp.h /argp-standalone/usr/include/argp.h && install -D -m755 libargp.a /argp-standalone/usr/lib/libargp.a
 
 ## libtool
 FROM rsync AS libtool
@@ -1486,7 +1488,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf libtool.tar.xz && mv libtool-* 
 -e "s|test-funclib-quote.sh||" \
 -e "s|test-option-parser.sh||" \
 gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
-    make DESTDIR=/libtool install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/libtool install && make -j${JOBS} -l${MAX_LOAD} install
 
 ## fts
 FROM rsync AS fts
@@ -1515,7 +1517,7 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 COPY --from=sources-downloader /sources/downloads/musl-fts.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts.tar.gz && mv musl-fts-* fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
-    make DESTDIR=/fts install && make install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/fts install && make -j${JOBS} -l${MAX_LOAD} install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
 ## musl-obstack
 FROM rsync AS musl-obstack
@@ -1541,7 +1543,7 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 
 COPY --from=sources-downloader /sources/downloads/musl-obstack.tar.gz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xvf musl-obstack.tar.gz && mv musl-obstack-* musl-obstack && cd musl-obstack && mkdir -p /musl-obstack && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
-    make DESTDIR=/musl-obstack install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/musl-obstack install && make -j${JOBS} -l${MAX_LOAD} install
 
 
 ## elfutils
@@ -1581,7 +1583,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf elfutils.tar.bz2 && mv elfutils
 --disable-libdebuginfod \
 --disable-debuginfod \
 --with-zstd && \
-    make DESTDIR=/elfutils install && make install
+    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/elfutils install && make -j${JOBS} -l${MAX_LOAD} install
 
 
 FROM rsync AS diffutils
@@ -1597,9 +1599,9 @@ WORKDIR /sources/diffutils
 ENV CFLAGS="${CFLAGS:-} -Dnullptr=NULL"
 # Set HOST to TARGET for cross compiling to avoid it trying to run tests
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --libdir=/usr/lib --host=${HOST}
-RUN make -s -j${JOBS} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils
-RUN make -s -j${JOBS} DESTDIR=/diffutils install
-RUN make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/diffutils install
+RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 FROM rsync AS libkcapi
 ARG JOBS
@@ -1628,7 +1630,7 @@ RUN tar -xf libkcapi.tar.gz && mv libkcapi-* libkcapi
 WORKDIR /sources/libkcapi
 RUN autoreconf -i
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --disable-werror --enable-kcapi-hasher --disable-lib-kdf --disable-lib-sym --disable-lib-aead --disable-lib-rng
-RUN make -s -j${JOBS} && make -s -j${JOBS} install LIBDIR=lib BINDIR=/bin DESTDIR=/libkcapi
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install LIBDIR=lib BINDIR=/bin DESTDIR=/libkcapi
 RUN ln -s kcapi-hasher /libkcapi/usr/bin/sha512hmac
 RUN rm -Rf /libkcapi/usr/share /libkcapi/usr/lib/pkgconfig /libkcapi/usr/include /libkcapi/usr/libexec /libkcapi/usr/lib/*.la
 ## kernel
@@ -1699,9 +1701,9 @@ ARG JOBS
 WORKDIR /sources/kernel
 # This only builds the kernel
 RUN if [ ${ARCH} = "aarch64" ]; then \
-    ARCH=arm64 make -s -j${JOBS} Image; \
+    ARCH=arm64 make -s -j${JOBS} -l${MAX_LOAD} Image; \
     else \
-    ARCH=x86_64 make -s -j${JOBS} bzImage; \
+    ARCH=x86_64 make -s -j${JOBS} -l${MAX_LOAD} bzImage; \
     fi
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
@@ -1737,12 +1739,12 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} modules
+    fi;  make -s -j${JOBS} -l${MAX_LOAD} modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
     export ARCH=x86_64;\
-    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
+    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} -l${MAX_LOAD} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
@@ -1752,7 +1754,7 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
     export ARCH=x86_64;\
-    fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
+    fi; make -s -j${JOBS} -l${MAX_LOAD} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
@@ -1775,7 +1777,7 @@ WORKDIR /sources
 RUN tar -xf kbd.tar.gz && mv kbd-* kbd
 WORKDIR /sources/kbd
 RUN ./configure --quiet --prefix=/usr --disable-tests --disable-vlock -enable-libkeymap --enable-libkfont
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/kbd
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/kbd
 
 ## strace
 FROM rsync AS strace
@@ -1788,7 +1790,7 @@ WORKDIR /sources
 RUN tar -xf strace.tar.xz && mv strace-* strace
 WORKDIR /sources/strace
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-mpers=check
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/strace
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/strace
 
 ## libmnl
 FROM rsync AS libmnl
@@ -1799,7 +1801,7 @@ WORKDIR /sources
 RUN tar -xf libmnl.tar.bz2 && mv libmnl-* libmnl
 WORKDIR /sources/libmnl
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libmnl
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libmnl
 
 ## libnftnl
 FROM rsync AS libnftnl
@@ -1814,7 +1816,7 @@ WORKDIR /sources
 RUN tar -xf libnftnl.tar.xz && mv libnftnl-* libnftnl
 WORKDIR /sources/libnftnl
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libnftnl
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnftnl
 
 ## iptables
 FROM rsync AS iptables
@@ -1837,7 +1839,7 @@ WORKDIR /sources/iptables
 RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
 
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables
-RUN make -s -s && make -s -s install DESTDIR=/iptables
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/iptables
 
 ## libaio for lvm2
 FROM rsync AS libaio
@@ -1852,8 +1854,8 @@ WORKDIR /sources/libaio
 ENV CC=gcc
 # Avoid building the static libaio.a as we only need the shared one
 RUN sed -i '/install.*libaio.a/s/^/#/' src/Makefile
-RUN make -j${JOBS}
-RUN DESTDIR=/libaio make install
+RUN make -j${JOBS} -l${MAX_LOAD}
+RUN DESTDIR=/libaio make -j${JOBS} -l${MAX_LOAD} install
 
 ## lvm2 for dmsetup, devmapper and so on
 ## TODO: build it with systemd support
@@ -1879,7 +1881,7 @@ WORKDIR /sources/lvm2
 # patch it
 RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
 RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/lvm2 && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 FROM rsync AS cmake
@@ -1895,8 +1897,8 @@ WORKDIR /sources
 RUN tar -xf cmake.tar.gz && mv cmake-* cmake
 WORKDIR /sources/cmake
 
-RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cmake && make -s -j${JOBS} install
+RUN ./bootstrap --prefix=/usr --no-debugger --parallel=${JOBS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 FROM rsync AS jsonc
@@ -1916,7 +1918,7 @@ WORKDIR /sources
 RUN tar -xf json-c.tar.gz && mv json-c-* jsonc
 WORKDIR /sources/jsonc-build/
 RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/jsonc && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/jsonc && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 # pax-utils provives scanelf which lddconfig needs
@@ -1947,7 +1949,7 @@ RUN mkdir -p /urcu
 RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/urcu && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/urcu && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
@@ -1963,7 +1965,7 @@ WORKDIR /sources
 RUN tar -xf e2fsprogs.tar.xz && mv e2fsprogs-* e2fsprogs
 WORKDIR /sources/e2fsprogs
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/e2fsprogs && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/e2fsprogs && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## Provides mkfs.fat and fsck.fat
@@ -1975,7 +1977,7 @@ WORKDIR /sources
 RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dosfstools && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dosfstools && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## TODO: build cryptsetup before systemd so we can enable systemd-cryptsetup
@@ -2008,7 +2010,7 @@ WORKDIR /sources
 RUN tar -xf cryptsetup.tar.xz && mv cryptsetup-* cryptsetup
 WORKDIR /sources/cryptsetup
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/cryptsetup && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cryptsetup && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 FROM rsync AS parted
@@ -2028,7 +2030,7 @@ WORKDIR /sources
 RUN tar -xf parted.tar.xz && mv parted-* parted
 WORKDIR /sources/parted
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/parted && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/parted && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## grub for bootloader installation
@@ -2068,7 +2070,7 @@ ARG JOBS
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
-RUN make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-efi
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-efi
 
 
 FROM grub-base AS grub-bios
@@ -2077,7 +2079,7 @@ WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
 # Protect against building grub-bios on aarch64 host which is not supported
 RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
-RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} && make -s -j${JOBS} install-strip DESTDIR=/grub-bios;fi
+RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-bios;fi
 
 
 FROM rsync AS tpm2-tss
@@ -2104,7 +2106,7 @@ WORKDIR /sources
 RUN tar -xf tpm2-tss.tar.gz && mv tpm2-tss-* tpm2-tss
 WORKDIR /sources/tpm2-tss
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/tpm2-tss && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/tpm2-tss && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## systemd
@@ -2261,7 +2263,7 @@ WORKDIR /sources/dracut
 ## TODO: Fix this, it should be set everywhere already?
 ENV CC=gcc
 RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/dracut
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dracut
 
 
 ## lvm2 for dmsetup, devmapper and so on
@@ -2301,7 +2303,7 @@ WORKDIR /sources/lvm2
 # patch it
 RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
 RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --enable-udev_sync --enable-udev_rules --with-udevdir=/usr/lib/udev/rules.d --enable-dmeventd
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/lvm2 && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/lvm2 && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## needed for dracut and other tools
 FROM rsync AS multipath-tools
@@ -2348,9 +2350,9 @@ ENV CC="gcc"
 COPY patches/0001-multipathd-Dont-pthread_join-twice.patch /sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch
 RUN patch -p1 </sources/multipath-tools/0001-multipathd-Dont-pthread_join-twice.patch 
 # Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
-RUN make -s -j${JOBS} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
-RUN make -s -j${JOBS} LIB=/lib install
+RUN make -s -j${JOBS} -l${MAX_LOAD} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} -l${MAX_LOAD} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} -l${MAX_LOAD} LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
@@ -2415,7 +2417,7 @@ WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd
-RUN make -s -j${JOBS} && make -s -j${JOBS} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
 
 
 FROM rsync AS sudo-base
@@ -2439,7 +2441,7 @@ WORKDIR /sources
 RUN tar -xf sudo.tar.gz && mv sudo-* sudo
 WORKDIR /sources/sudo
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/sudo && make -s -j${JOBS} -l${MAX_LOAD} install
 
 FROM sudo-base AS sudo
 ARG JOBS
@@ -2451,7 +2453,7 @@ WORKDIR /sources
 RUN tar -xf sudo.tar.gz && mv sudo-* sudo
 WORKDIR /sources/sudo
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/sudo && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/sudo && make -s -j${JOBS} -l${MAX_LOAD} install
 
 FROM python-build AS openscsi
 ARG JOBS
@@ -2492,7 +2494,7 @@ WORKDIR /sources
 RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
 WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
-RUN make -s -j${JOBS} && make -s -j${JOBS} install DESTDIR=/libxml && make -s -j${JOBS} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
 ## Build image with all the deps on it
