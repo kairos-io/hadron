@@ -1993,6 +1993,20 @@ WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-efi
+# Build grub.efi file for Hadron (no signed shim, so we use grub directly as bootx64.efi)
+# The prefix ($root)/boot/grub2 is a runtime expression that grub will resolve at boot time
+RUN if [ "${BUILD_ARCH}" = "arm64" ]; then \
+		grub_format="arm64-efi"; \
+		grub_efi_name="grubaa64.efi"; \
+	else \
+		grub_format="x86_64-efi"; \
+		grub_efi_name="grubx64.efi"; \
+	fi && \
+	/grub-efi/usr/bin/grub-mkimage -O ${grub_format} \
+		-d /grub-efi/usr/lib/grub/${grub_format} \
+		-p '($root)/boot/grub2' \
+		-o /grub-efi/usr/lib/grub/${grub_format}/${grub_efi_name} \
+		loopback squash4 xzio gzio regexp
 
 
 FROM grub-base AS grub-bios
