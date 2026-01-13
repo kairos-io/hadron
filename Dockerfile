@@ -2025,7 +2025,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-efi
 # Build grub.efi file for Hadron (no signed shim, so we use grub directly as bootx64.efi)
 # The prefix ($root)/boot/grub2 is a runtime expression that grub will resolve at boot time
-RUN if [ "${BUILD_ARCH}" = "arm64" ]; then \
+RUN if [ "${ARCH}" = "aarch64" ]; then \
 		grub_format="arm64-efi"; \
 		grub_efi_name="grubaa64.efi"; \
 	else \
