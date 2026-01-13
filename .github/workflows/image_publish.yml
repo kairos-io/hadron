@@ -151,6 +151,7 @@ jobs:
             type=gha,scope=hadron/ci-image-${{ github.event.pull_request.number }}
           cache-to: type=gha,mode=max,scope=hadron/ci-image-${{ github.event.pull_request.number }}
       - name: Test container image
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
