@@ -84,8 +84,10 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
             cache-label=quay-remote-amd64
-          cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-amd64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           target: toolchain
   container:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -168,7 +170,8 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-amd64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           target: container
       - name: Test container image
         if: github.event_name == 'pull_request'
@@ -274,7 +277,8 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-pr-${{ github.event.pull_request.number }}-amd64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-pr-${{ github.event.pull_request.number }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -366,7 +370,8 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-amd64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}

@@ -85,8 +85,10 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: toolchain
-          cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-arm64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -174,12 +176,14 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64
           cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
       - name: Test container image
+        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -190,6 +194,7 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -284,7 +289,8 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-arm64
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
