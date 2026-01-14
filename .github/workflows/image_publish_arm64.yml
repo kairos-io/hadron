@@ -70,7 +70,7 @@ jobs:
             cache-label=quay-remote-arm64
           target: toolchain
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -88,7 +88,7 @@ jobs:
             cache-label=quay-remote-arm64
           target: toolchain
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -155,7 +155,7 @@ jobs:
             cache-label=quay-remote-arm64
           target: container
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -173,7 +173,7 @@ jobs:
             cache-label=quay-remote-arm64
           target: container
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -186,7 +186,7 @@ jobs:
           platforms: linux/arm64
           target: container-test
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -255,7 +255,7 @@ jobs:
             ${{ steps.meta.outputs.labels }}
             cache-label=quay-remote-arm64
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           target: default
           build-args: |
             BOOTLOADER=grub
@@ -277,7 +277,7 @@ jobs:
             cache-label=quay-remote-arm64
           target: default
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}

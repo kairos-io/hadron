@@ -2084,7 +2084,7 @@ RUN mkdir -p /shim/usr/share/efi/
 # Install it to a temp folder as the dir struct is terrible
 # and we want it to be available at /usr/share/efi/shimXX.efi
 # TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
-RUN make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron DESTDIR=/tmp/shim install
+RUN make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron ARCH=${BUILD_ARCH} DESTDIR=/tmp/shim install
 RUN if [ ${ARCH} = "aarch64" ] ; then \
     mkdir -p /shim/usr/share/efi/aarch64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTAA64.EFI /shim/usr/share/efi/aarch64/shim.efi ; \
     else \

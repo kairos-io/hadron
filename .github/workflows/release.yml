@@ -52,7 +52,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
   toolchain-arm64:
     runs-on: oracle-vm-32cpu-128gb-arm64
     permissions:
@@ -97,7 +97,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,arm64=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,arm64=max,ignore-error=true,compression=zstd,compression-level=3
   toolchain:
     needs:
       - toolchain-amd64
@@ -167,7 +167,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
   container-arm64:
     runs-on: oracle-vm-32cpu-128gb-arm64
     needs:
@@ -214,7 +214,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
   container:
     needs:
       - container-amd64
@@ -291,7 +291,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -349,7 +349,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -432,7 +432,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           target: default
           build-args: |
             BOOTLOADER=systemd
@@ -485,7 +485,7 @@ jobs:
           tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           target: default
           build-args: |
             BOOTLOADER=systemd
