@@ -360,6 +360,12 @@ WORKDIR /sources/downloads
 ARG LIBKKCAPI_VERSION=1.5.0
 RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
 
+ARG SHIM_VERSION=16.1
+RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shim-${SHIM_VERSION}.tar.bz2 -O shim.tar.bz2
+
+ARG ICONV_VERSION=1.18
+RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz -O libiconv.tar.gz
+
 FROM stage0 AS skeleton
 
 COPY ./setup_rootfs.sh ./setup_rootfs.sh
@@ -555,7 +561,7 @@ ENV NM="gcc-nm"
 ENV RANLIB="gcc-ranlib"
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --enable-shared --disable-static"
 # Standard aggressive size optimization flags
-ENV CFLAGS="${CFLAGS} -Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -flto=auto"
+ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -flto=auto"
 ENV LDFLAGS="-Wl,--gc-sections -Wl,--as-needed -flto=auto"
 # TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
 
@@ -2034,11 +2040,11 @@ RUN if [ "${ARCH}" = "aarch64" ]; then \
 	fi && \
 	/grub-efi/usr/bin/grub-mkimage -O ${grub_format} \
 		-d /grub-efi/usr/lib/grub/${grub_format} \
-		-p '($root)/boot/grub2' \
+		--prefix= \
 		-o /grub-efi/usr/lib/grub/${grub_format}/${grub_efi_name} \
-		loopback squash4 xzio gzio regexp
-
-
+		loopback cat squash4 xzio gzio serial regexp part_gpt ext2 fat normal \
+        boot configfile part_msdos linux echo search search_label search_fs_uuid \
+        search_fs_file chain loadenv gfxterm all_video iso9660 help test
 FROM grub-base AS grub-bios
 ARG JOBS
 # Remove --gc-sections from CFLAGS
@@ -2053,6 +2059,37 @@ RUN mkdir -p /grub-bios
 RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
 RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-bios;fi
 
+# libiconv for shim build only, NOT NEEDED IN THE FINAL BUILD
+FROM rsync AS iconv
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/libiconv.tar.gz /sources/
+RUN mkdir -p /iconv
+WORKDIR /sources
+RUN tar -xf libiconv.tar.gz && mv libiconv-* iconv
+WORKDIR /sources/iconv
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/iconv
+
+FROM rsync AS shim
+ARG JOBS
+COPY --from=libelf /libelf /libelf
+RUN rsync -aHAX --keep-dirlinks  /libelf/. /
+COPY --from=iconv /iconv /iconv
+RUN rsync -aHAX --keep-dirlinks  /iconv/. /
+COPY --from=sources-downloader /sources/downloads/shim.tar.bz2 /sources/
+WORKDIR /sources
+RUN tar -xf shim.tar.bz2 && mv shim-* shim
+WORKDIR /sources/shim
+RUN mkdir -p /shim/usr/share/efi/
+# Install it to a temp folder as the dir struct is terrible
+# and we want it to be available at /usr/share/efi/shimXX.efi
+# TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
+RUN make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron DESTDIR=/tmp/shim install
+RUN if [ ${ARCH} = "aarch64" ] ; then \
+    mkdir -p /shim/usr/share/efi/aarch64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTAA64.EFI /shim/usr/share/efi/aarch64/shim.efi ; \
+    else \
+    mkdir -p /shim/usr/share/efi/x86_64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTX64.EFI /shim/usr/share/efi/x86_64/shim.efi ; \
+    fi
 
 FROM rsync AS tpm2-tss
 ARG JOBS
@@ -2962,6 +2999,9 @@ RUN rsync -aHAX --keep-dirlinks  /grub-efi/. /skeleton
 
 COPY --from=grub-bios /grub-bios /grub-bios
 RUN rsync -aHAX --keep-dirlinks  /grub-bios/. /skeleton
+
+COPY --from=shim /shim /shim
+RUN rsync -aHAX --keep-dirlinks  /shim/. /skeleton
 
 ## Dracut
 COPY --from=dracut /dracut /dracut
