@@ -19,6 +19,7 @@ ARCH ?= amd64
 # Build architecture settings
 TARGET_ARCH = x86-64
 BUILD_ARCH = x86_64
+MODEL ?= generic
 
 
 
@@ -106,7 +107,7 @@ pull-image:
 ## This builds the Hadron image from scratch
 build-hadron:
 	@echo "Building Hadron image..."
-	@docker build ${PROGRESS_FLAG} --platform=${ARCH} \
+	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
 	--build-arg ARCH=${TARGET_ARCH} \
 	--build-arg BUILD_ARCH=${BUILD_ARCH} \
@@ -136,12 +137,13 @@ build-kairos:
 		echo "Building core image (no Kubernetes distribution)"; \
 		KUBERNETES_ARGS=""; \
 	fi; \
-	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} --platform=${ARCH} \
+	docker build ${PROGRESS_FLAG} -t ${INIT_IMAGE_NAME} --platform=${ARCH} --load \
 		-f build/Dockerfile.kairos \
 		--build-arg BASE_IMAGE=${IMAGE_NAME} \
 		--build-arg TRUSTED_BOOT=$$TRUSTED_BOOT \
 		--build-arg VERSION=${VERSION} \
 		--build-arg FIPS=${FIPS} \
+		--build-arg MODEL=${MODEL} \
 		$$KUBERNETES_ARGS .
 	@echo "Kairos image built successfully"
 
