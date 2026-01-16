@@ -141,7 +141,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Log in to the Container registry
-        uses: docker/login-action@28fdb31ff34708d19615a74d67103ddc2ea9725c
+        uses: docker/login-action@0567fa5ae8c9a197cb207537dc5cbb43ca3d803f
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
