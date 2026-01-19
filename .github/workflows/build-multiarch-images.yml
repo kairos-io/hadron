@@ -103,7 +103,7 @@ jobs:
           target: toolchain
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-          cache-to: ${{ github.ref_name == 'main' && 'type=regisry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3' || 'type=inline' }}
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3' || 'type=inline' }}
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -132,11 +132,11 @@ jobs:
             ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-arm64
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ github.event.repository.name }}-toolchain:${{ github.ref_name }}-amd64'
+          package-name: "${{ github.event.repository.name }}-toolchain:${{ github.ref_name }}-amd64"
           package-type: 'container'
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ github.event.repository.name }}-toolchain:${{ github.ref_name }}-arm64'
+          package-name: "${{ github.event.repository.name }}-toolchain:${{ github.ref_name }}-arm64"
           package-type: 'container'
   container-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -252,11 +252,11 @@ jobs:
             ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ github.event.repository.name }}-container:${{ github.ref_name }}-amd64'
+          package-name: "${{ github.event.repository.name }}-container:${{ github.ref_name }}-amd64"
           package-type: 'container'
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ github.event.repository.name }}-container:${{ github.ref_name }}-arm64'
+          package-name: "${{ github.event.repository.name }}-container:${{ github.ref_name }}-arm64"
           package-type: 'container'
   hadron-bios-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -414,11 +414,11 @@ jobs:
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64'
+          package-name: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64"
           package-type: 'container'
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64'
+          package-name: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64"
           package-type: 'container'
   hadron-trusted-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -562,9 +562,9 @@ jobs:
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64'
+          package-name: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64"
           package-type: 'container'
       - uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64'
+          package-name: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64"
           package-type: 'container'
