@@ -103,7 +103,10 @@ jobs:
           target: toolchain
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3' || 'type=inline' }}
+          cache-to: ${{ github.ref_name == 'main' && 'type=regisry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3' || 'type=inline' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
   toolchain:
     needs:
       - toolchain-amd64
@@ -213,6 +216,9 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3' || 'type=inline' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
   container:
     needs:
       - container-amd64
@@ -358,6 +364,8 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
   hadron-bios:
     needs:
       - hadron-bios-amd64
@@ -500,6 +508,8 @@ jobs:
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
   hadron-trusted:
     needs:
       - hadron-trusted-amd64
