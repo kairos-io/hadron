@@ -59,11 +59,12 @@ jobs:
           if git ls-remote --exit-code --heads origin bumps > /dev/null; then
             echo "Remote 'bumps' branch exists. Checking it out."
             git checkout bumps
-            git merge --ff-only upstream/main || git rebase upstream/main || true
           else
             echo "Remote 'bumps' branch does not exist. Creating from upstream/main."
             git checkout -B bumps upstream/main
           fi
+
+          git reset --hard upstream/main
 
           # Run bump and stage changes
           bump update -v
