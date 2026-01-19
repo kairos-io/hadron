@@ -3090,6 +3090,9 @@ RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
+# mkfs.fat is a script that calls mkfs.vfat busybox applet with the proper name and pass all args for compatibility
+RUN echo -e '#!/bin/sh\nexec /bin/mkfs.vfat "$@"\n' > /bin/mkfs.fat && chmod +x /bin/mkfs.fat
+# preset all systemd services
 RUN systemctl preset-all
 # Disable systemd-make-policy as we don't use it and it conflicts with
 # measurements with PCR policies
