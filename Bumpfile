@@ -70,7 +70,7 @@ fts /FTS_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/pullmoll/musl-fts.gi
 
 libtool /LIBTOOL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/libtool/|/libtool-([0-9\.]+)\.tar\.xz/|semver:*
 
-musl_obstack /MUSL_OBSTACK_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/void-linux/musl-obstack.git|semver:*
+# musl_obstack /MUSL_OBSTACK_VERSION=([0-9A-Za-z\.\-]+)/ git:https://github.com/void-linux/musl-obstack.git|semver:*
 
 xzutils /XZUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://tukaani.org/xz/|/xz-([0-9\.]+)\.tar\.gz/|semver:*
 
@@ -144,7 +144,7 @@ libaio /LIBAIO_VERSION=([0-9A-Za-z\.\-]+)/ git:https://pagure.io/libaio.git|semv
 ######################
 
 # the following are only major.minor versions
-argp_standalone /ARGP_STANDALONE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.lysator.liu.se/~nisse/misc/|/argp-standalone-([0-9\.]+)\.tar\.gz/|*
+#argp_standalone /ARGP_STANDALONE_VERSION=([0-9A-Za-z\.\-]+)/ fetch:http://www.lysator.liu.se/~nisse/misc/|/argp-standalone-([0-9\.]+)\.tar\.gz/|*
 
 autoconf /AUTOCONF_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://ftpmirror.gnu.org/autoconf/|/autoconf-([0-9\.]+)\.tar\.xz/|*
 
@@ -181,7 +181,7 @@ kernel /KERNEL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://www.kernel.org/kdist/fi
 ca_certificates /CA_CERTIFICATES_VERSION=([0-9]{8})/ git:https://gitlab.alpinelinux.org/alpine/ca-certificates.git|/([0-9]{8})/|*
 
 # version are 0.XXX
-elfutils /ELFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/elfutils/ftp/|re:#href="([0-9]+\.[0-9]+)/"#|sort|re:/^([0-9]+\.[0-9]+)$/
+#elfutils /ELFUTILS_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://sourceware.org/elfutils/ftp/|re:#href="([0-9]+\.[0-9]+)/"#|sort|re:/^([0-9]+\.[0-9]+)$/
 
 # Versions are just major like 42, 43, 44
 kmod /KMOD_VERSION=([0-9A-Za-z\.\-]+)/ git:https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git|semver:*
