@@ -1,11 +1,9 @@
 ---
-name: 'build container images (arm64)'
+name: 'PR build and test images (arm64)'
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+
 concurrency:
   group: ci-image-arm64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
@@ -27,54 +25,10 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Log in to the Container registry for cache
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/${{ github.repository }}-toolchain
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=ref,event=tag
-          flavor: |
-            latest=auto
-            prefix=
-            suffix=
-      - name: Build and push
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: |
-            ${{ steps.meta.outputs.labels }}
-          target: toolchain
-          cache-from: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
-          build-args: |
-            ARCH=aarch64
-            BUILD_ARCH=aarch64
       - name: Build PR
-        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -87,8 +41,6 @@ jobs:
           target: toolchain
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -111,58 +63,10 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to the Container registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Log in to the Container registry for cache
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/${{ github.repository }}-container
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=ref,event=tag
-          flavor: |
-            latest=auto
-            prefix=
-            suffix=
-      - name: Build and push
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: |
-            ${{ steps.meta.outputs.labels }}
-          target: container
-          cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
-          build-args: |
-            ARCH=aarch64
-            BUILD_ARCH=aarch64
       - name: Build PR
-        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -176,14 +80,10 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
       - name: Test container image
-        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -194,7 +94,6 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-pr-${{ github.event.pull_request.number }}-arm64
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -220,60 +119,10 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to the Container registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Log in to the Container registry for cache
-        uses: docker/login-action@v3
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=ref,event=tag
-          flavor: |
-            latest=auto
-            prefix=
-            suffix=
-      - name: Build and push
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./Dockerfile
-          platforms: linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: |
-            ${{ steps.meta.outputs.labels }}
-          cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
-          target: default
-          build-args: |
-            BOOTLOADER=grub
-            KERNEL_TYPE=${{ matrix.kernel }}
-            ARCH=aarch64
-            BUILD_ARCH=aarch64
       - name: Build PR
-        if: github.event_name == 'pull_request'
         uses: docker/build-push-action@v6
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -289,8 +138,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-arm64
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-pr-${{ github.event.pull_request.number }}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -300,7 +147,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - hadron-grub
-    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -328,7 +174,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs:
       - build-kairos-grub
-    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
