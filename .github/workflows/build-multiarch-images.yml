@@ -278,7 +278,7 @@ jobs:
             ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
-          container: "${{ github.event.repository.name }}-toolchain"
+          container: "${{ github.event.repository.name }}-container"
           token: ${{ secrets.GITHUB_TOKEN }}
           dry-run: 'false'
           keep-tags-regexes: |
@@ -449,7 +449,7 @@ jobs:
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
-          container: "${{ github.event.repository.name }}-toolchain"
+          container: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}"
           token: ${{ secrets.GITHUB_TOKEN }}
           dry-run: 'false'
           keep-tags-regexes: |
@@ -606,7 +606,7 @@ jobs:
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
-          container: "${{ github.event.repository.name }}-toolchain"
+          container: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted"
           token: ${{ secrets.GITHUB_TOKEN }}
           dry-run: 'false'
           keep-tags-regexes: |
