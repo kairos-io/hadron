@@ -2071,7 +2071,32 @@ RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --w
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
 RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
-# Point the linker to use -Ttext to set the proper load address for grub bios builds
+# GRUB 2.14 + binutils >= 2.4x regression (musl toolchain): force -Ttext instead of --image-base
+#
+# Symptom:
+#   grub-install fails with:
+#     ".../i386-pc/kernel.img is miscompiled: its start address is 0x9074 instead of 0x9000: ld.gold bug?."
+#
+# Root cause:
+#   For the i386-pc target, GRUB requires kernel.img to have its entry point (and .text start) at 0x9000.
+#   With newer binutils, GRUB's configure detects support for ld's --image-base and sets:
+#       TARGET_IMG_BASE_LDOPT = -Wl,--image-base
+#   Using --image-base sets the base address of the LOAD segment, but ld then places .text *after* ELF+PHDR
+#   headers (SIZEOF_HEADERS). On our builds SIZEOF_HEADERS is 0x74 bytes, so:
+#       0x9000 + 0x74 = 0x9074
+#   This shifts the entry point to 0x9074, and grub-install correctly rejects the image.
+#
+# Fix:
+#   Override GRUB to link with -Ttext instead, which pins the .text VMA/entry exactly at 0x9000
+#   (independent of header size), restoring the layout GRUB expects.
+#
+# Note:
+#   The error message mentions "ld.gold", but this occurs with ld.bfd as well; it is a generic GRUB
+#   mislink diagnostic for i386-pc images.
+#
+# Implementation:
+#   Pass TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' on the make/make install invocations that produce/install i386-pc images.
+
 RUN if [ "${ARCH}" != "aarch64" ]; then \
   make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
   make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
