@@ -229,7 +229,7 @@ ARG CRYPTSETUP_VERSION=2.8.3
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 ## grub
-ARG GRUB_VERSION=2.14
+ARG GRUB_VERSION=2.12
 RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
 
 ## PAM
@@ -669,6 +669,7 @@ RUN tar -xf aports.tar.gz && mv aports-* aport
 WORKDIR /sources
 RUN tar -xf attr.tar.gz && mv attr-* attr
 WORKDIR /sources/attr
+# TODO: Its fixed on attr master so we can drop this patch when they do a new release
 RUN patch -p1 < /sources/patches/aport/main/attr/attr-basename.patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconfdir=/etc \
     --mandir=/usr/share/man \
