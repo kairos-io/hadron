@@ -229,7 +229,7 @@ ARG CRYPTSETUP_VERSION=2.8.3
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 ## grub
-ARG GRUB_VERSION=2.12
+ARG GRUB_VERSION=2.14
 RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
 
 ## PAM
@@ -2017,7 +2017,7 @@ COPY --from=sources-downloader /sources/downloads/grub.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf grub.tar.xz && mv grub-* grub
 WORKDIR /sources/grub
-RUN echo depends bli part_gpt > grub-core/extra_deps.lst
+#RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
 
 FROM grub-base AS grub-efi
@@ -2071,8 +2071,18 @@ RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --w
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
 RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
-RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-bios;fi
-
+# Point the linker to use -Ttext to set the proper load address for grub bios builds
+RUN if [ "${ARCH}" != "aarch64" ]; then \
+  make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
+  make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
+fi
+# Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
+RUN /grub-bios/usr/bin/grub-mkimage \
+      --directory '/grub-bios/usr/lib/grub/i386-pc' \
+      --prefix \
+      --output '/core.img' \
+      --format 'i386-pc' \
+      ext2 part_gpt biosdisk
 # libiconv for shim build only, NOT NEEDED IN THE FINAL BUILD
 FROM rsync AS iconv
 ARG JOBS
