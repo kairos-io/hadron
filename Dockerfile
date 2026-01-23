@@ -2098,16 +2098,18 @@ RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-
 #   Pass TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' on the make/make install invocations that produce/install i386-pc images.
 
 RUN if [ "${ARCH}" != "aarch64" ]; then \
-  make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
-  make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
-fi
+    make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
+    make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
+    fi
 # Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
-RUN /grub-bios/usr/bin/grub-mkimage \
+RUN if [ "${ARCH}" != "aarch64" ]; then \
+    /grub-bios/usr/bin/grub-mkimage \
       --directory '/grub-bios/usr/lib/grub/i386-pc' \
       --prefix= \
       --output '/core.img' \
       --format 'i386-pc' \
-      ext2 part_gpt biosdisk
+      ext2 part_gpt biosdisk ; \
+    fi
 # libiconv for shim build only, NOT NEEDED IN THE FINAL BUILD
 FROM rsync AS iconv
 ARG JOBS
