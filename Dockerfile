@@ -2104,7 +2104,7 @@ fi
 # Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
 RUN /grub-bios/usr/bin/grub-mkimage \
       --directory '/grub-bios/usr/lib/grub/i386-pc' \
-      --prefix \
+      --prefix= \
       --output '/core.img' \
       --format 'i386-pc' \
       ext2 part_gpt biosdisk
