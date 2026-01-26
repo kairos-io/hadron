@@ -381,7 +381,7 @@ jobs:
           DRIVE_SIZE: 50000
           CREATE_VM: true
           CPUS: 4
-          FIRMWARE: /usr/share/OVMF/OVMF_CODE.fd
+          FIRMWARE: /usr/share/OVMF/OVMF_CODE_4M.secboot.fd
           EMULATE_TPM: true
           UKI_TEST: true
         run: |
