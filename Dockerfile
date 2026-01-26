@@ -9,11 +9,17 @@ ARG JOBS=16
 ARG MAX_LOAD=32
 ARG FIPS="no-fips"
 ARG TARGETARCH
-
-ARG ALPINE_VERSION=3.23.2
 ARG CFLAGS
 
-FROM alpine:${ALPINE_VERSION} AS stage0
+# Base image with build tools
+# Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
+FROM alpine:3.23.2@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62 AS alpine-base
+RUN apk update && \
+    apk add git bash wget bash perl build-base make patch busybox-static \
+    curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync \
+    git coreutils findutils pax-utils binutils
+
+FROM alpine-base AS stage0
 
 ########################################################
 #
@@ -36,7 +42,6 @@ ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 RUN if [ "${ARCH}" = "x86-64" ] && [ "${BUILD_ARCH}" != "x86_64" ]; then echo "For ARCH x86-64, BUILD_ARCH must be x86_64"; exit 1; fi
 RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo "For ARCH aarch64, BUILD_ARCH must be aarch64"; exit 1; fi
 
-RUN apk update && apk add git bash wget bash perl build-base make patch busybox-static curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
@@ -47,10 +52,8 @@ ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
 ### This stage is used to download the sources for the packages
 ### This runs in parallel with stage0 to improve build time since it's network-bound while stage0 is CPU-bound
-FROM alpine:${ALPINE_VERSION} AS sources-downloader
+FROM alpine-base AS sources-downloader
 
-# Install packages needed for downloading and patching sources
-RUN apk update && apk add wget git patch tar bash coreutils findutils
 RUN mkdir -p /sources/downloads
 
 WORKDIR /sources/downloads
@@ -2866,8 +2869,7 @@ RUN openssl version
 
 # stage2-merge is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
-FROM alpine:${ALPINE_VERSION} AS full-image-merge-base
-RUN apk add rsync pax-utils binutils
+FROM alpine-base AS full-image-merge-base
 
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
@@ -3019,8 +3021,7 @@ RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobann
 
 ## This workarounds over the COPY not being able to run over the same dir
 ## We merge the base container + stage2-merge (kernel, sudo, systemd, etc) + dracut into a single dir
-FROM alpine:${ALPINE_VERSION} AS full-image-pre-grub
-RUN apk add rsync
+FROM alpine-base AS full-image-pre-grub
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
@@ -3029,8 +3030,7 @@ RUN rsync -aHAX --keep-dirlinks  /dracut-final/. /skeleton/
 # TODO: Remove the sd-boot efi files to save space
 
 ## We merge the base container + stage2-merge (kernel, sudo, systemd, etc) into a single dir
-FROM alpine:${ALPINE_VERSION} AS full-image-pre-systemd
-RUN apk add rsync
+FROM alpine-base AS full-image-pre-systemd
 COPY --from=container / /skeleton
 COPY --from=full-image-merge /skeleton /stage2-merge
 RUN rsync -aHAX --keep-dirlinks  /stage2-merge/. /skeleton/
