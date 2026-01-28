@@ -13,7 +13,7 @@
 
 # The following section is simple semver checks.
 
-alpine /ALPINE_VERSION=([0-9A-Za-z\.\-]+)/ docker:alpine|^3
+# Alpine version is tracked via renovate as that picks the sha256 for the version which is nicer
 
 curl /CURL_VERSION=([0-9A-Za-z\.\-]+)/ fetch:https://curl.se/download/|/curl-([0-9\.]+)\.tar\.gz/|semver:*
 

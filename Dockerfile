@@ -105,7 +105,7 @@ RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_
 ARG SQLITE3_VERSION=3.51.2
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
-ARG OPENSSL_VERSION=3.6.0
+ARG OPENSSL_VERSION=3.6.1
 ARG OPENSSL_FIPS_VERSION=3.1.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz  -O openssl-fips.tar.gz
@@ -149,7 +149,7 @@ ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 ## kernel
-ARG KERNEL_VERSION=6.18.6
+ARG KERNEL_VERSION=6.18.7
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 ## flex
@@ -200,7 +200,7 @@ ARG LVM2_VERSION=2.03.38
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.14.0
+ARG MULTIPATH_TOOLS_VERSION=0.14.1
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 ## jsonc
@@ -208,11 +208,11 @@ ARG JSONC_VERSION=0.18
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 ## cmake
-ARG CMAKE_VERSION=4.2.2
+ARG CMAKE_VERSION=4.2.3
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 ## urcu
-ARG URCU_VERSION=0.15.5
+ARG URCU_VERSION=0.15.6
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
 ## parted
@@ -228,7 +228,7 @@ ARG DOSFSTOOLS_VERSION=4.2
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
 ## cryptsetup
-ARG CRYPTSETUP_VERSION=2.8.3
+ARG CRYPTSETUP_VERSION=2.8.4
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 ## grub
@@ -236,7 +236,7 @@ ARG GRUB_VERSION=2.14
 RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
 
 ## PAM
-ARG PAM_VERSION=1.7.1
+ARG PAM_VERSION=1.7.2
 RUN wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz -O pam.tar.xz
 
 # shadow
@@ -244,7 +244,7 @@ ARG SHADOW_VERSION=4.19.2
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 # alpine aports repo for patches to build under musl
-ARG APORTS_VERSION=3.23.2
+ARG APORTS_VERSION=3.23.3
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 ## busybox
