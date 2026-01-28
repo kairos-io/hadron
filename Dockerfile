@@ -13,7 +13,7 @@ ARG CFLAGS
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
-FROM alpine:3.23.2@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62 AS alpine-base
+FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659 AS alpine-base
 RUN apk update && \
     apk add git bash wget bash perl build-base make patch busybox-static \
     curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync \
