@@ -23,3 +23,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           file: examples/add-packages/${{ matrix.extra-file }}
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-cloud-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-default-amd64

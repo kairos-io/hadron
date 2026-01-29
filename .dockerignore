@@ -1,0 +1,11 @@
+.github/
+docs/
+examples/
+tests/
+.git/
+
+.gitignore
+Bumpfile
+*.md
+Makefile
+renovate.json

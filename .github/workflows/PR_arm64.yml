@@ -30,6 +30,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build PR
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -68,6 +70,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build PR
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -124,6 +128,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build PR
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -159,6 +165,8 @@ jobs:
           curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./

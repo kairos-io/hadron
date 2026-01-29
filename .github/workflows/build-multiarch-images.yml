@@ -46,6 +46,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -92,6 +94,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -144,9 +148,8 @@ jobs:
             ^main$
             ^v\d+\.\d+\.\d+(-(beta|alpha|rc)[\.-]?\d*)?$
           prune-tags-regexes: |
-            # remove the tags ending on -amd64 or -arm64 as they are temporary
-            .*-amd64$
-            .*-arm64$
+            ^${{ github.ref_name }}-amd64$
+            ^${{ github.ref_name }}-arm64$
   container-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -183,6 +186,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -232,6 +237,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -285,9 +292,8 @@ jobs:
             ^main$
             ^v\d+\.\d+\.\d+(-(beta|alpha|rc)[\.-]?\d*)?$
           prune-tags-regexes: |
-            # remove the tags ending on -amd64 or -arm64 as they are temporary
-            .*-amd64$
-            .*-arm64$
+            ^${{ github.ref_name }}-amd64$
+            ^${{ github.ref_name }}-arm64$
   hadron-bios-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -331,6 +337,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -392,6 +400,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -456,9 +466,8 @@ jobs:
             ^main$
             ^v\d+\.\d+\.\d+(-(beta|alpha|rc)[\.-]?\d*)?$
           prune-tags-regexes: |
-            # remove the tags ending on -amd64 or -arm64 as they are temporary
-            .*-amd64$
-            .*-arm64$
+            ^${{ github.ref_name }}-amd64$
+            ^${{ github.ref_name }}-arm64$
   hadron-trusted-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -498,6 +507,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -554,6 +565,8 @@ jobs:
         uses: docker/metadata-action@v5
       - name: Build and push
         uses: docker/build-push-action@v6
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
