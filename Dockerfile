@@ -1128,7 +1128,9 @@ RUN mkdir -p /libffi
 WORKDIR /sources
 RUN tar -xf libffi.tar.gz && mv libffi-* libffi
 WORKDIR /sources/libffi
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs
+# --disable-multi-os-directory makes sure we dont install the libs under /usr/lib64
+# https://github.com/libffi/libffi/issues/127
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs --libdir=/usr/lib --disable-multi-os-directory
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libffi
 
 ## python
@@ -1379,7 +1381,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssh install
 RUN make -s -j${JOBS} -l${MAX_LOAD} install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
-COPY files/systemd/sshd.socket /openssh/usr/lib/etc/systemd/system/sshd.socket
+COPY files/systemd/sshd.socket /openssh/usr/lib/systemd/system/sshd.socket
 COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
 # Add sshd_config.d dir for droping extra configs
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
@@ -1871,7 +1873,7 @@ RUN mkdir -p /jsonc
 WORKDIR /sources
 RUN tar -xf json-c.tar.gz && mv json-c-* jsonc
 WORKDIR /sources/jsonc-build/
-RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_BUILD_TYPE=release -DBUILD_STATIC_LIBS=OFF -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}"
+RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_BUILD_TYPE=release -DBUILD_STATIC_LIBS=OFF -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/jsonc && make -s -j${JOBS} -l${MAX_LOAD} install
 
 # pax-utils provives scanelf which lddconfig needs
