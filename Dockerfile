@@ -1381,7 +1381,6 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssh install
 RUN make -s -j${JOBS} -l${MAX_LOAD} install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
-COPY files/systemd/sshd.socket /openssh/usr/lib/systemd/system/sshd.socket
 COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
 # Add sshd_config.d dir for droping extra configs
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
