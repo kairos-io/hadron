@@ -411,7 +411,7 @@ RUN chmod -v 664 var/log/lastlog
 RUN chmod -v 600 var/log/btmp
 
 # TODO: Drop systemd users? not needed in container/toolchain images and final images already run sysusers to create basic users
-COPY <<EOF etc/passwd
+COPY <<'EOF' etc/passwd
 root:x:0:0:root:/root:/bin/bash
 bin:x:1:1:bin:/dev/null:/usr/bin/false
 daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
@@ -427,7 +427,7 @@ systemd-timesync:x:975:975:systemd Time Synchronization:/:/usr/bin/nologin
 nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
 EOF
 
-COPY <<EOF etc/group
+COPY <<'EOF' etc/group
 root:x:0:
 bin:x:1:daemon
 sys:x:2:
@@ -455,7 +455,7 @@ nogroup:x:65534:
 EOF
 
 
-COPY <<EOF etc/profile
+COPY <<'EOF' etc/profile
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin/:/usr/local/sbin/
 
 if [ `id -u` -eq 0 ] ; then
@@ -481,19 +481,19 @@ if [ -d /etc/profile.d ]; then
 fi
 EOF
 
-COPY <<EOF etc/issue
+COPY <<'EOF' etc/issue
 Hadron Linux (\d)
 Kernel \r on an \m
 EOF
 
-COPY <<EOF etc/os-release
+COPY <<'EOF' etc/os-release
 NAME="Hadron Linux"
 PRETTY_NAME="Hadron Linux"
 ID=hadron
 BUILD_ID=rolling
 EOF
 
-COPY <<EOF etc/hosts
+COPY <<'EOF' etc/hosts
 127.0.0.1   localhost localhost.localdomain
 ::1         localhost localhost.localdomain
 EOF
