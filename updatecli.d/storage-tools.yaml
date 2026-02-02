@@ -1,0 +1,161 @@
+---
+name: Storage Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  lvm2:
+    kind: gittag
+    spec:
+      url: https://gitlab.com/lvmteam/lvm2.git
+      versionfilter:
+        kind: regex
+        pattern: '^v[0-9]+_[0-9]+_[0-9]+$'
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: alphanum
+      - replacer:
+          from: '_'
+          to: '.'
+
+  multipath:
+    kind: gittag
+    spec:
+      url: https://github.com/opensvc/multipath-tools.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+
+  e2fsprogs:
+    kind: gittag
+    spec:
+      url: git://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  dosfstools:
+    kind: gittag
+    spec:
+      url: https://github.com/dosfstools/dosfstools.git
+    transformers:
+      - trimprefix: v
+
+  parted:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://git.savannah.gnu.org/git/parted.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  urcu:
+    kind: gittag
+    spec:
+      url: https://github.com/urcu/userspace-rcu.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+targets:
+  lvm2:
+    scmid: "default"
+    name: LVM2_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LVM2_VERSION
+    sourceid: lvm2
+
+  multipath:
+    scmid: "default"
+    name: MULTIPATH_TOOLS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MULTIPATH_TOOLS_VERSION
+    sourceid: multipath
+
+  e2fsprogs:
+    scmid: "default"
+    name: E2FSPROGS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: E2FSPROGS_VERSION
+    sourceid: e2fsprogs
+
+  dosfstools:
+    scmid: "default"
+    name: DOSFSTOOLS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DOSFSTOOLS_VERSION
+    sourceid: dosfstools
+
+  parted:
+    scmid: "default"
+    name: PARTED_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PARTED_VERSION
+    sourceid: parted
+
+  urcu:
+    scmid: "default"
+    name: URCU_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: URCU_VERSION
+    sourceid: urcu
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

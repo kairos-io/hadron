@@ -1,0 +1,126 @@
+---
+name: Kernel and Boot Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  kernel:
+    kind: http
+    spec:
+      url: https://www.kernel.org/kdist/finger_banner
+    transformers:
+      - findsubmatch:
+          pattern: 'latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+\.[0-9]+)'
+          captureindex: 1
+
+  kmod:
+    kind: gittag
+    spec:
+      url: https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  dracut:
+    kind: gittag
+    spec:
+      url: https://github.com/dracut-ng/dracut-ng.git
+
+  grub:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://git.savannah.gnu.org/git/grub.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^grub-[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: grub-
+
+  kbd:
+    kind: gittag
+    spec:
+      url: git://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git
+    transformers:
+      - trimprefix: v
+
+targets:
+  kernel:
+    scmid: "default"
+    name: KERNEL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: KERNEL_VERSION
+    sourceid: kernel
+
+  kmod:
+    scmid: "default"
+    name: KMOD_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: KMOD_VERSION
+    sourceid: kmod
+
+  dracut:
+    scmid: "default"
+    name: DRACUT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DRACUT_VERSION
+    sourceid: dracut
+
+  grub:
+    scmid: "default"
+    name: GRUB_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GRUB_VERSION
+    sourceid: grub
+
+  kbd:
+    scmid: "default"
+    name: KBD_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: KBD_VERSION
+    sourceid: kbd
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

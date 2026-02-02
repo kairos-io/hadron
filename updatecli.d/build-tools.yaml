@@ -1,0 +1,291 @@
+---
+name: Build Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  flex:
+    kind: gittag
+    spec:
+      url: https://github.com/westes/flex.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  pkgconfig:
+    kind: gittag
+    spec:
+      url: https://github.com/pkgconf/pkgconf.git
+    transformers:
+      - trimprefix: pkgconf-
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  bison:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/bison.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' \
+        | sort -V |tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  autoconf:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://git.savannah.gnu.org/autoconf.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
+        | sort -V |tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  automake:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://git.savannah.gnu.org/automake.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V |tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  libtool:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      # Somehow they cut the tag 2.6.0 but its marked as alpha?? weird, so exclude it from the results
+      command: |
+        git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/libtool.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' \
+        | sort -V | grep -v "v2.6" |tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  cmake:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://github.com/Kitware/CMake.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V |tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  make:
+    kind: gittag
+    spec:
+      url: https://https.git.savannah.gnu.org/git/make.git
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  m4:
+    kind: gittag
+    spec:
+      url: https://https.git.savannah.gnu.org/git/m4.git
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  gawk:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/gawk.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^gawk-[0-9]+\.[0-9]+(\.[0-9]+)?' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: gawk-
+
+
+  binutils:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://sourceware.org/git/binutils-gdb.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^binutils-[0-9]+_[0-9]+(_[0-9]+)?$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: binutils-
+      - replacer:
+          from: '_'
+          to: '.'
+      - sort:
+          method: semver
+
+targets:
+  flex:
+    scmid: "default"
+    name: FLEX_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: FLEX_VERSION
+    sourceid: flex
+
+  bison:
+    scmid: "default"
+    name: BISON_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: BISON_VERSION
+    sourceid: bison
+
+  autoconf:
+    scmid: "default"
+    name: AUTOCONF_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: AUTOCONF_VERSION
+    sourceid: autoconf
+
+  automake:
+    scmid: "default"
+    name: AUTOMAKE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: AUTOMAKE_VERSION
+    sourceid: automake
+
+  libtool:
+    scmid: "default"
+    name: LIBTOOL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBTOOL_VERSION
+    sourceid: libtool
+
+  cmake:
+    scmid: "default"
+    name: CMAKE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: CMAKE_VERSION
+    sourceid: cmake
+
+  make:
+    scmid: "default"
+    name: MAKE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MAKE_VERSION
+    sourceid: make
+
+  m4:
+    scmid: "default"
+    name: M4_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: M4_VERSION
+    sourceid: m4
+
+  gawk:
+    scmid: "default"
+    name: GAWK_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GAWK_VERSION
+    sourceid: gawk
+
+  pkgconfig:
+    scmid: "default"
+    name: PKGCONFIG_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PKGCONFIG_VERSION
+    sourceid: pkgconfig
+
+  binutils:
+    scmid: "default"
+    name: BINUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: BINUTILS_VERSION
+    sourceid: binutils
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

@@ -1,0 +1,158 @@
+---
+name: Security Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  openssl:
+    kind: githubrelease
+    spec:
+      owner: openssl
+      repository: openssl
+      versionfilter:
+        kind: regex/semver
+        # capture group 1 is the semver
+        regex: '^openssl-([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: openssl-
+
+  openssh:
+    kind: gittag
+    spec:
+      url: https://github.com/openssh/openssh-portable.git
+      versionfilter:
+        kind: regex
+        pattern: '^V_[0-9]+_[0-9]+_P[0-9]+$'
+    transformers:
+      - trimprefix: V_
+      - replacer: { from: "_P", to: "p" }
+      - replacer: { from: "_",  to: "." }
+      # IMPORTANT: sort must happen on something sortable.
+      # 10.2p1 is not semver, so use lexical/alphanum sort.
+      - sort:
+          method: alphanum
+
+  sudo:
+    kind: githubrelease
+    spec:
+      owner: sudo-project
+      repository: sudo
+    transformers:
+      - trimprefix: v
+
+  pam:
+    kind: gittag
+    spec:
+      url: https://github.com/linux-pam/linux-pam.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  shadow:
+    kind: githubrelease
+    spec:
+      owner: shadow-maint
+      repository: shadow
+
+  cryptsetup:
+    kind: gittag
+    spec:
+      url: https://gitlab.com/cryptsetup/cryptsetup.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+targets:
+  openssl:
+    scmid: "default"
+    name: OPENSSL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: OPENSSL_VERSION
+    sourceid: openssl
+
+  openssh:
+    scmid: "default"
+    name: OPENSSH_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: OPENSSH_VERSION
+    sourceid: openssh
+
+  sudo:
+    scmid: "default"
+    name: SUDO_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: SUDO_VERSION
+    sourceid: sudo
+
+  pam:
+    scmid: "default"
+    name: PAM_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PAM_VERSION
+    sourceid: pam
+
+  shadow:
+    scmid: "default"
+    name: SHADOW_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: SHADOW_VERSION
+    sourceid: shadow
+
+  cryptsetup:
+    scmid: "default"
+    name: CRYPTSETUP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: CRYPTSETUP_VERSION
+    sourceid: cryptsetup
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

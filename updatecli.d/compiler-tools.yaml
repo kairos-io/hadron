@@ -1,0 +1,143 @@
+---
+name: Compiler Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  gcc:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://gcc.gnu.org/git/gcc.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E 'gcc-14\.*' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: gcc-
+
+  gmp:
+    kind: http
+    spec:
+      url: http://mirror.netcologne.de/gnu/gmp/
+    transformers:
+      - findsubmatch:
+          # (?s) makes '.' match newlines (DOTALL)
+          # '.*' is greedy so it drives the capture to the LAST occurrence
+          pattern: '(?s).*gmp-([0-9]+\.[0-9]+\.[0-9]+)\.tar\.xz'
+          captureindex: 1
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  mpc:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://gitlab.inria.fr/mpc/mpc.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+
+  mpfr:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://gitlab.inria.fr/mpfr/mpfr.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+
+# perl doesnt have releases but the kind will fallback to tags. This is faster than using gittag which will clone the entire repo
+  perl:
+    kind: githubrelease
+    spec:
+      owner: Perl
+      repository: perl5
+      versionfilter:
+        kind: regex/semver
+        # v5.40.1 stable, v5.41.x dev -> exclude
+        regex: '^v([0-9]+\.[0-9]*[02468]\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+
+targets:
+  gcc:
+    scmid: "default"
+    name: GCC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GCC_VERSION
+    sourceid: gcc
+
+  gmp:
+    scmid: "default"
+    name: GMP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GMP_VERSION
+    sourceid: gmp
+
+  mpc:
+    scmid: "default"
+    name: MPC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MPC_VERSION
+    sourceid: mpc
+
+  mpfr:
+    scmid: "default"
+    name: MPFR_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MPFR_VERSION
+    sourceid: mpfr
+
+  perl:
+    scmid: "default"
+    name: PERL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PERL_VERSION
+    sourceid: perl
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

@@ -1,0 +1,90 @@
+---
+name: Network Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  iptables:
+    kind: gittag
+    spec:
+      url: git://git.netfilter.org/iptables
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  open_iscsi:
+    kind: gittag
+    spec:
+      url: https://github.com/open-iscsi/open-iscsi.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+
+  strace:
+    kind: gittag
+    spec:
+      url: https://github.com/strace/strace
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+targets:
+  iptables:
+    scmid: "default"
+    name: IPTABLES_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: IPTABLES_VERSION
+    sourceid: iptables
+
+  open_iscsi:
+    scmid: "default"
+    name: OPEN_SCSI_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: OPEN_SCSI_VERSION
+    sourceid: open_iscsi
+
+  strace:
+    scmid: "default"
+    name: STRACE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: STRACE_VERSION
+    sourceid: strace
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

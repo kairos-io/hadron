@@ -1,0 +1,247 @@
+---
+name: Core System Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  musl:
+    kind: gittag
+    spec:
+      url: git://git.musl-libc.org/musl
+    transformers:
+      - trimprefix: v
+
+  busybox:
+    kind: gittag
+    spec:
+      url: git://git.busybox.net/busybox
+    transformers:
+      - replacer:
+          from: '_'
+          to: '.'
+
+  systemd:
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://github.com/systemd/systemd.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+
+  util_linux:
+    kind: githubrelease
+    spec:
+      owner: util-linux
+      repository: util-linux
+    transformers:
+      - trimprefix: v
+
+  coreutils:
+    kind: githubrelease
+    spec:
+      owner: coreutils
+      repository: coreutils
+    transformers:
+      - trimprefix: v
+
+  findutils:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://git.git.savannah.gnu.org/findutils.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+
+  grep:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags  https://git.savannah.gnu.org/git/grep.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+
+  gperf:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/gperf.git
+    transformers:
+      - trimprefix: v
+
+  diffutils:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags  git://git.git.savannah.gnu.org/diffutils.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+
+  readline:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/readline.git
+    transformers:
+      - trimprefix: readline-
+
+  bash:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/bash.git
+    transformers:
+      - trimprefix: bash-
+
+
+targets:
+  musl:
+    scmid: "default"
+    name: MUSL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MUSL_VERSION
+    sourceid: musl
+
+  busybox:
+    scmid: "default"
+    name: BUSYBOX_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: BUSYBOX_VERSION
+    sourceid: busybox
+
+  systemd:
+    scmid: "default"
+    name: SYSTEMD_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: SYSTEMD_VERSION
+    sourceid: systemd
+
+  util_linux:
+    scmid: "default"
+    name: UTIL_LINUX_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: UTIL_LINUX_VERSION
+    sourceid: util_linux
+
+  coreutils:
+    scmid: "default"
+    name: COREUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: COREUTILS_VERSION
+    sourceid: coreutils
+
+  findutils:
+    scmid: "default"
+    name: FINDUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: FINDUTILS_VERSION
+    sourceid: findutils
+
+  grep:
+    scmid: "default"
+    name: GREP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GREP_VERSION
+    sourceid: grep
+
+  gperf:
+    scmid: "default"
+    name: GPERF_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GPERF_VERSION
+    sourceid: gperf
+
+  diffutils:
+    scmid: "default"
+    name: DIFFUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DIFFUTILS_VERSION
+    sourceid: diffutils
+
+  readline:
+    scmid: "default"
+    name: READLINE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: READLINE_VERSION
+    sourceid: readline
+
+  bash:
+    scmid: "default"
+    name: BASH_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: BASH_VERSION
+    sourceid: bash
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

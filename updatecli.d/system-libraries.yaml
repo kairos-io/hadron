@@ -1,0 +1,339 @@
+---
+name: System Libraries Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  acl:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/acl.git
+    transformers:
+      - trimprefix: v
+
+  attr:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/attr.git
+    transformers:
+      - trimprefix: v
+
+  libcap:
+    kind: gittag
+    spec:
+      url: git://git.kernel.org/pub/scm/libs/libcap/libcap.git
+      versionfilter:
+        kind: regex
+        pattern: '^libcap-[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: libcap-
+      - sort:
+          method: semver
+
+  libmnl:
+    kind: gittag
+    spec:
+      url: git://git.netfilter.org/libmnl
+      versionfilter:
+        kind: regex
+        pattern: '^libmnl-[0-9]+\.[0-9]+\.[0-9]$'
+    transformers:
+      - trimprefix: libmnl-
+      - sort:
+          method: semver
+
+  libnftnl:
+    kind: gittag
+    spec:
+      url: git://git.netfilter.org/libnftnl
+      versionfilter:
+        kind: regex
+        pattern: '^libnftnl-[0-9]+\.[0-9]+\.[0-9]$'
+    transformers:
+      - trimprefix: libnftnl-
+      - sort:
+          method: semver
+
+  seccomp:
+    kind: gittag
+    spec:
+      url: https://github.com/seccomp/libseccomp.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  libffi:
+    kind: gittag
+    spec:
+      url: https://github.com/libffi/libffi.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  libaio:
+    kind: gittag
+    spec:
+      url: https://pagure.io/libaio.git
+      versionfilter:
+        kind: regex
+        pattern: '^libaio-0\.3\.[0-9]+$'
+    transformers:
+      - trimprefix: libaio-
+      - sort:
+          method: semver
+
+  dbus:
+    kind: gittag
+    spec:
+      url: https://gitlab.freedesktop.org/dbus/dbus.git
+      versionfilter:
+        kind: regex
+        # dbus-1.14.5, dbus-1.16.0, ...
+        # even minor -> last digit of minor is 0,2,4,6,8
+        # odd minor are not stable and should be ignored
+        pattern: '^dbus-[0-9]+\.[0-9]*[02468]\.[0-9]+$'
+    transformers:
+      - trimprefix: dbus-
+      - sort:
+          method: semver
+
+  expat:
+    kind: githubrelease
+    spec:
+      owner: libexpat
+      repository: libexpat
+      versionfilter:
+        kind: regex
+        pattern: '^R_[0-9]+_[0-9]+_[0-9]+$'
+    transformers:
+      - trimprefix: R_
+      - replacer:
+          from: '_'
+          to: '.'
+      - sort:
+          method: semver
+
+  popt:
+    kind: githubrelease
+    spec:
+      owner: rpm-software-management
+      repository: popt
+    transformers:
+      - trimprefix: popt-
+      - trimsuffix: -release
+
+  libxml2:
+    kind: gittag
+    spec:
+      url: https://gitlab.gnome.org/GNOME/libxml2.git
+    transformers:
+      - trimprefix: v
+
+
+  jsonc:
+    kind: gittag
+    spec:
+      url: https://github.com/json-c/json-c.git
+      versionfilter:
+        kind: regex/semver
+        # json-c tags look like: json-c-0.18-20240915
+        regex: '^json-c-([0-9]+\.[0-9]+(?:\.[0-9]+)?)-[0-9]{8}$'
+        pattern: '*'
+    transformers:
+      - trimprefix: json-c-
+      - findsubmatch:
+          # after trimprefix we have: 0.18-20240915
+          pattern: '^([0-9]+\.[0-9]+(?:\.[0-9]+)?)-[0-9]{8}$'
+          captureindex: 1
+
+  fts:
+    kind: gittag
+    spec:
+      url: https://github.com/pullmoll/musl-fts.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+targets:
+  acl:
+    scmid: "default"
+    name: ACL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: ACL_VERSION
+    sourceid: acl
+
+  attr:
+    scmid: "default"
+    name: ATTR_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: ATTR_VERSION
+    sourceid: attr
+
+  libcap:
+    scmid: "default"
+    name: LIBCAP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBCAP_VERSION
+    sourceid: libcap
+
+  libmnl:
+    scmid: "default"
+    name: LIBMNL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBMNL_VERSION
+    sourceid: libmnl
+
+  libnftnl:
+    scmid: "default"
+    name: LIBNFTNL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBNFTNL_VERSION
+    sourceid: libnftnl
+
+  seccomp:
+    scmid: "default"
+    name: SECCOMP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: SECCOMP_VERSION
+    sourceid: seccomp
+
+  libffi:
+    scmid: "default"
+    name: LIBFFI_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBFFI_VERSION
+    sourceid: libffi
+
+  libaio:
+    scmid: "default"
+    name: LIBAIO_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBAIO_VERSION
+    sourceid: libaio
+
+  dbus:
+    scmid: "default"
+    name: DBUS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DBUS_VERSION
+    sourceid: dbus
+
+  expat:
+    scmid: "default"
+    name: EXPAT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: EXPAT_VERSION
+    sourceid: expat
+
+  popt:
+    scmid: "default"
+    name: POPT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: POPT_VERSION
+    sourceid: popt
+
+  libxml2:
+    scmid: "default"
+    name: LIBXML2_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBXML2_VERSION
+    sourceid: libxml2
+
+  jsonc:
+    scmid: "default"
+    name: JSONC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: JSONC_VERSION
+    sourceid: jsonc
+
+  fts:
+    scmid: "default"
+    name: FTS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: FTS_VERSION
+    sourceid: fts
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

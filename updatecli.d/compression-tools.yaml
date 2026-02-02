@@ -1,0 +1,196 @@
+---
+name: Compression Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  curl:
+    kind: githubrelease
+    spec:
+      owner: curl
+      repository: curl
+    transformers:
+      - trimprefix: curl-
+      - replacer:
+          from: '_'
+          to: '.'
+
+  rsync:
+    kind: githubrelease
+    spec:
+      owner: RsyncProject
+      repository: rsync
+    transformers:
+      - trimprefix: v
+
+  xxhash:
+    kind: gittag
+    spec:
+      url: https://github.com/Cyan4973/xxHash.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  zstd:
+    kind: githubrelease
+    spec:
+      owner: facebook
+      repository: zstd
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  lz4:
+    kind: gittag
+    spec:
+      url: https://github.com/lz4/lz4.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  zlib:
+    kind: gittag
+    spec:
+      url: https://github.com/madler/zlib.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  xzutils:
+    kind: githubrelease
+    spec:
+      owner: tukaani-project
+      repository: xz
+    transformers:
+      - trimprefix: v
+
+  gzip:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://git.git.savannah.gnu.org/gzip.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+
+targets:
+  curl:
+    scmid: "default"
+    name: CURL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: CURL_VERSION
+    sourceid: curl
+
+  rsync:
+    scmid: "default"
+    name: RSYNC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: RSYNC_VERSION
+    sourceid: rsync
+
+  xxhash:
+    scmid: "default"
+    name: XXHASH_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: XXHASH_VERSION
+    sourceid: xxhash
+
+  zstd:
+    scmid: "default"
+    name: ZSTD_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: ZSTD_VERSION
+    sourceid: zstd
+
+  lz4:
+    scmid: "default"
+    name: LZ4_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LZ4_VERSION
+    sourceid: lz4
+
+  zlib:
+    scmid: "default"
+    name: ZLIB_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: ZLIB_VERSION
+    sourceid: zlib
+
+  xzutils:
+    scmid: "default"
+    name: XZUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: XZUTILS_VERSION
+    sourceid: xzutils
+
+  gzip:
+    scmid: "default"
+    name: GZIP_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GZIP_VERSION
+    sourceid: gzip
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"

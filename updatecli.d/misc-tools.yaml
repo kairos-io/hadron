@@ -1,0 +1,180 @@
+---
+name: Miscellaneous Tools Updates
+
+scms:
+  default:
+    kind: github
+    spec:
+      user: "Itxaka update bot"
+      email: "itxaka@kairos.io"
+      owner: "kairos-io"
+      repository: "hadron"
+      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      branch: "main"
+      commitusingapi: true
+
+sources:
+  python:
+    kind: githubrelease
+    spec:
+      owner: python
+      repository: cpython
+    versionfilter:
+      kind: semver
+      pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  sqlite3:
+    kind: githubrelease
+    spec:
+      owner: sqlite
+      repository: sqlite
+      versionfilter:
+        kind: regex
+        pattern: '^version-[0-9]+\.[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: version-
+
+  tpm2_tss:
+    kind: githubrelease
+    spec:
+      owner: tpm2-software
+      repository: tpm2-tss
+
+  pax_utils:
+    kind: gittag
+    spec:
+      url: https://github.com/gentoo/pax-utils.git
+    transformers:
+      - trimprefix: v
+
+  ca_certificates:
+    kind: gittag
+    spec:
+      url: https://gitlab.alpinelinux.org/alpine/ca-certificates.git
+      versionfilter:
+        kind: time
+        pattern: '20060102'
+
+  aports:
+    kind: gitlab/tag
+    spec:
+      owner: alpine
+      repository: aports
+      url: https://gitlab.alpinelinux.org/
+      versionfilter:
+        kind: regex/semver
+        # v3.23.3, v3.22.3, etc.  (EXCLUDES v20260127 and v3.23.0_rc2)
+        regex: '^v([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  gdb:
+    # Much faster to query this thant to use the gittag which actually clones the repository fully
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags git://sourceware.org/git/binutils-gdb.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^gdb-[0-9]+\.[0-9]+(\.[0-9]+)?-release$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: gdb-
+      - trimsuffix: -release
+      - replacer:
+          from: '_'
+          to: '.'
+      - sort:
+          method: semver
+
+targets:
+  python:
+    scmid: "default"
+    name: PYTHON_VERSION in Dockerfile udpated to {{ source "python" }}
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PYTHON_VERSION
+    sourceid: python
+
+  sqlite3:
+    scmid: "default"
+    name: SQLITE3_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: SQLITE3_VERSION
+    sourceid: sqlite3
+
+  tpm2_tss:
+    scmid: "default"
+    name: TPM2_TSS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: TPM2_TSS_VERSION
+    sourceid: tpm2_tss
+
+  pax_utils:
+    scmid: "default"
+    name: PAX_UTILS_VERSION in Dockerfile updated to {{ source "pax_utils" }}
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PAX_UTILS_VERSION
+    sourceid: pax_utils
+
+  ca_certificates:
+    scmid: "default"
+    name: CA_CERTIFICATES_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: CA_CERTIFICATES_VERSION
+    sourceid: ca_certificates
+
+  aports:
+    scmid: "default"
+    name: APORTS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: APORTS_VERSION
+    sourceid: aports
+
+  gdb:
+    scmid: "default"
+    name: GDB_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GDB_VERSION
+    sourceid: gdb
+
+actions:
+  default:
+    kind: "github/pullrequest"
+    scmid: "default"
+    spec:
+      automerge: true
+      mergemethod: "squash"
+      labels:
+        - "dependencies"
+      reviewers:
+        - "kairos-io/maintainers"
