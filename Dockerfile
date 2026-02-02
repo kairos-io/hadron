@@ -373,7 +373,7 @@ RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz 
 # Creates the system skeleton
 # dirs, minimum files, symlinks, etc.
 FROM stage0 AS skeleton
-
+SHELL ["/bin/bash", "-c"]
 RUN mkdir -p /sysroot
 WORKDIR /sysroot
 RUN mkdir -pv {boot,home,mnt,opt,srv,tmp} \
@@ -407,8 +407,8 @@ RUN ln -svf proc/mounts etc/mtab
 RUN touch etc/shadow
 RUN touch var/log/{btmp,lastlog,faillog,wtmp}
 RUN chgrp -v utmp var/log/lastlog
-RUN chmod -v 664  var/log/lastlog
-RUN chmod -v 600  var/log/btmp
+RUN chmod -v 664 var/log/lastlog
+RUN chmod -v 600 var/log/btmp
 
 # TODO: Drop systemd users? not needed in container/toolchain images and final images already run sysusers to create basic users
 COPY <<EOF etc/passwd
