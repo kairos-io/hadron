@@ -416,7 +416,7 @@ root:x:0:0:root:/root:/bin/bash
 bin:x:1:1:bin:/dev/null:/usr/bin/false
 daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
 messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
-uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/fa
+uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/false
 dbus:x:81:81:System Message Bus:/:/usr/bin/nologin
 systemd-coredump:x:980:980:systemd Core Dumper:/:/usr/bin/nologin
 systemd-network:x:979:979:systemd Network Management:/:/usr/bin/nologin
