@@ -1389,6 +1389,8 @@ RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
 # Add Hadron config with enabled pam
 RUN echo "# Hadron specific sshd config" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
 RUN echo "UsePAM yes" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
+# We already have a motd from bash, disable the sshd one
+RUN echo "PrintMotd no" >> /openssh/etc/ssh/sshd_config.d/99-hadron.conf
 
 
 ## xz and liblzma
