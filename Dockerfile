@@ -120,7 +120,7 @@ ARG DBUS_VERSION=1.16.2
 RUN wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
 
 # libexpat
-ARG EXPAT_VERSION=2.7.3
+ARG EXPAT_VERSION=2.7.4
 # Use a single var and extract major/minor/patch to build the URL
 RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  && EXPAT_VERSION_MINOR="${EXPAT_VERSION#*.}"; EXPAT_VERSION_MINOR="${EXPAT_VERSION_MINOR%.*}" \
