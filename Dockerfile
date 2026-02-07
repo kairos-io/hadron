@@ -282,7 +282,7 @@ ARG POPT_VERSION=1.19
 RUN wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz -O popt.tar.gz
 
 ## m4
-ARG M4_VERSION=1.4.20
+ARG M4_VERSION=1.4.21
 RUN wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz -O m4.tar.xz
 
 ## readline
