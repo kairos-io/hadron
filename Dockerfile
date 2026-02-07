@@ -200,7 +200,7 @@ ARG LVM2_VERSION=2.03.38
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 ## multipath-tools
-ARG MULTIPATH_TOOLS_VERSION=0.14.1
+ARG MULTIPATH_TOOLS_VERSION=0.14.3
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 ## jsonc
