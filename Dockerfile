@@ -294,7 +294,7 @@ ARG PERL_VERSION=5.42.0
 RUN wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz -O perl.tar.xz
 
 ## coreutils
-ARG COREUTILS_VERSION=9.9
+ARG COREUTILS_VERSION=9.10
 RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
 
 ## findutils
