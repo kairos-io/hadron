@@ -318,7 +318,7 @@ ARG SUDO_VERSION=1.9.17p2
 RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
 ## pax-utils
-ARG PAX_UTILS_VERSION=1.3.9
+ARG PAX_UTILS_VERSION=1.3.10
 RUN wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz -O pax-utils.tar.xz
 
 ## openscsi
