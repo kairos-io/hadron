@@ -9,8 +9,8 @@ scms:
       email: "itxaka@kairos.io"
       owner: "kairos-io"
       repository: "hadron"
-      token: '{{ requiredEnv "GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "GITHUB_ACTOR"}}'
+      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
+      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
       branch: "main"
       commitusingapi: true
 
