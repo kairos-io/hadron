@@ -188,7 +188,7 @@ ARG KMOD_VERSION=34.2
 RUN wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz -O kmod.tar.gz
 
 ## dracut
-ARG DRACUT_VERSION=109
+ARG DRACUT_VERSION=110
 RUN wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz -O dracut.tar.gz
 
 ## libaio
