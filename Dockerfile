@@ -319,7 +319,7 @@ RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
 ## pax-utils
 ARG PAX_UTILS_VERSION=1.3.10
-RUN wget -q https://dev.gentoo.org/~sam/distfiles/app-misc/pax-utils/pax-utils-${PAX_UTILS_VERSION}.tar.xz -O pax-utils.tar.xz
+RUN wget -q https://github.com/gentoo/pax-utils/archive/refs/tags/v${PAX_UTILS_VERSION}.tar.gz -O pax-utils.tar.gz
 
 ## openscsi
 ARG OPEN_SCSI_VERSION=2.1.11
@@ -2005,10 +2005,10 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
 ARG JOBS
-COPY --from=sources-downloader /sources/downloads/pax-utils.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/pax-utils.tar.gz /sources/
 RUN mkdir -p /pax-utils
 WORKDIR /sources
-RUN tar -xf pax-utils.tar.xz && mv pax-utils-* pax-utils
+RUN tar -xf pax-utils.tar.gz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false -Duse_fuzzing=false

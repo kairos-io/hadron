@@ -1,13 +1,6 @@
 name: Updatecli
 
 on:
-  # Trigger Updatecli if a new commit land on the main branch
-  push:
-    branches: [main]
-  # Trigger Updatecli if a pullrequest is open targeting the main branch.
-  # This is useful to test Updatecli manifest change
-  pull_request:
-    branches: [main]
   # Manually trigger Updatecli via GitHub UI
   workflow_dispatch:
   # Trigger Updatecli once day by a cronjob
@@ -48,5 +41,5 @@ jobs:
       - name: Run Updatecli in apply mode
         run: "updatecli apply --config updatecli.d/${{ matrix.config }}.yaml"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
