@@ -42,5 +42,5 @@ jobs:
       - name: Run Updatecli in apply mode
         run: "updatecli apply --config updatecli.d/${{ matrix.config }}.yaml"
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-          GITHUB_ACTOR: ${{ github.actor }}
+          UPDATECLI_GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          UPDATECLI_GITHUB_USERNAME: ${{ github.actor }}
