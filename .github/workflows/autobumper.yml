@@ -1,6 +1,7 @@
 name: Updatecli
 
 on:
+  pull_request:
   # Manually trigger Updatecli via GitHub UI
   workflow_dispatch:
   # Trigger Updatecli once day by a cronjob
