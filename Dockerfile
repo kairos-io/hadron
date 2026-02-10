@@ -2266,6 +2266,10 @@ WORKDIR /sources
 RUN tar -xf shim.tar.bz2 && mv shim-* shim
 WORKDIR /sources/shim
 RUN mkdir -p /shim/usr/share/efi/
+# Fix the make.defaults to update the objcopy command to use the proper --output-target instead of --target as the flag has changed on binutils 2.46
+# When a new shim version is released, this will be fixed (current shim version is 16.1)
+# https://github.com/rhboot/shim/commit/c4665d282072df2ed8ab6ae1d5fa0de41e5db02f
+RUN sed -i 's/--target efi-app-$(ARCH)/--output-target efi-app-$(ARCH)/' Make.defaults
 # Install it to a temp folder as the dir struct is terrible
 # and we want it to be available at /usr/share/efi/shimXX.efi
 # TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
