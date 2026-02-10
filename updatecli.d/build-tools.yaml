@@ -1,19 +1,6 @@
 ---
 name: Build Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   flex:
     kind: gittag
@@ -158,7 +145,6 @@ sources:
 
 targets:
   flex:
-    scmid: "default"
     name: FLEX_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -169,7 +155,6 @@ targets:
     sourceid: flex
 
   bison:
-    scmid: "default"
     name: BISON_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -180,7 +165,6 @@ targets:
     sourceid: bison
 
   autoconf:
-    scmid: "default"
     name: AUTOCONF_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -191,7 +175,6 @@ targets:
     sourceid: autoconf
 
   automake:
-    scmid: "default"
     name: AUTOMAKE_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -202,7 +185,6 @@ targets:
     sourceid: automake
 
   libtool:
-    scmid: "default"
     name: LIBTOOL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -213,7 +195,6 @@ targets:
     sourceid: libtool
 
   cmake:
-    scmid: "default"
     name: CMAKE_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -224,7 +205,6 @@ targets:
     sourceid: cmake
 
   make:
-    scmid: "default"
     name: MAKE_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -235,7 +215,6 @@ targets:
     sourceid: make
 
   m4:
-    scmid: "default"
     name: M4_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -246,7 +225,6 @@ targets:
     sourceid: m4
 
   gawk:
-    scmid: "default"
     name: GAWK_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -257,7 +235,6 @@ targets:
     sourceid: gawk
 
   pkgconfig:
-    scmid: "default"
     name: PKGCONFIG_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -268,7 +245,6 @@ targets:
     sourceid: pkgconfig
 
   binutils:
-    scmid: "default"
     name: BINUTILS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -277,15 +253,3 @@ targets:
         keyword: ARG
         matcher: BINUTILS_VERSION
     sourceid: binutils
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

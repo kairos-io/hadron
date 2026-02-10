@@ -1,19 +1,6 @@
 ---
 name: Core System Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   musl:
     kind: gittag
@@ -114,7 +101,6 @@ sources:
 
 targets:
   musl:
-    scmid: "default"
     name: MUSL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -125,7 +111,6 @@ targets:
     sourceid: musl
 
   busybox:
-    scmid: "default"
     name: BUSYBOX_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -136,7 +121,6 @@ targets:
     sourceid: busybox
 
   systemd:
-    scmid: "default"
     name: SYSTEMD_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -147,7 +131,6 @@ targets:
     sourceid: systemd
 
   util_linux:
-    scmid: "default"
     name: UTIL_LINUX_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -158,7 +141,6 @@ targets:
     sourceid: util_linux
 
   coreutils:
-    scmid: "default"
     name: COREUTILS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -169,7 +151,6 @@ targets:
     sourceid: coreutils
 
   findutils:
-    scmid: "default"
     name: FINDUTILS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -180,7 +161,6 @@ targets:
     sourceid: findutils
 
   grep:
-    scmid: "default"
     name: GREP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -191,7 +171,6 @@ targets:
     sourceid: grep
 
   gperf:
-    scmid: "default"
     name: GPERF_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -202,7 +181,6 @@ targets:
     sourceid: gperf
 
   diffutils:
-    scmid: "default"
     name: DIFFUTILS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -213,7 +191,6 @@ targets:
     sourceid: diffutils
 
   readline:
-    scmid: "default"
     name: READLINE_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -224,7 +201,6 @@ targets:
     sourceid: readline
 
   bash:
-    scmid: "default"
     name: BASH_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -233,15 +209,3 @@ targets:
         keyword: ARG
         matcher: BASH_VERSION
     sourceid: bash
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

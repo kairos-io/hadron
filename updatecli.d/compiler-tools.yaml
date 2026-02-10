@@ -1,19 +1,6 @@
 ---
 name: Compiler Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   gcc:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -76,7 +63,6 @@ sources:
 
 targets:
   gcc:
-    scmid: "default"
     name: GCC_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -87,7 +73,6 @@ targets:
     sourceid: gcc
 
   gmp:
-    scmid: "default"
     name: GMP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -98,7 +83,6 @@ targets:
     sourceid: gmp
 
   mpc:
-    scmid: "default"
     name: MPC_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -109,7 +93,6 @@ targets:
     sourceid: mpc
 
   mpfr:
-    scmid: "default"
     name: MPFR_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -120,7 +103,6 @@ targets:
     sourceid: mpfr
 
   perl:
-    scmid: "default"
     name: PERL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -129,15 +111,3 @@ targets:
         keyword: ARG
         matcher: PERL_VERSION
     sourceid: perl
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

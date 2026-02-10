@@ -39,8 +39,103 @@ jobs:
         uses: actions/checkout@v6
       - name: Install Updatecli in the runner
         uses: updatecli/updatecli-action@v2
-      - name: Run Updatecli in apply mode
-        run: "updatecli apply --config updatecli.d/${{ matrix.config }}.yaml"
+      - name: commit and push changes
         env:
-          UPDATECLI_GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-          UPDATECLI_GITHUB_USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          set -e
+          # Check if fork exists, create if not
+          if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
+            echo "Fork does not exist. Creating fork..."
+            gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks
+          else
+            echo "Fork already exists."
+          fi
+          
+          # Clone fork using HTTPS with the token embedded in the URL; credentials are not stored on disk
+          git clone "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git" fork
+          cd fork
+          
+          # Ensure all pushes go to the fork using the authenticated URL
+          git remote set-url origin "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git"
+          
+          # Add upstream and sync main
+          git remote add upstream https://github.com/kairos-io/hadron || true
+          git fetch upstream
+          git checkout main
+          git reset --hard upstream/main
+          git push origin main --force
+          
+          # Fetch all branches
+          git fetch origin
+          
+          # Check if remote bumps branch exists
+          if git ls-remote --exit-code --heads origin bumps-${{ matrix.config }} > /dev/null; then
+            echo "Remote 'bumps-${{ matrix.config }}' branch exists. Checking it out."
+            git checkout bumps-${{ matrix.config }}
+          else
+            echo "Remote 'bumps-${{ matrix.config }}' branch does not exist. Creating from upstream/main."
+            git checkout -B bumps-${{ matrix.config }} upstream/main
+          fi
+          
+          git reset --hard upstream/main
+          
+          updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
+          
+          git add Dockerfile
+          
+          # Check if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes to commit. Checking PR state."
+            PR_INFO=$(gh pr list --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+            PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+            if [ -n "$PR_NUMBER" ]; then
+              if [ "$PR_STATE" = "CLOSED" ]; then
+                # Check if PR is merged
+                MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+                if [ -z "$MERGED_AT" ]; then
+                  echo "PR #$PR_NUMBER is closed and not merged. Deleting remote 'bumps-${{ matrix.config }}' branch to allow clean recreation."
+                  git push origin --delete bumps-${{ matrix.config }} || echo "Remote branch already deleted."
+                else
+                  echo "PR #$PR_NUMBER is merged. Nothing to do."
+                fi
+              else
+                echo "Open PR #$PR_NUMBER already exists. Nothing to do."
+              fi
+            else
+              echo "No PR found and no changes to commit. Nothing to do."
+            fi
+            exit 0
+          fi
+          
+          # Commit and push changes
+          git config user.name "ci-robbot"
+          git config user.email "robot@c3os.io"
+          git commit -s -m "Bump packages ${{ matrix.config }}"
+          git push origin bumps-${{ matrix.config }} --force
+          
+          # Check if PR already exists (open or closed)
+          PR_INFO=$(gh pr list --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
+          PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            if [ "$PR_STATE" = "CLOSED" ]; then
+              # Check if PR is merged
+              MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
+              if [ -z "$MERGED_AT" ]; then
+                echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
+                if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
+                  echo "Failed to reopen PR. Creating a new one."
+                  gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --label "auto-bump" --reviewer "@kairos-io/maintainers"
+                fi
+              else
+                echo "PR #$PR_NUMBER is merged. Nothing to do."
+              fi
+            else
+              echo "PR #$PR_NUMBER already exists and is open. Just pushed new changes."
+            fi
+          else
+            echo "No PR found. Creating a new one."
+            gh pr create --title "Automatic version bumps" --body "This PR contains automatic version bumps." --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --label "auto-bump" --reviewer "@kairos-io/maintainers"
+          fi

@@ -1,19 +1,6 @@
 ---
 name: System Libraries Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   acl:
     kind: gittag
@@ -173,7 +160,6 @@ sources:
 
 targets:
   acl:
-    scmid: "default"
     name: ACL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -184,7 +170,6 @@ targets:
     sourceid: acl
 
   attr:
-    scmid: "default"
     name: ATTR_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -195,7 +180,6 @@ targets:
     sourceid: attr
 
   libcap:
-    scmid: "default"
     name: LIBCAP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -206,7 +190,6 @@ targets:
     sourceid: libcap
 
   libmnl:
-    scmid: "default"
     name: LIBMNL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -217,7 +200,6 @@ targets:
     sourceid: libmnl
 
   libnftnl:
-    scmid: "default"
     name: LIBNFTNL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -228,7 +210,6 @@ targets:
     sourceid: libnftnl
 
   seccomp:
-    scmid: "default"
     name: SECCOMP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -239,7 +220,6 @@ targets:
     sourceid: seccomp
 
   libffi:
-    scmid: "default"
     name: LIBFFI_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -250,7 +230,6 @@ targets:
     sourceid: libffi
 
   libaio:
-    scmid: "default"
     name: LIBAIO_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -261,7 +240,6 @@ targets:
     sourceid: libaio
 
   dbus:
-    scmid: "default"
     name: DBUS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -272,7 +250,6 @@ targets:
     sourceid: dbus
 
   expat:
-    scmid: "default"
     name: EXPAT_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -283,7 +260,6 @@ targets:
     sourceid: expat
 
   popt:
-    scmid: "default"
     name: POPT_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -294,7 +270,6 @@ targets:
     sourceid: popt
 
   libxml2:
-    scmid: "default"
     name: LIBXML2_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -305,7 +280,6 @@ targets:
     sourceid: libxml2
 
   jsonc:
-    scmid: "default"
     name: JSONC_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -316,7 +290,6 @@ targets:
     sourceid: jsonc
 
   fts:
-    scmid: "default"
     name: FTS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -325,15 +298,3 @@ targets:
         keyword: ARG
         matcher: FTS_VERSION
     sourceid: fts
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

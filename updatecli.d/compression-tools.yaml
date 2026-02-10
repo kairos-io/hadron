@@ -1,19 +1,6 @@
 ---
 name: Compression Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   curl:
     kind: githubrelease
@@ -96,7 +83,6 @@ sources:
 
 targets:
   curl:
-    scmid: "default"
     name: CURL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -107,7 +93,6 @@ targets:
     sourceid: curl
 
   rsync:
-    scmid: "default"
     name: RSYNC_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -118,7 +103,6 @@ targets:
     sourceid: rsync
 
   xxhash:
-    scmid: "default"
     name: XXHASH_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -129,7 +113,6 @@ targets:
     sourceid: xxhash
 
   zstd:
-    scmid: "default"
     name: ZSTD_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -140,7 +123,6 @@ targets:
     sourceid: zstd
 
   lz4:
-    scmid: "default"
     name: LZ4_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -151,7 +133,6 @@ targets:
     sourceid: lz4
 
   zlib:
-    scmid: "default"
     name: ZLIB_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -162,7 +143,6 @@ targets:
     sourceid: zlib
 
   xzutils:
-    scmid: "default"
     name: XZUTILS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -173,7 +153,6 @@ targets:
     sourceid: xzutils
 
   gzip:
-    scmid: "default"
     name: GZIP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -182,15 +161,3 @@ targets:
         keyword: ARG
         matcher: GZIP_VERSION
     sourceid: gzip
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

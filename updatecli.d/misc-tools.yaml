@@ -1,19 +1,6 @@
 ---
 name: Miscellaneous Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   python:
     kind: githubrelease
@@ -91,7 +78,6 @@ sources:
 
 targets:
   python:
-    scmid: "default"
     name: PYTHON_VERSION in Dockerfile udpated to {{ source "python" }}
     kind: dockerfile
     spec:
@@ -102,7 +88,6 @@ targets:
     sourceid: python
 
   sqlite3:
-    scmid: "default"
     name: SQLITE3_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -113,7 +98,6 @@ targets:
     sourceid: sqlite3
 
   tpm2_tss:
-    scmid: "default"
     name: TPM2_TSS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -124,7 +108,6 @@ targets:
     sourceid: tpm2_tss
 
   pax_utils:
-    scmid: "default"
     name: PAX_UTILS_VERSION in Dockerfile updated to {{ source "pax_utils" }}
     kind: dockerfile
     spec:
@@ -135,7 +118,6 @@ targets:
     sourceid: pax_utils
 
   ca_certificates:
-    scmid: "default"
     name: CA_CERTIFICATES_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -146,7 +128,6 @@ targets:
     sourceid: ca_certificates
 
   aports:
-    scmid: "default"
     name: APORTS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -157,7 +138,6 @@ targets:
     sourceid: aports
 
   gdb:
-    scmid: "default"
     name: GDB_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -166,15 +146,3 @@ targets:
         keyword: ARG
         matcher: GDB_VERSION
     sourceid: gdb
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

@@ -1,18 +1,6 @@
 ---
 name: Storage Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
 
 sources:
   lvm2:
@@ -83,7 +71,6 @@ sources:
 
 targets:
   lvm2:
-    scmid: "default"
     name: LVM2_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -94,7 +81,6 @@ targets:
     sourceid: lvm2
 
   multipath:
-    scmid: "default"
     name: MULTIPATH_TOOLS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -105,7 +91,6 @@ targets:
     sourceid: multipath
 
   e2fsprogs:
-    scmid: "default"
     name: E2FSPROGS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -116,7 +101,6 @@ targets:
     sourceid: e2fsprogs
 
   dosfstools:
-    scmid: "default"
     name: DOSFSTOOLS_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -127,7 +111,6 @@ targets:
     sourceid: dosfstools
 
   parted:
-    scmid: "default"
     name: PARTED_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -138,7 +121,6 @@ targets:
     sourceid: parted
 
   urcu:
-    scmid: "default"
     name: URCU_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -147,15 +129,3 @@ targets:
         keyword: ARG
         matcher: URCU_VERSION
     sourceid: urcu
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

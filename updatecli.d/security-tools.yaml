@@ -1,19 +1,6 @@
 ---
 name: Security Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   openssl:
     kind: githubrelease
@@ -80,7 +67,6 @@ sources:
 
 targets:
   openssl:
-    scmid: "default"
     name: OPENSSL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -91,7 +77,6 @@ targets:
     sourceid: openssl
 
   openssh:
-    scmid: "default"
     name: OPENSSH_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -102,7 +87,6 @@ targets:
     sourceid: openssh
 
   sudo:
-    scmid: "default"
     name: SUDO_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -113,7 +97,6 @@ targets:
     sourceid: sudo
 
   pam:
-    scmid: "default"
     name: PAM_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -124,7 +107,6 @@ targets:
     sourceid: pam
 
   shadow:
-    scmid: "default"
     name: SHADOW_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -135,7 +117,6 @@ targets:
     sourceid: shadow
 
   cryptsetup:
-    scmid: "default"
     name: CRYPTSETUP_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -144,15 +125,3 @@ targets:
         keyword: ARG
         matcher: CRYPTSETUP_VERSION
     sourceid: cryptsetup
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"

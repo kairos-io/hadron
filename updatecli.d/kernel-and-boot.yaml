@@ -1,19 +1,6 @@
 ---
 name: Kernel and Boot Tools Updates
 
-scms:
-  default:
-    kind: github
-    spec:
-      user: "Itxaka update bot"
-      email: "itxaka@kairos.io"
-      owner: "kairos-io"
-      repository: "hadron"
-      token: '{{ requiredEnv "UPDATECLI_GITHUB_TOKEN" }}'
-      username: '{{ requiredEnv "UPDATECLI_GITHUB_USERNAME"}}'
-      branch: "main"
-      commitusingapi: true
-
 sources:
   kernel:
     kind: http
@@ -21,7 +8,7 @@ sources:
       url: https://www.kernel.org/kdist/finger_banner
     transformers:
       - findsubmatch:
-          pattern: 'latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+\.[0-9]+)'
+          pattern: 'latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+(?:\.[0-9]+)?)'
           captureindex: 1
 
   kmod:
@@ -59,7 +46,6 @@ sources:
 
 targets:
   kernel:
-    scmid: "default"
     name: KERNEL_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -70,7 +56,6 @@ targets:
     sourceid: kernel
 
   kmod:
-    scmid: "default"
     name: KMOD_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -81,7 +66,6 @@ targets:
     sourceid: kmod
 
   dracut:
-    scmid: "default"
     name: DRACUT_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -92,7 +76,6 @@ targets:
     sourceid: dracut
 
   grub:
-    scmid: "default"
     name: GRUB_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -103,7 +86,6 @@ targets:
     sourceid: grub
 
   kbd:
-    scmid: "default"
     name: KBD_VERSION in Dockerfile
     kind: dockerfile
     spec:
@@ -112,15 +94,3 @@ targets:
         keyword: ARG
         matcher: KBD_VERSION
     sourceid: kbd
-
-actions:
-  default:
-    kind: "github/pullrequest"
-    scmid: "default"
-    spec:
-      automerge: true
-      mergemethod: "squash"
-      labels:
-        - "dependencies"
-      reviewers:
-        - "kairos-io/maintainers"
