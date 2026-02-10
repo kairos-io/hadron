@@ -274,8 +274,8 @@ ARG MAKE_VERSION=4.4.1
 RUN wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz -O make.tar.gz
 
 ## binutils (for stage0)
-ARG BINUTILS_VERSION=2.45.1
-RUN wget -q http://mirror.easyname.at/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
+ARG BINUTILS_VERSION=2.46.0
+RUN wget -q https://sourceware.org/pub/binutils/releases/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
 ## popt
 ARG POPT_VERSION=1.19
