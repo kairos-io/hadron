@@ -14,6 +14,8 @@ jobs:
       matrix:
         extra-file:
           - "Dockerfile.git"
+          - "Dockerfile.gpg"
+          - "Dockerfile.fwupd"
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
