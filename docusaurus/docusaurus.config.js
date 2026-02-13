@@ -56,88 +56,24 @@ const config = {
     {
       tagName: 'link',
       attributes: {
-        rel: 'alternate icon',
-        href: '/favicons/favicon.ico',
+        rel: 'icon',
+        type: 'image/svg+xml',
+        href: '/favicons/favicon.svg',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'icon',
+        type: 'image/png',
+        href: '/favicons/favicon.png',
       },
     },
     {
       tagName: 'link',
       attributes: {
         rel: 'apple-touch-icon',
-        href: '/favicons/apple-touch-icon-180x180.png',
-        sizes: '180x180',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/favicon-16x16.png',
-        sizes: '16x16',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/favicon-32x32.png',
-        sizes: '32x32',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-36x36.png',
-        sizes: '36x36',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-48x48.png',
-        sizes: '48x48',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-72x72.png',
-        sizes: '72x72',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-96x96.png',
-        sizes: '96x96',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-144x144.png',
-        sizes: '144x144',
-      },
-    },
-    {
-      tagName: 'link',
-      attributes: {
-        rel: 'icon',
-        type: 'image/png',
-        href: '/favicons/android-192x192.png',
-        sizes: '192x192',
+        href: '/favicons/favicon.png',
       },
     },
   ],

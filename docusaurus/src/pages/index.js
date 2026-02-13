@@ -67,8 +67,6 @@ export default function Home() {
               <div className="hero-left">
                 <div className="eyebrow">
                   <img src="/images/hadron-logo.svg" alt="Hadron logo" width="24" height="24" />
-                  <span>HADRON</span>
-                  <span>by Kairos</span>
                 </div>
                 <h1>The foundation for image-based systems.</h1>
                 <p className="lead">

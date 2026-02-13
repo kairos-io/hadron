@@ -521,7 +521,7 @@ body {
 
 /* Logo image in eyebrow */
 .eyebrow img {
-    height: 1.5em;
+    height: 3em;
     width: auto;
     filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.3));
 }
