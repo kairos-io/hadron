@@ -1,0 +1,53 @@
+/* Match existing Hugo landing layout by removing Docusaurus chrome */
+.navbar,
+.footer {
+  display: none !important;
+}
+
+/* Override Docusaurus theme background tokens to match Hugo landing */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  --ifm-background-color: #071026 !important;
+  --ifm-background-surface-color: #0e2540 !important;
+}
+
+/* Force the same landing background through all Docusaurus root containers */
+html,
+body,
+#__docusaurus,
+#__docusaurus > div {
+  background: linear-gradient(145deg, #071026, #0e2540) !important;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: #fff;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+/* This fallback anchor should not affect layout on the landing page */
+#__docusaurus_skipToContent_fallback {
+  position: fixed !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Let particle canvas show through inside the landing page */
+#main,
+#landing-container,
+.snap-container,
+.snap-page,
+#page-hero {
+  background: transparent !important;
+}
+
+/* Allow scrolling only on constrained viewports */
+@media (max-width: 920px), (max-height: 760px) {
+  body {
+    overflow-y: auto;
+  }
+}
