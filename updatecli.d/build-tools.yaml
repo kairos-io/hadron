@@ -143,7 +143,7 @@ sources:
           from: '_'
           to: '.'
       - replacer:
-          from: '^2\.46$'
+          from: '2.46'
           to: '2.46.0'
       - sort:
           method: semver

@@ -7,9 +7,10 @@ sources:
     spec:
       owner: python
       repository: cpython
-    versionfilter:
-      kind: semver
-      pattern: '*'
+      versionfilter:
+        kind: regex/semver
+        regex: '^v?(\d+\.\d+\.\d+)$'
+        pattern: '*'
     transformers:
       - trimprefix: v
 
