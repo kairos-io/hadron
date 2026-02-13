@@ -1,11 +1,17 @@
 {
-  "name": "hadron-docs",
+  "name": "hadron-docusaurus",
   "version": "1.0.0",
-  "description": "Hadron Linux documentation site",
   "private": true,
-  "devDependencies": {
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.31",
-    "postcss-cli": "^11.0.0"
+  "scripts": {
+    "start": "docusaurus start --host 0.0.0.0 --port 3000",
+    "build": "docusaurus build",
+    "serve": "docusaurus serve",
+    "clear": "docusaurus clear"
+  },
+  "dependencies": {
+    "@docusaurus/core": "^3.0.1",
+    "@docusaurus/preset-classic": "^3.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
