@@ -1,6 +1,6 @@
 FROM ghcr.io/kairos-io/hadron-toolchain:main AS downloader
 # Link /usr/bin/env to /bin/env because some build scripts have it hardcoded and we don't want to break them.
-# TODO: Move thos into the base images
+# TODO: Move this into the base images
 RUN ln -s /bin/env /usr/bin/env
 # TODO: No /tmp in the docker images, move to the base images?
 RUN mkdir -p /tmp
@@ -41,8 +41,7 @@ RUN curl -L https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3
 ARG LIBFFI_VERSION=3.5.2
 RUN curl -L https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -o libffi.tar.gz
 
-ARG SQLITE3_VERSION=3.51.2
-RUN curl -L https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -o sqlite3.tar.gz
+
 
 
 RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
@@ -117,7 +116,7 @@ RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} DESTDIR=/output install
 
 # Libffi is a runtime dep of fwupd
-# we haveit on the toolchain for building but not on the hadron image, so we need to build it and copy the libs to the final image if the binaries require it during runtime
+# we have it on the toolchain for building but not on the hadron image, so we need to build it and copy the libs to the final image if the binaries require it during runtime
 FROM downloader AS libffi
 WORKDIR /sources/libffi
 # --disable-multi-os-directory makes sure we dont install the libs under /usr/lib64
