@@ -30,31 +30,30 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - name: Install PostCSS dependencies
-        working-directory: ./docs
-        run: npm ci
-      - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          hugo-version: '0.152.2'
-          extended: true
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./docs/package-lock.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Build with Hugo
+      - name: Install dependencies
         working-directory: ./docs
-        env:
-          HUGO_ENVIRONMENT: production
-          HUGO_ENV: production
-        run: hugo --minify
+        run: npm ci
+
+      - name: Build with Docusaurus
+        working-directory: ./docs
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: ./docs/public
+          path: ./docs/build
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
