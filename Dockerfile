@@ -133,7 +133,7 @@ ARG SECCOMP_VERSION=2.6.0
 # seccomp
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
-ARG STRACE_VERSION=6.18
+ARG STRACE_VERSION=6.19
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 ARG KBD_VERSION=2.9.0
