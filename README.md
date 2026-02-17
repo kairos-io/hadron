@@ -1,6 +1,12 @@
 ## Hadron Linux
 
-<img width="250" align="left" alt="logo" src="./docs/static/images/hadron-logo.svg" />
+<div align="left"
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/static/images/hadron-logo.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./docs/static/images/hadron-logo-light.svg">
+    <img alt="Hadron Logo" src="./docs/static/images/hadron-logo.svg" width="250">
+  </picture>
+</div>
 
 **The foundational Linux distribution for the cloud and the edge.**
 
