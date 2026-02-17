@@ -1,6 +1,6 @@
 ## Hadron Linux
 
-<div align="left"
+<div align="left">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./docs/static/images/hadron-logo.svg">
     <source media="(prefers-color-scheme: light)" srcset="./docs/static/images/hadron-logo-light.svg">
