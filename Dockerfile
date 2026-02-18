@@ -2861,7 +2861,6 @@ RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
 COPY --from=gzip /gzip /gzip
 RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
 COPY --from=kernel-modules /sources/kernel /merge/usr/src/linux
-COPY --from=perl /perl /merge
 COPY --from=libelf /libelf /merge
 
 FROM scratch AS toolchain
