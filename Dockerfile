@@ -2860,6 +2860,9 @@ COPY --from=findutils /findutils /findutils
 RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
 COPY --from=gzip /gzip /gzip
 RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
+COPY --from=kernel-modules /sources/kernel /merge/usr/src/linux
+COPY --from=perl /perl /merge
+COPY --from=libelf /libelf /merge
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
@@ -2884,6 +2887,11 @@ ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=t
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
+RUN ln -s /usr/bin/gcc /usr/bin/cc
+# Some build systems expect the /tmp dir to exist and if you run this as a container it may not be mounted to anything, so we need to create it
+RUN mkdir /tmp
+# Some build systems will try to get the current user id info and fail if it can't find it, so we need to create a simple /etc/passwd file with at least the root user in it
+RUN printf 'root:x:0:0:root:/root:/bin/sh\n' > /etc/passwd
 CMD ["/bin/bash", "-l"]
 
 ########################################################
