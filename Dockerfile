@@ -73,7 +73,7 @@ RUN wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O 
 ARG LZ4_VERSION=1.10.0
 RUN wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4.tar.gz
 
-ARG ZLIB_VERSION=1.3.1
+ARG ZLIB_VERSION=1.3.2
 RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
 ARG ACL_VERSION=2.3.2
