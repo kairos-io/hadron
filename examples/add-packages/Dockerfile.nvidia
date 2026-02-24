@@ -16,7 +16,6 @@ RUN kver=$(cat /usr/share/kernel-misc/kernel-version) && tar -xf linux-${kver}.t
 WORKDIR /build/linux
 RUN cp /usr/share/kernel-misc/kernel-config .config
 # Disable module signing cleanly
-RUN ln -s /bin/env /usr/bin/env
 RUN ./scripts/config --disable MODULE_SIG
 RUN ./scripts/config --disable MODULE_SIG_ALL
 RUN ARCH=${BUILD_ARCH} make -s olddefconfig
@@ -29,7 +28,6 @@ RUN tar -xf nvidia.tar.gz && rm nvidia.tar.gz && mv open-gpu-kernel-modules-${NV
 WORKDIR /build/nvidia-modules
 ENV CFLAGS="-Os -pipe"
 ENV LDFLAGS="--gc-sections --as-needed"
-ENV CC=gcc
 RUN ARCH=${BUILD_ARCH} KERNEL_UNAME="$(cat /usr/share/kernel-misc/kernel-release)" SYSSRC=/build/linux SYSOUT=/build/linux make -s -j${JOBS} modules
 RUN ARCH=${BUILD_ARCH} KERNEL_UNAME="$(cat /usr/share/kernel-misc/kernel-release)" SYSSRC=/build/linux SYSOUT=/build/linux ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/output" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 

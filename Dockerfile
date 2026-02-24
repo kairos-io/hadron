@@ -2912,6 +2912,7 @@ SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
 RUN ln -s /usr/bin/gcc /usr/bin/cc
+RUN ln -s /bin/env /usr/bin/env
 # Some build systems expect the /tmp dir to exist and if you run this as a container it may not be mounted to anything, so we need to create it
 RUN mkdir /tmp
 # Some build systems will try to get the current user id info and fail if it can't find it, so we need to create a simple /etc/passwd file with at least the root user in it
