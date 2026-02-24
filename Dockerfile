@@ -73,7 +73,7 @@ RUN wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O 
 ARG LZ4_VERSION=1.10.0
 RUN wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4.tar.gz
 
-ARG ZLIB_VERSION=1.3.1
+ARG ZLIB_VERSION=1.3.2
 RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
 ARG ACL_VERSION=2.3.2
@@ -2911,6 +2911,11 @@ ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=t
 SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
+RUN ln -s /usr/bin/gcc /usr/bin/cc
+# Some build systems expect the /tmp dir to exist and if you run this as a container it may not be mounted to anything, so we need to create it
+RUN mkdir /tmp
+# Some build systems will try to get the current user id info and fail if it can't find it, so we need to create a simple /etc/passwd file with at least the root user in it
+RUN printf 'root:x:0:0:root:/root:/bin/sh\n' > /etc/passwd
 CMD ["/bin/bash", "-l"]
 
 ########################################################
