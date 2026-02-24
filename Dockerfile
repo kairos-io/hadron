@@ -370,6 +370,9 @@ RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shi
 ARG ICONV_VERSION=1.18
 RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz -O libiconv.tar.gz
 
+ARG BC_VERSION=7.0.3
+RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc-${BC_VERSION}.tar.xz -O bc.tar.xz
+
 # Creates the system skeleton
 # dirs, minimum files, symlinks, etc.
 FROM stage0 AS skeleton
@@ -1784,14 +1787,14 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-version
+    fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-release ; make -s -j${JOBS} kernelversion > /kernel/kernel-version
 RUN if [ ${ARCH} = "aarch64" ]; then \
-    ARCH=arm64 kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
+    ARCH=arm64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
     else \
-    ARCH=x86_64 kver=$(cat /kernel/kernel-version) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
+    ARCH=x86_64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
     fi
 # link vmlinuz to our kernel
-RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-version) /kernel/vmlinuz
+RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-release) /kernel/vmlinuz
 
 FROM kernel-build AS kernel-no-fips
 # Nothing to do here, just a placeholder
@@ -1803,8 +1806,8 @@ WORKDIR /sources/
 COPY --from=libkcapi /libkcapi /libkcapi
 RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /
 # Use generate the HMAC for the kernel, make sure to set the path to the runtime path
-RUN kver=$(cat /kernel/kernel-version) && sha512hmac /kernel/vmlinuz-${kver} | sed 's|  /kernel/|  /boot/|' > /kernel/.vmlinuz-${kver}.hmac
-RUN kver=$(cat /kernel/kernel-version) && chmod 0644 /kernel/.vmlinuz-${kver}.hmac
+RUN kver=$(cat /kernel/kernel-release) && sha512hmac /kernel/vmlinuz-${kver} | sed 's|  /kernel/|  /boot/|' > /kernel/.vmlinuz-${kver}.hmac
+RUN kver=$(cat /kernel/kernel-release) && chmod 0644 /kernel/.vmlinuz-${kver}.hmac
 
 FROM kernel-${FIPS} AS kernel
 
@@ -1830,6 +1833,17 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     else \
     export ARCH=x86_64;\
     fi; make -s -j${JOBS} -l${MAX_LOAD} headers_install INSTALL_HDR_PATH=/linux-headers
+
+FROM kernel-modules AS kernel-misc
+WORKDIR /output/
+# This copies some extra stuff from the kernel, like the kernel version and config, that we can use in the toolchain if needed
+RUN cp /kernel/kernel-version /output/kernel-version
+RUN cp /kernel/kernel-release /output/kernel-release
+RUN cp /sources/kernel/.config /output/kernel-config
+# This is useful to build out-of-tree modules against our kernel, it contains the exported symbols from the kernel that modules can use
+# This way we dont have to rebuild the kernel or the modules
+RUN cp /sources/kernel/Module.symvers /output/Module.symvers
+RUN du -chs /sources/kernel/ && exit 1
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
@@ -2720,6 +2734,16 @@ WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml && make -s -j${JOBS} -l${MAX_LOAD} install
 
+FROM rsync AS bc
+ARG JOBS
+COPY --from=readline /readline /readline
+RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=sources-downloader /sources/downloads/bc.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf bc.tar.xz && mv bc-* bc
+WORKDIR /sources/bc
+RUN ./configure --prefix=/usr -G -Os -N
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/bc
 
 ## Build image with all the deps on it
 ## Busybox provides the following tools for the final images:
@@ -2860,6 +2884,9 @@ COPY --from=findutils /findutils /findutils
 RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
 COPY --from=gzip /gzip /gzip
 RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
+COPY --from=kernel-misc /output /merge/usr/share/kernel-misc
+COPY --from=bc /bc /merge
+COPY --from=libelf /libelf /merge
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
