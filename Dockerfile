@@ -266,7 +266,7 @@ RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gm
 ARG MPC_VERSION=1.3.1
 RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
 
-ARG MPFR_VERSION=4.2.2
+ARG MPFR_VERSION
 RUN wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 -O mpfr.tar.bz2
 
 ## make
