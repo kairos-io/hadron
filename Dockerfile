@@ -1843,7 +1843,6 @@ RUN cp /sources/kernel/.config /output/kernel-config
 # This is useful to build out-of-tree modules against our kernel, it contains the exported symbols from the kernel that modules can use
 # This way we dont have to rebuild the kernel or the modules
 RUN cp /sources/kernel/Module.symvers /output/Module.symvers
-RUN du -chs /sources/kernel/ && exit 1
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
