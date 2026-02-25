@@ -115,8 +115,8 @@ RUN set -eux; \
     cp -L $GLIBC/libresolv.so.2 ${OUTPUT}/usr/libc/lib/; \
     cp -L $GLIBC/libstdc++.so.6 ${OUTPUT}/usr/libc/lib/; \
     cp -L $GLIBC/libgcc_s.so.1 ${OUTPUT}/usr/libc/lib/; \
-    cp -L $GLIBC/libnsl.so.1 ${OUTPUT}/usr/libc/lib/ || true; \
-    cp -L $GLIBC/libcrypt.so.1 ${OUTPUT}/usr/libc/lib/ || true
+    cp -L $GLIBC/libnsl.so.1 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libcrypt.so.1 ${OUTPUT}/usr/libc/lib/
 
 # Copy a ld.so.conf that only glibc reads to know where its libs are so it can find them when running the NVIDIA userspace binaries
 # This way we have a transparent layer of glibc runtime libraries that only the glibc-linked binaries use,
