@@ -63,7 +63,10 @@ RUN tar -xf nvidia.tar.xz --strip-components=1 && rm nvidia.tar.xz
 
 # Prepare output layout
 RUN mkdir -p ${OUTPUT}/usr/libc/lib \
-             ${OUTPUT}/usr/libc/bin
+             ${OUTPUT}/usr/bin \
+             ${OUTPUT}/usr/lib \
+             ${OUTPUT}/etc
+
 
 # ---- Copy NVIDIA compute userspace ----
 RUN set -eux; \
@@ -85,7 +88,7 @@ RUN set -eux; \
     libnvidia-api.so* \
     libnvidia-allocator.so* \
   ; do \
-    cp -a lib/$f ${OUTPUT}/usr/libc/lib/ 2>/dev/null || true; \
+    cp -L lib/$f ${OUTPUT}/usr/libc/lib/ 2>/dev/null || true; \
   done
 
 # Create symlinks for .so.1 versions
@@ -96,26 +99,31 @@ RUN cd ${OUTPUT}/usr/libc/lib && \
   done
 
 # Tools
-RUN cp -a sbin/nvidia-smi ${OUTPUT}/usr/libc/bin/
-RUN cp -a sbin/nvidia-cuda-mps-server ${OUTPUT}/usr/libc/bin/
-RUN cp -a sbin/nvidia-cuda-mps-control ${OUTPUT}/usr/libc/bin/
+RUN cp -a sbin/nvidia-smi ${OUTPUT}/usr/bin/
+RUN cp -a sbin/nvidia-cuda-mps-server ${OUTPUT}/usr/bin/
+RUN cp -a sbin/nvidia-cuda-mps-control ${OUTPUT}/usr/bin/
 
 # ---- Copy glibc runtime ----
 RUN set -eux; \
     GLIBC=/lib/x86_64-linux-gnu; \
-    cp -a $GLIBC/ld-linux-x86-64.so.2 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libc.so.6 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libpthread.so.0 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libm.so.6 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libdl.so.2 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/librt.so.1 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libresolv.so.2 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libstdc++.so.6 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libgcc_s.so.1 ${OUTPUT}/usr/libc/lib/; \
-    cp -a $GLIBC/libnsl.so.1 ${OUTPUT}/usr/libc/lib/ || true; \
-    cp -a $GLIBC/libcrypt.so.1 ${OUTPUT}/usr/libc/lib/ || true
+    cp -L $GLIBC/ld-linux-x86-64.so.2 ${OUTPUT}/usr/lib/; \
+    cp -L $GLIBC/libc.so.6 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libpthread.so.0 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libm.so.6 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libdl.so.2 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/librt.so.1 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libresolv.so.2 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libstdc++.so.6 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libgcc_s.so.1 ${OUTPUT}/usr/libc/lib/; \
+    cp -L $GLIBC/libnsl.so.1 ${OUTPUT}/usr/libc/lib/ || true; \
+    cp -L $GLIBC/libcrypt.so.1 ${OUTPUT}/usr/libc/lib/ || true
 
-
+# Copy a ld.so.conf that only glibc reads to know where its libs are so it can find them when running the NVIDIA userspace binaries
+# This way we have a transparent layer of glibc runtime libraries that only the glibc-linked binaries use,
+# and we can keep the rest of the Hadron image musl-based and lightweight, while still being able to run the NVIDIA userspace components properly.
+# we create the conf file and with that create the cache with ldconfig which is what libc reads
+RUN echo "/usr/libc/lib" > ${OUTPUT}/etc/ld.so.conf
+RUN ldconfig -r ${OUTPUT} -f /etc/ld.so.conf
 # This target will copy the built libs or binaries binaries to a minimal image.
 # We can then use this as a layer on top of Hadron to extend it like
 # FROM ghcr.io/kairos-io/hadron:VERSION
@@ -125,13 +133,5 @@ FROM scratch AS default
 COPY --from=builder /output/ /
 
 FROM ghcr.io/kairos-io/hadron:main AS hadron-extension
-COPY --from=modules-builder /output/lib/modules/ /usr/lib/modules/
-COPY --from=nvidia-builder /output/usr/libc/ /usr/libc/
-
-# Install wrapper for glibc binaries
-RUN printf '%s\n' \
-'#!/bin/sh' \
-'GLIBC=/usr/libc/lib' \
-'exec $GLIBC/ld-linux-x86-64.so.2 --library-path $GLIBC "$@"' \
-> /usr/libc/bin/glibc-run && \
-chmod +x /usr/libc/bin/glibc-run
+COPY --link --from=modules-builder /output/ /usr/
+COPY --link --from=nvidia-builder /output/ /
