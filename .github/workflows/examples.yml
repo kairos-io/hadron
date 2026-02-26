@@ -2,10 +2,6 @@ name: Build examples
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - '../../examples/add-packages/**'
-      - '.github/workflows/examples.yml'
   push:
     paths:
       - '../../examples/add-packages/**'
