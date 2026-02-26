@@ -271,7 +271,7 @@ jobs:
           --override-name kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }} \
           docker:ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }}.iso.zip
           path: build/*.iso
@@ -301,7 +301,7 @@ jobs:
           --overlay-iso /overlay \
           docker:ttl.sh/hadron-init-trusted:${{ github.sha }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
           path: build/*.iso
@@ -328,7 +328,7 @@ jobs:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: kairos-hadron-bios-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
@@ -350,7 +350,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         if: failure()
         with:
           name: acceptance-${{github.sha}}.logs.zip
@@ -377,7 +377,7 @@ jobs:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
@@ -402,7 +402,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         if: failure()
         with:
           name: acceptance-trusted-${{github.sha}}.logs.zip
@@ -430,7 +430,7 @@ jobs:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: kairos-hadron-bios-fips-${{ github.sha }}.iso.zip
       - name: Enable KVM group perms
@@ -453,7 +453,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         if: failure()
         with:
           name: ${{ matrix.test }}-${{github.sha}}.logs.zip

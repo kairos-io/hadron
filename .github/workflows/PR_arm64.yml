@@ -197,7 +197,7 @@ jobs:
           --override-name kairos-hadron-bios-${{ github.sha }} \
           docker:ttl.sh/hadron-init-bios:${{ github.sha }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: kairos-hadron-bios-${{ github.sha }}.iso.zip
           path: build/*.iso
