@@ -82,7 +82,7 @@ RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.ta
 ARG ATTR_VERSION=2.5.2
 RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
-ARG GAWK_VERSION=5.3.2
+ARG GAWK_VERSION=5.4.0
 RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
 
 ARG CA_CERTIFICATES_VERSION=20251003
