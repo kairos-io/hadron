@@ -23,10 +23,14 @@ sources:
     spec:
       command: |
         git ls-remote --refs --tags https://github.com/systemd/systemd.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' \
+        | awk -F/ '{print $NF}' | grep -v rc | grep -v RC \
         | sort -V | tail -n 1
     transformers:
       - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
 
   util_linux:
     kind: githubrelease

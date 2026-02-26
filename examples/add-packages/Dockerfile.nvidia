@@ -32,7 +32,7 @@ RUN ARCH=${BUILD_ARCH} KERNEL_UNAME="$(cat /usr/share/kernel-misc/kernel-release
 RUN ARCH=${BUILD_ARCH} KERNEL_UNAME="$(cat /usr/share/kernel-misc/kernel-release)" SYSSRC=/build/linux SYSOUT=/build/linux ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/output" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} modules_install
 
 # Create a separate stage to extract the NVIDIA userspace components, which we can then add to the Hadron image as well.
-# As the nvdidia userspace components are linked against glibc, we also need to copy the glibc runtime libraries to ensure they can run properly in the musl-based Hadron image.
+# As the nvdia userspace components are linked against glibc, we also need to copy the glibc runtime libraries to ensure they can run properly in the musl-based Hadron image.
 # We can do this by copying the necessary .so files from the builder stage, which is based on Ubuntu and has glibc, to a separate output directory.
 # We can then add this directory to the Hadron image as well as well as the libc components
 # Then we create a libc wrapper that sets the library path to point to the glibc libraries we copied,
