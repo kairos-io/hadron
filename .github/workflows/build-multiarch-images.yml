@@ -6,13 +6,28 @@ on:
     tags:
       - 'v*'
 
+env:
+  VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.0.0' }}
+
 # Tags should not save the cache as they wont be ever reused for further builds
 # so we only set the cache save on branch builds
 concurrency:
   group: ci-image-${{ github.ref_name }}-${{ github.repository }}
   cancel-in-progress: ${{ github.ref_name == 'main' }} # Only cancel in-progress for branch builds, never for tags
 jobs:
+  validate-version:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate VERSION is not default
+        run: |
+          if [ "${VERSION}" = "v0.0.0" ]; then
+            echo "::error::VERSION resolved to v0.0.0. Run this workflow from a version tag (for example: v1.2.3)."
+            exit 1
+          fi
+
   toolchain-amd64:
+    needs:
+      - validate-version
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
       packages: write
@@ -64,6 +79,8 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
   toolchain-arm64:
+    needs:
+      - validate-version
     runs-on: oracle-vm-32cpu-128gb-arm64
     permissions:
       packages: write
@@ -373,6 +390,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           build-args: |
+            VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
@@ -439,6 +457,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-arm64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           build-args: |
+            VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
@@ -551,6 +570,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel) || '' }}
           target: default
           build-args: |
+            VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
   hadron-trusted-arm64:
@@ -612,6 +632,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel) || '' }}
           target: default
           build-args: |
+            VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
             ARCH=aarch64
