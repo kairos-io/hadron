@@ -39,6 +39,10 @@ sources:
       repository: util-linux
     transformers:
       - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
 
   coreutils:
     kind: githubrelease
