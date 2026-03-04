@@ -6,7 +6,7 @@
 ARG JOBS
 ARG NVIDIA_VERSION=580.126.20
 
-FROM ghcr.io/kairos-io/hadron-toolchain:main AS modules-builder
+FROM ghcr.io/kairos-io/hadron-toolchain:v0.0.4 AS modules-builder
 ARG JOBS
 WORKDIR /build
 # kernel version is stored under /usr/share/kernel-misc/kernel-version file
@@ -64,8 +64,8 @@ RUN tar -xf nvidia.tar.xz --strip-components=1 && rm nvidia.tar.xz
 # Prepare output layout
 RUN mkdir -p ${OUTPUT}/usr/libc/lib \
              ${OUTPUT}/usr/bin \
-             ${OUTPUT}/usr/lib \
-             ${OUTPUT}/etc
+             ${OUTPUT}/usr/lib/firmware/nvidia/${NVIDIA_VERSION} \
+             ${OUTPUT}/etc/modprobe.d/
 
 
 # ---- Copy NVIDIA compute userspace ----
@@ -124,6 +124,14 @@ RUN set -eux; \
 # we create the conf file and with that create the cache with ldconfig which is what libc reads
 RUN echo "/usr/libc/lib" > ${OUTPUT}/etc/ld.so.conf
 RUN ldconfig -r ${OUTPUT} -f /etc/ld.so.conf
+
+# Copy the firmware, this needs the version as each version stores it in a separated folder
+RUN cp -a firmware/* ${OUTPUT}/usr/lib/firmware/nvidia/${NVIDIA_VERSION}/
+
+# blacklist nouveau driver by adding a conf file to modprobe.d,
+# this way the modules will autoload and not collide with nouveau
+RUN echo "blacklist nouveau" > ${OUTPUT}/etc/modprobe.d/blacklist-nouveau.conf
+
 # This target will copy the built libs or binaries binaries to a minimal image.
 # We can then use this as a layer on top of Hadron to extend it like
 # FROM ghcr.io/kairos-io/hadron:VERSION
@@ -132,6 +140,6 @@ RUN ldconfig -r ${OUTPUT} -f /etc/ld.so.conf
 FROM scratch AS default
 COPY --from=builder /output/ /
 
-FROM ghcr.io/kairos-io/hadron:main AS hadron-extension
+FROM ghcr.io/kairos-io/hadron:v0.0.4 AS hadron-extension
 COPY --link --from=modules-builder /output/ /usr/
 COPY --link --from=nvidia-builder /output/ /
