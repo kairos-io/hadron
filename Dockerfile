@@ -336,7 +336,7 @@ ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
 # libxml
-ARG LIBXML2_VERSION=2.15.1
+ARG LIBXML2_VERSION=2.15.2
 RUN major="${LIBXML2_VERSION%%.*}" \
  && minor="${LIBXML2_VERSION#*.}"; minor="${minor%%.*}" \
  && LIBXML2_VERSION_MAJOR_AND_MINOR="${major}.${minor}" \
