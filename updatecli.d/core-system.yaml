@@ -6,6 +6,10 @@ sources:
     kind: gittag
     spec:
       url: git://git.musl-libc.org/musl
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
 
@@ -19,30 +23,29 @@ sources:
           to: '.'
 
   systemd:
-    kind: shell
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags https://github.com/systemd/systemd.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -v rc | grep -v RC \
-        | sort -V | tail -n 1
+      url: https://github.com/systemd/systemd.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
-      - sort:
-          method: semver
-      - semver:
-          constraint: '*'
 
   util_linux:
-    kind: githubrelease
+    kind: gittag
     spec:
-      owner: util-linux
-      repository: util-linux
+      url: https://github.com/util-linux/util-linux.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "*"
+        replaceall:
+          pattern: "^v"
+          replacement: ""
     transformers:
       - trimprefix: v
-      - sort:
-          method: semver
-      - semver:
-          constraint: '*'
 
   coreutils:
     kind: githubrelease
@@ -53,24 +56,24 @@ sources:
       - trimprefix: v
 
   findutils:
-    # Much faster to query this thant to use the gittag which actually clones the repository fully
-    kind: shell
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags git://git.git.savannah.gnu.org/findutils.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+      url: git://git.git.savannah.gnu.org/findutils.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
 
   grep:
-    # Much faster to query this thant to use the gittag which actually clones the repository fully
-    kind: shell
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags  https://git.savannah.gnu.org/git/grep.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+      url: git://git.git.savannah.gnu.org/grep.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
 
@@ -78,17 +81,21 @@ sources:
     kind: gittag
     spec:
       url: git://git.git.savannah.gnu.org/gperf.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
 
   diffutils:
-    # Much faster to query this thant to use the gittag which actually clones the repository fully
-    kind: shell
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags  git://git.git.savannah.gnu.org/diffutils.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+      url: git://git.git.savannah.gnu.org/diffutils.git
+      lsremote: true
+      versionfilter:
+        kind: semver
+        pattern: "v*"
     transformers:
       - trimprefix: v
 
@@ -96,6 +103,10 @@ sources:
     kind: gittag
     spec:
       url: git://git.git.savannah.gnu.org/readline.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: "^readline-(\\d+\\.\\d+)$"
     transformers:
       - trimprefix: readline-
 
@@ -103,6 +114,10 @@ sources:
     kind: gittag
     spec:
       url: git://git.git.savannah.gnu.org/bash.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: ^bash-(\d+\.\d+)$
     transformers:
       - trimprefix: bash-
 
