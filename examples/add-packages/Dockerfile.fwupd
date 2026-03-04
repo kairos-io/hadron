@@ -149,17 +149,28 @@ RUN DESTDIR=/output ninja -C buildDir install
 
 
 # This will copy all the built dependencies to a single target, which we can then use as a base for the final image to have just one layer in the final images
+FROM ghcr.io/kairos-io/hadron:main AS middle-clean
+COPY --from=pcre2 /output/ /merge
+COPY --from=glib2 /output/ /merge
+COPY --from=libxmlb /output/ /merge
+COPY --from=libusb /output/ /merge
+COPY --from=json-glib /output/ /merge
+COPY --from=gettext /output/ /merge
+COPY --from=sqlite3 /output/ /merge
+COPY --from=fwupd /output/ /merge
+COPY --from=libffi /output/ /merge
+COPY --from=libjcat /output/ /merge
+
+# Copy only the needed parts
 FROM scratch AS middle
-COPY --from=pcre2 /output/ /
-COPY --from=glib2 /output/ /
-COPY --from=libxmlb /output/ /
-COPY --from=libusb /output/ /
-COPY --from=json-glib /output/ /
-COPY --from=gettext /output/ /
-COPY --from=sqlite3 /output/ /
-COPY --from=fwupd /output/ /
-COPY --from=libffi /output/ /
-COPY --from=libjcat /output/ /
+COPY --link --from=middle-clean /merge/etc/ /etc
+COPY --link --from=middle-clean /merge/usr/bin /usr/bin
+COPY --link --from=middle-clean /merge/usr/lib /usr/lib
+COPY --link --from=middle-clean /merge/usr/libexec /usr/libexec
+COPY --link --from=middle-clean /merge/usr/share/dbus-1 /usr/share/dbus-1
+COPY --link --from=middle-clean /merge/usr/share/fwupd /usr/share/fwupd
+COPY --link --from=middle-clean /merge/usr/share/icons /usr/share/icons
+COPY --link --from=middle-clean /merge/usr/share/metainfo /usr/share/metainfo
 
 # This target will copy the built binaries to a minimal image.
 # We can then use this as a layer on top of Hadron to extend it like
