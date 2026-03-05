@@ -51,7 +51,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -102,7 +102,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -199,7 +199,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -253,7 +253,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -358,7 +358,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -425,7 +425,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -538,7 +538,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -600,7 +600,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:

@@ -29,7 +29,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
       - name: Build PR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -67,7 +67,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
       - name: Build PR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -82,7 +82,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
           target: container
       - name: Test container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -124,7 +124,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
       - name: Build PR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -170,7 +170,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
       - name: Build PR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -207,7 +207,7 @@ jobs:
           mkdir -p build
           curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
@@ -236,7 +236,7 @@ jobs:
           mkdir -p build
           curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
         with:
