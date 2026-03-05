@@ -46,7 +46,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -97,7 +97,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -136,7 +136,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}-toolchain
@@ -194,7 +194,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -248,7 +248,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -288,7 +288,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}-container
@@ -353,7 +353,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -420,7 +420,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -472,7 +472,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}
@@ -533,7 +533,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -595,7 +595,7 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
@@ -642,7 +642,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/metadata-action@v5
+      - uses: docker/metadata-action@v6
         id: metadata
         with:
           images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted

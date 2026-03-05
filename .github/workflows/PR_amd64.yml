@@ -27,7 +27,7 @@ jobs:
               max-parallelism = 2
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
       - name: Build PR
         uses: docker/build-push-action@v6
         env:
@@ -65,7 +65,7 @@ jobs:
               max-parallelism = 2
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
       - name: Build PR
         uses: docker/build-push-action@v6
         with:
@@ -122,7 +122,7 @@ jobs:
               max-parallelism = 2
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
       - name: Build PR
         uses: docker/build-push-action@v6
         env:
@@ -168,7 +168,7 @@ jobs:
               max-parallelism = 2
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
       - name: Build PR
         uses: docker/build-push-action@v6
         env:
