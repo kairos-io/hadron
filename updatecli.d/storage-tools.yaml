@@ -7,6 +7,7 @@ sources:
     kind: gittag
     spec:
       url: https://gitlab.com/lvmteam/lvm2.git
+      lsremote: true
       versionfilter:
         kind: regex
         pattern: '^v[0-9]+_[0-9]+_[0-9]+$'
@@ -22,6 +23,7 @@ sources:
     kind: gittag
     spec:
       url: https://github.com/opensvc/multipath-tools.git
+      lsremote: true
       versionfilter:
         kind: semver
         pattern: '*'
@@ -30,6 +32,7 @@ sources:
     kind: gittag
     spec:
       url: git://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git
+      lsremote: true
     transformers:
       - trimprefix: v
       - sort:
@@ -41,17 +44,16 @@ sources:
     kind: gittag
     spec:
       url: https://github.com/dosfstools/dosfstools.git
+      lsremote: true
     transformers:
       - trimprefix: v
 
   parted:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
-    kind: shell
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags https://git.savannah.gnu.org/git/parted.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+      url: https://git.savannah.gnu.org/git/parted.git
+      lsremote: true
     transformers:
       - trimprefix: v
       - sort:
@@ -63,6 +65,7 @@ sources:
     kind: gittag
     spec:
       url: https://github.com/urcu/userspace-rcu.git
+      lsremote: true
       versionfilter:
         kind: semver
         pattern: '*'
