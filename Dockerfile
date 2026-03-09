@@ -929,7 +929,7 @@ ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
 COPY --from=sources-downloader /sources/downloads/perl.tar.gz /sources/
 RUN cd /sources && \
-    tar -xf perl.tar.gz && mv perl-* perl && \
+    tar -xf perl.tar.gz && mv perl5-* perl && \
     cd perl && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
        -Dccdlflags='-rdynamic' \
