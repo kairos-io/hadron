@@ -290,7 +290,7 @@ ARG READLINE_VERSION=8.3
 RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
 ## perl
-ARG PERL_VERSION=5.42.0
+ARG PERL_VERSION=5.42.1
 RUN wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz -O perl.tar.xz
 
 ## coreutils
