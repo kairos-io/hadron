@@ -220,7 +220,7 @@ ARG PARTED_VERSION=3.6
 RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
 ## e2fsprogs
-ARG E2FSPROGS_VERSION=1.47.3
+ARG E2FSPROGS_VERSION=1.47.4
 RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
 ## dosfstools
