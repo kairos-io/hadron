@@ -153,8 +153,14 @@ jobs:
             paste -sd ", " -
           )
 
-          
-          git commit -s -m "${msg}"
+          # Extract bumped names for PR title
+          bumped_names=$(echo "$msg" | awk -F' was updated ' '{print $1}' | paste -sd ", " -)
+
+          # Prepare commit message: summary, blank line, then details
+          commit_msg="Automatic bumps for $bumped_names\n\n$msg"
+          echo -e "$commit_msg" > /tmp/commit_msg.txt
+
+          git commit -s -F /tmp/commit_msg.txt
           git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
           
           # Check if PR already exists (open or closed)
@@ -169,7 +175,7 @@ jobs:
                 echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                 if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
                   echo "Failed to reopen PR. Creating a new one."
-                  gh pr create --title "Automatic version bumps for ${{ matrix.config }}" --body "This PR contains automatic version bumps." --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+                  gh pr create --title "Automatic version bumps for $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
                 fi
               else
                 echo "PR #$PR_NUMBER is merged. Nothing to do."
@@ -179,5 +185,6 @@ jobs:
             fi
           else
             echo "No PR found. Creating a new one."
-            gh pr create --title "Automatic version bumps for ${{ matrix.config }}" --body "This PR contains automatic version bumps." --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+            gh pr create --title "Automatic version bumps for: $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
           fi
+
