@@ -111,7 +111,7 @@ jobs:
           
           # Prepare commit message with all changed files
           msg=$(
-            git diff -U0 |
+            git diff --cached -U0 |
             awk '
             BEGIN { old=""; new="" }
             
@@ -154,7 +154,7 @@ jobs:
           )
 
           
-          git commit -s -m "Bump packages ${{ matrix.config }}\n\n${msg}"
+          git commit -s -m "Bump packages ${{ matrix.config }}" -m "${msg}"
           git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
           
           # Check if PR already exists (open or closed)
