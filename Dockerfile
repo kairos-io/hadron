@@ -58,7 +58,7 @@ RUN mkdir -p /sources/downloads
 
 WORKDIR /sources/downloads
 
-ARG CURL_VERSION=8.18.0
+ARG CURL_VERSION=8.19.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 ARG RSYNC_VERSION=3.4.1
