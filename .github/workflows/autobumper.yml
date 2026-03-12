@@ -39,7 +39,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          set -e
+          set -ex
           # Check if fork exists, create if not
           if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
             echo "Fork does not exist. Creating fork..."
