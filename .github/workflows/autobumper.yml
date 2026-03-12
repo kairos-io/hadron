@@ -154,7 +154,7 @@ jobs:
           )
 
           
-          git commit -s -m "Bump packages ${{ matrix.config }}" -m "${msg}"
+          git commit -s -m "${msg}"
           git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
           
           # Check if PR already exists (open or closed)
