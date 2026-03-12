@@ -2,11 +2,11 @@
 # Its very important that you use the toolchain image at the same version as the Hadron image you want to extend
 # nvidia modules use the base kernel build to build the modules (Kbuild) so it needs to match the exact version kernel you
 # are going to be run, otherwise it will mismatch and not load the modules during runtime
-
+ARG HADRON_VERSION=0.0.4
 ARG JOBS
 ARG NVIDIA_VERSION=580.126.20
 
-FROM ghcr.io/kairos-io/hadron-toolchain:v0.0.4 AS modules-builder
+FROM ghcr.io/kairos-io/hadron-toolchain:v${HADRON_VERSION} AS modules-builder
 ARG JOBS
 WORKDIR /build
 # kernel version is stored under /usr/share/kernel-misc/kernel-version file
@@ -140,6 +140,6 @@ RUN echo "blacklist nouveau" > ${OUTPUT}/etc/modprobe.d/blacklist-nouveau.conf
 FROM scratch AS default
 COPY --from=builder /output/ /
 
-FROM ghcr.io/kairos-io/hadron:v0.0.4 AS hadron-extension
+FROM ghcr.io/kairos-io/hadron:v${HADRON_VERSION} AS hadron-extension
 COPY --link --from=modules-builder /output/ /usr/
 COPY --link --from=nvidia-builder /output/ /
