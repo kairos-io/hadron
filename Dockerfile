@@ -139,7 +139,7 @@ RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.t
 ARG KBD_VERSION=2.9.0
 RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
-ARG IPTABLES_VERSION=1.8.11
+ARG IPTABLES_VERSION=1.8.13
 RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz -O iptables.tar.xz
 
 ARG LIBMNL_VERSION=1.0.5
