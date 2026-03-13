@@ -6,7 +6,7 @@ ARG GIT_VERSION=2.52.0
 WORKDIR /build
 RUN curl -L https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz -o git.tar.xz && tar -xf git.tar.xz && rm git.tar.xz && mv git-* git-src
 WORKDIR /build/git-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --without-tcltk --without-gettext
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-tcltk --without-gettext
 RUN make install prefix=/usr DESTDIR=/output NO_TCLTK=YesPlease NO_GETTEXT=YesPlease
 
 

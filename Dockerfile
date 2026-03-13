@@ -149,7 +149,7 @@ ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 ## kernel
-ARG KERNEL_VERSION=6.19.2
+ARG KERNEL_VERSION=6.19.7
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 ## flex
@@ -220,7 +220,7 @@ ARG PARTED_VERSION=3.6
 RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
 ## e2fsprogs
-ARG E2FSPROGS_VERSION=1.47.3
+ARG E2FSPROGS_VERSION=1.47.4
 RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
 ## dosfstools
@@ -290,8 +290,8 @@ ARG READLINE_VERSION=8.3
 RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
 ## perl
-ARG PERL_VERSION=5.42.0
-RUN wget -q http://www.cpan.org/src/5.0/perl-${PERL_VERSION}.tar.xz -O perl.tar.xz
+ARG PERL_VERSION=5.42.1
+RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 ## coreutils
 ARG COREUTILS_VERSION=9.10
@@ -927,9 +927,9 @@ ARG JOBS
 ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
-COPY --from=sources-downloader /sources/downloads/perl.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/perl.tar.gz /sources/
 RUN cd /sources && \
-    tar -xf perl.tar.xz && mv perl-* perl && \
+    tar -xf perl.tar.gz && mv perl5-* perl && \
     cd perl && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
        -Dccdlflags='-rdynamic' \
