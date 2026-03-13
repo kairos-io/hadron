@@ -39,7 +39,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          set -e
+          set -ex
           # Check if fork exists, create if not
           if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
             echo "Fork does not exist. Creating fork..."
@@ -66,12 +66,12 @@ jobs:
           git fetch origin
           
           # Check if remote bumps branch exists
-          if git ls-remote --exit-code --heads origin bumps-${{ matrix.config }} > /dev/null; then
-            echo "Remote 'bumps-${{ matrix.config }}' branch exists. Checking it out."
-            git checkout bumps-${{ matrix.config }}
+          if git ls-remote --exit-code --heads origin bumps-${{ matrix.config }}-${{ github.sha }} > /dev/null; then
+            echo "Remote 'bumps-${{ matrix.config }}-${{ github.sha }}' branch exists. Checking it out."
+            git checkout bumps-${{ matrix.config }}-${{ github.sha }}
           else
-            echo "Remote 'bumps-${{ matrix.config }}' branch does not exist. Creating from upstream/main."
-            git checkout -B bumps-${{ matrix.config }} upstream/main
+            echo "Remote 'bumps-${{ matrix.config }}-${{ github.sha }}' branch does not exist. Creating from upstream/main."
+            git checkout -B bumps-${{ matrix.config }}-${{ github.sha }} upstream/main
           fi
           
           git reset --hard upstream/main
@@ -83,7 +83,7 @@ jobs:
           # Check if there are staged changes
           if git diff --cached --quiet; then
             echo "No changes to commit. Checking PR state."
-            PR_INFO=$(gh pr list --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+            PR_INFO=$(gh pr list --head bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
             PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
             if [ -n "$PR_NUMBER" ]; then
@@ -108,11 +108,63 @@ jobs:
           # Commit and push changes
           git config user.name "ci-robbot"
           git config user.email "robot@c3os.io"
-          git commit -s -m "Bump packages ${{ matrix.config }}"
-          git push origin bumps-${{ matrix.config }} --force
+          
+          # Prepare commit message with all changed files
+          msg=$(
+            git diff --cached -U0 |
+            awk '
+            BEGIN { old=""; new="" }
+            
+            # capture removed line (old)
+            /^-/ && !/^---/ { old=substr($0,2); next }
+            
+            # capture added line (new) and try to pair with previous old
+            /^\+/ && !/^\+\+\+/ {
+              new=substr($0,2)
+              
+              # Only handle ARG ..._VERSION=... lines
+              if (old ~ /^ARG[[:space:]]+[A-Z0-9]+_VERSION=/ && new ~ /^ARG[[:space:]]+[A-Z0-9]+_VERSION=/) {
+              # extract name token between "ARG " and "_VERSION="
+              tmp=old
+              sub(/^ARG[[:space:]]+/, "", tmp)          # drop "ARG "
+              sub(/_VERSION=.*/, "", tmp)               # keep just NAME part
+              
+              # extract versions (everything after "=")
+              oldv=old; sub(/.*=/, "", oldv)
+              newv=new; sub(/.*=/, "", newv)
+              
+              # normalize name: lowercase
+              name=tmp
+              for (i=1; i<=length(name); i++) {
+                c=substr(name,i,1)
+                if (c ~ /[A-Z]/) c=tolower(c)
+                out=out c
+              }
+                
+              print out " was updated " oldv " -> " newv
+                
+                out=""   # reset for next record
+              }
+                
+              old=""
+            }
+            ' |
+            head -n 8 |
+            paste -sd ", " -
+          )
+
+          # Extract bumped names for PR title
+          bumped_names=$(echo "$msg" | awk -F' was updated ' '{print $1}' | paste -sd ", " -)
+
+          # Prepare commit message: summary, blank line, then details
+          commit_msg="Automatic bumps for $bumped_names\n\n$msg"
+          echo -e "$commit_msg" > /tmp/commit_msg.txt
+
+          git commit -s -F /tmp/commit_msg.txt
+          git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
           
           # Check if PR already exists (open or closed)
-          PR_INFO=$(gh pr list --head bumps-${{ matrix.config }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+          PR_INFO=$(gh pr list --head bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
           PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
           PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
           if [ -n "$PR_NUMBER" ]; then
@@ -123,7 +175,7 @@ jobs:
                 echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                 if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
                   echo "Failed to reopen PR. Creating a new one."
-                  gh pr create --title "Automatic version bumps for ${{ matrix.config }}" --body "This PR contains automatic version bumps." --head ci-forks:bumps-${{ matrix.config }} --base main --repo kairos-io/hadron
+                  gh pr create --title "Automatic version bumps for $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
                 fi
               else
                 echo "PR #$PR_NUMBER is merged. Nothing to do."
@@ -133,5 +185,6 @@ jobs:
             fi
           else
             echo "No PR found. Creating a new one."
-            gh pr create --title "Automatic version bumps for ${{ matrix.config }}" --body "This PR contains automatic version bumps." --head ci-forks:bumps-${{ matrix.config }} --base main --repo kairos-io/hadron
+            gh pr create --title "Automatic version bumps for: $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
           fi
+

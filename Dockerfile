@@ -58,7 +58,7 @@ RUN mkdir -p /sources/downloads
 
 WORKDIR /sources/downloads
 
-ARG CURL_VERSION=8.18.0
+ARG CURL_VERSION=8.19.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 ARG RSYNC_VERSION=3.4.1
@@ -88,7 +88,7 @@ RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.t
 ARG CA_CERTIFICATES_VERSION=20251003
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
-ARG SYSTEMD_VERSION=259.2
+ARG SYSTEMD_VERSION=259.3
 RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 ARG LIBCAP_VERSION=2.77
@@ -139,7 +139,7 @@ RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.t
 ARG KBD_VERSION=2.9.0
 RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
-ARG IPTABLES_VERSION=1.8.11
+ARG IPTABLES_VERSION=1.8.13
 RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz -O iptables.tar.xz
 
 ARG LIBMNL_VERSION=1.0.5
