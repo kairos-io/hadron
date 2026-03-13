@@ -230,7 +230,7 @@ WORKDIR /build
 RUN curl -L https://www.libsdl.org/release/SDL2-${SDL2_VERSION}.tar.gz -o sdl2.tar.gz && tar -xzf sdl2.tar.gz && rm sdl2.tar.gz && mv SDL2-* sdl2
 WORKDIR /build/sdl2
 RUN find / -name wayland-protocols.pc
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking  --enable-video-wayland --enable-video-kmsdrm --disable-wayland-shared --disable-video-x11 --disable-video-opengl
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking  --enable-video-wayland --enable-video-kmsdrm --disable-wayland-shared --disable-video-x11 --disable-video-opengl
 RUN make -j$(nproc)
 RUN make DESTDIR=/sdl2 install
 
@@ -245,7 +245,7 @@ RUN mkdir -p /sdl2-mixer
 WORKDIR /build
 RUN curl -L https://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-${SDL2_MIXER_VERSION}.tar.gz -o sdl2-mixer.tar.gz && tar -xzf sdl2-mixer.tar.gz && rm sdl2-mixer.tar.gz && mv SDL2_mixer-* sdl2-mixer
 WORKDIR /build/sdl2-mixer
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/sdl2-mixer install
 
@@ -261,7 +261,7 @@ RUN mkdir -p /sdl2-image
 WORKDIR /build
 RUN curl -L https://www.libsdl.org/projects/SDL_image/release/SDL2_image-${SDL2_IMAGE_VERSION}.tar.gz -o sdl2-image.tar.gz && tar -xzf sdl2-image.tar.gz && rm sdl2-image.tar.gz && mv SDL2_image-* sdl2-image
 WORKDIR /build/sdl2-image
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/sdl2-image install
 
@@ -276,7 +276,7 @@ RUN mkdir -p /sdl2-net
 WORKDIR /build
 RUN curl -L https://www.libsdl.org/projects/SDL_net/release/SDL2_net-${SDL2_NET_VERSION}.tar.gz -o sdl2-net.tar.gz && tar -xzf sdl2-net.tar.gz && rm sdl2-net.tar.gz && mv SDL2_net-* sdl2-net
 WORKDIR /build/sdl2-net
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/sdl2-net install
 
@@ -286,7 +286,7 @@ RUN mkdir -p /xorgproto
 WORKDIR /build
 RUN curl -L https://www.x.org/releases/individual/proto/xorgproto-${XORGPROTO_VERSION}.tar.xz -o xorgproto.tar.xz && tar -xf xorgproto.tar.xz && rm xorgproto.tar.xz && mv xorgproto-* xorgproto-src
 WORKDIR /build/xorgproto-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/xorgproto install
 
@@ -296,7 +296,7 @@ RUN mkdir -p /xtrans
 WORKDIR /build
 RUN curl -L https://gitlab.apertis.org/pkg/xtrans/-/archive/upstream/${XTRANS_VERSION}/xtrans-upstream-${XTRANS_VERSION}.tar.gz -o xtrans.tar.gz && tar -xf xtrans.tar.gz && rm xtrans.tar.gz && mv xtrans-* xtrans-src
 WORKDIR /build/xtrans-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/xtrans install
 
@@ -307,7 +307,7 @@ RUN mkdir -p /libxau
 WORKDIR /build
 RUN curl -L https://www.x.org/releases/individual/lib/libXau-${LIBXAU_VERSION}.tar.xz -o libxau.tar.xz && tar -xf libxau.tar.xz && rm libxau.tar.xz && mv libXau-* libxau-src
 WORKDIR /build/libxau-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/libxau install
 
@@ -317,7 +317,7 @@ RUN mkdir -p /xcb
 WORKDIR /build
 RUN curl -L https://xcb.freedesktop.org/dist/xcb-proto-${XCB_VERSION}.tar.gz -o xcb-proto.tar.gz && tar -xzf xcb-proto.tar.gz && rm xcb-proto.tar.gz && mv xcb-proto-* xcb-src
 WORKDIR /build/xcb-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/xcb install
 
@@ -331,7 +331,7 @@ RUN mkdir -p /libxcb
 WORKDIR /build
 RUN curl -L https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz -o libxcb.tar.gz && tar -xzf libxcb.tar.gz && rm libxcb.tar.gz && mv libxcb-* libxcb-src
 WORKDIR /build/libxcb-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/libxcb install
 
@@ -347,7 +347,7 @@ RUN mkdir -p /libx11
 WORKDIR /build
 RUN curl -L https://www.x.org/releases/individual/lib/libX11-${LIBX11_VERSION}.tar.xz -o libx11.tar.xz && tar -xf libx11.tar.xz && rm libx11.tar.xz && mv libX11-* libx11-src
 WORKDIR /build/libx11-src
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking --disable-xf86bigfont --datadir=/usr/share
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking --disable-xf86bigfont --datadir=/usr/share
 RUN make -j$(nproc)
 RUN make install DESTDIR=/libx11
 
@@ -370,8 +370,8 @@ WORKDIR /build
 RUN curl -L https://github.com/chocolate-doom/chocolate-doom/archive/refs/tags/chocolate-doom-${CHOCOLATE_DOOM_VERSION}.tar.gz -o chocolate-doom.tar.gz && tar -xzf chocolate-doom.tar.gz && rm chocolate-doom.tar.gz && mv chocolate-doom-* chocolate-doom-src
 WORKDIR /build/chocolate-doom-src
 RUN ln -s /usr/bin/perl /usr/sbin/perl
-RUN ./autogen.sh ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
-RUN ./configure ${COMMON_CONFIGURE_FLAGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./autogen.sh ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
 RUN make -j$(nproc)
 RUN make DESTDIR=/chocolate-doom install
 
