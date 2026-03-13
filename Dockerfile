@@ -35,7 +35,7 @@ ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
 ARG JOBS
 ENV JOBS=${JOBS}
-ARG MUSSEL_VERSION="95dec40aee2077aa703b7abc7372ba4d34abb889"
+ARG MUSSEL_VERSION="8c931ddb2f794ee10de65732bef18ef311d2ca2b"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
 # Validate that the arches are correct
@@ -257,7 +257,7 @@ ARG MUSL_VERSION=1.2.5
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 ## gcc and dependencies
-ARG GCC_VERSION=14.3.0
+ARG GCC_VERSION=15.2.0
 RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
 
 ARG GMP_VERSION=6.3.0
@@ -372,6 +372,12 @@ RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz 
 
 ARG BC_VERSION=7.0.3
 RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc-${BC_VERSION}.tar.xz -O bc.tar.xz
+
+########################################################
+#
+# Stage 0 - building the packages using the cross-compiler
+#
+########################################################
 
 # Creates the system skeleton
 # dirs, minimum files, symlinks, etc.
@@ -501,14 +507,6 @@ COPY <<'EOF' etc/hosts
 ::1         localhost localhost.localdomain
 EOF
 
-
-
-########################################################
-#
-# Stage 0 - building the packages using the cross-compiler
-#
-########################################################
-
 ###
 ### Busybox
 ###
@@ -587,13 +585,13 @@ FROM stage0 AS make-stage0
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/make.tar.gz /sources/
 
-RUN cd /sources && tar -xf make.tar.gz && mv make-* make && \
-    cd make && \
-    ./configure --quiet --prefix=/usr \
-    --build=${BUILD_ARCH} --host=${TARGET} && \
-    make -s -j${JOBS} -l${MAX_LOAD} && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
-
+RUN cd /sources && tar -xf make.tar.gz && mv make-* make
+WORKDIR /sources/make
+COPY patches/0001-make-getopt-gcc15.patch .
+RUN patch -p1 < 0001-make-getopt-gcc15.patch
+RUN ./configure --quiet --prefix=/usr --build=${BUILD} --host=${TARGET} --disable-nls
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
 
 ###
 ### Binutils
@@ -902,7 +900,7 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/m4.tar.xz /sources/
 RUN cd /sources && \
     tar -xf m4.tar.xz && mv m4-* m4 && \
-    cd m4 && mkdir -p /m4 && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 && \
+    cd m4 && mkdir -p /m4 && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 && \
     make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## readline
@@ -911,15 +909,19 @@ ARG JOBS
 COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
     tar -xf readline.tar.gz && mv readline-* readline && \
-    cd readline && mkdir -p /readline && ./configure --quiet ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/readline && \
+    cd readline && mkdir -p /readline && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 ## flex
-FROM m4 AS flex
+FROM stage1 AS flex
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/flex.tar.gz /sources/
-
-RUN mkdir -p /sources && cd /sources && tar -xvf flex.tar.gz && mv flex-* flex && cd flex && mkdir -p /flex && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared ac_cv_func_malloc_0_nonnull=yes ac_cv_func_realloc_0_nonnull=yes && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/flex install && make -j${JOBS} -l${MAX_LOAD} install && ln -s flex /flex/usr/bin/lex
+COPY --from=m4 /m4 /
+RUN mkdir -p /flex
+RUN mkdir -p /sources && cd /sources && tar -xf flex.tar.gz && mv flex-* flex
+WORKDIR /sources/flex
+RUN ./configure --quiet --prefix=/usr --build=${BUILD} --enable-shared --disable-static --infodir=/usr/share/info --mandir=/usr/share/man
+RUN make -j${JOBS} -l${MAX_LOAD}
+RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/flex install
 
 ## perl
 FROM m4 AS perl
