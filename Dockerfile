@@ -88,7 +88,7 @@ RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.t
 ARG CA_CERTIFICATES_VERSION=20251003
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
-ARG SYSTEMD_VERSION=259.3
+ARG SYSTEMD_VERSION=259.5
 RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 ARG LIBCAP_VERSION=2.77
