@@ -15,13 +15,14 @@ sources:
       - trimprefix: v
 
   sqlite3:
-    kind: githubrelease
+    kind: gittag
     spec:
-      owner: sqlite
-      repository: sqlite
+      url: https://github.com/sqlite/sqlite.git
+      lsremote: true
       versionfilter:
-        kind: regex
-        pattern: '^version-[0-9]+\.[0-9]+\.[0-9]+$'
+        kind: regex/semver
+        regex: '^version-([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
     transformers:
       - trimprefix: version-
 
