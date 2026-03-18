@@ -196,7 +196,7 @@ ARG LIBAIO_VERSION=0.3.113
 RUN wget -q https://releases.pagure.org/libaio/libaio-${LIBAIO_VERSION}.tar.gz -O libaio.tar.gz
 
 ## lvm2
-ARG LVM2_VERSION=2.03.38
+ARG LVM2_VERSION=2.03.39
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 ## multipath-tools
