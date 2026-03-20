@@ -257,13 +257,13 @@ ARG MUSL_VERSION=1.2.5
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 ## gcc and dependencies
-ARG GCC_VERSION=15.2.0
+ARG GCC_VERSION=14.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
 
 ARG GMP_VERSION=6.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
 
-ARG MPC_VERSION=1.3.1
+ARG MPC_VERSION=1.4.0
 RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
 
 ARG MPFR_VERSION=4.2.2
