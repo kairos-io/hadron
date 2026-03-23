@@ -50,75 +50,96 @@ ENV LC_ALL=POSIX
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
-### This stage is used to download the sources for the packages
-### This runs in parallel with stage0 to improve build time since it's network-bound while stage0 is CPU-bound
-FROM alpine-base AS sources-downloader
 
+# Base dowload target with some preparation common to all downloads.
+FROM alpine-base AS sources-downloader-base
 RUN mkdir -p /sources/downloads
-
 WORKDIR /sources/downloads
 
+### This stages below are used to download the sources for the packages
+FROM sources-downloader-base AS curl-download
 ARG CURL_VERSION=8.19.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
+FROM sources-downloader-base AS rsync-download
 ARG RSYNC_VERSION=3.4.1
 RUN wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
+FROM sources-downloader-base AS xxhash-download
 ARG XXHASH_VERSION=0.8.3
 RUN wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxhash.tar.gz
 
+FROM sources-downloader-base AS zstd-download
 ARG ZSTD_VERSION=1.5.7
 RUN wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd.tar.gz
 
+FROM sources-downloader-base AS lz4-download
 ARG LZ4_VERSION=1.10.0
 RUN wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4.tar.gz
 
+FROM sources-downloader-base AS zlib-download
 ARG ZLIB_VERSION=1.3.2
 RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
+FROM sources-downloader-base AS acl-download
 ARG ACL_VERSION=2.3.2
 RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl.tar.gz
 
+FROM sources-downloader-base AS attr-download
 ARG ATTR_VERSION=2.5.2
 RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
+FROM sources-downloader-base AS gawk-download
 ARG GAWK_VERSION=5.4.0
 RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
 
+FROM sources-downloader-base AS ca-certificates-download
 ARG CA_CERTIFICATES_VERSION=20251003
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
+FROM sources-downloader-base AS systemd-download
 ARG SYSTEMD_VERSION=260
-RUN cd /sources/downloads && wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
+RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
+FROM sources-downloader-base AS libcap-download
 ARG LIBCAP_VERSION=2.77
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
+FROM sources-downloader-base AS util-linux-download
 ARG UTIL_LINUX_VERSION=2.41.3
 RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
+FROM sources-downloader-base AS python-download
 ARG PYTHON_VERSION=3.14.3
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
+FROM sources-downloader-base AS sqlite3-download
 ARG SQLITE3_VERSION=3.52.0
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
+FROM sources-downloader-base AS openssl-download
 ARG OPENSSL_VERSION=3.6.1
-ARG OPENSSL_FIPS_VERSION=3.1.2
-RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz  -O openssl.tar.gz
-RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz  -O openssl-fips.tar.gz
+RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl.tar.gz
 
+FROM sources-downloader-base AS openssl-fips-download
+ARG OPENSSL_FIPS_VERSION=3.1.2
+RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz -O openssl-fips.tar.gz
+
+FROM sources-downloader-base AS openssh-download
 ARG OPENSSH_VERSION=10.2p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
+FROM sources-downloader-base AS pkgconf-download
 ARG PKGCONFIG_VERSION=2.5.1
 RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
+FROM sources-downloader-base AS dbus-download
 ARG DBUS_VERSION=1.16.2
 RUN wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.xz && mv dbus-${DBUS_VERSION}.tar.xz dbus.tar.xz
 
+FROM sources-downloader-base AS expat-download
 # libexpat
 ARG EXPAT_VERSION=2.7.5
 # Use a single var and extract major/minor/patch to build the URL
@@ -129,222 +150,235 @@ RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  "https://github.com/libexpat/libexpat/releases/download/R_${EXPAT_VERSION_MAJOR}_${EXPAT_VERSION_MINOR}_${EXPAT_VERSION_PATCH}/expat-${EXPAT_VERSION}.tar.gz" \
  -O expat.tar.gz
 
+FROM sources-downloader-base AS libseccomp-download
 ARG SECCOMP_VERSION=2.6.0
-# seccomp
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
+FROM sources-downloader-base AS strace-download
 ARG STRACE_VERSION=6.19
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
+FROM sources-downloader-base AS kbd-download
 ARG KBD_VERSION=2.9.0
 RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
+FROM sources-downloader-base AS iptables-download
 ARG IPTABLES_VERSION=1.8.13
 RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz -O iptables.tar.xz
 
+FROM sources-downloader-base AS libmnl-download
 ARG LIBMNL_VERSION=1.0.5
 RUN wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 -O libmnl.tar.bz2
 
+FROM sources-downloader-base AS libnftnl-download
 ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
-## kernel
+FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=6.19.9
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
-## flex
+FROM sources-downloader-base AS flex-download
 ARG FLEX_VERSION=2.6.4
 RUN wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz -O flex.tar.gz
 
-## bison
+FROM sources-downloader-base AS bison-download
 ARG BISON_VERSION=3.8.2
 RUN wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz -O bison.tar.xz
 
-## autoconf
+FROM sources-downloader-base AS autoconf-download
 ARG AUTOCONF_VERSION=2.73
 RUN wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz -O autoconf.tar.xz
 
-## automake
+FROM sources-downloader-base AS automake-download
 ARG AUTOMAKE_VERSION=1.18.1
 RUN wget -q https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz -O automake.tar.xz
 
-## fts
+FROM sources-downloader-base AS musl-fts-download
 ARG FTS_VERSION=1.2.7
 RUN wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts.tar.gz
 
-## libtool
+FROM sources-downloader-base AS libtool-download
 ARG LIBTOOL_VERSION=2.5.4
 RUN wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz -O libtool.tar.xz
 
+FROM sources-downloader-base AS libelf-download
 ARG LIBELF_VERSION=0.193
-RUN wget -q https://github.com/arachsys/libelf/archive/refs/tags/v0.193.tar.gz -O libelf.tar.gz
+RUN wget -q https://github.com/arachsys/libelf/archive/refs/tags/v${LIBELF_VERSION}.tar.gz -O libelf.tar.gz
 
-## xzutils
+FROM sources-downloader-base AS xz-download
 ARG XZUTILS_VERSION=5.8.2
 RUN wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz -O xz.tar.gz
 
-## kmod
+FROM sources-downloader-base AS kmod-download
 ARG KMOD_VERSION=34.2
 RUN wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz -O kmod.tar.gz
 
-## dracut
+FROM sources-downloader-base AS dracut-download
 ARG DRACUT_VERSION=110
 RUN wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz -O dracut.tar.gz
 
-## libaio
+FROM sources-downloader-base AS libaio-download
 ARG LIBAIO_VERSION=0.3.113
 RUN wget -q https://releases.pagure.org/libaio/libaio-${LIBAIO_VERSION}.tar.gz -O libaio.tar.gz
 
-## lvm2
+FROM sources-downloader-base AS lvm2-download
 ARG LVM2_VERSION=2.03.39
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
-## multipath-tools
+FROM sources-downloader-base AS multipath-tools-download
 ARG MULTIPATH_TOOLS_VERSION=0.14.3
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
-## jsonc
+FROM sources-downloader-base AS json-c-download
 ARG JSONC_VERSION=0.18
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
-## cmake
+FROM sources-downloader-base AS cmake-download
 ARG CMAKE_VERSION=4.3.0
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
-## urcu
+FROM sources-downloader-base AS urcu-download
 ARG URCU_VERSION=0.15.6
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
-## parted
+FROM sources-downloader-base AS parted-download
 ARG PARTED_VERSION=3.6
 RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
-## e2fsprogs
+FROM sources-downloader-base AS e2fsprogs-download
 ARG E2FSPROGS_VERSION=1.47.4
 RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
-## dosfstools
+FROM sources-downloader-base AS dosfstools-download
 ARG DOSFSTOOLS_VERSION=4.2
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
-## cryptsetup
+FROM sources-downloader-base AS cryptsetup-download
 ARG CRYPTSETUP_VERSION=2.8.4
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
-## grub
+FROM sources-downloader-base AS grub-download
 ARG GRUB_VERSION=2.14
 RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
 
-## PAM
+FROM sources-downloader-base AS pam-download
 ARG PAM_VERSION=1.7.2
 RUN wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz -O pam.tar.xz
 
-# shadow
+FROM sources-downloader-base AS shadow-download
 ARG SHADOW_VERSION=4.19.4
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
-# alpine aports repo for patches to build under musl
+FROM sources-downloader-base AS aports-download
 ARG APORTS_VERSION=3.23.3
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
-## busybox
+FROM sources-downloader-base AS busybox-download
 ARG BUSYBOX_VERSION=1.37.0
 # XXX: Temporary workaround as busybox currently have expired certificates
 RUN wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 -O busybox.tar.bz2
 
-## musl
+FROM sources-downloader-base AS musl-download
 ARG MUSL_VERSION=1.2.5
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
-## gcc and dependencies
+FROM sources-downloader-base AS gcc-download
 ARG GCC_VERSION=15.2.0
 RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
 
+FROM sources-downloader-base AS gmp-download
 ARG GMP_VERSION=6.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
 
+FROM sources-downloader-base AS mpc-download
 ARG MPC_VERSION=1.3.1
 RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
 
+FROM sources-downloader-base AS mpfr-download
 ARG MPFR_VERSION=4.2.2
 RUN wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 -O mpfr.tar.bz2
 
-## make
+FROM sources-downloader-base AS make-download
 ARG MAKE_VERSION=4.4.1
 RUN wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz -O make.tar.gz
 
-## binutils (for stage0)
+FROM sources-downloader-base AS binutils-download
 ARG BINUTILS_VERSION=2.46.0
 RUN wget -q https://sourceware.org/pub/binutils/releases/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
-## popt
+FROM sources-downloader-base AS popt-download
 ARG POPT_VERSION=1.19
 RUN wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz -O popt.tar.gz
 
-## m4
+FROM sources-downloader-base AS m4-download
 ARG M4_VERSION=1.4.21
 RUN wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz -O m4.tar.xz
 
-## readline
+FROM sources-downloader-base AS readline-download
 ARG READLINE_VERSION=8.3
 RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
-## perl
+FROM sources-downloader-base AS perl-download
 ARG PERL_VERSION=5.42.1
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
-## coreutils
+FROM sources-downloader-base AS coreutils-download
 ARG COREUTILS_VERSION=9.10
 RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
 
-## findutils
+FROM sources-downloader-base AS findutils-download
 ARG FINDUTILS_VERSION=4.10.0
 RUN wget -q http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz -O findutils.tar.xz
 
-## grep
+FROM sources-downloader-base AS grep-download
 ARG GREP_VERSION=3.12
 RUN wget -q http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz -O grep.tar.xz
 
-## gperf
+FROM sources-downloader-base AS gperf-download
 ARG GPERF_VERSION=3.3
 RUN wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -O gperf.tar.gz
 
-## diffutils
+FROM sources-downloader-base AS diffutils-download
 ARG DIFFUTILS_VERSION=3.12
 RUN wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz -O diffutils.tar.xz
 
-## sudo
+FROM sources-downloader-base AS sudo-download
 ARG SUDO_VERSION=1.9.17p2
 RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
-## pax-utils
+FROM sources-downloader-base AS pax-utils-download
 ARG PAX_UTILS_VERSION=1.3.10
 RUN wget -q https://github.com/gentoo/pax-utils/archive/refs/tags/v${PAX_UTILS_VERSION}.tar.gz -O pax-utils.tar.gz
 
-## openscsi
+FROM sources-downloader-base AS openscsi-download
 ARG OPEN_SCSI_VERSION=2.1.11
 RUN wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz -O openscsi.tar.gz
 
-# GDB
+FROM sources-downloader-base AS gdb-download
 ARG GDB_VERSION=17.1
 RUN wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz -O gdb.tar.gz
 
+FROM sources-downloader-base AS libffi-download
 ARG LIBFFI_VERSION=3.5.2
 RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
+FROM sources-downloader-base AS tpm2-tss-download
 ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
-# libxml
+FROM sources-downloader-base AS libxml2-download
 ARG LIBXML2_VERSION=2.15.2
 RUN major="${LIBXML2_VERSION%%.*}" \
  && minor="${LIBXML2_VERSION#*.}"; minor="${minor%%.*}" \
  && LIBXML2_VERSION_MAJOR_AND_MINOR="${major}.${minor}" \
  && wget -q https://download.gnome.org/sources/libxml2/${LIBXML2_VERSION_MAJOR_AND_MINOR}/libxml2-${LIBXML2_VERSION}.tar.xz -O libxml2.tar.xz
-# gzip
+
+FROM sources-downloader-base AS gzip-download
 ARG GZIP_VERSION=1.14
 RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar.xz
 
+FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # TODO: Maybe we should try like 15 patches and stop once 2 have gone without finding a patch? So we cover more ground without hardcoding a number?
@@ -361,17 +395,109 @@ RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
     done
 WORKDIR /sources/downloads
 
+FROM sources-downloader-base AS libkcapi-download
 ARG LIBKKCAPI_VERSION=1.5.0
 RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
 
+FROM sources-downloader-base AS shim-download
 ARG SHIM_VERSION=16.1
 RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shim-${SHIM_VERSION}.tar.bz2 -O shim.tar.bz2
 
+FROM sources-downloader-base AS libiconv-download
 ARG ICONV_VERSION=1.18
 RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz -O libiconv.tar.gz
 
+FROM sources-downloader-base AS bc-download
 ARG BC_VERSION=7.0.3
 RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc-${BC_VERSION}.tar.xz -O bc.tar.xz
+
+
+# Merge all the downloads into a single target
+# This avoids a single change in version invalidating the full download cache,
+# while still allowing the downloads to run in parallel and be cached separately
+FROM scratch AS sources-downloader
+COPY --from=curl-download /sources/downloads/curl.tar.gz /sources/downloads/
+COPY --from=rsync-download /sources/downloads/rsync.tar.gz /sources/downloads/
+COPY --from=xxhash-download /sources/downloads/xxhash.tar.gz /sources/downloads/
+COPY --from=zstd-download /sources/downloads/zstd.tar.gz /sources/downloads/
+COPY --from=lz4-download /sources/downloads/lz4.tar.gz /sources/downloads/
+COPY --from=zlib-download /sources/downloads/zlib.tar.gz /sources/downloads/
+COPY --from=acl-download /sources/downloads/acl.tar.gz /sources/downloads/
+COPY --from=attr-download /sources/downloads/attr.tar.gz /sources/downloads/
+COPY --from=gawk-download /sources/downloads/gawk.tar.xz /sources/downloads/
+COPY --from=ca-certificates-download /sources/downloads/ca-certificates.tar.bz2 /sources/downloads/
+COPY --from=systemd-download /sources/downloads/systemd.tar.gz /sources/downloads/
+COPY --from=libcap-download /sources/downloads/libcap.tar.xz /sources/downloads/
+COPY --from=util-linux-download /sources/downloads/util-linux.tar.xz /sources/downloads/
+COPY --from=python-download /sources/downloads/Python.tar.xz /sources/downloads/
+COPY --from=sqlite3-download /sources/downloads/sqlite3.tar.gz /sources/downloads/
+COPY --from=openssl-download /sources/downloads/openssl.tar.gz /sources/downloads/
+COPY --from=openssl-fips-download /sources/downloads/openssl-fips.tar.gz /sources/downloads/
+COPY --from=openssh-download /sources/downloads/openssh.tar.gz /sources/downloads/
+COPY --from=pkgconf-download /sources/downloads/pkgconf.tar.xz /sources/downloads/
+COPY --from=dbus-download /sources/downloads/dbus.tar.xz /sources/downloads/
+COPY --from=expat-download /sources/downloads/expat.tar.gz /sources/downloads/
+COPY --from=libseccomp-download /sources/downloads/libseccomp.tar.gz /sources/downloads/
+COPY --from=strace-download /sources/downloads/strace.tar.xz /sources/downloads/
+COPY --from=kbd-download /sources/downloads/kbd.tar.gz /sources/downloads/
+COPY --from=iptables-download /sources/downloads/iptables.tar.xz /sources/downloads/
+COPY --from=libmnl-download /sources/downloads/libmnl.tar.bz2 /sources/downloads/
+COPY --from=libnftnl-download /sources/downloads/libnftnl.tar.xz /sources/downloads/
+COPY --from=linux-download /sources/downloads/linux.tar.xz /sources/downloads/
+COPY --from=flex-download /sources/downloads/flex.tar.gz /sources/downloads/
+COPY --from=bison-download /sources/downloads/bison.tar.xz /sources/downloads/
+COPY --from=autoconf-download /sources/downloads/autoconf.tar.xz /sources/downloads/
+COPY --from=automake-download /sources/downloads/automake.tar.xz /sources/downloads/
+COPY --from=musl-fts-download /sources/downloads/musl-fts.tar.gz /sources/downloads/
+COPY --from=libtool-download /sources/downloads/libtool.tar.xz /sources/downloads/
+COPY --from=libelf-download /sources/downloads/libelf.tar.gz /sources/downloads/
+COPY --from=xz-download /sources/downloads/xz.tar.gz /sources/downloads/
+COPY --from=kmod-download /sources/downloads/kmod.tar.gz /sources/downloads/
+COPY --from=dracut-download /sources/downloads/dracut.tar.gz /sources/downloads/
+COPY --from=libaio-download /sources/downloads/libaio.tar.gz /sources/downloads/
+COPY --from=lvm2-download /sources/downloads/lvm2.tgz /sources/downloads/
+COPY --from=multipath-tools-download /sources/downloads/multipath-tools.tar.gz /sources/downloads/
+COPY --from=json-c-download /sources/downloads/json-c.tar.gz /sources/downloads/
+COPY --from=cmake-download /sources/downloads/cmake.tar.gz /sources/downloads/
+COPY --from=urcu-download /sources/downloads/urcu.tar.bz2 /sources/downloads/
+COPY --from=parted-download /sources/downloads/parted.tar.xz /sources/downloads/
+COPY --from=e2fsprogs-download /sources/downloads/e2fsprogs.tar.xz /sources/downloads/
+COPY --from=dosfstools-download /sources/downloads/dosfstools.tar.gz /sources/downloads/
+COPY --from=cryptsetup-download /sources/downloads/cryptsetup.tar.xz /sources/downloads/
+COPY --from=grub-download /sources/downloads/grub.tar.xz /sources/downloads/
+COPY --from=pam-download /sources/downloads/pam.tar.xz /sources/downloads/
+COPY --from=shadow-download /sources/downloads/shadow.tar.xz /sources/downloads/
+COPY --from=aports-download /sources/downloads/aports.tar.gz /sources/downloads/
+COPY --from=busybox-download /sources/downloads/busybox.tar.bz2 /sources/downloads/
+COPY --from=musl-download /sources/downloads/musl.tar.gz /sources/downloads/
+COPY --from=gcc-download /sources/downloads/gcc.tar.xz /sources/downloads/
+COPY --from=gmp-download /sources/downloads/gmp.tar.bz2 /sources/downloads/
+COPY --from=mpc-download /sources/downloads/mpc.tar.gz /sources/downloads/
+COPY --from=mpfr-download /sources/downloads/mpfr.tar.bz2 /sources/downloads/
+COPY --from=make-download /sources/downloads/make.tar.gz /sources/downloads/
+COPY --from=binutils-download /sources/downloads/binutils.tar.xz /sources/downloads/
+COPY --from=popt-download /sources/downloads/popt.tar.gz /sources/downloads/
+COPY --from=m4-download /sources/downloads/m4.tar.xz /sources/downloads/
+COPY --from=readline-download /sources/downloads/readline.tar.gz /sources/downloads/
+COPY --from=perl-download /sources/downloads/perl.tar.gz /sources/downloads/
+COPY --from=coreutils-download /sources/downloads/coreutils.tar.xz /sources/downloads/
+COPY --from=findutils-download /sources/downloads/findutils.tar.xz /sources/downloads/
+COPY --from=grep-download /sources/downloads/grep.tar.xz /sources/downloads/
+COPY --from=gperf-download /sources/downloads/gperf.tar.gz /sources/downloads/
+COPY --from=diffutils-download /sources/downloads/diffutils.tar.xz /sources/downloads/
+COPY --from=sudo-download /sources/downloads/sudo.tar.gz /sources/downloads/
+COPY --from=pax-utils-download /sources/downloads/pax-utils.tar.gz /sources/downloads/
+COPY --from=openscsi-download /sources/downloads/openscsi.tar.gz /sources/downloads/
+COPY --from=gdb-download /sources/downloads/gdb.tar.gz /sources/downloads/
+COPY --from=libffi-download /sources/downloads/libffi.tar.gz /sources/downloads/
+COPY --from=tpm2-tss-download /sources/downloads/tpm2-tss.tar.gz /sources/downloads/
+COPY --from=libxml2-download /sources/downloads/libxml2.tar.xz /sources/downloads/
+COPY --from=gzip-download /sources/downloads/gzip.tar.xz /sources/downloads/
+COPY --from=bash-download /sources/downloads/bash /sources/downloads/bash
+COPY --from=libkcapi-download /sources/downloads/libkcapi.tar.gz /sources/downloads/
+COPY --from=shim-download /sources/downloads/shim.tar.bz2 /sources/downloads/
+COPY --from=libiconv-download /sources/downloads/libiconv.tar.gz /sources/downloads/
+COPY --from=bc-download /sources/downloads/bc.tar.xz /sources/downloads/
 
 ########################################################
 #
