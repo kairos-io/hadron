@@ -161,7 +161,7 @@ ARG BISON_VERSION=3.8.2
 RUN wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz -O bison.tar.xz
 
 ## autoconf
-ARG AUTOCONF_VERSION=2.72
+ARG AUTOCONF_VERSION=2.73
 RUN wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz -O autoconf.tar.xz
 
 ## automake
