@@ -253,7 +253,7 @@ ARG BUSYBOX_VERSION=1.37.0
 RUN wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 -O busybox.tar.bz2
 
 ## musl
-ARG MUSL_VERSION=1.2.5
+ARG MUSL_VERSION=1.2.6
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 ## gcc and dependencies
@@ -724,8 +724,6 @@ WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources
 RUN tar -xf musl.tar.gz && mv musl-* musl
 WORKDIR /sources/musl
-COPY patches/0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch .
-RUN patch -p1 < 0001-musl-stdio-skipempty-iovec-when-buffering-is-disabled.patch
 # Special flags for musl as its a libc and behaves differently
 # drop lto and some optimizations that seems to break stuff
 # drop -ffunction-sections/-fdata-sections: limited benefit for libc, risky with linker GC
