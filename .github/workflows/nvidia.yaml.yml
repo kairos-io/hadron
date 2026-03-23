@@ -1,0 +1,43 @@
+name: Nvida extension build service
+on:
+  workflow_dispatch:
+    inputs:
+      hadron_version:
+        description: Hadron image tag/version
+        required: true
+        default: main
+      nvidia_version:
+        description: NVIDIA open kernel modules version
+        required: true
+        default: 580.126.20
+      jobs:
+        description: Parallel make jobs for module build
+        required: true
+        default: "4"
+
+jobs:
+  build:
+    name: Nvidia build
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build Dockerfile
+        uses: docker/build-push-action@v7
+        with:
+          file: examples/add-packages/Dockerfile.nvidia
+          platforms: linux/${{ inputs.target_arch }}
+          tags: ttl.sh/hadron-nvidia:${{ inputs.hadron_version }}-nvidia-${{ inputs.nvidia_version }}-${{ github.sha }}
+          build-args: |
+            HADRON_VERSION=${{ inputs.hadron_version }}
+            NVIDIA_VERSION=${{ inputs.nvidia_version }}
+            JOBS=${{ inputs.jobs }}
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-cloud-arm64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-default-arm64
