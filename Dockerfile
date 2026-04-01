@@ -98,7 +98,7 @@ ARG CA_CERTIFICATES_VERSION=20251003
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
 FROM sources-downloader-base AS systemd-download
-ARG SYSTEMD_VERSION=260
+ARG SYSTEMD_VERSION=260.1
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 FROM sources-downloader-base AS libcap-download
