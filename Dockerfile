@@ -207,7 +207,7 @@ ARG LIBELF_VERSION=0.193
 RUN wget -q https://github.com/arachsys/libelf/archive/refs/tags/v${LIBELF_VERSION}.tar.gz -O libelf.tar.gz
 
 FROM sources-downloader-base AS xz-download
-ARG XZUTILS_VERSION=5.8.2
+ARG XZUTILS_VERSION=5.8.3
 RUN wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz -O xz.tar.gz
 
 FROM sources-downloader-base AS kmod-download
