@@ -284,7 +284,7 @@ ARG MUSL_VERSION=1.2.6
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 FROM sources-downloader-base AS gcc-download
-ARG GCC_VERSION=15.2.0
+ARG GCC_VERSION=14.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
 
 FROM sources-downloader-base AS gmp-download
@@ -292,7 +292,7 @@ ARG GMP_VERSION=6.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
 
 FROM sources-downloader-base AS mpc-download
-ARG MPC_VERSION=1.3.1
+ARG MPC_VERSION=1.4.0
 RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
 
 FROM sources-downloader-base AS mpfr-download
@@ -320,7 +320,7 @@ ARG READLINE_VERSION=8.3
 RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
 FROM sources-downloader-base AS perl-download
-ARG PERL_VERSION=5.42.1
+ARG PERL_VERSION=5.42.2
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 FROM sources-downloader-base AS coreutils-download
