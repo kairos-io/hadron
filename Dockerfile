@@ -128,7 +128,7 @@ ARG OPENSSL_FIPS_VERSION=3.1.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz -O openssl-fips.tar.gz
 
 FROM sources-downloader-base AS openssh-download
-ARG OPENSSH_VERSION=10.2p1
+ARG OPENSSH_VERSION=10.3p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 FROM sources-downloader-base AS pkgconf-download
@@ -255,7 +255,7 @@ ARG DOSFSTOOLS_VERSION=4.2
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
 FROM sources-downloader-base AS cryptsetup-download
-ARG CRYPTSETUP_VERSION=2.8.4
+ARG CRYPTSETUP_VERSION=2.8.6
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 FROM sources-downloader-base AS grub-download
