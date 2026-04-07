@@ -102,7 +102,7 @@ ARG SYSTEMD_VERSION=260.1
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 FROM sources-downloader-base AS libcap-download
-ARG LIBCAP_VERSION=2.77
+ARG LIBCAP_VERSION=2.78
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 FROM sources-downloader-base AS util-linux-download
