@@ -120,7 +120,7 @@ ARG SQLITE3_VERSION=3.52.0
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 FROM sources-downloader-base AS openssl-download
-ARG OPENSSL_VERSION=3.6.1
+ARG OPENSSL_VERSION=3.6.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl.tar.gz
 
 FROM sources-downloader-base AS openssl-fips-download
