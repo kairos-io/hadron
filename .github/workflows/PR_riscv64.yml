@@ -1,0 +1,191 @@
+---
+name: 'PR build and test images (riscv64)'
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-image-riscv64-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+jobs:
+  toolchain:
+    runs-on: ubuntu-24.04-riscv-2xlarge
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          tags: ttl.sh/hadron-toolchain-riscv64:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: toolchain
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+  container:
+    runs-on: ubuntu-24.04-riscv-2xlarge
+    needs:
+      - toolchain
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          tags: ttl.sh/hadron-container-riscv64:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: container
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+      - name: Test container image
+        uses: docker/build-push-action@v7
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          target: container-test
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+  hadron-grub:
+    runs-on: ubuntu-24.04-riscv-2xlarge
+    needs:
+      - container
+    strategy:
+      matrix:
+        kernel: ["cloud"]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          push: true
+          tags: ttl.sh/hadron-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: default
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+  build-kairos-grub:
+    runs-on: ubuntu-24.04-riscv-2xlarge
+    needs:
+      - hadron-grub
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Download Dockerfile from kairos repository
+        run: |
+          mkdir -p build
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./build/Dockerfile.kairos
+          push: true
+          platforms: linux/riscv64
+          tags: ttl.sh/hadron-init-riscv64:${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ttl.sh/hadron-riscv64-cloud:${{ github.sha }}
+            VERSION=v0.0.1-${{ github.sha }}
+            TRUSTED_BOOT=false
+  build-grub-iso:
+    runs-on: ubuntu-24.04-riscv-2xlarge
+    needs:
+      - build-kairos-grub
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build ISO
+        run: |
+          mkdir build
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=riscv64 \
+          -v $PWD/build/:/output \
+          quay.io/kairos/auroraboot:v0.19.2 --debug build-iso --output /output/ \
+          --override-name kairos-hadron-riscv64-${{ github.sha }} \
+          docker:ttl.sh/hadron-init-riscv64:${{ github.sha }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kairos-hadron-riscv64-${{ github.sha }}.iso.zip
+          path: build/*.iso

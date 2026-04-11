@@ -41,8 +41,12 @@ ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 # Validate that the arches are correct
 RUN if [ "${ARCH}" = "x86-64" ] && [ "${BUILD_ARCH}" != "x86_64" ]; then echo "For ARCH x86-64, BUILD_ARCH must be x86_64"; exit 1; fi
 RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo "For ARCH aarch64, BUILD_ARCH must be aarch64"; exit 1; fi
+RUN if [ "${ARCH}" = "riscv64" ] && [ "${BUILD_ARCH}" != "riscv64" ]; then echo "For ARCH riscv64, BUILD_ARCH must be riscv64"; exit 1; fi
 
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
+# Fix mussel RISC-V configuration: remove unsupported --with-cpu option for RISC-V
+# GCC for RISC-V doesn't support --with-cpu, only --with-arch, --with-tune, and --with-abi
+RUN cd mussel && sed -i 's/--with-cpu=sifive-u74 --with-arch=rv64gc --with-tune=sifive-7-series/--with-arch=rv64gc --with-tune=rocket/g' mussel
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
@@ -643,7 +647,10 @@ COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 RUN cd /sources && tar -xf busybox.tar.bz2 && \
     mv busybox-* busybox && cd busybox && \
     make -s distclean && \
-    make -s ARCH="${ARCH}" defconfig && \
+    BUSYBOX_ARCH="x86_64" && \
+    if [ "${ARCH}" = "aarch64" ]; then BUSYBOX_ARCH=arm64; \
+    elif [ "${ARCH}" = "riscv64" ]; then BUSYBOX_ARCH=riscv; fi && \
+    make -s ARCH="${BUSYBOX_ARCH}" defconfig && \
     sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
     sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
@@ -651,9 +658,9 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
     sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
-    if [ "${ARCH}" == "aarch64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
+    if [ "${ARCH}" = "aarch64" ] || [ "${ARCH}" = "riscv64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
+    make -s ARCH="${BUSYBOX_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
+    make -s ARCH="${BUSYBOX_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
 
 ###
 ### MUSL
@@ -753,6 +760,8 @@ WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
     fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
@@ -1888,6 +1897,8 @@ FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
 RUN if [ ${ARCH} = "aarch64" ] ; then \
     cp -rfv /sources/kernel-configs/cloud-arm64.config .config ; \
+    elif [ ${ARCH} = "riscv64" ] ; then \
+    cp -rfv /sources/kernel-configs/cloud-riscv64.config .config ; \
     else \
     cp -rfv /sources/kernel-configs/cloud.config .config ; \
     fi
@@ -1896,6 +1907,8 @@ FROM kernel-base AS kernel-default
 WORKDIR /sources/kernel
 RUN if [ ${ARCH} = "aarch64" ] ; then \
     cp -rfv /sources/kernel-configs/default-arm64.config .config ; \
+    elif [ ${ARCH} = "riscv64" ] ; then \
+    cp -rfv /sources/kernel-configs/default-riscv64.config .config ; \
     else \
     cp -rfv /sources/kernel-configs/default.config .config ; \
     fi
@@ -1906,16 +1919,22 @@ WORKDIR /sources/kernel
 # This only builds the kernel
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 make -s -j${JOBS} -l${MAX_LOAD} Image; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    ARCH=riscv make -s -j${JOBS} -l${MAX_LOAD} Image; \
     else \
     ARCH=x86_64 make -s -j${JOBS} -l${MAX_LOAD} bzImage; \
     fi
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
     fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-release ; make -s -j${JOBS} kernelversion > /kernel/kernel-version
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    ARCH=riscv kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
     else \
     ARCH=x86_64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/bzImage /kernel/vmlinuz-${kver};\
     fi
@@ -1941,11 +1960,15 @@ FROM kernel-build AS kernel-modules
 # This builds the modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
     fi;  make -s -j${JOBS} -l${MAX_LOAD} modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
     fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 DEPMOD=true make -s -j${JOBS} -l${MAX_LOAD} modules_install
@@ -1956,6 +1979,8 @@ WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
     fi; make -s -j${JOBS} -l${MAX_LOAD} headers_install INSTALL_HDR_PATH=/linux-headers
@@ -2314,6 +2339,9 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-s
 RUN if [ "${ARCH}" = "aarch64" ]; then \
 		grub_format="arm64-efi"; \
 		grub_efi_name="grubaa64.efi"; \
+	elif [ "${ARCH}" = "riscv64" ]; then \
+		grub_format="riscv64-efi"; \
+		grub_efi_name="grubriscv64.efi"; \
 	else \
 		grub_format="x86_64-efi"; \
 		grub_efi_name="grubx64.efi"; \
@@ -2337,13 +2365,13 @@ ARG CFLAGS="${CFLAGS//-flto=auto/}"
 ARG LDFLAGS="${LDFLAGS//-flto=auto/}"
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
-# Protect against building grub-bios on aarch64 host which is not supported
-RUN if [ "${ARCH}" != "aarch64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
+# Protect against building grub-bios on aarch64/riscv64 host which is not supported
+RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
 # Reconfigure gnulib shipped with grub to avoid build issues
 # This comes because on grub 2.14 these files are shipped pre-generated and they were built on a glibc system
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
-RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
+RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
 # GRUB 2.14 + binutils >= 2.4x regression (musl toolchain): force -Ttext instead of --image-base
 #
 # Symptom:
@@ -2370,12 +2398,12 @@ RUN if [ "${ARCH}" != "aarch64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-
 # Implementation:
 #   Pass TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' on the make/make install invocations that produce/install i386-pc images.
 
-RUN if [ "${ARCH}" != "aarch64" ]; then \
+RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then \
     make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
     make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
     fi
 # Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
-RUN if [ "${ARCH}" != "aarch64" ]; then \
+RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then \
     /grub-bios/usr/bin/grub-mkimage \
       --directory '/grub-bios/usr/lib/grub/i386-pc' \
       --prefix= \
@@ -2412,9 +2440,14 @@ RUN sed -i 's/--target efi-app-$(ARCH)/--output-target efi-app-$(ARCH)/' Make.de
 # Install it to a temp folder as the dir struct is terrible
 # and we want it to be available at /usr/share/efi/shimXX.efi
 # TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
-RUN make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron ARCH=${BUILD_ARCH} DESTDIR=/tmp/shim install
+# Skip shim build for RISC-V as it doesn't have Secure Boot support yet
+RUN if [ "${ARCH}" != "riscv64" ]; then \
+    make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron ARCH=${BUILD_ARCH} DESTDIR=/tmp/shim install; \
+    fi
 RUN if [ ${ARCH} = "aarch64" ] ; then \
     mkdir -p /shim/usr/share/efi/aarch64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTAA64.EFI /shim/usr/share/efi/aarch64/shim.efi ; \
+    elif [ ${ARCH} = "riscv64" ] ; then \
+    mkdir -p /shim/usr/share/efi/riscv64 ; \
     else \
     mkdir -p /shim/usr/share/efi/x86_64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTX64.EFI /shim/usr/share/efi/x86_64/shim.efi ; \
     fi
@@ -3188,6 +3221,8 @@ RUN ln -s /bin/bash /bin/sh
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN if [ "${ARCH}" == "aarch64" ]; then \
     ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    elif [ "${ARCH}" == "riscv64" ]; then \
+    ln -s /lib/ld-musl-riscv64.so.1 /bin/ldd; \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi

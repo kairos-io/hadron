@@ -34,9 +34,12 @@ else ifeq ($(ARCH),arm64)
 	BUILD_ARCH := aarch64
 else ifeq ($(ARCH),amd64)
 	# do nothing
+else ifeq ($(ARCH),riscv64)
+	TARGET_ARCH := riscv64
+	BUILD_ARCH := riscv64
 # Exit if invalid arch
 else
-$(error "Architecture $(ARCH) is not supported. Please use 'amd64' or 'arm64'.")
+$(error "Architecture $(ARCH) is not supported. Please use 'amd64', 'arm64', or 'riscv64'.")
 endif
 
 # Adjust IMAGE_NAME based on BOOTLOADER
@@ -80,7 +83,7 @@ help: targets
 	@echo "The BOOTLOADER variable can be set to 'grub' or 'systemd'. The default is 'systemd' to build a Trusted Boot image."
 	@echo "The KERNEL_TYPE variable can be set to 'default' or 'cloud'. The default is 'default'."
 	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'."
-	@ECHO "The ARCH variable can be set to 'amd64' or 'arm64'. The default is 'amd64'. It will build for x86-64 or aarch64 respectively."
+	@ECHO "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.0."
 	@echo "The IMAGE_NAME variable can be set to the name of the Hadron image that its built. The default is 'hadron'."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
@@ -193,6 +196,20 @@ run-qemu:
 	@if [ ! -e disk.img ]; then \
 		qemu-img create -f qcow2 disk.img 40g; \
 	fi
+ifeq ($(ARCH),riscv64)
+	qemu-system-riscv64 \
+		-machine virt \
+		-m $(MEMORY) \
+		-smp cores=2 \
+		-nographic \
+		-serial mon:stdio \
+		-bios /usr/share/qemu/opensbi-riscv64-generic-fw_dynamic.bin \
+		-kernel /usr/share/qemu/u-boot.bin \
+		-device virtio-blk-device,drive=hd0 \
+		-drive file=disk.img,format=qcow2,id=hd0 \
+		-device virtio-blk-device,drive=cd0 \
+		-drive file=$(ISO_FILE),format=raw,id=cd0,if=none
+else
 	qemu-system-x86_64 \
 		-m $(MEMORY) \
 		-smp cores=2 \
@@ -204,6 +221,7 @@ run-qemu:
 		-device virtserialport,chardev=qga0,name=org.qemu.guest_agent.0 \
 		-drive if=virtio,media=disk,file=disk.img \
 		-drive if=ide,media=cdrom,file=$(ISO_FILE)
+endif
 
 
 bump-deps:
