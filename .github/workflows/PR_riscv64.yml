@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   toolchain:
-    runs-on: ubuntu-24.04-riscv-2xlarge
+    runs-on: ubuntu-24.04-riscv
     permissions:
       packages: write
       contents: read
@@ -45,7 +45,7 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
   container:
-    runs-on: ubuntu-24.04-riscv-2xlarge
+    runs-on: ubuntu-24.04-riscv
     needs:
       - toolchain
     permissions:
@@ -94,7 +94,7 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
   hadron-grub:
-    runs-on: ubuntu-24.04-riscv-2xlarge
+    runs-on: ubuntu-24.04-riscv
     needs:
       - container
     strategy:
@@ -138,7 +138,7 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
   build-kairos-grub:
-    runs-on: ubuntu-24.04-riscv-2xlarge
+    runs-on: ubuntu-24.04-riscv
     needs:
       - hadron-grub
     steps:
@@ -167,7 +167,7 @@ jobs:
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
   build-grub-iso:
-    runs-on: ubuntu-24.04-riscv-2xlarge
+    runs-on: ubuntu-24.04-riscv
     needs:
       - build-kairos-grub
     steps:
