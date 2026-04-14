@@ -46,6 +46,8 @@ jobs:
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
+            JOBS=4
+            MAX_LOAD=4
   container:
     runs-on: ubuntu-24.04-riscv
     needs:
