@@ -41,6 +41,8 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: toolchain
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -79,6 +81,9 @@ jobs:
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: container
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
