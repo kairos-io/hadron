@@ -646,10 +646,7 @@ COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 RUN cd /sources && tar -xf busybox.tar.bz2 && \
     mv busybox-* busybox && cd busybox && \
     make -s distclean && \
-    BUSYBOX_ARCH="x86_64" && \
-    if [ "${ARCH}" = "aarch64" ]; then BUSYBOX_ARCH=arm64; \
-    elif [ "${ARCH}" = "riscv64" ]; then BUSYBOX_ARCH=riscv; fi && \
-    make -s ARCH="${BUSYBOX_ARCH}" defconfig && \
+    make -s ARCH="${ARCH}" defconfig && \
     sed -i 's/\(CONFIG_\)\(.*\)\(INETD\)\(.*\)=y/# \1\2\3\4 is not set/g' .config && \
     sed -i 's/\(CONFIG_IFPLUGD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_FEATURE_WTMP\)=y/# \1 is not set/' .config && \
@@ -657,9 +654,9 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
     sed -i 's/\(CONFIG_UDPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
-    if [ "${ARCH}" = "aarch64" ] || [ "${ARCH}" = "riscv64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
-    make -s ARCH="${BUSYBOX_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
-    make -s ARCH="${BUSYBOX_ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
+    if [ "${ARCH}" != "x86-64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
 
 ###
 ### MUSL
