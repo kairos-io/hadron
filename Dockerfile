@@ -44,8 +44,8 @@ RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo 
 RUN if [ "${ARCH}" = "riscv64" ] && [ "${BUILD_ARCH}" != "riscv64" ]; then echo "For ARCH riscv64, BUILD_ARCH must be riscv64"; exit 1; fi
 
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
-# Fix mussel RISC-V configuration: use generic arch/abi instead of SiFive-specific options
-RUN cd mussel && sed -i 's/--with-cpu=sifive-u74 --with-arch=rv64gc --with-tune=sifive-7-series --with-abi=lp64d/--with-arch=rv64gc --with-abi=lp64d/g' mussel
+# Fix mussel RISC-V configuration: remove unsupported --with-cpu option
+RUN cd mussel && sed -i 's/--with-cpu=sifive-u74 //g' mussel
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
