@@ -553,54 +553,55 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  build-kairos-grub:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
-    needs: [hadron-grub]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-      - name: Download Dockerfile from kairos repository
-        run: |
-          mkdir -p build
-          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        env:
-          SOURCE_DATE_EPOCH: 0
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./build/Dockerfile.kairos
-          push: true
-          platforms: linux/riscv64
-          tags: ttl.sh/hadron-init-riscv64:${{ github.sha }}
-          build-args: |
-            BASE_IMAGE=ttl.sh/hadron-riscv64-cloud:${{ github.sha }}
-            VERSION=v0.0.1-${{ github.sha }}
-            TRUSTED_BOOT=false
+  # There's a short circuit here since we haven't released kairos-init for riscv64 because it needs hadron to at least pass tests on one OS. For now let's just release a version on main so we can test that on kairos-init and then we decide if we do the tests here too and how to make the dependency less problematic
+  # build-kairos-grub:
+  #   runs-on: oracle-vm-32cpu-128gb-x86-64
+  #   needs: [hadron-grub]
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v6
+  #     - name: Set up Docker Buildx
+  #       id: buildx
+  #       uses: docker/setup-buildx-action@master
+  #     - name: Download Dockerfile from kairos repository
+  #       run: |
+  #         mkdir -p build
+  #         curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+  #     - name: Build and push
+  #       uses: docker/build-push-action@v7
+  #       env:
+  #         SOURCE_DATE_EPOCH: 0
+  #       with:
+  #         builder: ${{ steps.buildx.outputs.name }}
+  #         context: ./
+  #         file: ./build/Dockerfile.kairos
+  #         push: true
+  #         platforms: linux/riscv64
+  #         tags: ttl.sh/hadron-init-riscv64:${{ github.sha }}
+  #         build-args: |
+  #           BASE_IMAGE=ttl.sh/hadron-riscv64-cloud:${{ github.sha }}
+  #           VERSION=v0.0.1-${{ github.sha }}
+  #           TRUSTED_BOOT=false
 
-  build-grub-iso:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
-    needs: [build-kairos-grub]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-      - name: Build ISO
-        run: |
-          mkdir build
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=riscv64 \
-          -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.19.2 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-riscv64-${{ github.sha }} \
-          docker:ttl.sh/hadron-init-riscv64:${{ github.sha }}
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: kairos-hadron-riscv64-${{ github.sha }}.iso.zip
-          path: build/*.iso
+  # build-grub-iso:
+  #   runs-on: oracle-vm-32cpu-128gb-x86-64
+  #   needs: [build-kairos-grub]
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v6
+  #     - name: Set up Docker Buildx
+  #       id: buildx
+  #       uses: docker/setup-buildx-action@master
+  #     - name: Build ISO
+  #       run: |
+  #         mkdir build
+  #         docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=riscv64 \
+  #         -v $PWD/build/:/output \
+  #         quay.io/kairos/auroraboot:v0.19.2 --debug build-iso --output /output/ \
+  #         --override-name kairos-hadron-riscv64-${{ github.sha }} \
+  #         docker:ttl.sh/hadron-init-riscv64:${{ github.sha }}
+  #     - name: Upload artifact
+  #       uses: actions/upload-artifact@v7
+  #       with:
+  #         name: kairos-hadron-riscv64-${{ github.sha }}.iso.zip
+  #         path: build/*.iso
