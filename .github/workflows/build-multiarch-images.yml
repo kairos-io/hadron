@@ -667,3 +667,594 @@ jobs:
           prune-tags-regexes: |
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
+
+  # ============================================================================
+  # RISC-V 64-bit pipeline
+  # ============================================================================
+  # RISC-V builds use QEMU emulation on x86-64 runners. The build is split into
+  # sequential stages to maximize cache reuse and avoid timeouts.
+  #
+  # Dependency graph:
+  #   stage0-riscv64 → stage1-riscv64 → rsync-riscv64 ─┬→ cmake-riscv64 ───┐
+  #                                                     ├→ kernel-riscv64 ──┤
+  #                                                     ├→ systemd-riscv64 ─┤
+  #                                                     └→ python-riscv64 ──┘
+  #                                                              ↓
+  #                                          toolchain-riscv64 → container-riscv64 → hadron-grub-riscv64
+
+  stage0-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build stage0 (mussel cross-compiler)
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage0
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  stage1-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [stage0-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build stage1-merge
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage1-merge
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  rsync-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [stage1-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build rsync stage
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: rsync
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  cmake-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [rsync-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build cmake
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: cmake
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  kernel-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [rsync-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build kernel + modules
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: kernel-misc
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+            KERNEL_TYPE=cloud
+
+  systemd-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [rsync-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build systemd
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: systemd
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  python-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [rsync-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build python-build
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: python-build
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  toolchain-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [cmake-riscv64, kernel-riscv64, systemd-riscv64, python-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build and push toolchain
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: toolchain
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  container-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [toolchain-riscv64]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build and push container
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: container
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  hadron-grub-riscv64:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [container-riscv64]
+    strategy:
+      matrix:
+        kernel: ["cloud"]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0
+      - name: Build and push default image
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.ref_name }}-riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:grub-{0}-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel) || '' }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
