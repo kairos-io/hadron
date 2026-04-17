@@ -35,7 +35,7 @@ ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
 ARG JOBS
 ENV JOBS=${JOBS}
-ARG MUSSEL_VERSION="8c931ddb2f794ee10de65732bef18ef311d2ca2b"
+ARG MUSSEL_VERSION="687d2f5e4d679487209cd9b4bd75091a20cae357"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
 
 # Validate that the arches are correct
@@ -44,8 +44,6 @@ RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo 
 RUN if [ "${ARCH}" = "riscv64" ] && [ "${BUILD_ARCH}" != "riscv64" ]; then echo "For ARCH riscv64, BUILD_ARCH must be riscv64"; exit 1; fi
 
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
-# Fix mussel RISC-V configuration: remove unsupported --with-cpu option
-RUN cd mussel && sed -i 's/--with-cpu=sifive-u74 //g' mussel
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
