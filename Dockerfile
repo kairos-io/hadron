@@ -2361,13 +2361,13 @@ ARG CFLAGS="${CFLAGS//-flto=auto/}"
 ARG LDFLAGS="${LDFLAGS//-flto=auto/}"
 WORKDIR /sources/grub
 RUN mkdir -p /grub-bios
-# Protect against building grub-bios on aarch64/riscv64 host which is not supported
-RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
+# GRUB BIOS (i386-pc) is only supported on x86-64
+RUN if [ "${ARCH}" = "x86-64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=pc --disable-werror;fi
 # Reconfigure gnulib shipped with grub to avoid build issues
 # This comes because on grub 2.14 these files are shipped pre-generated and they were built on a glibc system
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
-RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
+RUN if [ "${ARCH}" = "x86-64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
 # GRUB 2.14 + binutils >= 2.4x regression (musl toolchain): force -Ttext instead of --image-base
 #
 # Symptom:
@@ -2394,12 +2394,12 @@ RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then make -s -j
 # Implementation:
 #   Pass TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' on the make/make install invocations that produce/install i386-pc images.
 
-RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then \
+RUN if [ "${ARCH}" = "x86-64" ]; then \
     make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
     make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
     fi
 # Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
-RUN if [ "${ARCH}" != "aarch64" ] && [ "${ARCH}" != "riscv64" ]; then \
+RUN if [ "${ARCH}" = "x86-64" ]; then \
     /grub-bios/usr/bin/grub-mkimage \
       --directory '/grub-bios/usr/lib/grub/i386-pc' \
       --prefix= \
