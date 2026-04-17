@@ -67,8 +67,6 @@ jobs:
           target: stage0
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -115,8 +113,6 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -166,8 +162,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -220,8 +214,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -271,8 +263,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -321,8 +311,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -371,8 +359,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -429,8 +415,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -478,8 +462,6 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -545,8 +527,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
