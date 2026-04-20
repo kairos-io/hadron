@@ -243,7 +243,7 @@ ARG URCU_VERSION=0.15.6
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
 FROM sources-downloader-base AS parted-download
-ARG PARTED_VERSION=3.6
+ARG PARTED_VERSION=3.7
 RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
 
 FROM sources-downloader-base AS e2fsprogs-download
