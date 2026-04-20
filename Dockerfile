@@ -94,7 +94,7 @@ ARG GAWK_VERSION=5.4.0
 RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
 
 FROM sources-downloader-base AS ca-certificates-download
-ARG CA_CERTIFICATES_VERSION=20251003
+ARG CA_CERTIFICATES_VERSION=20260413
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
 FROM sources-downloader-base AS systemd-download
@@ -271,7 +271,7 @@ ARG SHADOW_VERSION=4.19.4
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 FROM sources-downloader-base AS aports-download
-ARG APORTS_VERSION=3.23.3
+ARG APORTS_VERSION=3.23.4
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 FROM sources-downloader-base AS busybox-download
