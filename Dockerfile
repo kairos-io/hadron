@@ -107,7 +107,7 @@ ARG LIBCAP_VERSION=2.78
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 FROM sources-downloader-base AS util-linux-download
-ARG UTIL_LINUX_VERSION=2.41.3
+ARG UTIL_LINUX_VERSION=2.42
 RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
@@ -325,7 +325,7 @@ ARG PERL_VERSION=5.42.1
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 FROM sources-downloader-base AS coreutils-download
-ARG COREUTILS_VERSION=9.10
+ARG COREUTILS_VERSION=9.11
 RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
 
 FROM sources-downloader-base AS findutils-download
@@ -1430,33 +1430,31 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install 2>&1
 
 
 ## util-linux
-FROM bash AS util-linux
+FROM python-build AS util-linux
+ARG JOBS
+RUN pip3 install meson ninja
+RUN mkdir -p /util-linux
+COPY --from=bison /bison /
+COPY --from=flex /flex /
+COPY --from=m4 /m4 /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz .
+RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
+WORKDIR /sources/util-linux
+# This is fixed on master so drop it on next version
+COPY patches/util-linux-musl-AT_HANDLE_FID.patch .
+RUN patch -p1 < util-linux-musl-AT_HANDLE_FID.patch
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true \
+    -Dbuild-uuidd=disabled -Dbuild-libsmartcols=disabled -Dbtrfs=disabled -Dbuild-plymouth-support=disabled \
+    -Dnls=disabled -Dbuild-minix=disabled -Dbuild-cramfs=disabled -Dbuild-bfs=disabled -Dprogram-tests=false \
+    -Dfs-search-path-extra=/usr/sbin -Dvendordir=/usr/lib
 
-COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
+RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf util-linux.tar.xz && \
-    mv util-linux-* util-linux && \
-    cd util-linux && mkdir -p /util-linux && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
-    --libdir=/usr/lib \
-    --disable-silent-rules \
-    --enable-newgrp \
-    --disable-uuidd \
-    --disable-liblastlog2 \
-    --disable-nls \
-    --disable-kill \
-    --disable-chfn-chsh \
-    --with-vendordir=/usr/lib \
-    --enable-fs-paths-extra=/usr/sbin \
-    --disable-pam-lastlog2 \
-    --disable-asciidoc \
-    --disable-poman \
-    --disable-minix \
-    --disable-cramfs \
-    --disable-bfs \
-    --without-python \
-    --with-sysusersdir=/usr/lib/sysusers.d/ \
-    && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux install && make -s -j${JOBS} -l${MAX_LOAD} install
 
 ## gperf
 FROM stage1 AS gperf
