@@ -11,7 +11,8 @@ sources:
         kind: regex/semver
         # capture group 1 is the semver
         regex: '^openssl-([0-9]+\.[0-9]+\.[0-9]+)$'
-        pattern: '*'
+        # Restrict to 3.6.x branch; do not auto-bump to 4.x.x (incompatible)
+        pattern: '>=3.6.0 <3.7.0'
     transformers:
       - trimprefix: openssl-
 
