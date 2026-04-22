@@ -321,7 +321,7 @@ ARG READLINE_VERSION=8.3
 RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
 
 FROM sources-downloader-base AS perl-download
-ARG PERL_VERSION=5.42.1
+ARG PERL_VERSION=5.42.2
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 FROM sources-downloader-base AS coreutils-download
