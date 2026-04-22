@@ -31,10 +31,7 @@ jobs:
   stage0:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -45,12 +42,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -76,10 +67,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [stage0]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -90,12 +78,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -124,10 +106,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [stage1]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -138,12 +117,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -175,10 +148,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -189,12 +159,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -222,10 +186,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -236,12 +197,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -272,10 +227,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -286,12 +238,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -319,10 +265,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -333,12 +276,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -370,10 +307,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [cmake, kernel, systemd, python]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -384,12 +318,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -423,10 +351,7 @@ jobs:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [toolchain]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -437,12 +362,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -487,10 +406,7 @@ jobs:
       matrix:
         kernel: ["cloud"]
     permissions:
-      packages: write
       contents: read
-      attestations: write
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -501,12 +417,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
