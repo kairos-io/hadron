@@ -1452,8 +1452,7 @@ RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true \
     -Dbuild-uuidd=disabled -Dbuild-libsmartcols=disabled -Dbtrfs=disabled -Dbuild-plymouth-support=disabled \
     -Dnls=disabled -Dbuild-minix=disabled -Dbuild-cramfs=disabled -Dbuild-bfs=disabled -Dprogram-tests=false \
     -Dfs-search-path-extra=/usr/sbin -Dvendordir=/usr/lib
-
-RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/util-linux ninja -j${JOBS} -C buildDir install
 
 
 ## gperf
