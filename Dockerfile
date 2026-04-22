@@ -236,7 +236,7 @@ ARG JSONC_VERSION=0.18
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 FROM sources-downloader-base AS cmake-download
-ARG CMAKE_VERSION=4.3.1
+ARG CMAKE_VERSION=4.3.2
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 FROM sources-downloader-base AS urcu-download
