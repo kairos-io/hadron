@@ -293,8 +293,8 @@ ARG GMP_VERSION=6.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
 
 FROM sources-downloader-base AS mpc-download
-ARG MPC_VERSION=1.3.1
-RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.gz -O mpc.tar.gz
+ARG MPC_VERSION=1.4.1
+RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.xz -O mpc.tar.xz
 
 FROM sources-downloader-base AS mpfr-download
 ARG MPFR_VERSION=4.2.2
@@ -473,7 +473,7 @@ COPY --from=busybox-download /sources/downloads/busybox.tar.bz2 /sources/downloa
 COPY --from=musl-download /sources/downloads/musl.tar.gz /sources/downloads/
 COPY --from=gcc-download /sources/downloads/gcc.tar.xz /sources/downloads/
 COPY --from=gmp-download /sources/downloads/gmp.tar.bz2 /sources/downloads/
-COPY --from=mpc-download /sources/downloads/mpc.tar.gz /sources/downloads/
+COPY --from=mpc-download /sources/downloads/mpc.tar.xz /sources/downloads/
 COPY --from=mpfr-download /sources/downloads/mpfr.tar.bz2 /sources/downloads/
 COPY --from=make-download /sources/downloads/make.tar.gz /sources/downloads/
 COPY --from=binutils-download /sources/downloads/binutils.tar.xz /sources/downloads/
@@ -679,11 +679,11 @@ FROM stage0 AS gcc-stage0
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/gcc.tar.xz .
 COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
-COPY --from=sources-downloader /sources/downloads/mpc.tar.gz .
+COPY --from=sources-downloader /sources/downloads/mpc.tar.xz .
 COPY --from=sources-downloader /sources/downloads/mpfr.tar.bz2 .
 RUN tar -xf gcc.tar.xz && mv gcc-* gcc
 RUN tar -xf gmp.tar.bz2 && mv -v gmp-* gcc/gmp
-RUN tar -xf mpc.tar.gz && mv -v mpc-* gcc/mpc
+RUN tar -xf mpc.tar.xz && mv -v mpc-* gcc/mpc
 RUN tar -xf mpfr.tar.bz2 && mv -v mpfr-* gcc/mpfr
 
 RUN <<EOT bash
@@ -1502,14 +1502,14 @@ WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/gdb.tar.gz .
 COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
 COPY --from=sources-downloader /sources/downloads/mpfr.tar.bz2 .
-COPY --from=sources-downloader /sources/downloads/mpc.tar.gz .
+COPY --from=sources-downloader /sources/downloads/mpc.tar.xz .
 COPY --from=expat /expat /
 COPY --from=python-build /python /
 
 RUN tar -xf gmp.tar.bz2
 RUN tar -xf mpfr.tar.bz2
 RUN tar -xf gdb.tar.gz && mv gdb-* gdb
-RUN tar -xf mpc.tar.gz
+RUN tar -xf mpc.tar.xz
 RUN mv -v mpfr-* gdb/mpfr
 RUN mv -v gmp-* gdb/gmp
 RUN mv -v mpc-* gdb/mpc
