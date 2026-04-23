@@ -2349,7 +2349,7 @@ RUN if [ "${ARCH}" = "aarch64" ]; then \
 		-o /grub-efi/usr/lib/grub/${grub_format}/${grub_efi_name} \
 		loopback cat squash4 xzio gzio serial regexp part_gpt ext2 fat normal \
         boot configfile part_msdos linux echo search search_label search_fs_uuid \
-        search_fs_file chain loadenv gfxterm all_video iso9660 help test
+        search_fs_file chain loadenv gfxterm all_video iso9660 help test smbios
 
 
 FROM grub-base AS grub-bios
