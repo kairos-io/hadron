@@ -1430,29 +1430,35 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install 2>&1
 
 
 ## util-linux
-FROM python-build AS util-linux
-ARG JOBS
-RUN pip3 install meson ninja
-RUN mkdir -p /util-linux
-COPY --from=bison /bison /
-COPY --from=flex /flex /
-COPY --from=m4 /m4 /
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=coreutils /coreutils /coreutils
-RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
+FROM bash AS util-linux
 WORKDIR /sources
-COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz .
+COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
 WORKDIR /sources/util-linux
 # This is fixed on master so drop it on next version
 COPY patches/util-linux-musl-AT_HANDLE_FID.patch .
 RUN patch -p1 < util-linux-musl-AT_HANDLE_FID.patch
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true \
-    -Dbuild-uuidd=disabled -Dbuild-libsmartcols=disabled -Dbtrfs=disabled -Dbuild-plymouth-support=disabled \
-    -Dnls=disabled -Dbuild-minix=disabled -Dbuild-cramfs=disabled -Dbuild-bfs=disabled -Dprogram-tests=false \
-    -Dfs-search-path-extra=/usr/sbin -Dvendordir=/usr/lib
-RUN DESTDIR=/util-linux ninja -j${JOBS} -C buildDir install
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
+    --libdir=/usr/lib \
+    --disable-silent-rules \
+    --enable-newgrp \
+    --disable-uuidd \
+    --disable-liblastlog2 \
+    --disable-nls \
+    --disable-kill \
+    --disable-chfn-chsh \
+    --with-vendordir=/usr/lib \
+    --enable-fs-paths-extra=/usr/sbin \
+    --disable-pam-lastlog2 \
+    --disable-asciidoc \
+    --disable-poman \
+    --disable-minix \
+    --disable-cramfs \
+    --disable-bfs \
+    --without-python \
+    --with-sysusersdir=/usr/lib/sysusers.d/
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux
+RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux install
 
 
 ## gperf
