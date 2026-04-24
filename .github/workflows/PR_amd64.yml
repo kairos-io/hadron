@@ -136,7 +136,7 @@ jobs:
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
-          cache-from:
+          cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
@@ -214,6 +214,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
           file: ./build/Dockerfile.kairos
+          platforms: linux/amd64
           push: true
           tags: ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
           build-args: |
