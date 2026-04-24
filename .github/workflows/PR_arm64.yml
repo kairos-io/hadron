@@ -136,7 +136,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           push: true
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64:${{ github.sha }}
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: default
@@ -173,9 +173,9 @@ jobs:
           file: ./build/Dockerfile.kairos
           push: true
           platforms: linux/arm64
-          tags: ttl.sh/hadron-init-bios:${{ github.sha }}
+          tags: ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-cloud:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud-arm64:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
   build-grub-iso:
@@ -195,7 +195,7 @@ jobs:
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.16.2 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios-${{ github.sha }} \
-          docker:ttl.sh/hadron-init-bios:${{ github.sha }}
+          docker:ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:

@@ -133,7 +133,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
@@ -216,9 +216,9 @@ jobs:
           file: ./build/Dockerfile.kairos
           platforms: linux/amd64
           push: true
-          tags: ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
+          tags: ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-cloud${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
             FIPS=${{ matrix.fips }}
@@ -270,7 +270,7 @@ jobs:
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.19.2 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }} \
-          docker:ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
+          docker:ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
