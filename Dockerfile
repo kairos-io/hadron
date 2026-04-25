@@ -3482,6 +3482,8 @@ COPY files/sysctl/* /etc/sysctl.d/
 COPY files/login.defs /etc/login.defs
 ## Remove users stuff
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
+## Override root shell to /bin/bash (systemd basic.conf default is /bin/sh); /etc/sysusers.d/ wins over /usr/lib/sysusers.d/
+COPY files/systemd/00-root.conf /etc/sysusers.d/00-root.conf
 ## Create any missing users from scratch
 RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
