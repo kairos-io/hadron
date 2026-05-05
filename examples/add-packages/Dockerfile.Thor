@@ -24,23 +24,23 @@ RUN for t in *.tbz2; do echo "extracting $t"; tar -xjf "$t"; done && rm *.tbz2
 # Patch time!
 # out of the box sources do not compile LMAO. So good luck. Thanks to the OE4T team for their work, becuase otherwise wow.
 # patch makefile
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0001-Makefile-update-for-OE-builds.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0001-Makefile-update-for-OE-builds.patch .
 RUN for p in *.patch; do echo "applying $p"; patch -p1 < "$p"; done && rm *.patch
 # Now patch nvidia-oot
 WORKDIR /src/nvidia-oot
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0002-Fix-build-warning-on-rtl8852ce-driver.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0003-conftest-work-around-stringify-issue-with-__assign_s.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0004-tegra_virt_storage-fix-build-error-for-Linux-v6.18.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0005-ASoC-tegra-virt-alt-fix-build-error-with-Linux-v6.18.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0006-ASoC-Fix-compression-build-failures-with-Linux-v6.18.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0007-bluetooth-fix-build-issues-with-Linux-v6.18.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0002-Fix-build-warning-on-rtl8852ce-driver.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0003-conftest-work-around-stringify-issue-with-__assign_s.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0004-tegra_virt_storage-fix-build-error-for-Linux-v6.18.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0005-ASoC-tegra-virt-alt-fix-build-error-with-Linux-v6.18.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0006-ASoC-Fix-compression-build-failures-with-Linux-v6.18.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0007-bluetooth-fix-build-issues-with-Linux-v6.18.patch .
 RUN for p in *.patch; do echo "applying $p"; patch -p1 < "$p"; done && rm *.patch
 # Then patch unifiedgpudisp
 WORKDIR /src/unifiedgpudisp
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0008-Fix-unifiedgpudisp-modules-builds.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0009-Fix-unifiedgpudisp-conftest-gcc-14-compatibility-iss.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0010-Fix-pfn_t-references-for-Linux-6.17-compatibility.patch .
-ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/wip-l4t-r38.4.0/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0011-Fix-drm-fb-builds-for-Linux-6.17.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0008-Fix-unifiedgpudisp-modules-builds.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0009-Fix-unifiedgpudisp-conftest-gcc-14-compatibility-iss.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0010-Fix-pfn_t-references-for-Linux-6.17-compatibility.patch .
+ADD https://raw.githubusercontent.com/OE4T/meta-tegra/refs/heads/master-l4t-r38.4.x/recipes-kernel/nvidia-kernel-oot/nvidia-kernel-oot/0011-Fix-drm-fb-builds-for-Linux-6.17.patch .
 RUN for p in *.patch; do echo "applying $p"; patch -p1 < "$p"; done && rm *.patch
 WORKDIR /src
 
