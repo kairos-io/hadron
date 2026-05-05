@@ -10,6 +10,7 @@ ARG MAX_LOAD=32
 ARG FIPS="no-fips"
 ARG TARGETARCH
 ARG CFLAGS
+ARG ARCH
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
@@ -64,7 +65,7 @@ RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 FROM sources-downloader-base AS rsync-download
 ARG RSYNC_VERSION=3.4.2
-RUN wget -q https://download.samba.org/pub/rsync/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
+RUN wget -q https://github.com/RsyncProject/rsync/releases/download/v${RSYNC_VERSION}/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
 FROM sources-downloader-base AS xxhash-download
 ARG XXHASH_VERSION=0.8.3
@@ -1020,6 +1021,16 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils
 RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils install
 RUN make -s -j${JOBS} -l${MAX_LOAD} install
+# TARGET-prefixed symlinks so CROSS_COMPILE=${TARGET}- works out of the box on
+# native arm64/x86_64 builds (kbuild probes ${CROSS_COMPILE}ld etc.; without
+# these, cross-compile workflows fail even though the native tools can handle
+# the same arch).
+RUN for d in /binutils/usr/bin /usr/bin; do \
+      cd "$d" && for t in addr2line ar as c++filt elfedit gprof ld ld.bfd nm \
+                          objcopy objdump ranlib readelf size strings strip; do \
+        [ -e "$t" ] && [ ! -e "${TARGET}-$t" ] && ln -sf "$t" "${TARGET}-$t"; \
+      done; \
+    done
 
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
@@ -3045,10 +3056,11 @@ COPY --from=libelf /libelf /merge
 FROM scratch AS toolchain
 # These are the default values for the toolchain
 # Set them so anything using the toolchain will use the default values
-ENV VENDOR="hadron"
-ENV ARCH="x86-64"
-ENV BUILD_ARCH="x86_64"
+ARG VENDOR="hadron"
 ENV VENDOR=${VENDOR}
+ARG ARCH="x86-64"
+ENV ARCH=${ARCH}
+ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
@@ -3070,7 +3082,13 @@ RUN ln -s /bin/env /usr/bin/env
 # Some build systems expect the /tmp dir to exist and if you run this as a container it may not be mounted to anything, so we need to create it
 RUN mkdir /tmp
 # Some build systems will try to get the current user id info and fail if it can't find it, so we need to create a simple /etc/passwd file with at least the root user in it
-RUN printf 'root:x:0:0:root:/root:/bin/sh\n' > /etc/passwd
+RUN printf 'root:x:0:0:root:/root:/bin/bash\n' > /etc/passwd
+## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
+RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
+    ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    else \
+    ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
+    fi
 CMD ["/bin/bash", "-l"]
 
 ########################################################
@@ -3327,6 +3345,9 @@ RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
 COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton
+
 # Strip binaries
 RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
 
@@ -3426,6 +3447,7 @@ COPY --from=full-image-pre-systemd /skeleton /
 FROM full-image-${BOOTLOADER} AS full-image-final
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
+ARG BUILD_ARCH
 ## Cleanup first
 # We don't need headers
 RUN rm -rf /usr/include
@@ -3488,6 +3510,13 @@ COPY files/systemd/00-root.conf /etc/sysusers.d/00-root.conf
 RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
 RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
+## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
+RUN rm /bin/ldd
+RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
+    ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    else \
+    ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
+    fi
 
 ## final image with debug
 FROM full-image-final AS debug
