@@ -107,7 +107,7 @@ jobs:
       - container  # Take advantage of cached layers from the container build
     strategy:
       matrix:
-        kernel: [ "cloud" ]
+        kernel: [ "cloud", "default" ]
     permissions:
       packages: write
       contents: read
