@@ -157,7 +157,7 @@ ARG SECCOMP_VERSION=2.6.0
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
 FROM sources-downloader-base AS strace-download
-ARG STRACE_VERSION=6.19
+ARG STRACE_VERSION=7.0
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 FROM sources-downloader-base AS kbd-download
@@ -3504,6 +3504,8 @@ COPY files/sysctl/* /etc/sysctl.d/
 COPY files/login.defs /etc/login.defs
 ## Remove users stuff
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
+## Override root shell to /bin/bash (systemd basic.conf default is /bin/sh); /etc/sysusers.d/ wins over /usr/lib/sysusers.d/
+COPY files/systemd/00-root.conf /etc/sysusers.d/00-root.conf
 ## Create any missing users from scratch
 RUN systemd-sysusers
 ## Link /lib/firmware into /usr/local/lib/firmware for firmware loading
