@@ -14,6 +14,7 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
+KERNEL_VERSION ?= $(shell grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -89,6 +90,7 @@ help: targets
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
 	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
+	@echo "update-kernel-configs: Run 'make olddefconfig' against the current KERNEL_VERSION for x86_64 configs and update them in place. Run this after bumping KERNEL_VERSION."
 	@echo "------------------------------------------------------------------------"
 	@echo "The expected keys in the KEYS_DIR are:"
 	@echo " - tpm2-pcr-private.pem: The private key for the TPM2 measurements used for the Trusted Boot image"
@@ -223,6 +225,35 @@ else
 		-drive if=ide,media=cdrom,file=$(ISO_FILE)
 endif
 
+
+update-kernel-configs:
+	@echo "Running olddefconfig for kernel $(KERNEL_VERSION)..."
+	@docker run --rm \
+		-v $(PWD)/files/kernel:/configs \
+		alpine:3 sh -c ' \
+			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
+			wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$(KERNEL_VERSION).tar.xz && \
+			tar xf linux-$(KERNEL_VERSION).tar.xz && \
+			cd linux-$(KERNEL_VERSION) && \
+			for cfg in cloud default; do \
+				echo "==> $$cfg.config (x86_64)" && \
+				cp /configs/$$cfg.config .config && \
+				make ARCH=x86_64 olddefconfig && \
+				cp .config /configs/$$cfg.config; \
+			done && \
+			for cfg in cloud default; do \
+				echo "==> $$cfg-arm64.config (arm64)" && \
+				cp /configs/$$cfg-arm64.config .config && \
+				make ARCH=arm64 olddefconfig && \
+				cp .config /configs/$$cfg-arm64.config; \
+			done && \
+			for cfg in cloud default; do \
+				echo "==> $$cfg-riscv64.config (riscv)" && \
+				cp /configs/$$cfg-riscv64.config .config && \
+				make ARCH=riscv olddefconfig && \
+				cp .config /configs/$$cfg-riscv64.config; \
+			done'
+	@echo "Done. Review the diff and commit the updated configs."
 
 bump-deps:
 	@echo "Installing bump tool and updating dependencies..."

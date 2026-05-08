@@ -8,6 +8,27 @@ concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
+  check-kernel-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Verify kernel configs are resolved against current kernel version
+        run: |
+          KERNEL_VERSION=$(grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
+          FAILED=0
+          for cfg in files/kernel/cloud.config files/kernel/default.config; do
+            CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+\.\d+' || true)
+            if [ "$CONFIG_VERSION" != "$KERNEL_VERSION" ]; then
+              echo "ERROR: $cfg is stale (generated for $CONFIG_VERSION, current kernel is $KERNEL_VERSION)"
+              echo "Run 'make update-kernel-configs' and commit the result."
+              FAILED=1
+            else
+              echo "OK: $cfg matches kernel $KERNEL_VERSION"
+            fi
+          done
+          exit $FAILED
+
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
