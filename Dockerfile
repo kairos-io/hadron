@@ -3502,6 +3502,9 @@ RUN systemctl disable systemd-pcrlock-make-policy && systemctl mask systemd-pcrl
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
 COPY files/sysctl/* /etc/sysctl.d/
+# Add modprobe configs (currently only the dirtyfrag mitigation, see the file
+# for details). Remove the dirtyfrag.conf once the upstream kernel is patched.
+COPY files/modprobe.d/* /etc/modprobe.d/
 # copy a new login.defs to have better defaults as some stuff is already done by shadow and pam
 COPY files/login.defs /etc/login.defs
 ## Remove users stuff
