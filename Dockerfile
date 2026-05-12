@@ -114,7 +114,7 @@ RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
 FROM sources-downloader-base AS python-download
-ARG PYTHON_VERSION=3.14.4
+ARG PYTHON_VERSION=3.14.5
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
 FROM sources-downloader-base AS sqlite3-download
@@ -358,7 +358,7 @@ ARG OPEN_SCSI_VERSION=2.1.11
 RUN wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz -O openscsi.tar.gz
 
 FROM sources-downloader-base AS gdb-download
-ARG GDB_VERSION=17.1
+ARG GDB_VERSION=17.2
 RUN wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz -O gdb.tar.gz
 
 FROM sources-downloader-base AS libffi-download
