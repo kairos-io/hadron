@@ -3259,6 +3259,7 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
+ARG VERSION
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
 ## Link sh to bash
@@ -3271,6 +3272,7 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
+RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
@@ -3515,7 +3517,6 @@ RUN echo "en_US.UTF-8" > /etc/locale.conf
 RUN echo "if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi" >> /etc/profile.d/systemd-no-colors.sh
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
-RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 RUN busybox --install
 # mkfs.fat is a script that calls mkfs.vfat busybox applet with the proper name and pass all args for compatibility
 RUN echo -e '#!/bin/sh\nexec /bin/mkfs.vfat "$@"\n' > /bin/mkfs.fat && chmod +x /bin/mkfs.fat
