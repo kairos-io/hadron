@@ -143,7 +143,7 @@ RUN wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.
 
 FROM sources-downloader-base AS expat-download
 # libexpat
-ARG EXPAT_VERSION=2.8.0
+ARG EXPAT_VERSION=2.8.1
 # Use a single var and extract major/minor/patch to build the URL
 RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  && EXPAT_VERSION_MINOR="${EXPAT_VERSION#*.}"; EXPAT_VERSION_MINOR="${EXPAT_VERSION_MINOR%.*}" \
