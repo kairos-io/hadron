@@ -41,8 +41,12 @@ sources:
     kind: gittag
     spec:
       url: git://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
     transformers:
       - trimprefix: v
+
 
 targets:
   kernel:
