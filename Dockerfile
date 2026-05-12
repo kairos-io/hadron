@@ -510,6 +510,7 @@ COPY --from=bc-download /sources/downloads/bc.tar.xz /sources/downloads/
 # Creates the system skeleton
 # dirs, minimum files, symlinks, etc.
 FROM stage0 AS skeleton
+ARG VERSION
 SHELL ["/bin/bash", "-c"]
 RUN mkdir -p /sysroot
 WORKDIR /sysroot
@@ -629,6 +630,7 @@ PRETTY_NAME="Hadron Linux"
 ID=hadron
 BUILD_ID=rolling
 EOF
+RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
 
 COPY <<'EOF' etc/hosts
 127.0.0.1   localhost localhost.localdomain
@@ -2968,6 +2970,9 @@ COPY --link --from=zlib /zlib /
 COPY --link --from=lz4 /lz4 /
 COPY --link --from=xxhash /xxhash /
 
+# Base skeleton
+COPY --from=skeleton /sysroot /merge
+
 # Now prepare a merged directory with all the built tools
 COPY --from=busybox /sysroot /busybox
 RUN rsync -aHAX --keep-dirlinks  /busybox/. /merge
@@ -3074,11 +3079,13 @@ COPY --from=findutils /findutils /findutils
 RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
 COPY --from=gzip /gzip /gzip
 RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
+COPY --from=shadow-systemd /shadow /shadow
+RUN rsync -aHAX --keep-dirlinks  /shadow/. /merge
+
 COPY --from=kernel-misc /output /merge/usr/share/kernel-misc
 COPY --from=bc /bc /merge
 COPY --from=libelf /libelf /merge
 COPY --from=tpm2-tss /tpm2-tss /merge
-COPY --from=shadow-systemd /shadow /merge
 COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
 
 FROM scratch AS toolchain
@@ -3106,14 +3113,11 @@ SHELL ["/bin/bash", "-c"]
 COPY --from=full-toolchain-merge /merge /.
 RUN ln -s /bin/bash /bin/sh
 RUN ln -s /usr/bin/gcc /usr/bin/cc
-RUN ln -s /bin/env /usr/bin/env
-# Some build systems expect the /tmp dir to exist and if you run this as a container it may not be mounted to anything, so we need to create it
-RUN mkdir /tmp
-# Some build systems will try to get the current user id info and fail if it can't find it, so we need to create a simple /etc/passwd file with at least the root user in it
-RUN printf 'root:x:0:0:root:/root:/bin/bash\n' > /etc/passwd
 ## Symlink ld-musl-$ARCH.so to /bin/ldd to provide ldd functionality
 RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    elif [ "${BUILD_ARCH}" == "riscv64" ]; then \
+    ln -s /lib/ld-musl-riscv64.so.1 /bin/ldd; \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
@@ -3272,7 +3276,6 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
-RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
