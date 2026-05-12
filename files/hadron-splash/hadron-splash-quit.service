@@ -1,0 +1,11 @@
+[Unit]
+Description=Stop Hadron framebuffer splash before getty
+After=multi-user.target
+Before=getty@tty1.service serial-getty@.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --no-block stop hadron-splash-fb.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hadron framebuffer boot splash
+DefaultDependencies=no
+ConditionPathExists=/dev/fb0
+After=systemd-vconsole-setup.service systemd-udev-trigger.service
+Before=basic.target
+Conflicts=getty@tty1.service shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/hadron-splash-fb
+TTYPath=/dev/tty1
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=3
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

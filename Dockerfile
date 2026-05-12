@@ -1487,9 +1487,13 @@ RUN cd /sources && \
 FROM stage1 AS hadron-splash
 WORKDIR /sources/hadron
 COPY files/hadron-splash/main.c .
+COPY files/hadron-splash/fb.c .
 COPY files/hadron-splash/Makefile .
-RUN make hadron-splash
-RUN mkdir -p /hadron-splash && mv hadron-splash /hadron-splash
+COPY files/hadron-splash/hadron-splash-fb.service .
+COPY files/hadron-splash/hadron-splash-quit.service .
+RUN make hadron-splash hadron-splash-fb
+RUN mkdir -p /hadron-splash && mv hadron-splash hadron-splash-fb /hadron-splash
+RUN mkdir -p /hadron-splash/units && mv hadron-splash-fb.service hadron-splash-quit.service /hadron-splash/units
 
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
@@ -3087,6 +3091,8 @@ COPY --from=bc /bc /merge
 COPY --from=libelf /libelf /merge
 COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
+COPY --from=hadron-splash /hadron-splash/hadron-splash-fb /merge/bin/hadron-splash-fb
+COPY --from=hadron-splash /hadron-splash/units/ /merge/usr/lib/systemd/system/
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
@@ -3236,6 +3242,8 @@ COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
 
 COPY --from=hadron-splash /hadron-splash/hadron-splash /skeleton/bin/hadron-splash
+COPY --from=hadron-splash /hadron-splash/hadron-splash-fb /skeleton/bin/hadron-splash-fb
+COPY --from=hadron-splash /hadron-splash/units/ /skeleton/usr/lib/systemd/system/
 
 # TODO: Do we need sudo in the container image?
 ## Cleanup
@@ -3531,6 +3539,8 @@ RUN systemctl preset-all
 # This conflicts with PCR policies that we want to enforce, as it tries to mix them
 # This is new under 259 it seems, as before it would ignore the file and use the PCR policies instead
 RUN systemctl disable systemd-pcrlock-make-policy && systemctl mask systemd-pcrlock-make-policy
+# Enable Hadron framebuffer splash
+RUN systemctl enable hadron-splash-fb.service hadron-splash-quit.service
 # Add sysctl configs
 # TODO: kernel tuning based on the environment? Hardening? better defaults?
 COPY files/sysctl/* /etc/sysctl.d/
