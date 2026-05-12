@@ -3551,6 +3551,8 @@ RUN mkdir -p /usr/local/lib && ln -s /lib/firmware /usr/local/lib/firmware
 RUN rm /bin/ldd
 RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     ln -s /lib/ld-musl-aarch64.so.1 /bin/ldd; \
+    elif [ "$BUILD_ARCH" == "riscv64" ]; then \
+    ln -s /lib/ld-musl-riscv64.so.1 /bin/ldd; \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
