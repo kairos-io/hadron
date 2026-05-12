@@ -140,21 +140,18 @@ static int cell_eq(const cell_t *a, const cell_t *b) {
     return a->color == b->color && a->intensity == b->intensity && !strcmp(a->g, b->g);
 }
 
-static void flush_grid(const grid_t *cur, grid_t *prev, int use_color) {
+static void flush_grid(const grid_t *cur, grid_t *prev) {
     int sgr = -1;
     for (int r = 0; r < cur->rows; r++) for (int c = 0; c < cur->cols; c++) {
         int i = r * cur->cols + c;
         cell_t a = cur->cells[i], b = prev->cells[i];
         if (cell_eq(&a, &b)) continue;
         printf("\033[%d;%dH", r+1, c+1);
-        if (use_color) {
-            int w = !a.color ? 0 : (a.intensity > 0 && a.intensity < 5 ? 1000+a.color : 2000+a.color);
-            if (w != sgr) {
-                if (!w) fputs("\033[0m", stdout);
-                else if (w >= 2000) printf("\033[0;1;38;5;%dm", w-2000);
-                else                printf("\033[0;2;38;5;%dm", w-1000);
-                sgr = w;
-            }
+        int w = a.color;
+        if (w != sgr) {
+            if (!w) fputs("\033[0m", stdout);
+            else    printf("\033[0;1;38;5;%dm", w);
+            sgr = w;
         }
         fputs(a.g[0] ? a.g : " ", stdout);
         prev->cells[i] = a;
@@ -176,10 +173,6 @@ int main(void) {
         if (g_ver[0]) printf("HADRON  %s\n", g_ver); else puts("HADRON");
         return 0;
     }
-
-    int use_color = 1;
-    if (!isatty(STDOUT_FILENO) || getenv("NO_COLOR")) use_color = 0;
-    const char *t = getenv("TERM"); if (t && !strcmp(t, "dumb")) use_color = 0;
 
     atom_t atoms[N_ATOMS];
     atoms_init(atoms, cols, rows, (uint32_t)now_sec());
@@ -216,7 +209,7 @@ int main(void) {
             int y = (int)(atoms[i].cy - atoms[i].ry * sin(atoms[i].theta) + 0.5);
             g_set(&cur, y, x, "o", PAL[(atoms[i].phase + (int)(tn * 1.5)) % 7], 5);
         }
-        flush_grid(&cur, &prev, use_color);
+        flush_grid(&cur, &prev);
         usleep(FRAME_USEC);
     }
 

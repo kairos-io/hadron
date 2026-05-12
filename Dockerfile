@@ -1482,6 +1482,13 @@ RUN cd /sources && \
     make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
     make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gperf install && make -s -j${JOBS} -l${MAX_LOAD} install
 
+FROM stage1 AS hadron-splash
+WORKDIR /sources/hadron
+COPY files/hadron-splash/main.c .
+COPY files/hadron-splash/Makefile .
+RUN make hadron
+RUN mkdir -p /hadron-splash && mv hadron /hadron-splash
+
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
 ARG JOBS
@@ -3072,6 +3079,7 @@ COPY --from=bc /bc /merge
 COPY --from=libelf /libelf /merge
 COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=shadow-systemd /shadow /merge
+COPY --from=hadron-splash /hadron-splash/hadron /merge/bin/hadron
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
@@ -3222,6 +3230,8 @@ RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
 ## OpenSSL
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
+
+COPY --from=hadron-splash /hadron-splash/hadron /skeleton/bin/hadron
 
 # TODO: Do we need sudo in the container image?
 ## Cleanup
