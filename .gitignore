@@ -17,3 +17,6 @@ docs/_project-context.md
 
 # Linting tools
 actionlint
+
+files/hadron-splash/*.o
+files/hadron-splash/hadron
