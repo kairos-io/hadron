@@ -1,7 +1,7 @@
 .PHONY: all clean
-all: hadron
+all: hadron-splash
 
-hadron: main.c
+hadron-splash: main.c
 	@gcc -Os -std=c99 -Wall -Wextra -Wpedantic \
 		-fno-asynchronous-unwind-tables -fno-unwind-tables -fno-stack-protector \
 		-ffunction-sections -fdata-sections -fno-plt -fno-pie -no-pie -flto \

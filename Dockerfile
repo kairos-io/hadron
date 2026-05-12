@@ -1486,8 +1486,8 @@ FROM stage1 AS hadron-splash
 WORKDIR /sources/hadron
 COPY files/hadron-splash/main.c .
 COPY files/hadron-splash/Makefile .
-RUN make hadron
-RUN mkdir -p /hadron-splash && mv hadron /hadron-splash
+RUN make hadron-splash
+RUN mkdir -p /hadron-splash && mv hadron-splash /hadron-splash
 
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
@@ -3079,7 +3079,7 @@ COPY --from=bc /bc /merge
 COPY --from=libelf /libelf /merge
 COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=shadow-systemd /shadow /merge
-COPY --from=hadron-splash /hadron-splash/hadron /merge/bin/hadron
+COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
 
 FROM scratch AS toolchain
 # These are the default values for the toolchain
@@ -3231,7 +3231,7 @@ RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
 
-COPY --from=hadron-splash /hadron-splash/hadron /skeleton/bin/hadron
+COPY --from=hadron-splash /hadron-splash/hadron-splash /skeleton/bin/hadron-splash
 
 # TODO: Do we need sudo in the container image?
 ## Cleanup
