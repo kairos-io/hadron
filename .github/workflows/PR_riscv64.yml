@@ -473,15 +473,13 @@ jobs:
             KAIROS_INIT_VERSION=v0.12.0
             TRUSTED_BOOT=false
 
+  # ISO: native riscv64 via https://github.com/apps/rise-risc-v-runners (no QEMU for Auroraboot).
   build-grub-iso:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: ubuntu-24.04-riscv
     needs: [build-kairos-grub]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
       - name: Build ISO
         run: |
           mkdir build
