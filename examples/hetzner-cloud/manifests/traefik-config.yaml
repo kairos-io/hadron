@@ -1,0 +1,27 @@
+# Used by hcm-traefik.yaml. Overrides the k3s-bundled Traefik chart values
+# to enable Traefik v3's native Gateway API provider. The bundled chart then
+# AUTO-CREATES a Gateway resource on Traefik's internal entrypoint ports
+# (web=8000, websecure=8443), which the Hetzner Cloud LB in front of the
+# Service exposes externally on ports 80/443.
+#
+# Attach your HTTPRoute / GRPCRoute / TLSRoute to that auto-generated
+# Gateway via parentRefs (default name "traefik", in kube-system) — you do
+# NOT need to write your own Gateway resource. NOTE: the auto-generated
+# Gateway's listener uses `allowedRoutes.namespaces.from: Same`, so the
+# HTTPRoute must live in kube-system. To target a backend in another
+# namespace, add a ReferenceGrant in the backend's namespace.
+#
+# If you DO write your own Gateway, its listeners[0].port must be 8000
+# (HTTP) or 8443 (HTTPS) to match Traefik's internal entrypoints — NOT
+# 80/443. Overriding `ports.web.port: 80` breaks the bundled chart's
+# gateway.yaml template ("port 8000 is not declared in ports").
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true

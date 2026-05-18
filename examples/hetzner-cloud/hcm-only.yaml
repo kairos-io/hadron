@@ -1,0 +1,121 @@
+#cloud-config
+
+# IMPORTANT: this hostname MUST match the server name you set in the Hetzner
+# Cloud console when creating the VM. The hcloud CCM identifies each node by
+# looking up the matching server in the Hetzner API by name first; a mismatch
+# leaves the CCM unable to identify the node and skips lifecycle reconciliation
+# (no providerID, no zone/region labels, possibly no Service-LoadBalancer
+# attachment). Either set this to a fixed value matching your Hetzner server
+# name, or rename the Hetzner server to match the templated output below.
+hostname: <YOUR_HETZNER_SERVER_NAME>
+
+users:
+  - name: kairos
+    passwd: kairos
+    groups:
+      - admin
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... user@host"
+
+k3s:
+  enabled: true
+  args:
+    - --cluster-init
+    - --token=<K3S_TOKEN>
+    - --disable-cloud-controller          # turn off k3s's built-in CCM so the Hetzner CCM can take over node addressing and load balancers
+    - --disable=traefik                   # don't install the bundled Traefik ingress; deploy your own ingress later if needed
+    - --disable=servicelb                 # don't install klipper-lb; the Hetzner CCM will provision Hetzner Cloud Load Balancers for Service type=LoadBalancer
+    - --disable=local-storage             # don't install local-path-provisioner; hcloud-csi (below) becomes the sole (default) StorageClass — avoids two-defaults conflict
+    - --write-kubeconfig-mode=644         # make /etc/rancher/k3s/k3s.yaml world-readable so the kairos user can run kubectl without sudo
+    - --kubelet-arg=cloud-provider=external   # tell kubelet that an external cloud provider (Hetzner CCM) is responsible for node initialization and lifecycle
+    # Add --tls-san=<future-VIP-or-LB-IP-or-DNS> here on the very first --cluster-init boot
+    # if you plan to put a load balancer or VIP in front of the API server. Cannot be added later
+    # without re-issuing the server cert.
+
+# Detect the Hetzner private-network IP and tell k3s to use it as the node IP
+# BEFORE k3s starts. Without this, kubelet's TLS cert SAN only includes the
+# public IP, and once the Hetzner CCM later sets InternalIP to the private
+# address, every API → kubelet path (kubectl logs / exec / top, metrics-server)
+# fails with:
+#     x509: certificate is valid for ..., not <private-ip>
+# k3s reads /etc/rancher/k3s/config.yaml at start; setting `node-ip` there is
+# equivalent to passing --node-ip and makes kubelet include the IP in its cert
+# SAN from the very first registration.
+stages:
+  boot:
+    - name: "detect hetzner private ip"
+      if: '[ ! -f /etc/rancher/k3s/config.yaml ]'
+      commands:
+        - mkdir -p /etc/rancher/k3s
+        - |
+          # Pick the first IPv4 in the 10.0.0.0/8 range (Hetzner private network).
+          # Adjust the regex if you use a different private CIDR.
+          PRIVATE_IP=$(ip -4 -o addr show | awk '$4 ~ /^10\./ {print $4}' | cut -d/ -f1 | head -1)
+          [ -n "$PRIVATE_IP" ] && printf 'node-ip: %s\n' "$PRIVATE_IP" > /etc/rancher/k3s/config.yaml
+
+# k3s auto-applies any YAML found in /var/lib/rancher/k3s/server/manifests/ on first start.
+# Files dropped here BEFORE k3s starts therefore install at cluster bootstrap with no manual kubectl.
+write_files:
+  # 1) The Hetzner API token + private network name, as a Secret consumed by the CCM.
+  #    DO NOT COMMIT this file with a real token — b64 is encoding, not encryption.
+  #    Regenerate with your real values:
+  #      printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: hcloud\n  namespace: kube-system\nstringData:\n  token: "<TOKEN>"\n  network: "<NETWORK_NAME_OR_ID>"\n' | base64 -w0
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-secret.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogdjEKa2luZDogU2VjcmV0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZAogIG5hbWVzcGFjZToga3ViZS1zeXN0ZW0Kc3RyaW5nRGF0YToKICB0b2tlbjogIjxIRVRaTkVSX0FQSV9UT0tFTj4iCiAgbmV0d29yazogIjxIRVRaTkVSX05FVFdPUktfTkFNRV9PUl9JRD4iCg==
+
+  # 2) HelmChart for the Hetzner cloud-controller-manager.
+  #    networking.enabled: true is the simplest and most beginner-friendly form:
+  #    - chart auto-wires HCLOUD_TOKEN and HCLOUD_NETWORK from the `hcloud` secret
+  #    - CCM sets each node's InternalIP to its Hetzner private-network IP (10.0.0.x)
+  #    - CCM also runs a route-controller that adds routes for the pod CIDR through
+  #      the Hetzner private network
+  #
+  #    networking.clusterCIDR MUST match the k3s pod CIDR (k3s default = 10.42.0.0/16).
+  #    The chart's default of 10.244.0.0/16 (vanilla k8s) does NOT match k3s, so the
+  #    route-controller crashloops with ClusterCIDRMisconfigured. Always set this
+  #    when enabling networking on k3s.
+  #
+  #    On a single node the route-controller is harmless (no peers to route to).
+  #    On multi-node with another overlay CNI, the route-controller can collide with the
+  #    CNI's own routes for the pod CIDR. If you hit that, switch to:
+  #        networking:
+  #          enabled: false
+  #        env:
+  #          HCLOUD_TOKEN: {valueFrom: {secretKeyRef: {name: hcloud, key: token}}}
+  #          HCLOUD_NETWORK: {valueFrom: {secretKeyRef: {name: hcloud, key: network}}}
+  #    which gets you private-network addressing without route management.
+  #
+  #    env.HCLOUD_LOAD_BALANCERS_LOCATION: cluster-wide default Hetzner location for
+  #    Service type=LoadBalancer. Without it, every LB Service stays <pending>
+  #    ("neither location nor network-zone set"). MUST be aligned with your servers'
+  #    location — the LB and servers have to share a Hetzner network zone (eu-central
+  #    = fsn1/nbg1/hel1; us-east = ash; us-west = hil; ap-southeast = sin) for the
+  #    USE_PRIVATE_IP path below to work. Best practice: set it to the exact same
+  #    Hetzner location code as your servers.
+  #
+  #    env.HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP: register every LB target by the
+  #    node's private IP (10.0.0.x) instead of public IP. Health checks then ride
+  #    the Hetzner private network. Without this, a tight Hetzner Cloud Firewall on
+  #    the public NIC (or public-NIC quirks like RPF / asymmetric routing) silently
+  #    drops the probes and the LB shows targets as Unhealthy even when real traffic
+  #    is flowing. Strongly recommended.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-ccm.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQogIHZhbHVlc0NvbnRlbnQ6IHwtCiAgICBuZXR3b3JraW5nOgogICAgICBlbmFibGVkOiB0cnVlCiAgICAgIGNsdXN0ZXJDSURSOiAxMC40Mi4wLjAvMTYKICAgIGVudjoKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX0xPQ0FUSU9OOgogICAgICAgIHZhbHVlOiAiPEhFVFpORVJfUkVHSU9OPiIKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX1VTRV9QUklWQVRFX0lQOgogICAgICAgIHZhbHVlOiAidHJ1ZSIK
+
+  # 3) HelmChart for the Hetzner CSI driver. Reuses the same `hcloud` secret
+  #    (token + network) installed above. Once running, it registers a default
+  #    StorageClass `hcloud-volumes` (csi.hetzner.cloud provisioner), so any PVC
+  #    that does not specify storageClassName gets a Hetzner Cloud Volume.
+  #    Volume creation is lazy (WaitForFirstConsumer) — the actual Hetzner
+  #    Volume is created when the first Pod consuming the PVC is scheduled.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-csi.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jc2kKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jc2kKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQo=

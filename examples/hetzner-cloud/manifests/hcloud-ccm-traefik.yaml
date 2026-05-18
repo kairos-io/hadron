@@ -1,0 +1,24 @@
+# Used by hcm-traefik.yaml.
+# Identical to hcloud-ccm-only.yaml today (Flannel + CCM-managed routes); kept
+# as a separate file so each cloud-config has a 1:1 cleartext source. If you
+# tweak Traefik-specific CCM behavior in the future (e.g. different LB env),
+# diverge here without touching hcm-only.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: hcloud-cloud-controller-manager
+  namespace: kube-system
+spec:
+  chart: hcloud-cloud-controller-manager
+  repo: https://charts.hetzner.cloud
+  targetNamespace: kube-system
+  bootstrap: true
+  valuesContent: |-
+    networking:
+      enabled: true
+      clusterCIDR: 10.42.0.0/16
+    env:
+      HCLOUD_LOAD_BALANCERS_LOCATION:
+        value: "<HETZNER_REGION>"
+      HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
+        value: "true"

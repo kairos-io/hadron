@@ -1,0 +1,122 @@
+#cloud-config
+
+# IMPORTANT: this hostname MUST match the server name you set in the Hetzner
+# Cloud console when creating the VM. The hcloud CCM identifies each node by
+# looking up the matching server in the Hetzner API by name first; a mismatch
+# leaves the CCM unable to identify the node and skips lifecycle reconciliation.
+hostname: <YOUR_HETZNER_SERVER_NAME>
+
+users:
+  - name: kairos
+    passwd: kairos
+    groups:
+      - admin
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... user@host"
+
+k3s:
+  enabled: true
+  args:
+    - --cluster-init
+    - --token=<K3S_TOKEN>
+    # Cloud-controller handoff: Hetzner CCM owns node addressing + LB provisioning
+    - --disable-cloud-controller          # k3s's built-in CCM is replaced by hcloud CCM
+    - --disable=servicelb                 # let hcloud CCM provision Hetzner Cloud LBs for Service type=LoadBalancer (including Traefik's)
+    - --disable=local-storage             # don't install local-path-provisioner; hcloud-csi (below) becomes the sole (default) StorageClass — avoids two-defaults conflict
+    - --write-kubeconfig-mode=644         # /etc/rancher/k3s/k3s.yaml world-readable so kairos can kubectl without sudo
+    - --kubelet-arg=cloud-provider=external   # external CCM (Hetzner) owns node lifecycle
+    # NOTE: --disable=traefik is *omitted* on purpose. k3s 1.32+ bundles Traefik v3,
+    # which has a native Gateway API provider — we enable it via HelmChartConfig below.
+    # Traefik becomes the L7 ingress for the cluster, exposed publicly via a Hetzner
+    # Cloud Load Balancer (provisioned automatically by the Hetzner CCM).
+    # ⚠ This auto-creates a Hetzner Cloud LB the moment Traefik comes up (~€5.83/mo
+    # for LB11). If you don't want that, add `- --disable=traefik` here and skip the
+    # traefik-config.yaml write_files entry below.
+    #
+    # Add --tls-san=<future-VIP-or-LB-IP-or-DNS> here on the very first --cluster-init
+    # boot if you plan to put a load balancer in front of the API server; cannot be
+    # added later without re-issuing the server cert.
+
+# Detect the Hetzner private-network IP and tell k3s to use it as the node IP
+# BEFORE k3s starts. Prevents kubelet TLS SAN mismatch once the Hetzner CCM
+# later sets InternalIP to the private address (otherwise kubectl logs/exec
+# via the API server fails with x509 errors).
+#
+# NOTE: we do NOT pre-fetch Gateway API CRDs here, unlike the hcm-cilium variant.
+# The k3s 1.32+ bundled traefik-crd HelmChart installs the Gateway API CRDs
+# itself (Traefik v3 needs them for its kubernetesGateway provider). Pre-applying
+# CRDs that lack Helm ownership labels makes `helm install traefik-crd` fail
+# with "invalid ownership metadata; ... missing key app.kubernetes.io/managed-by".
+stages:
+  boot:
+    - name: "detect hetzner private ip"
+      if: '[ ! -f /etc/rancher/k3s/config.yaml ]'
+      commands:
+        - mkdir -p /etc/rancher/k3s
+        - |
+          PRIVATE_IP=$(ip -4 -o addr show | awk '$4 ~ /^10\./ {print $4}' | cut -d/ -f1 | head -1)
+          [ -n "$PRIVATE_IP" ] && printf 'node-ip: %s\n' "$PRIVATE_IP" > /etc/rancher/k3s/config.yaml
+
+# k3s auto-applies any YAML found in /var/lib/rancher/k3s/server/manifests/ on first
+# start. Files dropped here before k3s starts therefore install at cluster bootstrap
+# with no manual kubectl.
+write_files:
+  # 1) Hetzner API token + private network name, consumed by the CCM.
+  #    DO NOT COMMIT with a real token — b64 is encoding, not encryption.
+  #    Regenerate with:
+  #      printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: hcloud\n  namespace: kube-system\nstringData:\n  token: "<TOKEN>"\n  network: "<NETWORK_NAME_OR_ID>"\n' | base64 -w0
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-secret.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogdjEKa2luZDogU2VjcmV0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZAogIG5hbWVzcGFjZToga3ViZS1zeXN0ZW0Kc3RyaW5nRGF0YToKICB0b2tlbjogIjxIRVRaTkVSX0FQSV9UT0tFTj4iCiAgbmV0d29yazogIjxIRVRaTkVSX05FVFdPUktfTkFNRV9PUl9JRD4iCg==
+
+  # 2) HelmChart for the Hetzner cloud-controller-manager.
+  #    - networking.enabled: true auto-wires HCLOUD_TOKEN + HCLOUD_NETWORK from
+  #      the secret.
+  #    - networking.clusterCIDR MUST be set to k3s's pod CIDR (10.42.0.0/16) —
+  #      the chart default is 10.244.0.0/16 (vanilla k8s), which mismatches k3s
+  #      and crashloops the route-controller.
+  #    - env.HCLOUD_LOAD_BALANCERS_LOCATION: cluster-wide default Hetzner
+  #      location for Service type=LoadBalancer. Without it, every LB Service
+  #      stays <pending> ("neither location nor network-zone set"). Replace
+  #      <HETZNER_REGION> with the Hetzner location of your servers (one of:
+  #      fsn1, nbg1, hel1, ash, hil, sin).
+  #    - env.HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP: register every LB target by
+  #      the node's private IP (10.0.0.x) instead of public IP. Health checks
+  #      then ride the Hetzner private network — without this, Hetzner Cloud
+  #      Firewall (or just public-NIC quirks) often drops the probes and the
+  #      LB shows targets as Unhealthy even when traffic is flowing.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-ccm.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQogIHZhbHVlc0NvbnRlbnQ6IHwtCiAgICBuZXR3b3JraW5nOgogICAgICBlbmFibGVkOiB0cnVlCiAgICAgIGNsdXN0ZXJDSURSOiAxMC40Mi4wLjAvMTYKICAgIGVudjoKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX0xPQ0FUSU9OOgogICAgICAgIHZhbHVlOiAiPEhFVFpORVJfUkVHSU9OPiIKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX1VTRV9QUklWQVRFX0lQOgogICAgICAgIHZhbHVlOiAidHJ1ZSIK
+
+  # 3) HelmChartConfig that overrides the bundled k3s Traefik chart's values
+  #    to turn on Traefik v3's native Gateway API provider.
+  #    The chart then AUTO-CREATES a Gateway resource on Traefik's internal
+  #    entrypoint ports (web=8000, websecure=8443) — the Hetzner Cloud LB in
+  #    front of the Service exposes those externally on ports 80/443.
+  #    Attach your HTTPRoute via `parentRefs: [{name: traefik, namespace: kube-system}]`;
+  #    you do NOT need to create your own Gateway. If you DO write your own
+  #    Gateway, its listeners[0].port must be 8000 or 8443 (NOT 80/443) — the
+  #    chart's gateway.yaml template hardcodes the internal entrypoint ports.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Q29uZmlnCm1ldGFkYXRhOgogIG5hbWU6IHRyYWVmaWsKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgdmFsdWVzQ29udGVudDogfC0KICAgIHByb3ZpZGVyczoKICAgICAga3ViZXJuZXRlc0dhdGV3YXk6CiAgICAgICAgZW5hYmxlZDogdHJ1ZQo=
+
+  # 4) HelmChart for the Hetzner CSI driver. Reuses the same `hcloud` secret
+  #    (token + network) installed above. Registers a default StorageClass
+  #    `hcloud-volumes` (csi.hetzner.cloud provisioner) — any PVC without an
+  #    explicit storageClassName gets a Hetzner Cloud Volume, lazily created
+  #    when the first Pod consuming the PVC is scheduled (WaitForFirstConsumer).
+  #    Pairs with --disable=local-storage above so hcloud-volumes is the sole
+  #    default and PVCs don't have to pick between two defaults.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-csi.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jc2kKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jc2kKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQo=

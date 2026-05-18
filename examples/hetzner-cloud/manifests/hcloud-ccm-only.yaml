@@ -1,0 +1,27 @@
+# Used by hcm-only.yaml.
+# networking.enabled: true → CCM manages pod-CIDR routes through the Hetzner
+# private network (works because hcm-only uses Flannel, which doesn't install
+# its own routes). On hcm-cilium we flip this to false because Cilium owns
+# routing.
+# clusterCIDR MUST match k3s's pod CIDR (default 10.42.0.0/16). The chart
+# default (10.244.0.0/16) is vanilla k8s — using it on k3s crashloops the
+# route-controller with ClusterCIDRMisconfigured.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: hcloud-cloud-controller-manager
+  namespace: kube-system
+spec:
+  chart: hcloud-cloud-controller-manager
+  repo: https://charts.hetzner.cloud
+  targetNamespace: kube-system
+  bootstrap: true
+  valuesContent: |-
+    networking:
+      enabled: true
+      clusterCIDR: 10.42.0.0/16
+    env:
+      HCLOUD_LOAD_BALANCERS_LOCATION:
+        value: "<HETZNER_REGION>"
+      HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
+        value: "true"

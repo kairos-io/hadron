@@ -1,0 +1,16 @@
+# Shared by all three cloud-configs. Reuses the hcloud Secret installed above.
+# Registers a default StorageClass `hcloud-volumes` (csi.hetzner.cloud
+# provisioner) — any PVC without an explicit storageClassName gets a Hetzner
+# Cloud Volume, lazily created when the first Pod consuming the PVC is
+# scheduled (WaitForFirstConsumer). Pairs with k3s's --disable=local-storage
+# so hcloud-volumes is the sole default StorageClass.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: hcloud-csi
+  namespace: kube-system
+spec:
+  chart: hcloud-csi
+  repo: https://charts.hetzner.cloud
+  targetNamespace: kube-system
+  bootstrap: true

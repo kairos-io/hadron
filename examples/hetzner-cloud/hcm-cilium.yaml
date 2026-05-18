@@ -1,0 +1,126 @@
+#cloud-config
+
+# IMPORTANT: this hostname MUST match the server name you set in the Hetzner
+# Cloud console when creating the VM. The hcloud CCM identifies each node by
+# looking up the matching server in the Hetzner API by name first; a mismatch
+# leaves the CCM unable to identify the node and skips lifecycle reconciliation.
+hostname: <YOUR_HETZNER_SERVER_NAME>
+
+users:
+  - name: kairos
+    passwd: kairos
+    groups:
+      - admin
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... user@host"
+
+k3s:
+  enabled: true
+  args:
+    - --cluster-init
+    - --token=<K3S_TOKEN>
+    # Cloud-controller handoff (Hetzner CCM owns node addressing + LBs)
+    - --disable-cloud-controller          # let the Hetzner CCM run instead of k3s's built-in CCM
+    - --disable=traefik                   # don't install the bundled Traefik ingress
+    - --disable=servicelb                 # let the Hetzner CCM provision Hetzner Cloud Load Balancers for Service type=LoadBalancer
+    - --disable=local-storage             # don't install local-path-provisioner; hcloud-csi (below) becomes the sole (default) StorageClass — avoids two-defaults conflict
+    - --write-kubeconfig-mode=644         # /etc/rancher/k3s/k3s.yaml world-readable so kairos can kubectl without sudo
+    - --kubelet-arg=cloud-provider=external   # external CCM (Hetzner) owns node lifecycle
+    # CNI handoff (Cilium replaces everything below)
+    - --disable=kube-proxy                # Cilium runs in kubeProxyReplacement=true mode
+    - --flannel-backend=none              # don't install Flannel; Cilium is the CNI
+    - --disable-network-policy            # don't install the kube-router netpol controller; Cilium enforces policies
+    # Add --tls-san=<future-VIP-or-LB-IP-or-DNS> here on the very first --cluster-init boot
+    # if you plan to put a load balancer or VIP in front of the API server. Cannot be added later
+    # without re-issuing the server cert.
+
+# Detect the Hetzner private-network IP and tell k3s to use it as the node IP BEFORE
+# k3s starts. Prevents kubelet TLS SAN mismatch once the Hetzner CCM later sets
+# InternalIP to the private address (kubectl logs/exec via the API server fails
+# with x509 errors otherwise).
+stages:
+  boot:
+    - name: "detect hetzner private ip"
+      if: '[ ! -f /etc/rancher/k3s/config.yaml ]'
+      commands:
+        - mkdir -p /etc/rancher/k3s
+        - |
+          PRIVATE_IP=$(ip -4 -o addr show | awk '$4 ~ /^10\./ {print $4}' | cut -d/ -f1 | head -1)
+          [ -n "$PRIVATE_IP" ] && printf 'node-ip: %s\n' "$PRIVATE_IP" > /etc/rancher/k3s/config.yaml
+    # Fetch Gateway API CRDs (experimental channel: HTTPRoute + GRPCRoute + TLSRoute +
+    # BackendTLSPolicy that Cilium 1.18 actually uses) BEFORE k3s starts. The 00- prefix
+    # ensures k3s auto-deploy applies them first, so Cilium starts with Gateway API
+    # support already wired in (no post-boot kubectl, no Cilium pod restart).
+    - name: "fetch gateway api crds"
+      if: '[ ! -f /var/lib/rancher/k3s/server/manifests/00-gateway-api-crds.yaml ]'
+      commands:
+        - mkdir -p /var/lib/rancher/k3s/server/manifests
+        - curl -sSfL https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/experimental-install.yaml -o /var/lib/rancher/k3s/server/manifests/00-gateway-api-crds.yaml
+
+# k3s auto-applies any YAML found in /var/lib/rancher/k3s/server/manifests/ on first start.
+# Files dropped here BEFORE k3s starts therefore install at cluster bootstrap with no
+# manual kubectl.
+write_files:
+  # 1) Hetzner API token + private network name, as a Secret consumed by the CCM and
+  #    read by Cilium indirectly (via the node InternalIP that CCM populates with
+  #    HCLOUD_NETWORK).
+  #    DO NOT COMMIT this file with a real token — b64 is encoding, not encryption.
+  #    Regenerate with:
+  #      printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: hcloud\n  namespace: kube-system\nstringData:\n  token: "<TOKEN>"\n  network: "<NETWORK_NAME_OR_ID>"\n' | base64 -w0
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-secret.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogdjEKa2luZDogU2VjcmV0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZAogIG5hbWVzcGFjZToga3ViZS1zeXN0ZW0Kc3RyaW5nRGF0YToKICB0b2tlbjogIjxIRVRaTkVSX0FQSV9UT0tFTj4iCiAgbmV0d29yazogIjxIRVRaTkVSX05FVFdPUktfTkFNRV9PUl9JRD4iCg==
+
+  # 2) HelmChart for the Hetzner cloud-controller-manager.
+  #    - networking.enabled: false — Cilium handles all pod networking; the CCM
+  #      only does node addressing + LB provisioning, no route management.
+  #    - env explicitly wires HCLOUD_NETWORK from the secret's `network` key so the
+  #      CCM sets each node's InternalIP to its Hetzner private-network IP. Without
+  #      this the chart only wires HCLOUD_TOKEN and InternalIP stays unset — Cilium
+  #      then falls back to the public IP for inter-node tunnels (slower, billed
+  #      traffic).
+  #    - env.HCLOUD_LOAD_BALANCERS_LOCATION: cluster-wide default Hetzner location
+  #      for Service type=LoadBalancer (including the one Cilium auto-creates for
+  #      a Gateway). Without it, every LB Service stays <pending>. MUST be aligned
+  #      with your servers' location — the LB and servers have to share a Hetzner
+  #      network zone (eu-central = fsn1/nbg1/hel1; us-east = ash; us-west = hil;
+  #      ap-southeast = sin) for USE_PRIVATE_IP below to work. Best practice: set
+  #      it to the exact same Hetzner location code as your servers.
+  #    - env.HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP: register every LB target by the
+  #      node's private IP (10.0.0.x) instead of public IP. Health checks then ride
+  #      the Hetzner private network. Without this, a tight Cloud Firewall on the
+  #      public NIC (or public-NIC quirks) silently drops probes and the LB shows
+  #      targets as Unhealthy even when real traffic flows. Strongly recommended.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-ccm.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jbG91ZC1jb250cm9sbGVyLW1hbmFnZXIKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQogIHZhbHVlc0NvbnRlbnQ6IHwtCiAgICBuZXR3b3JraW5nOgogICAgICBlbmFibGVkOiBmYWxzZQogICAgZW52OgogICAgICBIQ0xPVURfVE9LRU46CiAgICAgICAgdmFsdWVGcm9tOgogICAgICAgICAgc2VjcmV0S2V5UmVmOgogICAgICAgICAgICBuYW1lOiBoY2xvdWQKICAgICAgICAgICAga2V5OiB0b2tlbgogICAgICBIQ0xPVURfTkVUV09SSzoKICAgICAgICB2YWx1ZUZyb206CiAgICAgICAgICBzZWNyZXRLZXlSZWY6CiAgICAgICAgICAgIG5hbWU6IGhjbG91ZAogICAgICAgICAgICBrZXk6IG5ldHdvcmsKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX0xPQ0FUSU9OOgogICAgICAgIHZhbHVlOiAiPEhFVFpORVJfUkVHSU9OPiIKICAgICAgSENMT1VEX0xPQURfQkFMQU5DRVJTX1VTRV9QUklWQVRFX0lQOgogICAgICAgIHZhbHVlOiAidHJ1ZSIK
+
+  # 3) HelmChart for Cilium 1.18.2 tuned for Hetzner + private network:
+  #    - kubeProxyReplacement: true — Cilium replaces kube-proxy fully
+  #    - routingMode: native + autoDirectNodeRoutes: true + ipv4NativeRoutingCIDR: 10.0.0.0/16
+  #      → pod-to-pod traffic between nodes goes direct over the Hetzner private network
+  #        (no VXLAN overhead, full MTU, free bandwidth)
+  #    - gatewayAPI.enabled: true (CRDs land via stages.boot above)
+  #    - l2announcements + externalIPs: false (Hetzner Cloud LB handles this)
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/cilium.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGNpbGl1bQogIG5hbWVzcGFjZToga3ViZS1zeXN0ZW0Kc3BlYzoKICBjaGFydDogY2lsaXVtCiAgcmVwbzogaHR0cHM6Ly9oZWxtLmNpbGl1bS5pby8KICB2ZXJzaW9uOiAxLjE4LjIKICB0YXJnZXROYW1lc3BhY2U6IGt1YmUtc3lzdGVtCiAgYm9vdHN0cmFwOiB0cnVlCiAgdmFsdWVzQ29udGVudDogfC0KICAgICMgZUJQRiByZXBsYWNlcyBrdWJlLXByb3h5IGVudGlyZWx5IChrM3Mgc3RhcnRlZCB3aXRoIC0tZGlzYWJsZS1rdWJlLXByb3h5KQogICAga3ViZVByb3h5UmVwbGFjZW1lbnQ6IHRydWUKICAgIGs4c1NlcnZpY2VIb3N0OiAxMjcuMC4wLjEKICAgIGs4c1NlcnZpY2VQb3J0OiA2NDQzCgogICAgIyBOYXRpdmUgcm91dGluZyBvdmVyIHRoZSBIZXR6bmVyIHByaXZhdGUgbmV0d29yayDigJQgbm8gVlhMQU4gZW5jYXAsIGZ1bGwKICAgICMgMTQ1MCBNVFUuIGF1dG9EaXJlY3ROb2RlUm91dGVzIGluc3RhbGxzIGRpcmVjdCByb3V0ZXMgYmV0d2VlbiBub2RlcwogICAgIyB1c2luZyBlYWNoIG5vZGUncyBJbnRlcm5hbElQLCB3aGljaCB0aGUgaGNsb3VkIENDTSBoYXMgc2V0IHRvIGl0cwogICAgIyBwcml2YXRlLW5ldHdvcmsgSVAgKGJlY2F1c2UgSENMT1VEX05FVFdPUksgaXMgd2lyZWQgaW4gaGNsb3VkLWNjbS55YW1sKS4KICAgICMgUG9kLXRvLXBvZCB0cmFmZmljIGJldHdlZW4gbm9kZXMgdGhlcmVmb3JlIHN0YXlzIG9uIHRoZSBIZXR6bmVyIHByaXZhdGUKICAgICMgbmV0d29yazogZnJlZSwgbG93LWxhdGVuY3ksIGhpZ2hlciBiYW5kd2lkdGggdGhhbiB0aGUgcHVibGljIE5JQy4KICAgIHJvdXRpbmdNb2RlOiBuYXRpdmUKICAgIGF1dG9EaXJlY3ROb2RlUm91dGVzOiB0cnVlCiAgICBpcHY0TmF0aXZlUm91dGluZ0NJRFI6IDEwLjAuMC4wLzE2ICAgICMgdGhlIEhldHpuZXIgcHJpdmF0ZS1uZXR3b3JrIHJhbmdlCgogICAgaXBhbToKICAgICAgbW9kZToga3ViZXJuZXRlcwogICAgb3BlcmF0b3I6CiAgICAgIHJlcGxpY2FzOiAxCgogICAgIyBIdWJibGUgZm9yIGZsb3cgb2JzZXJ2YWJpbGl0eSArIGBodWJibGUgb2JzZXJ2ZWAgZnJvbSBhbnkgbm9kZS4KICAgIGh1YmJsZToKICAgICAgZW5hYmxlZDogdHJ1ZQogICAgICByZWxheToKICAgICAgICBlbmFibGVkOiB0cnVlCiAgICAgIHVpOgogICAgICAgIGVuYWJsZWQ6IGZhbHNlCgogICAgIyBHYXRld2F5IEFQSSDigJQgaW1wbGVtZW50cyBnYXRld2F5Lm5ldHdvcmtpbmcuazhzLmlvLiBDUkRzIGFyZSBmZXRjaGVkCiAgICAjIHNlcGFyYXRlbHkgYXQgYm9vdCAoc2VlIHN0YWdlcy5ib290IGluIHRoZSBjbG91ZC1jb25maWcpLCBzbyB0aGV5IGV4aXN0CiAgICAjIGJlZm9yZSBDaWxpdW0gc3RhcnRzLgogICAgZ2F0ZXdheUFQSToKICAgICAgZW5hYmxlZDogdHJ1ZQogICAgICBlbmFibGVBbHBuOiB0cnVlICAgICAgICAgICAgICAjIEhUVFAvMiwgZ1JQQwogICAgICBlbmFibGVBcHBQcm90b2NvbDogdHJ1ZSAgICAgICAjIFNlcnZpY2Uuc3BlYy5wb3J0c1tdLmFwcFByb3RvY29sIHJvdXRpbmcKCiAgICAjIE9uIEhldHpuZXIgeW91IGhhdmUgcmVhbCBjbG91ZCBMQnMgdmlhIGhjbG91ZCBDQ00gKFNlcnZpY2UKICAgICMgdHlwZT1Mb2FkQmFsYW5jZXIg4oaSIEhldHpuZXIgQ2xvdWQgTG9hZCBCYWxhbmNlcikuIE5vIG5lZWQgZm9yIENpbGl1bSdzCiAgICAjIG9uLUxBTiBBUlAgLyBMMiBhbm5vdW5jZW1lbnQgbWFjaGluZXJ5IOKAlCBsZWF2ZSBpdCBvZmYgdG8gYXZvaWQKICAgICMgY29uZnVzaW5nIHRoZSBMQiBhbGxvY2F0aW9uIHBhdGguCiAgICBsMmFubm91bmNlbWVudHM6CiAgICAgIGVuYWJsZWQ6IGZhbHNlCiAgICBleHRlcm5hbElQczoKICAgICAgZW5hYmxlZDogZmFsc2UK
+
+  # 4) HelmChart for the Hetzner CSI driver. Reuses the same `hcloud` secret
+  #    (token + network) installed above. Registers a default StorageClass
+  #    `hcloud-volumes` (csi.hetzner.cloud provisioner) — any PVC without an
+  #    explicit storageClassName gets a Hetzner Cloud Volume, lazily created
+  #    when the first Pod consuming the PVC is scheduled (WaitForFirstConsumer).
+  #    Pairs with --disable=local-storage above so hcloud-volumes is the sole
+  #    default.
+  - encoding: b64
+    path: /var/lib/rancher/k3s/server/manifests/hcloud-csi.yaml
+    permissions: "0600"
+    owner: "root"
+    content: YXBpVmVyc2lvbjogaGVsbS5jYXR0bGUuaW8vdjEKa2luZDogSGVsbUNoYXJ0Cm1ldGFkYXRhOgogIG5hbWU6IGhjbG91ZC1jc2kKICBuYW1lc3BhY2U6IGt1YmUtc3lzdGVtCnNwZWM6CiAgY2hhcnQ6IGhjbG91ZC1jc2kKICByZXBvOiBodHRwczovL2NoYXJ0cy5oZXR6bmVyLmNsb3VkCiAgdGFyZ2V0TmFtZXNwYWNlOiBrdWJlLXN5c3RlbQogIGJvb3RzdHJhcDogdHJ1ZQo=
