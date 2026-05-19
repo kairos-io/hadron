@@ -108,7 +108,7 @@ ARG LIBCAP_VERSION=2.78
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 FROM sources-downloader-base AS util-linux-download
-ARG UTIL_LINUX_VERSION=2.42
+ARG UTIL_LINUX_VERSION=2.42.1
 RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
@@ -1448,9 +1448,6 @@ WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
 WORKDIR /sources/util-linux
-# This is fixed on master so drop it on next version
-COPY patches/util-linux-musl-AT_HANDLE_FID.patch .
-RUN patch -p1 < util-linux-musl-AT_HANDLE_FID.patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
     --disable-silent-rules \
