@@ -133,8 +133,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          # ttl.sh mishandles BuildKit image indexes that include provenance attestations;
-          # downstream ubuntu-latest jobs then fail with "no match for platform in manifest".
+          # Keep ephemeral ttl.sh indexes simple; parallel PR_arm64.yml uses separate *-arm64 tags
+          # so this tag is not clobbered by the arm64 pipeline (same github.sha).
           provenance: false
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
