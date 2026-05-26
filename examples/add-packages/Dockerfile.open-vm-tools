@@ -1,0 +1,178 @@
+ARG HADRON_VERSION=main
+ARG JOBS=4
+
+FROM ghcr.io/kairos-io/hadron-toolchain:${HADRON_VERSION} AS downloader
+RUN pip3 install meson ninja
+RUN mkdir -p /output
+WORKDIR /sources
+
+ARG OPENVM_TOOLS_MAJOR=13.1.0
+ARG OPENVM_TOOLS_VERSION=13.1.0-25218885
+RUN curl -L https://github.com/vmware/open-vm-tools/releases/download/stable-${OPENVM_TOOLS_MAJOR}/open-vm-tools-${OPENVM_TOOLS_VERSION}.tar.gz -o openvm-tools.tar.gz
+
+ARG MSPACK_VERSION=1.11
+RUN curl -L https://github.com/kyz/libmspack/archive/refs/tags/v${MSPACK_VERSION}.tar.gz -o mspack.tar.gz
+
+ARG GLIB_VERSION=2.86.2
+RUN curl -L https://download.gnome.org/sources/glib/2.86/glib-${GLIB_VERSION}.tar.xz -o glib.tar.xz
+
+ARG PCRE2_VERSION=10.47
+RUN curl -L https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz -o pcre2.tar.gz
+
+ARG LIBFFI_VERSION=3.5.2
+RUN curl -L https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -o libffi.tar.gz
+
+ARG LIBITRPC_VERSION=1.3.7
+RUN curl -L https://downloads.sourceforge.net/libtirpc/libtirpc-${LIBITRPC_VERSION}.tar.bz2 -o libtirpc.tar.bz2
+
+RUN tar -xf mspack.tar.gz && mv libmspack-* mspack
+RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
+RUN tar -xf glib.tar.xz && mv glib-* glib
+RUN tar -xf libffi.tar.gz && mv libffi-* libffi
+RUN tar -xf openvm-tools.tar.gz && mv open-vm-tools-* open-vm-tools
+RUN tar -xf libtirpc.tar.bz2 && mv libtirpc-* libtirpc
+
+FROM downloader AS pcre2
+ARG JOBS
+WORKDIR /sources/pcre2
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-utf --enable-unicode-properties --disable-dependency-tracking
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+FROM downloader AS libffi
+ARG JOBS
+WORKDIR /sources/libffi
+# --disable-multi-os-directory keeps libs in /usr/lib (not /usr/lib64)
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs --libdir=/usr/lib --disable-multi-os-directory
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+FROM downloader AS glib2
+ARG JOBS
+COPY --from=pcre2 /output/ /
+COPY --from=libffi /output/ /
+WORKDIR /sources/glib
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dselinux=disabled -Dxattr=false \
+    -Dlibmount=disabled -Dman-pages=disabled -Ddtrace=disabled -Dsystemtap=disabled -Dsysprof=disabled \
+    -Ddocumentation=false -Dtests=false -Dinstalled_tests=false -Dnls=disabled \
+    -Dglib_debug=disabled -Dglib_assert=false -Dglib_checks=false -Dlibelf=disabled \
+    -Dintrospection=disabled
+RUN DESTDIR=/output ninja -C buildDir install
+
+FROM downloader AS libmspack
+ARG JOBS
+WORKDIR /sources/mspack/libmspack
+RUN autoreconf -i -W all -v
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+FROM downloader AS bsd-compat-headers
+WORKDIR /output/usr/include/sys
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/bsd-compat-headers/cdefs.h -o cdefs.h
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/bsd-compat-headers/queue.h -o queue.h
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/bsd-compat-headers/tree.h -o tree.h
+
+FROM downloader AS libtirpc
+ARG JOBS
+COPY --from=bsd-compat-headers /output/ /
+WORKDIR /sources/libtirpc
+
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-gssapi
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+# TRhis package is a workaround for rpcgen
+# Binary usually comes fomr libgc but in our case libtirpc should substitute it, so we need the rpcgen binary
+# This only compiles that part.
+FROM downloader AS rpcsvc-proto
+ARG JOBS
+RUN curl -L https://github.com/thkukuk/rpcsvc-proto/releases/download/v1.4.4/rpcsvc-proto-1.4.4.tar.xz -o rpcsvc-proto.tar.xz
+RUN tar -xf rpcsvc-proto.tar.xz && mv rpcsvc-proto-* rpcsvc-proto
+WORKDIR /sources/rpcsvc-proto
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-shared --disable-static --disable-dependency-tracking
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+FROM downloader AS openvmtools
+ARG JOBS
+COPY --from=pcre2 /output/ /
+COPY --from=libffi /output/ /
+COPY --from=glib2 /output/ /
+COPY --from=libmspack /output/ /
+COPY --from=libtirpc /output/ /
+COPY --from=rpcsvc-proto /output/ /
+# Its patching time!
+# we should really get with alpine and postmarketOS and try to push some of this patches upstream because this is a shame
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0002-open-vm-tools-Add-disable-werror-configure-option.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0003-Do-not-assume-that-linux-and-gnu-libc-are-the-same-t.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0004-Use-configure-test-for-struct-timespec.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0005-Fix-definition-of-ALLPERMS-and-ACCESSPERMS.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0006-Use-configure-to-test-for-feature-instead-of-platfor.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0007-Use-configure-test-for-sys-stat.h-include.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0008-Rename-poll.h-to-vm_poll.h.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0010-use-posix-strerror_r-unless-gnu.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/0011-use-off64_t-instead-of-loff_t.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/mock-res_ninit-and-res_nclose.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/strerror_r.patch | patch -p1
+RUN curl -L https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/community/open-vm-tools/snprintf.patch | patch -p1
+
+WORKDIR /sources/open-vm-tools
+RUN autoreconf -i -W all
+# Patch vm tools to recognize Hadron
+RUN sed -i '/#define STR_OS_ARCH/a\#define STR_OS_HADRON              "Hadron"' lib/include/guest_os.h
+RUN sed -i '/{ "gentoo", *STR_OS_GENTOO, *HostinfoGenericSetShortName },/a\{ "hadron",              STR_OS_HADRON,             HostinfoGenericSetShortName },' lib/misc/hostinfoPosix.c
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-glibc-check --disable-multimon --without-gtk4 --without-gtk3 --without-fuse --without-dnet \
+    --without-xerces --without-icu --without-kernel-modules --without-pam --disable-werror --disable-containerinfo --without-x
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+
+# Collect everything that needs to land in the final scratch layer.
+FROM scratch AS middle-collect
+COPY --from=libtirpc   /output/ /
+COPY --from=glib2   /output/ /
+COPY --from=pcre2   /output/ /
+COPY --from=openvmtools /output/ /
+
+
+FROM ghcr.io/kairos-io/hadron-toolchain:${HADRON_VERSION} AS middle-clean
+COPY --from=middle-collect / /merge
+RUN set -eu; \
+    rm -rf \
+      /merge/usr/include \
+      /merge/usr/share/man \
+      /merge/usr/share/info \
+      /merge/usr/share/doc \
+      /merge/usr/share/gtk-doc \
+      /merge/usr/share/aclocal \
+      /merge/usr/share/bash-completion \
+      /merge/usr/share/gettext \
+      /merge/usr/share/gdb \
+      /merge/usr/share/pkgconfig \
+      /merge/usr/share/locale \
+      /merge/usr/lib/pkgconfig \
+      /merge/usr/lib/girepository-1.0; \
+    rm -f /merge/usr/lib/libgirepository-*.so* \
+          /merge/usr/lib/libpcre2-posix.so* \
+          /merge/usr/bin/gi-compile-repository \
+          /merge/usr/bin/gi-decompile-typelib \
+          /merge/usr/bin/gi-inspect-typelib; \
+    find /merge -name '*.a' -delete; \
+    find /merge -name '*.la' -delete
+
+# Smoke test target. Runs `ldd /usr/bin/vmtoolsd` to confirm the binary parses and
+# its dynamic deps resolve
+FROM ghcr.io/kairos-io/hadron-toolchain:${HADRON_VERSION} AS smoketest
+COPY --from=middle-clean / /
+RUN ldd /usr/bin/vmtoolsd
+
+# Default: scratch image with just vmtoolsd + its runtime libs.
+# Drop on top of any Hadron image:
+#   FROM ghcr.io/kairos-io/hadron:VERSION
+#   COPY --from=THIS_IMAGE / /
+FROM scratch AS default
+COPY --link --from=middle-clean /merge/ /
+
+FROM ghcr.io/kairos-io/hadron:${HADRON_VERSION} AS hadron-extension
+COPY --link --from=middle-clean / /
