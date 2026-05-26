@@ -413,6 +413,10 @@ FROM sources-downloader-base AS bc-download
 ARG BC_VERSION=7.0.3
 RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc-${BC_VERSION}.tar.xz -O bc.tar.xz
 
+FROM sources-downloader-base AS patch-download
+ARG PATCH_VERSION=2.8
+RUN wget -q https://ftpmirror.gnu.org/patch/patch-${PATCH_VERSION}.tar.gz -O patch.tar.gz
+
 
 # Merge all the downloads into a single target
 # This avoids a single change in version invalidating the full download cache,
@@ -500,6 +504,7 @@ COPY --from=libkcapi-download /sources/downloads/libkcapi.tar.gz /sources/downlo
 COPY --from=shim-download /sources/downloads/shim.tar.bz2 /sources/downloads/
 COPY --from=libiconv-download /sources/downloads/libiconv.tar.gz /sources/downloads/
 COPY --from=bc-download /sources/downloads/bc.tar.xz /sources/downloads/
+COPY --from=patch-download /sources/downloads/patch.tar.gz /sources/downloads/
 
 ########################################################
 #
@@ -1768,6 +1773,25 @@ RUN mkdir -p /sources && cd /sources && tar -xvf libtool.tar.xz && mv libtool-* 
 -e "s|test-option-parser.sh||" \
 gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
     make -j${JOBS} -l${MAX_LOAD} DESTDIR=/libtool install && make -j${JOBS} -l${MAX_LOAD} install
+
+
+FROM rsync AS patch
+ARG JOBS
+COPY --from=autoconf /autoconf /autoconf
+RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
+COPY --from=automake /automake /automake
+RUN rsync -aHAX --keep-dirlinks  /automake/. /
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=sources-downloader /sources/downloads/patch.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xvf patch.tar.gz && mv patch-* patch
+WORKDIR /sources/patch
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr
+RUN make -j${JOBS} -l${MAX_LOAD}
+RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/patch install
 
 ## fts
 ## fts is only needed to build dracut as it needs libfts.so
@@ -3078,6 +3102,10 @@ COPY --from=gzip /gzip /gzip
 RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
 COPY --from=shadow-systemd /shadow /shadow
 RUN rsync -aHAX --keep-dirlinks  /shadow/. /merge
+COPY --from=libtool /libtool /libtool
+RUN rsync -aHAX --keep-dirlinks  /libtool/. /merge
+COPY --from=patch /patch /patch
+RUN rsync -aHAX --keep-dirlinks  /patch/. /merge
 
 COPY --from=kernel-misc /output /merge/usr/share/kernel-misc
 COPY --from=bc /bc /merge
