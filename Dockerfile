@@ -2299,7 +2299,7 @@ WORKDIR /sources
 RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
 WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml
 
 
 ## bsd-compat-headers - <sys/queue.h>, <sys/cdefs.h>, <sys/tree.h>. musl does
@@ -2345,8 +2345,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --disable-authdes \
       --enable-rpcdb
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc \
- && make -s -j${JOBS} -l${MAX_LOAD} install
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
 
 
 ## libnl - netlink library. Hard build-time dep of nfs-utils >= 2.7 (used
@@ -2372,8 +2371,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --sysconfdir=/etc \
       --disable-cli
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnl \
- && make -s -j${JOBS} -l${MAX_LOAD} install
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnl
 
 
 ## libevent - async event notification library. Hard build-time dep of
@@ -2395,14 +2393,14 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --disable-samples \
       --disable-libevent-regress
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libevent \
- && make -s -j${JOBS} -l${MAX_LOAD} install
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libevent
 
 
 ## keyutils - kernel keyring API + libkeyutils.so. Required by nfs-utils'
 ## nfsidmap binary, which the kernel calls via request-key for NFSv4 ID
-## mapping. Plain Makefile build, not autotools, so cross-compile env vars
-## must be passed explicitly.
+## mapping. Plain Makefile build, not autotools — the cross-compile vars
+## (CC, AR, LD) are picked up from ENV automatically; only LIBDIR is set
+## here so the later nfs-utils build finds libkeyutils via pkg-config.
 FROM rsync AS keyutils
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/keyutils.tar.gz /sources/
@@ -2410,26 +2408,8 @@ RUN mkdir -p /keyutils
 WORKDIR /sources
 RUN tar -xf keyutils.tar.gz && mv keyutils-* keyutils
 WORKDIR /sources/keyutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} \
-      CC="${TARGET}-gcc" \
-      AR="${TARGET}-ar" \
-      LD="${TARGET}-ld" \
-      NO_ARLIB=1 \
-      LIBDIR=/usr/lib \
-      USRLIBDIR=/usr/lib \
-      INCLUDEDIR=/usr/include \
-      BINDIR=/bin \
-      SBINDIR=/sbin \
-      MANDIR=/usr/share/man \
-      SHAREDIR=/usr/share/keyutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils \
-      CC="${TARGET}-gcc" NO_ARLIB=1 \
-      LIBDIR=/usr/lib USRLIBDIR=/usr/lib INCLUDEDIR=/usr/include \
-      BINDIR=/bin SBINDIR=/sbin MANDIR=/usr/share/man SHAREDIR=/usr/share/keyutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} install \
-      CC="${TARGET}-gcc" NO_ARLIB=1 \
-      LIBDIR=/usr/lib USRLIBDIR=/usr/lib INCLUDEDIR=/usr/include \
-      BINDIR=/bin SBINDIR=/sbin MANDIR=/usr/share/man SHAREDIR=/usr/share/keyutils
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
 
 
 ## nfs-utils - provides mount.nfs / mount.nfs4 host helpers required by
@@ -2524,6 +2504,34 @@ RUN if ! grep -q '^#include <string\.h>' support/nfs/fh_key_file.c; then \
 
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
  && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/nfs-utils
+
+# Trim to client-only. nfs-utils' install ships several server-side and
+# NFSv3-only binaries that aren't useful on a Hadron node and only serve
+# to drag libnl, libxml2, and libevent into the final image. Removing
+# them lets us keep /skeleton smaller and drop those three libs from the
+# full-image merge.
+#
+# Kept:  mount.nfs[4], umount.nfs[4]  (the actual bug fix)
+#        nfsidmap + libnfsidmap       (NFSv4 ID mapping via kernel keyring)
+#        showmount, nfsstat, nfsiostat, mountstats, nfsconf  (client diag)
+#        rpcdebug, rpc.gssd-shaped helpers if present
+# Dropped: rpc.mountd, rpc.nfsd, exportfs, fsidd, nfsdclnts  (server)
+#          rpc.statd, sm-notify, start-statd                  (NFSv3 NSM)
+#          rpc.idmapd                                         (superseded by nfsidmap)
+#          nfsref, rpcctl, rpcgen                             (server/build-only)
+RUN rm -f \
+      /nfs-utils/sbin/rpc.mountd \
+      /nfs-utils/sbin/rpc.nfsd \
+      /nfs-utils/sbin/exportfs \
+      /nfs-utils/sbin/fsidd \
+      /nfs-utils/sbin/nfsdclnts \
+      /nfs-utils/sbin/rpc.statd \
+      /nfs-utils/sbin/sm-notify \
+      /nfs-utils/sbin/start-statd \
+      /nfs-utils/sbin/rpc.idmapd \
+      /nfs-utils/sbin/nfsref \
+      /nfs-utils/sbin/rpcctl \
+      /nfs-utils/usr/bin/rpcgen
 
 
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
@@ -3596,32 +3604,15 @@ RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
 
-## NFS client userspace: mount.nfs / mount.nfs4 helpers + all the libs the
-## installed nfs-utils binaries link against. Required by Longhorn RWX and
-## any other in-cluster NFS storage.
-##
-## mount.nfs itself only needs libtirpc, but nfs-utils' install ships
-## several other binaries that have wider link deps:
-##   nfsidmap     -> libkeyutils
-##   rpc.idmapd   -> libevent
-##   rpc.mountd   -> libxml2
-## We ship all of them so every binary in /sbin/ actually runs. Trimming
-## to client-only would mean carving up the nfs-utils install, which is
-## more invasive than the ~2MB of libs we'd save.
+## NFS client userspace. Required by Longhorn RWX and any other in-cluster
+## NFS storage. The nfs-utils build stage trims its install to the
+## client-only binaries we actually use, so the runtime deps reduce to
+## libtirpc (mount.nfs) and libkeyutils (nfsidmap).
 COPY --from=libtirpc /libtirpc /libtirpc
 RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /skeleton/
 
-COPY --from=libnl /libnl /libnl
-RUN rsync -aHAX --keep-dirlinks  /libnl/. /skeleton/
-
-COPY --from=libevent /libevent /libevent
-RUN rsync -aHAX --keep-dirlinks  /libevent/. /skeleton/
-
 COPY --from=keyutils /keyutils /keyutils
 RUN rsync -aHAX --keep-dirlinks  /keyutils/. /skeleton/
-
-COPY --from=libxml /libxml /libxml
-RUN rsync -aHAX --keep-dirlinks  /libxml/. /skeleton/
 
 COPY --from=nfs-utils /nfs-utils /nfs-utils
 RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /skeleton/
