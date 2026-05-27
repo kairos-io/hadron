@@ -64,7 +64,7 @@ ARG CURL_VERSION=8.20.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 FROM sources-downloader-base AS rsync-download
-ARG RSYNC_VERSION=3.4.2
+ARG RSYNC_VERSION=3.4.3
 RUN wget -q https://github.com/RsyncProject/rsync/releases/download/v${RSYNC_VERSION}/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
 FROM sources-downloader-base AS xxhash-download
@@ -161,7 +161,7 @@ ARG STRACE_VERSION=7.0
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 FROM sources-downloader-base AS kbd-download
-ARG KBD_VERSION=2.9.0
+ARG KBD_VERSION=2.10.0
 RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
 FROM sources-downloader-base AS iptables-download
@@ -177,7 +177,7 @@ ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 FROM sources-downloader-base AS linux-download
-ARG KERNEL_VERSION=7.0.9
+ARG KERNEL_VERSION=7.0.10
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 FROM sources-downloader-base AS flex-download
