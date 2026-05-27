@@ -2509,6 +2509,9 @@ RUN sed -i 's/\bstruct stat64\b/struct stat/g; s/\bstat64 (/stat (/g; s/\bstat64
 # missing <string.h>. GCC infers `int` return type and the format check
 # (-Werror=format) rejects it. Upstream issue, not musl-specific; the
 # file was added in 2025 and the omission slipped through.
+# Fixed upstream in commit 0097ceb (post-2.9.1, not yet in a tagged release):
+# https://git.linux-nfs.org/?p=steved/nfs-utils.git;a=commit;h=0097ceb136a7db15c535a78fca01e2814e82d2a7
+# Drop this sed once we bump to a release that contains the fix.
 RUN sed -i '29a #include <string.h>' support/nfs/fh_key_file.c
 
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
