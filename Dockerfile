@@ -256,6 +256,30 @@ FROM sources-downloader-base AS dosfstools-download
 ARG DOSFSTOOLS_VERSION=4.2
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
+FROM sources-downloader-base AS libtirpc-download
+ARG LIBTIRPC_VERSION=1.3.7
+RUN wget -q https://downloads.sourceforge.net/project/libtirpc/libtirpc/${LIBTIRPC_VERSION}/libtirpc-${LIBTIRPC_VERSION}.tar.bz2 -O libtirpc.tar.bz2
+
+FROM sources-downloader-base AS libnl-download
+ARG LIBNL_VERSION=3.12.0
+# Upstream release-tag convention is libnl3_X_Y_Z (dots → underscores).
+RUN LIBNL_TAG="libnl${LIBNL_VERSION//./_}" \
+ && wget -q https://github.com/thom311/libnl/releases/download/${LIBNL_TAG}/libnl-${LIBNL_VERSION}.tar.gz -O libnl.tar.gz
+
+FROM sources-downloader-base AS libevent-download
+ARG LIBEVENT_VERSION=2.1.12
+# Upstream release-tag convention is release-X.Y.Z-stable, and the tarball
+# is named libevent-X.Y.Z-stable.tar.gz.
+RUN wget -q https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}-stable/libevent-${LIBEVENT_VERSION}-stable.tar.gz -O libevent.tar.gz
+
+FROM sources-downloader-base AS keyutils-download
+ARG KEYUTILS_VERSION=1.6.3
+RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${KEYUTILS_VERSION}.tar.gz -O keyutils.tar.gz
+
+FROM sources-downloader-base AS nfs-utils-download
+ARG NFS_UTILS_VERSION=2.9.1
+RUN wget -q https://www.kernel.org/pub/linux/utils/nfs-utils/${NFS_UTILS_VERSION}/nfs-utils-${NFS_UTILS_VERSION}.tar.xz -O nfs-utils.tar.xz
+
 FROM sources-downloader-base AS cryptsetup-download
 ARG CRYPTSETUP_VERSION=2.8.6
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
@@ -469,6 +493,11 @@ COPY --from=urcu-download /sources/downloads/urcu.tar.bz2 /sources/downloads/
 COPY --from=parted-download /sources/downloads/parted.tar.xz /sources/downloads/
 COPY --from=e2fsprogs-download /sources/downloads/e2fsprogs.tar.xz /sources/downloads/
 COPY --from=dosfstools-download /sources/downloads/dosfstools.tar.gz /sources/downloads/
+COPY --from=libtirpc-download /sources/downloads/libtirpc.tar.bz2 /sources/downloads/
+COPY --from=libnl-download /sources/downloads/libnl.tar.gz /sources/downloads/
+COPY --from=libevent-download /sources/downloads/libevent.tar.gz /sources/downloads/
+COPY --from=keyutils-download /sources/downloads/keyutils.tar.gz /sources/downloads/
+COPY --from=nfs-utils-download /sources/downloads/nfs-utils.tar.xz /sources/downloads/
 COPY --from=cryptsetup-download /sources/downloads/cryptsetup.tar.xz /sources/downloads/
 COPY --from=grub-download /sources/downloads/grub.tar.xz /sources/downloads/
 COPY --from=pam-download /sources/downloads/pam.tar.xz /sources/downloads/
@@ -2283,6 +2312,254 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dosfstools
 
 
+FROM rsync AS libxml
+ARG JOBS
+RUN mkdir -p /libxml
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+
+COPY --from=sources-downloader /sources/downloads/libxml2.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
+WORKDIR /sources/libxml2
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml
+
+
+## bsd-compat-headers - <sys/queue.h>, <sys/cdefs.h>, <sys/tree.h>. musl does
+## not ship these BSD compatibility headers; Alpine packages them as the
+## `bsd-compat-headers` aport. Several packages we build (libtirpc, nfs-utils)
+## need them at compile time, so we factor the extraction into a single small
+## stage and COPY --from in each consumer.
+FROM alpine-base AS bsd-compat-headers
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf aports.tar.gz && mv aports-* aport
+RUN install -Dm644 -t /bsd-compat-headers/usr/include/sys \
+      aport/main/bsd-compat-headers/cdefs.h \
+      aport/main/bsd-compat-headers/queue.h \
+      aport/main/bsd-compat-headers/tree.h
+
+
+## libtirpc - userspace SunRPC library. Required by nfs-utils since glibc/musl
+## do not ship sunrpc. --disable-gssapi avoids the krb5 dependency.
+##
+## libtirpc uses <sys/queue.h> and <sys/cdefs.h>; see the bsd-compat-headers
+## stage above for the source of those.
+FROM rsync AS libtirpc
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
+RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
+
+COPY --from=sources-downloader /sources/downloads/libtirpc.tar.bz2 /sources/
+RUN mkdir -p /libtirpc
+WORKDIR /sources
+RUN tar -xf libtirpc.tar.bz2 && mv libtirpc-* libtirpc
+WORKDIR /sources/libtirpc
+## --enable-rpcdb forces libtirpc to ship the BSD RPC database functions
+## (getrpcent/getrpcbyname/getrpcbynumber/setrpcent/endrpcent). They are
+## OFF by default because glibc ships them in libc, but musl does not and
+## nfs-utils' configure requires them. Without this flag, nfs-utils fails:
+##   configure: error: Neither getrpcbynumber_r nor getrpcbynumber are available
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+      --sysconfdir=/etc \
+      --disable-gssapi \
+      --disable-authdes \
+      --enable-rpcdb
+RUN make -s -j${JOBS} -l${MAX_LOAD} \
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
+
+
+## libnl - netlink library. Hard build-time dep of nfs-utils >= 2.7 (used
+## for the in-kernel notification netlink interface). Standard autotools
+## build; --disable-cli drops the libnl CLI utilities we don't ship.
+FROM rsync AS libnl
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=flex /flex /flex
+RUN rsync -aHAX --keep-dirlinks /flex/. /
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks /m4/. /
+COPY --from=bison /bison /bison
+RUN rsync -aHAX --keep-dirlinks /bison/. /
+
+COPY --from=sources-downloader /sources/downloads/libnl.tar.gz /sources/
+RUN mkdir -p /libnl
+WORKDIR /sources
+RUN tar -xf libnl.tar.gz && mv libnl-* libnl
+WORKDIR /sources/libnl
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+      --sysconfdir=/etc \
+      --disable-cli
+RUN make -s -j${JOBS} -l${MAX_LOAD} \
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnl
+
+
+## libevent - async event notification library. Hard build-time dep of
+## nfs-utils (used by sm-notify and by the new netlink-based daemons).
+FROM rsync AS libevent
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks /openssl/. /
+
+COPY --from=sources-downloader /sources/downloads/libevent.tar.gz /sources/
+RUN mkdir -p /libevent
+WORKDIR /sources
+RUN tar -xf libevent.tar.gz && mv libevent-* libevent
+WORKDIR /sources/libevent
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+      --sysconfdir=/etc \
+      --disable-samples \
+      --disable-libevent-regress
+RUN make -s -j${JOBS} -l${MAX_LOAD} \
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libevent
+
+
+## keyutils - kernel keyring API + libkeyutils.so. Required by nfs-utils'
+## nfsidmap binary, which the kernel calls via request-key for NFSv4 ID
+## mapping. Plain Makefile build, not autotools — the cross-compile vars
+## (CC, AR, LD) are picked up from ENV automatically; only LIBDIR is set
+## here so the later nfs-utils build finds libkeyutils via pkg-config.
+FROM rsync AS keyutils
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/keyutils.tar.gz /sources/
+RUN mkdir -p /keyutils
+WORKDIR /sources
+RUN tar -xf keyutils.tar.gz && mv keyutils-* keyutils
+WORKDIR /sources/keyutils
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
+
+
+## nfs-utils - provides mount.nfs / mount.nfs4 host helpers required by
+## `mount -t nfs`. Without them, Longhorn RWX (and any other in-cluster NFS
+## storage) fails even though kernel NFS client modules are present.
+## See https://github.com/kairos-io/kairos/issues/4086.
+##
+## Minimal client build:
+##   --disable-gss          : no Kerberos / RPCSEC_GSS support (drops the krb5
+##                            link dep; libevent is still pulled in by other
+##                            code paths like rpc.idmapd)
+##   --disable-nfsv4server  : kernel server is not in scope here
+##   --disable-nfsdcld /
+##   --disable-nfsdcltrack  : server-side state DB, not needed for client
+##   --disable-nfsdctl      : kernel-server admin tool; pulls in readline
+##                            which on this image links to libtermcap symbols
+##                            that aren't shipped (no ncurses).
+##   --disable-junction     : drops nfsref (NFS junction admin tool, server-side)
+##   --without-tcp-wrappers : tcp_wrappers is dead, not shipped
+##   --enable-tirpc         : use libtirpc (built above) instead of glibc sunrpc
+##   --with-rpcgen=internal : build nfs-utils' bundled rpcgen instead of
+##                            requiring a host one (Alpine builder has none).
+FROM rsync AS nfs-utils
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=libtirpc /libtirpc /libtirpc
+RUN rsync -aHAX --keep-dirlinks /libtirpc/. /
+COPY --from=libnl /libnl /libnl
+RUN rsync -aHAX --keep-dirlinks /libnl/. /
+COPY --from=libcap /libcap /libcap
+RUN rsync -aHAX --keep-dirlinks /libcap/. /
+COPY --from=util-linux /util-linux /util-linux
+RUN rsync -aHAX --keep-dirlinks /util-linux/. /
+COPY --from=sqlite3 /sqlite3 /sqlite3
+RUN rsync -aHAX --keep-dirlinks /sqlite3/. /
+COPY --from=libxml /libxml /libxml
+RUN rsync -aHAX --keep-dirlinks /libxml/. /
+COPY --from=libevent /libevent /libevent
+RUN rsync -aHAX --keep-dirlinks /libevent/. /
+COPY --from=keyutils /keyutils /keyutils
+RUN rsync -aHAX --keep-dirlinks /keyutils/. /
+
+## BSD compat headers (queue.h, cdefs.h, tree.h) - musl does not ship these
+## and nfs-utils uses them in several places.
+COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
+RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
+
+COPY --from=sources-downloader /sources/downloads/nfs-utils.tar.xz /sources/
+RUN mkdir -p /nfs-utils
+WORKDIR /sources
+RUN tar -xf nfs-utils.tar.xz && mv nfs-utils-* nfs-utils
+WORKDIR /sources/nfs-utils
+# LIBS="-ltirpc": musl does not ship the BSD RPC database functions
+# (getrpcbynumber*, getrpcbyname*); libtirpc provides them. nfs-utils' own
+# AC_CHECK_FUNCS doesn't add libtirpc to the link line for the check, so
+# we add it here. Without this configure fails with
+# "Neither getrpcbynumber_r nor getrpcbynumber are available".
+RUN LIBS="-ltirpc" \
+    ./configure ${COMMON_CONFIGURE_ARGS} \
+      --sysconfdir=/etc \
+      --sbindir=/sbin \
+      --enable-tirpc \
+      --disable-gss \
+      --disable-nfsv4server \
+      --disable-nfsdcld \
+      --disable-nfsdcltrack \
+      --disable-nfsdctl \
+      --disable-junction \
+      --without-tcp-wrappers \
+      --with-statedir=/var/lib/nfs \
+      --with-rpcgen=internal
+
+# musl >= 1.2 dropped stat64 / struct stat64 — `stat` is already 64-bit on
+# all musl platforms. nfs-utils' bundled rpcgen still references the old
+# names. Substitute them in-place; the fields are identical so this is a
+# pure rename, no semantic change.
+RUN sed -i 's/\bstruct stat64\b/struct stat/g; s/\bstat64 (/stat (/g; s/\bstat64(/stat(/g' \
+      tools/rpcgen/rpc_main.c
+
+# nfs-utils 2.9.1 bug: support/nfs/fh_key_file.c calls strerror() but is
+# missing <string.h>. GCC infers `int` return type and the format check
+# (-Werror=format) rejects it. Upstream issue, not musl-specific; the
+# file was added in 2025 and the omission slipped through.
+# Fixed upstream in commit 0097ceb (post-2.9.1, not yet in a tagged release):
+# https://git.linux-nfs.org/?p=steved/nfs-utils.git;a=commit;h=0097ceb136a7db15c535a78fca01e2814e82d2a7
+# Drop this whole block once we bump to a release that contains the fix.
+# The grep guard makes it a no-op if the file already has the include
+# (e.g. after a version bump that pulls in the upstream patch); the sed
+# anchors on <errno.h> rather than a line number so it survives reorders.
+RUN if ! grep -q '^#include <string\.h>' support/nfs/fh_key_file.c; then \
+        sed -i '/^#include <errno\.h>/a #include <string.h>' support/nfs/fh_key_file.c; \
+    fi
+
+RUN make -s -j${JOBS} -l${MAX_LOAD} \
+ && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/nfs-utils
+
+# Trim to client-only. nfs-utils ships several server-side and NFSv3-only
+# binaries that aren't useful on a Hadron node and only drag libnl,
+# libxml2, and libevent into the final image. We already disable
+# everything we can at configure-time (see flags above); the binaries
+# listed here are built unconditionally — utils/Makefile.am hardcodes
+# them as SUBDIRS with no AM_CONDITIONAL, so `rm -f` after install is
+# the cleanest way to drop them.
+#
+# Kept:  mount.nfs[4], umount.nfs[4]  (the actual bug fix)
+#        nfsidmap + libnfsidmap       (NFSv4 ID mapping via kernel keyring)
+#        showmount, nfsstat, nfsiostat, mountstats, nfsconf  (client diag)
+#        rpcdebug                                            (kernel debug toggle)
+# Dropped: rpc.mountd, rpc.nfsd, exportfs, fsidd, nfsdclnts  (server)
+#          rpc.statd, sm-notify, start-statd                 (NFSv3 NSM)
+#          rpc.idmapd                                        (superseded by nfsidmap)
+#          rpcctl, rpcgen                                    (server/build-only)
+RUN rm -f \
+      /nfs-utils/sbin/rpc.mountd \
+      /nfs-utils/sbin/rpc.nfsd \
+      /nfs-utils/sbin/exportfs \
+      /nfs-utils/sbin/fsidd \
+      /nfs-utils/sbin/nfsdclnts \
+      /nfs-utils/sbin/rpc.statd \
+      /nfs-utils/sbin/sm-notify \
+      /nfs-utils/sbin/start-statd \
+      /nfs-utils/sbin/rpc.idmapd \
+      /nfs-utils/sbin/rpcctl \
+      /nfs-utils/usr/bin/rpcgen
+
+
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
 ARG JOBS
@@ -2934,19 +3211,6 @@ RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D i
 RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
-FROM rsync AS libxml
-ARG JOBS
-RUN mkdir -p /libxml
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-
-COPY --from=sources-downloader /sources/downloads/libxml2.tar.xz /sources/
-WORKDIR /sources
-RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
-WORKDIR /sources/libxml2
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml && make -s -j${JOBS} -l${MAX_LOAD} install
-
 FROM rsync AS bc
 ARG JOBS
 COPY --from=readline /readline /readline
@@ -3369,6 +3633,19 @@ RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/
 
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
+
+## NFS client userspace. Required by Longhorn RWX and any other in-cluster
+## NFS storage. The nfs-utils build stage trims its install to the
+## client-only binaries we actually use, so the runtime deps reduce to
+## libtirpc (mount.nfs) and libkeyutils (nfsidmap).
+COPY --from=libtirpc /libtirpc /libtirpc
+RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /skeleton/
+
+COPY --from=keyutils /keyutils /keyutils
+RUN rsync -aHAX --keep-dirlinks  /keyutils/. /skeleton/
+
+COPY --from=nfs-utils /nfs-utils /nfs-utils
+RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /skeleton/
 
 ## systemd
 COPY --from=systemd /systemd /systemd

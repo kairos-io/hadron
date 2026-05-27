@@ -72,6 +72,47 @@ sources:
     transformers:
       - trimprefix: v
 
+  libtirpc:
+    kind: gittag
+    spec:
+      # NB: only the unencrypted git:// transport on this host serves these
+      # refs; the https endpoint returns 403. If CI blocks outbound port 9418,
+      # switch to a `shell`/`releasechecker` source.
+      url: git://git.linux-nfs.org/projects/steved/libtirpc.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        # GA only - exclude libtirpc-X-Y-Z-rcN
+        pattern: '^libtirpc-[0-9]+-[0-9]+-[0-9]+$'
+    transformers:
+      - trimprefix: libtirpc-
+      - replacer:
+          from: '-'
+          to: '.'
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  nfs-utils:
+    kind: gittag
+    spec:
+      url: git://git.linux-nfs.org/projects/steved/nfs-utils.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        # GA only - exclude nfs-utils-X-Y-Z-rcN
+        pattern: '^nfs-utils-[0-9]+-[0-9]+-[0-9]+$'
+    transformers:
+      - trimprefix: nfs-utils-
+      - replacer:
+          from: '-'
+          to: '.'
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
 targets:
   lvm2:
     name: LVM2_VERSION in Dockerfile
@@ -132,3 +173,23 @@ targets:
         keyword: ARG
         matcher: URCU_VERSION
     sourceid: urcu
+
+  libtirpc:
+    name: LIBTIRPC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBTIRPC_VERSION
+    sourceid: libtirpc
+
+  nfs-utils:
+    name: NFS_UTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: NFS_UTILS_VERSION
+    sourceid: nfs-utils
