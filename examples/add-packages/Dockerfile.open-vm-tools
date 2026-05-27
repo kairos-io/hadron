@@ -82,7 +82,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-gssapi
 RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} install DESTDIR=/output
 
-# TRhis package is a workaround for rpcgen
+# This package is a workaround for rpcgen
 # Binary usually comes fomr libgc but in our case libtirpc should substitute it, so we need the rpcgen binary
 # This only compiles that part.
 FROM downloader AS rpcsvc-proto
