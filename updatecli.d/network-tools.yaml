@@ -30,6 +30,54 @@ sources:
     transformers:
       - trimprefix: v
 
+  libnl:
+    kind: gittag
+    spec:
+      url: https://github.com/thom311/libnl.git
+      versionfilter:
+        kind: regex
+        # GA only - tags look like libnl3_12_0; exclude prereleases/rc tags
+        pattern: '^libnl[0-9]+_[0-9]+_[0-9]+$'
+    transformers:
+      - trimprefix: libnl
+      - replacer:
+          from: '_'
+          to: '.'
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  libevent:
+    kind: gittag
+    spec:
+      url: https://github.com/libevent/libevent.git
+      versionfilter:
+        kind: regex
+        # GA only - tags look like release-2.1.12-stable; exclude alpha/beta/rc
+        pattern: '^release-[0-9]+\.[0-9]+\.[0-9]+-stable$'
+    transformers:
+      - trimprefix: release-
+      - trimsuffix: -stable
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  keyutils:
+    kind: gittag
+    spec:
+      url: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git
+      versionfilter:
+        kind: regex
+        pattern: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
 targets:
   iptables:
     name: IPTABLES_VERSION in Dockerfile
@@ -60,3 +108,33 @@ targets:
         keyword: ARG
         matcher: STRACE_VERSION
     sourceid: strace
+
+  libnl:
+    name: LIBNL_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBNL_VERSION
+    sourceid: libnl
+
+  libevent:
+    name: LIBEVENT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBEVENT_VERSION
+    sourceid: libevent
+
+  keyutils:
+    name: KEYUTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: KEYUTILS_VERSION
+    sourceid: keyutils
