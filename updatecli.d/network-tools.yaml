@@ -31,12 +31,13 @@ sources:
       - trimprefix: v
 
   libnl:
-    kind: gittag
+    kind: githubrelease
     spec:
-      url: https://github.com/thom311/libnl.git
+      owner: thom311
+      repository: libnl
       versionfilter:
         kind: regex
-        # GA only - tags look like libnl3_12_0; exclude prereleases/rc tags
+        # GA only - release tags look like libnl3_12_0; exclude prereleases
         pattern: '^libnl[0-9]+_[0-9]+_[0-9]+$'
     transformers:
       - trimprefix: libnl
@@ -49,12 +50,13 @@ sources:
           constraint: '*'
 
   libevent:
-    kind: gittag
+    kind: githubrelease
     spec:
-      url: https://github.com/libevent/libevent.git
+      owner: libevent
+      repository: libevent
       versionfilter:
         kind: regex
-        # GA only - tags look like release-2.1.12-stable; exclude alpha/beta/rc
+        # GA only - release tags look like release-2.1.12-stable
         pattern: '^release-[0-9]+\.[0-9]+\.[0-9]+-stable$'
     transformers:
       - trimprefix: release-

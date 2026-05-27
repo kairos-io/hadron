@@ -2302,26 +2302,32 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml && make -s -j${JOBS} -l${MAX_LOAD} install
 
 
+## bsd-compat-headers - <sys/queue.h>, <sys/cdefs.h>, <sys/tree.h>. musl does
+## not ship these BSD compatibility headers; Alpine packages them as the
+## `bsd-compat-headers` aport. Several packages we build (libtirpc, nfs-utils)
+## need them at compile time, so we factor the extraction into a single small
+## stage and COPY --from in each consumer.
+FROM alpine-base AS bsd-compat-headers
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf aports.tar.gz && mv aports-* aport
+RUN install -Dm644 -t /bsd-compat-headers/usr/include/sys \
+      aport/main/bsd-compat-headers/cdefs.h \
+      aport/main/bsd-compat-headers/queue.h \
+      aport/main/bsd-compat-headers/tree.h
+
+
 ## libtirpc - userspace SunRPC library. Required by nfs-utils since glibc/musl
 ## do not ship sunrpc. --disable-gssapi avoids the krb5 dependency.
 ##
-## libtirpc uses <sys/queue.h> and <sys/cdefs.h>, which musl does not ship.
-## We pull them from Alpine's bsd-compat-headers aport and install them
-## into /usr/include/sys/ before configure runs. Three headers, ~30KB total,
-## same approach Alpine itself uses for any musl-built package that wants
-## BSD-style queue/tree macros.
+## libtirpc uses <sys/queue.h> and <sys/cdefs.h>; see the bsd-compat-headers
+## stage above for the source of those.
 FROM rsync AS libtirpc
 ARG JOBS
 COPY --from=pkgconfig /pkgconfig /pkgconfig
 RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
-
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-RUN install -Dm644 -t /usr/include/sys \
-      aport/main/bsd-compat-headers/cdefs.h \
-      aport/main/bsd-compat-headers/queue.h \
-      aport/main/bsd-compat-headers/tree.h
+COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
+RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
 
 COPY --from=sources-downloader /sources/downloads/libtirpc.tar.bz2 /sources/
 RUN mkdir -p /libtirpc
@@ -2432,7 +2438,9 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install \
 ## See https://github.com/kairos-io/kairos/issues/4086.
 ##
 ## Minimal client build:
-##   --disable-gss          : no Kerberos / RPCSEC_GSS (no krb5/libevent dep)
+##   --disable-gss          : no Kerberos / RPCSEC_GSS support (drops the krb5
+##                            link dep; libevent is still pulled in by other
+##                            code paths like rpc.idmapd)
 ##   --disable-nfsv4server  : kernel server is not in scope here
 ##   --disable-nfsdcld /
 ##   --disable-nfsdcltrack  : server-side state DB, not needed for client
@@ -2465,14 +2473,9 @@ COPY --from=keyutils /keyutils /keyutils
 RUN rsync -aHAX --keep-dirlinks /keyutils/. /
 
 ## BSD compat headers (queue.h, cdefs.h, tree.h) - musl does not ship these
-## and nfs-utils uses them in several places. Same fix as in the libtirpc stage.
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
-RUN install -Dm644 -t /usr/include/sys \
-      aport/main/bsd-compat-headers/cdefs.h \
-      aport/main/bsd-compat-headers/queue.h \
-      aport/main/bsd-compat-headers/tree.h
+## and nfs-utils uses them in several places.
+COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
+RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
 
 COPY --from=sources-downloader /sources/downloads/nfs-utils.tar.xz /sources/
 RUN mkdir -p /nfs-utils
@@ -2511,8 +2514,13 @@ RUN sed -i 's/\bstruct stat64\b/struct stat/g; s/\bstat64 (/stat (/g; s/\bstat64
 # file was added in 2025 and the omission slipped through.
 # Fixed upstream in commit 0097ceb (post-2.9.1, not yet in a tagged release):
 # https://git.linux-nfs.org/?p=steved/nfs-utils.git;a=commit;h=0097ceb136a7db15c535a78fca01e2814e82d2a7
-# Drop this sed once we bump to a release that contains the fix.
-RUN sed -i '29a #include <string.h>' support/nfs/fh_key_file.c
+# Drop this whole block once we bump to a release that contains the fix.
+# The grep guard makes it a no-op if the file already has the include
+# (e.g. after a version bump that pulls in the upstream patch); the sed
+# anchors on <errno.h> rather than a line number so it survives reorders.
+RUN if ! grep -q '^#include <string\.h>' support/nfs/fh_key_file.c; then \
+        sed -i '/^#include <errno\.h>/a #include <string.h>' support/nfs/fh_key_file.c; \
+    fi
 
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
  && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/nfs-utils
@@ -3588,13 +3596,32 @@ RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/
 COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
 RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
 
-## NFS client userspace: mount.nfs / mount.nfs4 helpers + libtirpc + libnl.
-## Required by Longhorn RWX and any other in-cluster NFS storage.
+## NFS client userspace: mount.nfs / mount.nfs4 helpers + all the libs the
+## installed nfs-utils binaries link against. Required by Longhorn RWX and
+## any other in-cluster NFS storage.
+##
+## mount.nfs itself only needs libtirpc, but nfs-utils' install ships
+## several other binaries that have wider link deps:
+##   nfsidmap     -> libkeyutils
+##   rpc.idmapd   -> libevent
+##   rpc.mountd   -> libxml2
+## We ship all of them so every binary in /sbin/ actually runs. Trimming
+## to client-only would mean carving up the nfs-utils install, which is
+## more invasive than the ~2MB of libs we'd save.
 COPY --from=libtirpc /libtirpc /libtirpc
 RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /skeleton/
 
 COPY --from=libnl /libnl /libnl
 RUN rsync -aHAX --keep-dirlinks  /libnl/. /skeleton/
+
+COPY --from=libevent /libevent /libevent
+RUN rsync -aHAX --keep-dirlinks  /libevent/. /skeleton/
+
+COPY --from=keyutils /keyutils /keyutils
+RUN rsync -aHAX --keep-dirlinks  /keyutils/. /skeleton/
+
+COPY --from=libxml /libxml /libxml
+RUN rsync -aHAX --keep-dirlinks  /libxml/. /skeleton/
 
 COPY --from=nfs-utils /nfs-utils /nfs-utils
 RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /skeleton/
