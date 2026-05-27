@@ -2408,8 +2408,7 @@ RUN mkdir -p /keyutils
 WORKDIR /sources
 RUN tar -xf keyutils.tar.gz && mv keyutils-* keyutils
 WORKDIR /sources/keyutils
-RUN make -s -j${JOBS} -l${MAX_LOAD}
-RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
 
 
 ## nfs-utils - provides mount.nfs / mount.nfs4 host helpers required by
