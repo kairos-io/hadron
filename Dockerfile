@@ -2426,6 +2426,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ##   --disable-nfsdctl      : kernel-server admin tool; pulls in readline
 ##                            which on this image links to libtermcap symbols
 ##                            that aren't shipped (no ncurses).
+##   --disable-junction     : drops nfsref (NFS junction admin tool, server-side)
 ##   --without-tcp-wrappers : tcp_wrappers is dead, not shipped
 ##   --enable-tirpc         : use libtirpc (built above) instead of glibc sunrpc
 ##   --with-rpcgen=internal : build nfs-utils' bundled rpcgen instead of
@@ -2476,6 +2477,7 @@ RUN LIBS="-ltirpc" \
       --disable-nfsdcld \
       --disable-nfsdcltrack \
       --disable-nfsdctl \
+      --disable-junction \
       --without-tcp-wrappers \
       --with-statedir=/var/lib/nfs \
       --with-rpcgen=internal
@@ -2504,20 +2506,22 @@ RUN if ! grep -q '^#include <string\.h>' support/nfs/fh_key_file.c; then \
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
  && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/nfs-utils
 
-# Trim to client-only. nfs-utils' install ships several server-side and
-# NFSv3-only binaries that aren't useful on a Hadron node and only serve
-# to drag libnl, libxml2, and libevent into the final image. Removing
-# them lets us keep /skeleton smaller and drop those three libs from the
-# full-image merge.
+# Trim to client-only. nfs-utils ships several server-side and NFSv3-only
+# binaries that aren't useful on a Hadron node and only drag libnl,
+# libxml2, and libevent into the final image. We already disable
+# everything we can at configure-time (see flags above); the binaries
+# listed here are built unconditionally — utils/Makefile.am hardcodes
+# them as SUBDIRS with no AM_CONDITIONAL, so `rm -f` after install is
+# the cleanest way to drop them.
 #
 # Kept:  mount.nfs[4], umount.nfs[4]  (the actual bug fix)
 #        nfsidmap + libnfsidmap       (NFSv4 ID mapping via kernel keyring)
 #        showmount, nfsstat, nfsiostat, mountstats, nfsconf  (client diag)
-#        rpcdebug, rpc.gssd-shaped helpers if present
+#        rpcdebug                                            (kernel debug toggle)
 # Dropped: rpc.mountd, rpc.nfsd, exportfs, fsidd, nfsdclnts  (server)
-#          rpc.statd, sm-notify, start-statd                  (NFSv3 NSM)
-#          rpc.idmapd                                         (superseded by nfsidmap)
-#          nfsref, rpcctl, rpcgen                             (server/build-only)
+#          rpc.statd, sm-notify, start-statd                 (NFSv3 NSM)
+#          rpc.idmapd                                        (superseded by nfsidmap)
+#          rpcctl, rpcgen                                    (server/build-only)
 RUN rm -f \
       /nfs-utils/sbin/rpc.mountd \
       /nfs-utils/sbin/rpc.nfsd \
@@ -2528,7 +2532,6 @@ RUN rm -f \
       /nfs-utils/sbin/sm-notify \
       /nfs-utils/sbin/start-statd \
       /nfs-utils/sbin/rpc.idmapd \
-      /nfs-utils/sbin/nfsref \
       /nfs-utils/sbin/rpcctl \
       /nfs-utils/usr/bin/rpcgen
 
