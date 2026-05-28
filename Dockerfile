@@ -422,8 +422,8 @@ RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
 WORKDIR /sources/downloads
 
 FROM sources-downloader-base AS libkcapi-download
-ARG LIBKKCAPI_VERSION=1.5.0
-RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
+ARG LIBKCAPI_VERSION=1.5.0
+RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
 
 FROM sources-downloader-base AS shim-download
 ARG SHIM_VERSION=16.1

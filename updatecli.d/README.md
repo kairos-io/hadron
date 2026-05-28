@@ -10,7 +10,7 @@ The configuration is organized into logical groups:
   - curl, rsync, xxhash, zstd, lz4, zlib, xzutils, gzip
 
 - **system-libraries.yaml** - System-level libraries
-  - acl, attr, libcap, libmnl, libnftnl, seccomp, libffi, libaio, dbus, expat, popt, libxml2, jsonc, fts
+  - acl, attr, libcap, libmnl, libnftnl, seccomp, libffi, libaio, dbus, expat, popt, libxml2, jsonc, fts, libelf, libiconv, pcre2, libkcapi
 
 - **build-tools.yaml** - Build and development tools
   - flex, bison, autoconf, automake, libtool, cmake, make, m4, gawk, pkgconfig, binutils
@@ -34,7 +34,10 @@ The configuration is organized into logical groups:
   - iptables, open-iscsi, strace
 
 - **misc-tools.yaml** - Miscellaneous tools
-  - python, sqlite3, tpm2-tss, pax-utils, ca-certificates, aports, gdb
+  - python, sqlite3, tpm2-tss, pax-utils, ca-certificates, aports, gdb, bc, patch
+
+- **vm-tools.yaml** - Virtualization / guest agent tools
+  - qemu, glib, open-vm-tools, mspack
 
 ## Usage
 

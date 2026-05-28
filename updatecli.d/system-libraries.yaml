@@ -158,6 +158,50 @@ sources:
     transformers:
       - trimprefix: v
 
+  libelf:
+    kind: gittag
+    spec:
+      url: https://github.com/arachsys/libelf.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  libiconv:
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/libiconv.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
+  pcre2:
+    kind: githubrelease
+    spec:
+      owner: PCRE2Project
+      repository: pcre2
+      versionfilter:
+        kind: regex/semver
+        regex: '^pcre2-([0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: pcre2-
+
+  libkcapi:
+    kind: gittag
+    spec:
+      url: https://github.com/smuellerDD/libkcapi.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
 targets:
   acl:
     name: ACL_VERSION in Dockerfile
@@ -298,3 +342,43 @@ targets:
         keyword: ARG
         matcher: FTS_VERSION
     sourceid: fts
+
+  libelf:
+    name: LIBELF_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBELF_VERSION
+    sourceid: libelf
+
+  libiconv:
+    name: ICONV_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: ICONV_VERSION
+    sourceid: libiconv
+
+  pcre2:
+    name: PCRE2_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PCRE2_VERSION
+    sourceid: pcre2
+
+  libkcapi:
+    name: LIBKCAPI_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBKCAPI_VERSION
+    sourceid: libkcapi
