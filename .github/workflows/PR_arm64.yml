@@ -18,7 +18,7 @@ jobs:
           KERNEL_VERSION=$(grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
           FAILED=0
           for cfg in files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
-            CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+\.\d+' || true)
+            CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+(\.\d+)?' || true)
             if [ "$CONFIG_VERSION" != "$KERNEL_VERSION" ]; then
               echo "ERROR: $cfg is stale (generated for $CONFIG_VERSION, current kernel is $KERNEL_VERSION)"
               echo "Run 'make update-kernel-configs' and commit the result."
