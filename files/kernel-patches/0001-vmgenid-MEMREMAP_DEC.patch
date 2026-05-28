@@ -1,0 +1,22 @@
+From: Canonical (linux-aws-6.17 6.17.0-1007.7~24.04.1)
+Subject: virt: vmgenid: remap memory as decrypted
+
+SEV-SNP instances on AWS fail to boot because the VM Generation ID
+page is mapped as encrypted by default; under SEV-SNP it must be
+mapped decrypted. Add MEMREMAP_DEC to the devm_memremap() flags.
+
+Reference: https://bugs.launchpad.net/bugs/2137714
+Ubuntu changelog: linux-aws-6.17 (6.17.0-1007.7~24.04.1)
+
+--- a/drivers/virt/vmgenid.c
++++ b/drivers/virt/vmgenid.c
+@@ -75,7 +75,8 @@ static int vmgenid_add_acpi(struct acpi_device *device, struct vmgenid_state *st
+ 	phys_addr = (obj->package.elements[0].integer.value << 0) |
+ 		    (obj->package.elements[1].integer.value << 32);
+
+-	virt_addr = devm_memremap(&device->dev, phys_addr, VMGENID_SIZE, MEMREMAP_WB);
++	virt_addr = devm_memremap(&device->dev, phys_addr, VMGENID_SIZE,
++				  MEMREMAP_WB | MEMREMAP_DEC);
+ 	if (IS_ERR(virt_addr)) {
+ 		ret = PTR_ERR(virt_addr);
+ 		goto out;

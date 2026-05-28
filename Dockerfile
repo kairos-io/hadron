@@ -1968,6 +1968,15 @@ RUN mkdir -p /kernel && mkdir -p /modules
 WORKDIR /sources
 RUN tar -xf linux.tar.xz && mv linux-* kernel
 
+# Apply kernel patches (sorted; ignore if none).
+# LP: #2137714 — virt: vmgenid: remap memory as decrypted (fixes SEV-SNP boot on AWS).
+COPY ./files/kernel-patches /sources/kernel-patches
+RUN cd /sources/kernel && \
+    for p in $(ls /sources/kernel-patches/*.patch 2>/dev/null | sort); do \
+        echo "Applying kernel patch: $p"; \
+        patch -p1 < "$p"; \
+    done
+
 
 FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
