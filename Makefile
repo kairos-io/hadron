@@ -232,7 +232,7 @@ update-kernel-configs:
 		-v $(PWD)/files/kernel:/configs \
 		alpine:3 sh -c ' \
 			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
-			wget -q https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-$(KERNEL_VERSION).tar.xz && \
+			wget https://cdn.kernel.org/pub/linux/kernel/v$$(echo $(KERNEL_VERSION) | cut -d. -f1).x/linux-$(KERNEL_VERSION).tar.xz && \
 			tar xf linux-$(KERNEL_VERSION).tar.xz && \
 			cd linux-$(KERNEL_VERSION) && \
 			for cfg in cloud default; do \
