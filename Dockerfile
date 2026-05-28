@@ -3756,7 +3756,7 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
-# Set teh version here as otherwise its easy to invalidate the cache with a version change
+# Set the version here as otherwise its easy to invalidate the cache with a version change
 RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
 CMD ["/bin/bash", "-l"]
 
