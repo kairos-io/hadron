@@ -451,8 +451,9 @@ ARG GLIB_VERSION=2.86.2
 RUN GLIB_MAJOR="${GLIB_VERSION%.*}" && wget -q https://download.gnome.org/sources/glib/${GLIB_MAJOR}/glib-${GLIB_VERSION}.tar.xz -O glib.tar.xz
 
 FROM sources-downloader-base AS qemu-download
-ARG QEMU_VERSION=10.1.5
-RUN wget -q https://download.qemu.org/qemu-${QEMU_VERSION}.tar.xz -O qemu.tar.xz
+ARG QEMU_AGENT_VERSION="10.1.5"
+RUN wget https://download.qemu.org/qemu-${QEMU_AGENT_VERSION}.tar.xz -O qemu.tar.xz
+
 
 FROM sources-downloader-base AS mspack-download
 ARG MSPACK_VERSION=1.11
