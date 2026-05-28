@@ -241,7 +241,6 @@ jobs:
           file: ./build/Dockerfile.kairos
           platforms: linux/amd64
           push: true
-          platforms: linux/amd64
           provenance: false
           tags: ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
           build-args: |

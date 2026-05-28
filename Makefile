@@ -90,7 +90,7 @@ help: targets
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
 	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
-	@echo "update-kernel-configs: Run 'make olddefconfig' against the current KERNEL_VERSION for x86_64 configs and update them in place. Run this after bumping KERNEL_VERSION."
+	@echo "update-kernel-configs: Run 'make olddefconfig' against the current KERNEL_VERSION for all six x86_64, arm64, and riscv64 configs and update them in place. Run this after bumping KERNEL_VERSION."
 	@echo "------------------------------------------------------------------------"
 	@echo "The expected keys in the KEYS_DIR are:"
 	@echo " - tpm2-pcr-private.pem: The private key for the TPM2 measurements used for the Trusted Boot image"
