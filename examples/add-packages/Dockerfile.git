@@ -6,7 +6,13 @@ ARG GIT_VERSION=2.52.0
 WORKDIR /build
 RUN curl -L https://www.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz -o git.tar.xz && tar -xf git.tar.xz && rm git.tar.xz && mv git-* git-src
 WORKDIR /build/git-src
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-tcltk --without-gettext
+# git's autoconf has run-time tests with no cross-compile fallback. COMMON_CONFIGURE_ARGS
+# passes --host=${TARGET} (vendor "hadron") and --build (vendor "pc"), which differ and make
+# autoconf assume cross-compilation, so configure aborts with "cannot run test program while
+# cross compiling". Override --build to ${TARGET} so it always matches --host (on any arch)
+# and the build is treated as native. See #238.
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${TARGET} \
+    --without-tcltk --without-gettext
 RUN make install prefix=/usr DESTDIR=/output NO_TCLTK=YesPlease NO_GETTEXT=YesPlease
 
 
