@@ -3325,7 +3325,7 @@ RUN install -Dm644 contrib/systemd/qemu-guest-agent.service /output/usr/lib/syst
 
 # open-vm-tools
 # requires python3 for some after-install scripts
-FROM python-build AS open-vm-tools
+FROM python-build AS open-vm-tools-build
 ARG JOBS
 COPY --from=pcre2 /pcre2/ /
 COPY --from=libffi /libffi/ /
@@ -3384,6 +3384,16 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-glibc-check --disable-multimo
     --without-xerces --without-icu --without-kernel-modules --without-pam --disable-werror --disable-containerinfo --without-x
 RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} install DESTDIR=/output
+
+
+# riscv64 currently skips open-vm-tools; keep /output so downstream COPY works
+FROM scratch AS open-vm-tools-riscv64
+WORKDIR /output
+
+# Map build arches to the stage consumed by cloud-tools
+FROM open-vm-tools-build AS open-vm-tools-amd64
+FROM open-vm-tools-build AS open-vm-tools-aarch64
+FROM open-vm-tools-${ARCH} AS open-vm-tools
 
 
 FROM rsync AS cloud-tools
