@@ -3392,8 +3392,8 @@ WORKDIR /output
 
 # Map build arches to the stage consumed by cloud-tools
 FROM open-vm-tools-build AS open-vm-tools-amd64
-FROM open-vm-tools-build AS open-vm-tools-aarch64
-FROM open-vm-tools-${BUILDARCH} AS open-vm-tools
+FROM open-vm-tools-build AS open-vm-tools-arm64
+FROM open-vm-tools-${TARGETARCH} AS open-vm-tools
 
 
 FROM rsync AS cloud-tools
