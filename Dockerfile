@@ -1300,7 +1300,7 @@ RUN rsync -aHAX --keep-dirlinks  /perl/. /
 COPY --from=sources-downloader /sources/downloads/coreutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf coreutils.tar.xz && mv coreutils-* coreutils && \
-    cd coreutils && mkdir -p /coreutils && ./configure ${COMMON_CONFIGURE_ARGS} \
+    cd coreutils && mkdir -p /coreutils && FORCE_UNSAFE_CONFIGURE=1 ./configure ${COMMON_CONFIGURE_ARGS} \
     --prefix=/usr \
     --bindir=/bin \
     --sysconfdir=/etc \
