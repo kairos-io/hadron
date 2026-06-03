@@ -1,0 +1,6 @@
+#!/bin/sh
+# Session launcher used by the display manager (ly): source the desktop
+# environment, then exec the compositor.
+[ -f /etc/sway-desktop/env ] && . /etc/sway-desktop/env
+[ -f /etc/sway-desktop/env.local ] && . /etc/sway-desktop/env.local
+exec sway

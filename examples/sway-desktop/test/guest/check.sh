@@ -260,6 +260,13 @@ fi
 
 # ----- M1: sway display + logind seat ---------------------------------------
 if want M1; then
+  # Login manager: ly is installed and wired up for the production boot (this
+  # headless test launches Sway via sway-headless.service instead, since ly's
+  # interactive TUI login can't be driven over a headless VT — that path is
+  # validated on real hardware).
+  if [ -x /usr/bin/ly ] && [ -f /usr/lib/systemd/system/ly.service ] && [ -f /etc/pam.d/ly ]; then pass ly_installed; else fail ly_installed; fi
+  if [ -f /usr/share/wayland-sessions/sway.desktop ] && [ -x /usr/local/bin/start-sway ]; then pass wayland_session_entry; else fail wayland_session_entry; fi
+
   UID_SWAY="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"
   RT="/run/user/$UID_SWAY"
 

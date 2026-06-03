@@ -59,18 +59,24 @@ The guest emits `SWAYTEST: PASS/FAIL <name>` markers on the serial console; the
 harness parses them and exits non-zero on any failure. Screenshots captured with
 `grim` are written to a scratch disk and extracted to `test/artifacts/`.
 
-### Launch: production vs test
+### Users and login
 
-On real hardware the desktop is launched by **tty1 autologin** (`getty@tty1`
-→ the `sway` user's login shell execs `sway`), which gives Sway a seat0 session
-and the DRM/KMS backend.
+The image bakes in **no user**. The desktop user is defined at install time via
+a Kairos **cloud-config** (`users:` block — see `cloud-config.yaml`) and lives
+on the persistent `/home`. On boot the **`ly`** display manager (TUI, on tty1)
+authenticates that user and launches the Sway session
+(`/usr/share/wayland-sessions/sway.desktop` → `start-sway`), giving Sway a
+proper logind seat session and the DRM/KMS backend.
 
-In headless QEMU there is no active VT and `virtio-gpu` gets zero scanouts
-(`-display none`), so neither the getty autologin nor the DRM backend work. The
-test image therefore launches Sway from a dedicated `sway-headless.service`
-(injected by `test/Dockerfile.test`) using the wlroots **headless backend** +
-**pixman** software renderer — the canonical way Sway is exercised in CI. The
-production getty/DRM path is validated on real hardware in milestone M6.
+### Production vs test launch
+
+`ly`'s interactive TUI login can't be driven over a headless VT, and headless
+QEMU has no active VT / `virtio-gpu` gets zero scanouts (`-display none`). So the
+**test image** (via `test/Dockerfile.test`) creates a throwaway user, **masks
+`ly`**, and launches Sway from a dedicated `sway-headless.service` using the
+wlroots **headless backend + pixman** renderer — the canonical way Sway is
+exercised in CI. The harness still asserts `ly` is installed and wired up. The
+real `ly` → DRM login path is validated on physical hardware.
 
 ## Milestones
 
@@ -104,7 +110,8 @@ is validated by booting on a physical machine.
 ```
 examples/sway-desktop/
   Dockerfile          # multi-stage build of the whole desktop stack
-  rootfs/             # overlay: sway config, getty autologin, env
+  cloud-config.yaml   # example Kairos install config (creates the desktop user)
+  rootfs/             # overlay: sway config, ly session entry, launcher, env
   test/
     run.sh            # build -> kairos -> ISO -> QEMU -> assert
     Dockerfile.test   # injects in-guest test instrumentation

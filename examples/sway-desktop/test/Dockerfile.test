@@ -8,6 +8,15 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG MILESTONE=M0
 
+# The production image creates no user (it's defined via cloud-config at
+# install). The headless test launches Sway via sway-headless.service, so it
+# needs a user here. Create the test user and mask the ly display manager (the
+# test can't drive ly's interactive TUI login over a headless VT).
+RUN for g in audio video render input bluetooth seat; do groupadd -f "$g"; done; \
+    useradd -m -u 1000 -s /bin/bash -G audio,video,render,input,bluetooth sway && \
+    install -d -o sway -g sway /home/sway/.config /home/sway/.local/state && \
+    systemctl mask ly.service 2>/dev/null || true
+
 # Make NetworkManager the sole network manager for the test (the Kairos init
 # layer enables systemd-networkd; mask it here, after that layer has run).
 RUN systemctl mask systemd-networkd.service systemd-networkd.socket \

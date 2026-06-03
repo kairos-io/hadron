@@ -834,6 +834,74 @@ RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dlogind=ena
 RUN DESTDIR=/swayidle ninja -C buildDir install
 
 
+# X protocol libs — ly links libxcb (X11 session support) even in a Wayland setup
+FROM toolchain AS xorgproto
+ARG XORGPROTO_VERSION=2024.1
+RUN mkdir -p /xorgproto
+WORKDIR /build
+RUN curl -L https://www.x.org/releases/individual/proto/xorgproto-${XORGPROTO_VERSION}.tar.xz -o xorgproto.tar.xz && tar -xf xorgproto.tar.xz && rm xorgproto.tar.xz && mv xorgproto-* xorgproto-src
+WORKDIR /build/xorgproto-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/xorgproto
+
+FROM toolchain AS libxau
+COPY --from=xorgproto /xorgproto /
+ARG LIBXAU_VERSION=1.0.12
+RUN mkdir -p /libxau
+WORKDIR /build
+RUN curl -L https://www.x.org/releases/individual/lib/libXau-${LIBXAU_VERSION}.tar.xz -o libxau.tar.xz && tar -xf libxau.tar.xz && rm libxau.tar.xz && mv libXau-* libxau-src
+WORKDIR /build/libxau-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/libxau
+
+FROM toolchain AS xcbproto
+ARG XCB_VERSION=1.17.0
+RUN mkdir -p /xcbproto
+WORKDIR /build
+RUN curl -L https://xcb.freedesktop.org/dist/xcb-proto-${XCB_VERSION}.tar.gz -o xcb-proto.tar.gz && tar -xzf xcb-proto.tar.gz && rm xcb-proto.tar.gz && mv xcb-proto-* xcb-src
+WORKDIR /build/xcb-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/xcbproto
+
+FROM toolchain AS libxcb
+COPY --from=xorgproto /xorgproto /
+COPY --from=xcbproto /xcbproto /
+COPY --from=libxau /libxau /
+ARG LIBXCB_VERSION=1.17.0
+RUN mkdir -p /libxcb
+WORKDIR /build
+RUN curl -L https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz -o libxcb.tar.gz && tar -xzf libxcb.tar.gz && rm libxcb.tar.gz && mv libxcb-* libxcb-src
+WORKDIR /build/libxcb-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --build=${BUILD} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/libxcb
+
+
+# ===========================================================================
+# Login manager — ly (TUI display manager). Built with the prebuilt musl Zig
+# toolchain (Hadron's toolchain has no Zig). ly authenticates a user via PAM
+# and launches the Wayland session, giving it a logind seat session.
+# ===========================================================================
+FROM toolchain AS ly
+COPY --from=libxcb /libxcb /
+COPY --from=libxau /libxau /
+COPY --from=xorgproto /xorgproto /
+ARG ZIG_VERSION=0.14.0
+ARG LY_VERSION=1.1.0
+RUN mkdir -p /ly
+WORKDIR /build
+RUN curl -L https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz -o zig.tar.xz && tar -xf zig.tar.xz && rm zig.tar.xz && mv zig-linux-x86_64-* /opt/zig
+ENV PATH=/opt/zig:$PATH
+RUN curl -L https://github.com/fairyglade/ly/archive/refs/tags/v${LY_VERSION}.tar.gz -o ly.tar.gz && tar -xzf ly.tar.gz && rm ly.tar.gz && mv ly-* ly-src
+WORKDIR /build/ly-src
+# Zig's translate_c can't translate termbox2's read_terminfo_path() because it
+# uses musl's `struct stat` (st_atim/st_atime macro aliasing), so it drops the
+# body and leaves the symbol undefined at link. Rewrite the size check with
+# fseek/ftell, which translate_c handles.
+RUN perl -0pi -e 's/struct stat st;\s*\n\s*if \(fstat\(fileno\(fp\), &st\) != 0\) \{\s*\n\s*fclose\(fp\);\s*\n\s*return TB_ERR;\s*\n\s*\}\s*\n\s*\n\s*size_t fsize = st\.st_size;/fseek(fp, 0, SEEK_END);\n    long fszl_ = ftell(fp);\n    fseek(fp, 0, SEEK_SET);\n    if (fszl_ < 0) { fclose(fp); return TB_ERR; }\n    size_t fsize = (size_t)fszl_;/s' include/termbox2.h
+RUN zig build
+RUN zig build installexe -Dinit_system=systemd -Ddest_directory=/ly
+
+
 # ===========================================================================
 # M6: real-hardware firmware (optional)
 #
@@ -911,6 +979,10 @@ COPY --from=fuzzel /fuzzel /
 COPY --from=wl-clipboard /wl-clipboard /
 COPY --from=slurp /slurp /
 COPY --from=swayidle /swayidle /
+# Login manager (ly) + its X protocol libs
+COPY --from=libxau /libxau /
+COPY --from=libxcb /libxcb /
+COPY --from=ly /ly /
 
 
 FROM ${BASE_IMAGE} AS default
@@ -927,28 +999,22 @@ COPY --from=toolchain /usr/lib/libreadline.so* /usr/lib/
 COPY --from=firmware /firmware /
 # Static config / launch layer
 COPY rootfs/ /
-# Desktop user (logind grants device ACLs to the active tty1 session via uaccess)
+# System setup. NOTE: no user is created here — the desktop user is defined at
+# install time via a Kairos cloud-config (see cloud-config.yaml) and lives on
+# the persistent /home. We only ensure the groups it will join exist, enable
+# the system services, and configure the ly display manager on tty1.
 RUN ldconfig 2>/dev/null || true; \
-    groupadd -f audio; groupadd -f video; groupadd -f render; \
-    useradd -m -u 1000 -s /bin/bash -G audio,video,render sway && \
-    install -d -o sway -g sway /home/sway/.config && \
-    printf '%s\n' \
-      '# Launch Sway on the first VT after autologin.' \
-      'if [ "$(tty)" = "/dev/tty1" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then' \
-      '  [ -f /etc/sway-desktop/env ] && . /etc/sway-desktop/env' \
-      '  [ -f /etc/sway-desktop/env.local ] && . /etc/sway-desktop/env.local' \
-      '  exec sway -d >/tmp/sway.log 2>&1' \
-      'fi' > /home/sway/.bash_profile && \
-    chown sway:sway /home/sway/.bash_profile && \
-    systemctl enable getty@tty1.service 2>/dev/null || true; \
-    # M2: NetworkManager is the network manager. (systemd-networkd is left for
-    # the Kairos init layer to enable; it is disabled at runtime in favour of NM
-    # via the cloud-config drop-in shipped below.)
-    systemctl enable NetworkManager.service 2>/dev/null || true; \
-    systemctl enable wpa_supplicant.service 2>/dev/null || true; \
+    for g in audio video render input bluetooth seat; do groupadd -f "$g"; done; \
+    chmod +x /usr/local/bin/start-sway; \
+    # ly: run the login manager on tty1 (instead of a getty); it authenticates
+    # the cloud-config user and launches the Sway session via the session entry.
+    sed -i 's/tty2/tty1/g; s/^tty = .*/tty = 1/' /etc/ly/config.ini /usr/lib/systemd/system/ly.service 2>/dev/null || true; \
+    systemctl enable ly.service 2>/dev/null || true; \
+    systemctl mask getty@tty1.service 2>/dev/null || true; \
+    # M2: NetworkManager is the network manager (systemd-networkd disabled at
+    # runtime in favour of NM).
+    systemctl enable NetworkManager.service wpa_supplicant.service 2>/dev/null || true; \
     # M3: PipeWire + WirePlumber as per-user services
     systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true; \
     # M4: Bluetooth daemon
-    systemctl enable bluetooth.service 2>/dev/null || true; \
-    groupadd -f bluetooth; usermod -aG bluetooth sway 2>/dev/null || true; \
-    install -d -o sway -g sway /home/sway/.local/state 2>/dev/null || true
+    systemctl enable bluetooth.service 2>/dev/null || true

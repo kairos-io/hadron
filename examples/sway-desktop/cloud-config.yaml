@@ -1,0 +1,51 @@
+#cloud-config
+#
+# Example Kairos cloud-config for the sway-desktop image.
+#
+# The desktop image bakes in NO user — the desktop user is created here, at
+# install/first-boot, on the persistent /home partition. Pass this file to the
+# installer, e.g.:
+#
+#   kairos-agent manual-install --device /dev/sda cloud-config.yaml
+#
+# or embed it in the ISO with AuroraBoot (`--cloud-config cloud-config.yaml`),
+# or serve it via the datasource (cdrom/network).
+#
+# At boot, the ly display manager (on tty1) authenticates this user and starts
+# the Sway session.
+
+# Auto-install to disk on first boot (omit for an interactive/manual install).
+install:
+  device: "auto"
+  auto: true
+  reboot: true
+
+# The desktop user. Replace the password (or use a hashed `passwd`) and add your
+# SSH key. Membership in the listed groups gives access to GPU/input/audio/
+# bluetooth devices and sudo.
+users:
+  - name: kairos
+    # Plaintext for the example; prefer a hashed value from `openssl passwd -6`.
+    passwd: kairos
+    groups:
+      - admin            # sudo
+      - audio
+      - video
+      - render
+      - input
+      - bluetooth
+      - seat
+    ssh_authorized_keys:
+      # - github:yourusername
+      # - ssh-ed25519 AAAA... you@host
+
+# Optional: pick a default session for ly (sway is the only one shipped).
+stages:
+  initramfs:
+    - name: "Default desktop session"
+      files:
+        - path: /etc/ly/save.ini
+          permissions: 0644
+          content: |
+            user = kairos
+            session_index = 0
