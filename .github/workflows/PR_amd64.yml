@@ -25,4 +25,4 @@ jobs:
             [worker.oci]
               max-parallelism = 2
       - run: |
-          qemu-system-x86_64 --version
+          docker run --privileged --rm tonistiigi/binfmt --version
