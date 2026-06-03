@@ -835,6 +835,29 @@ RUN DESTDIR=/swayidle ninja -C buildDir install
 
 
 # ===========================================================================
+# M6: real-hardware firmware (optional)
+#
+# Real wifi / bluetooth / GPU hardware needs firmware blobs in /lib/firmware.
+# This is OFF by default (the QEMU test path and slim images need no blobs);
+# build with --build-arg FIRMWARE=true to bundle a curated linux-firmware
+# subset for common laptop hardware. Validated on real hardware, not in CI.
+# ===========================================================================
+FROM alpine:3 AS firmware
+ARG FIRMWARE=false
+RUN mkdir -p /firmware/usr/lib/firmware
+RUN if [ "$FIRMWARE" = "true" ]; then \
+      apk add --no-cache git && \
+      git clone --depth 1 https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git /lf && \
+      cd /lf && for p in \
+        iwlwifi-*.ucode iwlwifi-*.pnvm ath10k ath11k ath12k ath9k_htc \
+        rtw88 rtw89 rtlwifi rtl_bt rtl_nic brcm mrvl mediatek \
+        intel/ibt-* qca i915 amdgpu nvidia regulatory.db regulatory.db.p7s ; do \
+          cp -a --parents $p /firmware/usr/lib/firmware/ 2>/dev/null || true ; \
+      done ; \
+    fi
+
+
+# ===========================================================================
 # Final assembly
 # ===========================================================================
 
@@ -900,6 +923,8 @@ COPY --from=toolchain /usr/lib/libjson-c.so* /usr/lib/
 COPY --from=toolchain /usr/lib/libstdc++.so.6* /usr/lib/
 COPY --from=toolchain /usr/lib/libgcc_s.so* /usr/lib/
 COPY --from=toolchain /usr/lib/libreadline.so* /usr/lib/
+# M6: optional real-hardware firmware (empty unless FIRMWARE=true)
+COPY --from=firmware /firmware /
 # Static config / launch layer
 COPY rootfs/ /
 # Desktop user (logind grants device ACLs to the active tty1 session via uaccess)

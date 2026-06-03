@@ -74,15 +74,30 @@ production getty/DRM path is validated on real hardware in milestone M6.
 
 ## Milestones
 
+All green and verified by the headless harness (M6's firmware blobs excepted —
+those are hardware-validated):
+
 | # | Scope | Autonomous test |
 |---|-------|-----------------|
 | M0 | e2e QEMU harness | boot, serial markers, scratch-disk round-trip |
-| M1 | Sway + logind seat + foot | logind session, `swaymsg`, output active, screenshot |
-| M2 | NetworkManager + wifi | DHCP on virtio-net, `mac80211_hwsim` association |
-| M3 | PipeWire + WirePlumber | user services up, `wpctl` sink present |
-| M4 | BlueZ bluetooth | virtual adapter via `hci_vhci`, `bluetoothctl show` |
-| M5 | Desktop polish | waybar/mako/portals, grim+slurp, clipboard |
-| M6 | Real-hardware firmware | (manual) firmware load, real wifi/BT/audio |
+| M1 | Sway + logind seat + foot | logind session, `swaymsg`, active output, grim screenshot |
+| M2 | NetworkManager + wifi | DHCP on virtio-net + `mac80211_hwsim`/hostapd association |
+| M3 | PipeWire + WirePlumber | user services up, `wpctl` sink from emulated HDA |
+| M4 | BlueZ bluetooth | virtual adapter via `hci_vhci`+`btvirt`, `bluetoothctl`, bluez5 plugin |
+| M5 | Desktop polish | swaybar, mako, fuzzel, wl-clipboard, slurp, swayidle |
+| M6 | Real-hardware firmware | `regulatory.db` present; vendor blobs via `--build-arg FIRMWARE=true` (manual HW validation) |
+
+### Real hardware
+
+The default image is VM-slim. For real laptops, build with the firmware subset:
+
+```sh
+docker build --build-arg FIRMWARE=true -t sway-desktop:hw examples/sway-desktop
+```
+
+This bundles a curated `linux-firmware` subset (iwlwifi, ath, rtw, brcm, intel
+bluetooth, i915, amdgpu, …) into `/lib/firmware`. Wifi/BT/audio on real hardware
+is validated by booting on a physical machine.
 
 ## Layout
 

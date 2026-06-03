@@ -86,6 +86,16 @@ if want M0; then
   fi
 fi
 
+# ----- M6: real-hardware firmware (autonomous sanity only) ------------------
+if want M6; then
+  # The wireless regulatory DB must be present (loaded by cfg80211 for wifi).
+  if [ -f /lib/firmware/regulatory.db ]; then pass regulatory_db; else fail regulatory_db; fi
+  # The kernel can load firmware from /lib/firmware. Vendor blobs themselves are
+  # gated behind the FIRMWARE build-arg and validated on real hardware, not here.
+  if [ -d /lib/firmware ]; then pass firmware_dir; else fail firmware_dir; fi
+  info "firmware_blobs=$(find /lib/firmware -type f ! -name 'regulatory.db*' 2>/dev/null | wc -l) (0 expected unless FIRMWARE=true)"
+fi
+
 # ----- M5: desktop polish ---------------------------------------------------
 if want M5; then
   U5="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"; RT5="/run/user/$U5"
