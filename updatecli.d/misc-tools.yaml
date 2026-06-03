@@ -78,6 +78,27 @@ sources:
       - sort:
           method: semver
 
+  bc:
+    kind: gittag
+    spec:
+      url: https://github.com/gavinhoward/bc.git
+      versionfilter:
+        kind: regex/semver
+        regex: '^([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+
+  patch:
+    kind: shell
+    spec:
+      command: |
+        git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/patch.git | grep -v '\^{}' \
+        | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?$' \
+        | sort -V | tail -n 1
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+
 targets:
   python:
     name: PYTHON_VERSION in Dockerfile udpated to {{ source "python" }}
@@ -148,3 +169,23 @@ targets:
         keyword: ARG
         matcher: GDB_VERSION
     sourceid: gdb
+
+  bc:
+    name: BC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: BC_VERSION
+    sourceid: bc
+
+  patch:
+    name: PATCH_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PATCH_VERSION
+    sourceid: patch

@@ -400,6 +400,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
           build-args: |
@@ -414,6 +421,13 @@ jobs:
           platforms: linux/riscv64
           target: container-test
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
           build-args: |
@@ -421,7 +435,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   hadron-grub:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: ubuntu-24.04-riscv
     needs: [container]
     strategy:
       matrix:
@@ -455,6 +469,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
@@ -465,7 +486,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   build-kairos-grub:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: ubuntu-24.04-riscv
     needs: [hadron-grub]
     steps:
       - name: Checkout

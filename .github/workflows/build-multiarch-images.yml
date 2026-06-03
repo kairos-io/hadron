@@ -1205,7 +1205,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   hadron-bios-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: ubuntu-24.04-riscv
     needs: [container-riscv64]
     strategy:
       matrix:

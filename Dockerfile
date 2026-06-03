@@ -422,8 +422,8 @@ RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
 WORKDIR /sources/downloads
 
 FROM sources-downloader-base AS libkcapi-download
-ARG LIBKKCAPI_VERSION=1.5.0
-RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
+ARG LIBKCAPI_VERSION=1.5.0
+RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
 
 FROM sources-downloader-base AS shim-download
 ARG SHIM_VERSION=16.1
@@ -441,6 +441,27 @@ FROM sources-downloader-base AS patch-download
 ARG PATCH_VERSION=2.8
 RUN wget -q https://ftpmirror.gnu.org/patch/patch-${PATCH_VERSION}.tar.gz -O patch.tar.gz
 
+
+FROM sources-downloader-base AS pcre2-download
+ARG PCRE2_VERSION=10.47
+RUN wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz -O pcre2.tar.gz
+
+FROM sources-downloader-base AS glib-download
+ARG GLIB_VERSION=2.86.2
+RUN GLIB_MAJOR="${GLIB_VERSION%.*}" && wget -q https://download.gnome.org/sources/glib/${GLIB_MAJOR}/glib-${GLIB_VERSION}.tar.xz -O glib.tar.xz
+
+FROM sources-downloader-base AS qemu-download
+ARG QEMU_AGENT_VERSION="10.1.5"
+RUN wget https://download.qemu.org/qemu-${QEMU_AGENT_VERSION}.tar.xz -O qemu.tar.xz
+
+
+FROM sources-downloader-base AS mspack-download
+ARG MSPACK_VERSION=1.11
+RUN wget -q https://github.com/kyz/libmspack/archive/refs/tags/v${MSPACK_VERSION}.tar.gz -O mspack.tar.gz
+
+FROM sources-downloader-base AS open-vm-tools-download
+ARG OPENVM_TOOLS_VERSION=13.1.0
+RUN wget -q https://github.com/vmware/open-vm-tools/archive/stable-${OPENVM_TOOLS_VERSION}.tar.gz -O open-vm-tools.tar.gz
 
 # Merge all the downloads into a single target
 # This avoids a single change in version invalidating the full download cache,
@@ -534,6 +555,11 @@ COPY --from=shim-download /sources/downloads/shim.tar.bz2 /sources/downloads/
 COPY --from=libiconv-download /sources/downloads/libiconv.tar.gz /sources/downloads/
 COPY --from=bc-download /sources/downloads/bc.tar.xz /sources/downloads/
 COPY --from=patch-download /sources/downloads/patch.tar.gz /sources/downloads/
+COPY --from=pcre2-download /sources/downloads/pcre2.tar.gz /sources/downloads/
+COPY --from=glib-download /sources/downloads/glib.tar.xz /sources/downloads/
+COPY --from=qemu-download /sources/downloads/qemu.tar.xz /sources/downloads/
+COPY --from=mspack-download /sources/downloads/mspack.tar.gz /sources/downloads/
+COPY --from=open-vm-tools-download /sources/downloads/open-vm-tools.tar.gz /sources/downloads
 
 ########################################################
 #
@@ -664,7 +690,6 @@ PRETTY_NAME="Hadron Linux"
 ID=hadron
 BUILD_ID=rolling
 EOF
-RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
 
 COPY <<'EOF' etc/hosts
 127.0.0.1   localhost localhost.localdomain
@@ -835,7 +860,7 @@ RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /skeleton/usr/
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /aports/aports.tar.gz
 WORKDIR /aports
 RUN tar xf aports.tar.gz && mv aports-* aports
-RUN cp aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig && chmod +x /skeleton//usr/bin/ldconfig
+RUN cp aports/main/musl/ldconfig /skeleton/usr/bin/ldconfig && chmod +x /skeleton/usr/bin/ldconfig
 ## END of HACK
 
 FROM scratch AS stage1
@@ -2238,7 +2263,6 @@ WORKDIR /sources/cmake
 RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake
 
-
 # TODO: Once a new jsonc version is released (0.19) they will have meson support
 # which means we can drop cmake buiilding which is very slow and heavy
 FROM rsync AS jsonc
@@ -2308,7 +2332,6 @@ WORKDIR /sources/e2fsprogs
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install --disable-more
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/e2fsprogs && make -s -j${JOBS} -l${MAX_LOAD} install
 
-
 ## Provides mkfs.fat and fsck.fat
 FROM rsync AS dosfstools
 ARG JOBS
@@ -2319,7 +2342,6 @@ RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dosfstools
-
 
 FROM rsync AS libxml
 ARG JOBS
@@ -2334,7 +2356,6 @@ WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml
 
-
 ## bsd-compat-headers - <sys/queue.h>, <sys/cdefs.h>, <sys/tree.h>. musl does
 ## not ship these BSD compatibility headers; Alpine packages them as the
 ## `bsd-compat-headers` aport. Several packages we build (libtirpc, nfs-utils)
@@ -2348,7 +2369,6 @@ RUN install -Dm644 -t /bsd-compat-headers/usr/include/sys \
       aport/main/bsd-compat-headers/cdefs.h \
       aport/main/bsd-compat-headers/queue.h \
       aport/main/bsd-compat-headers/tree.h
-
 
 ## libtirpc - userspace SunRPC library. Required by nfs-utils since glibc/musl
 ## do not ship sunrpc. --disable-gssapi avoids the krb5 dependency.
@@ -2377,8 +2397,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --disable-gssapi \
       --disable-authdes \
       --enable-rpcdb
-RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
 
 
 ## libnl - netlink library. Hard build-time dep of nfs-utils >= 2.7 (used
@@ -2406,7 +2426,6 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
  && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnl
 
-
 ## libevent - async event notification library. Hard build-time dep of
 ## nfs-utils (used by sm-notify and by the new netlink-based daemons).
 FROM rsync AS libevent
@@ -2428,7 +2447,6 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
  && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libevent
 
-
 ## keyutils - kernel keyring API + libkeyutils.so. Required by nfs-utils'
 ## nfsidmap binary, which the kernel calls via request-key for NFSv4 ID
 ## mapping. Plain Makefile build, not autotools — the cross-compile vars
@@ -2442,7 +2460,6 @@ WORKDIR /sources
 RUN tar -xf keyutils.tar.gz && mv keyutils-* keyutils
 WORKDIR /sources/keyutils
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
-
 
 ## nfs-utils - provides mount.nfs / mount.nfs4 host helpers required by
 ## `mount -t nfs`. Without them, Longhorn RWX (and any other in-cluster NFS
@@ -2565,9 +2582,7 @@ RUN rm -f \
       /nfs-utils/sbin/sm-notify \
       /nfs-utils/sbin/start-statd \
       /nfs-utils/sbin/rpc.idmapd \
-      /nfs-utils/sbin/rpcctl \
-      /nfs-utils/usr/bin/rpcgen
-
+      /nfs-utils/sbin/rpcctl
 
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
@@ -2607,7 +2622,6 @@ WORKDIR /sources/cryptsetup
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cryptsetup
 
-
 FROM rsync AS parted
 ARG JOBS
 ## device-mapper from lvm2
@@ -2626,7 +2640,6 @@ RUN tar -xf parted.tar.xz && mv parted-* parted
 WORKDIR /sources/parted
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/parted && make -s -j${JOBS} -l${MAX_LOAD} install
-
 
 ## grub for bootloader installation
 FROM python-build AS grub-base
@@ -2658,7 +2671,6 @@ WORKDIR /sources
 RUN tar -xf grub.tar.xz && mv grub-* grub
 WORKDIR /sources/grub
 #RUN echo depends bli part_gpt > grub-core/extra_deps.lst
-
 
 FROM grub-base AS grub-efi
 ARG JOBS
@@ -2695,7 +2707,6 @@ RUN if [ "${ARCH}" = "aarch64" ]; then \
 		loopback cat squash4 xzio gzio serial regexp part_gpt ext2 fat normal \
         boot configfile part_msdos linux echo search search_label search_fs_uuid \
         search_fs_file chain loadenv gfxterm all_video iso9660 help test smbios
-
 
 FROM grub-base AS grub-bios
 ARG JOBS
@@ -2824,7 +2835,6 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}     --disable-fapi \
                                              --disable-tcti-libusb \
                                              --disable-tcti-pcap
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/tpm2-tss
-
 
 ## systemd
 ## Try to build it at the end so we have most libraries already built
@@ -2961,7 +2971,6 @@ RUN /usr/bin/meson setup buildDir \
 RUN ninja -C buildDir
 RUN DESTDIR=/systemd ninja -C buildDir install
 
-
 FROM rsync AS dracut
 ARG JOBS
 
@@ -3001,7 +3010,6 @@ WORKDIR /sources/dracut
 ENV CC=gcc
 RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dracut
-
 
 ## lvm2 for dmsetup, devmapper and so on
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
@@ -3156,7 +3164,6 @@ WORKDIR /sources/shadow
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
 
-
 FROM rsync AS sudo-base
 
 COPY --from=pkgconfig /pkgconfig /pkgconfig
@@ -3219,7 +3226,6 @@ WORKDIR /sources/openscsi
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
 RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
-
 FROM rsync AS bc
 ARG JOBS
 COPY --from=readline /readline /readline
@@ -3230,6 +3236,191 @@ RUN tar -xf bc.tar.xz && mv bc-* bc
 WORKDIR /sources/bc
 RUN ./configure --prefix=/usr -G -Os -N
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/bc
+
+FROM rsync AS pcre2
+ARG JOBS
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/pcre2.tar.gz /sources/
+RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
+WORKDIR /sources/pcre2
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-utf --enable-unicode-properties --disable-dependency-tracking
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/pcre2
+
+FROM python-build AS glib2
+ARG JOBS
+COPY --from=pcre2 /pcre2/ /
+COPY --from=libffi /libffi/ /
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/glib.tar.xz /sources/
+RUN tar -xf glib.tar.xz && mv glib-* glib
+WORKDIR /sources/glib
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dselinux=disabled -Dxattr=false \
+    -Dlibmount=disabled -Dman-pages=disabled -Ddtrace=disabled -Dsystemtap=disabled -Dsysprof=disabled \
+    -Ddocumentation=false -Dtests=false -Dinstalled_tests=false -Dnls=disabled \
+    -Dglib_debug=disabled -Dglib_assert=false -Dglib_checks=false -Dlibelf=disabled \
+    -Dintrospection=disabled
+RUN DESTDIR=/glib2 ninja -C buildDir install
+
+FROM automake AS libmspack
+ARG JOBS
+COPY --from=libtool /libtool /libtool
+RUN rsync -aHAX --keep-dirlinks  /libtool/. /
+WORKDIR /sources
+COPY --from=sources-downloader /sources/downloads/mspack.tar.gz /sources/
+RUN tar -xf mspack.tar.gz && mv libmspack-* mspack
+WORKDIR /sources/mspack/libmspack
+RUN autoreconf -i -W all -v
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/libmspack
+
+
+# On cloud images, build and ship open-vm-tools and qemu-guest-agent
+# qemu-ga — only the guest agent target
+FROM python-build AS qemu-guest-agent
+ARG JOBS
+COPY --from=pcre2 /pcre2/ /
+COPY --from=libffi /libffi/ /
+COPY --from=glib2 /glib2/ /
+COPY --from=flex /flex /flex
+RUN rsync -aHAX --keep-dirlinks  /flex/. /
+COPY --from=bison /bison /bison
+RUN rsync -aHAX --keep-dirlinks  /bison/. /
+WORKDIR /sources
+RUN pip3 install meson ninja
+COPY --from=sources-downloader /sources/downloads/qemu.tar.xz /sources/
+RUN tar -xf qemu.tar.xz && mv qemu-* qemu
+WORKDIR /sources/qemu
+# --without-default-features flips every --enable-FEATURE off; we then only
+# turn the guest agent back on. Net effect: no qemu-system-*, qemu-img,
+# qemu-user, TCG, KVM, slirp, vnc, pixman, gnutls, etc. Anything pulled in
+# transitively by qemu-ga (glib2, qemuutil, qapi-gen) is still built.
+#
+# No --cross-prefix / --host: each hadron-toolchain image is single-arch
+# (one tag per arch — `hadron-toolchain:main-{amd64,arm64,riscv64}`), so
+# qemu's configure sees a native build and uses plain `cc` / `strip` /
+# `pkg-config`. (QEMU's configure ignores autotools-style --host anyway,
+# and --cross-prefix would demand a full set of prefixed binutils that the
+# toolchain image doesn't ship — the autotools stages above only get away
+# with --host=${TARGET} because autotools uses the prefix as a *hint*.)
+#
+# --disable-install-blobs is NOT a feature flag (it lives in "Advanced
+# options"), so --without-default-features doesn't kill it; left enabled
+# qemu's meson probes for `bzip2` which the toolchain doesn't have.
+#
+# --enable-fdt=disabled prevents meson from git-cloning the dtc subproject
+# when libfdt isn't on the system (it would always be missing here).
+RUN ./configure \
+      --prefix=/usr \
+      --without-default-features --without-default-devices --disable-coroutine-pool \
+      --disable-install-blobs \
+      --enable-fdt=disabled \
+      --enable-guest-agent --disable-tcg
+RUN make -s -j${JOBS} qemu-ga
+# Stage the binary + the upstream systemd unit into /output with the standard layout.
+RUN install -Dm755 build/qga/qemu-ga /output/usr/bin/qemu-ga
+RUN install -Dm644 contrib/systemd/qemu-guest-agent.service /output/usr/lib/systemd/system/qemu-guest-agent.service
+
+# open-vm-tools
+# requires python3 for some after-install scripts
+FROM python-build AS open-vm-tools-build
+ARG JOBS
+COPY --from=pcre2 /pcre2/ /
+COPY --from=libffi /libffi/ /
+COPY --from=glib2 /glib2/ /
+COPY --from=libmspack /libmspack/ /libmspack
+RUN rsync -aHAX --keep-dirlinks  /libmspack/. /
+COPY --from=libtool /libtool /libtool
+RUN rsync -aHAX --keep-dirlinks  /libtool/. /
+COPY --from=autoconf /autoconf /autoconf
+RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
+COPY --from=automake /automake /automake
+RUN rsync -aHAX --keep-dirlinks  /automake/. /
+COPY --from=m4 /m4 /m4
+RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=perl /perl /perl
+RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libtirpc /libtirpc /libtirpc
+RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /
+# We need rpcgen from nfs-utils
+COPY --from=nfs-utils /nfs-utils /nfs-utils
+RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /
+# Use proper patch as busybox one does not do proper fuzzing
+COPY --from=patch /patch /patch
+RUN rsync -aHAX --keep-dirlinks  /patch/. /
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
+COPY --from=sources-downloader /sources/downloads/open-vm-tools.tar.gz /sources/
+# extract the aport patch to apply to lvm2
+WORKDIR /sources/patches
+RUN tar -xf aports.tar.gz && mv aports-* aport
+WORKDIR /sources/
+RUN tar -xf open-vm-tools.tar.gz && mv open-vm-tools-* open-vm-tools
+WORKDIR /sources/open-vm-tools
+# Its patching time!
+# we should really get with alpine and postmarketOS and try to push some of this patches upstream because this is a shame
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0002-open-vm-tools-Add-disable-werror-configure-option.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0003-Do-not-assume-that-linux-and-gnu-libc-are-the-same-t.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0004-Use-configure-test-for-struct-timespec.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0005-Fix-definition-of-ALLPERMS-and-ACCESSPERMS.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0006-Use-configure-to-test-for-feature-instead-of-platfor.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0007-Use-configure-test-for-sys-stat.h-include.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0008-Rename-poll.h-to-vm_poll.h.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0010-use-posix-strerror_r-unless-gnu.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/0011-use-off64_t-instead-of-loff_t.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/snprintf.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/strerror_r.patch
+RUN patch -p1 < /sources/patches/aport/community/open-vm-tools/mock-res_ninit-and-res_nclose.patch
+
+WORKDIR /sources/open-vm-tools/open-vm-tools
+RUN autoreconf -if
+# Patch vm tools to recognize Hadron
+RUN sed -i '/#define STR_OS_ARCH/a\#define STR_OS_HADRON              "Hadron"' lib/include/guest_os.h
+RUN sed -i '/{ "gentoo", *STR_OS_GENTOO, *HostinfoGenericSetShortName },/a\{ "hadron",              STR_OS_HADRON,             HostinfoGenericSetShortName },' lib/misc/hostinfoPosix.c
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-glibc-check --disable-multimon --without-gtk4 --without-gtk3 --without-fuse --without-dnet \
+    --without-xerces --without-icu --without-kernel-modules --without-pam --disable-werror --disable-containerinfo --without-x
+RUN make -s -j${JOBS}
+RUN make -s -j${JOBS} install DESTDIR=/output
+
+
+# riscv64 currently skips open-vm-tools; keep /output so downstream COPY works
+FROM scratch AS open-vm-tools-riscv64
+WORKDIR /output
+
+# Map build arches to the stage consumed by cloud-tools
+FROM open-vm-tools-build AS open-vm-tools-amd64
+FROM open-vm-tools-build AS open-vm-tools-arm64
+FROM open-vm-tools-${TARGETARCH} AS open-vm-tools
+
+
+FROM rsync AS cloud-tools
+WORKDIR /tools
+COPY --from=open-vm-tools /output /tools
+COPY --from=qemu-guest-agent /output /tools
+# Runtime deps
+COPY --from=glib2 /glib2 /glib2
+# Do some cleanup under glib2 before copying, we just need the runtime stuff, not binaries and headers and whatnot
+# /usr/local/include provides headers
+# /usr/local/bin provides several glib binaries that we dont need for now
+RUN rm -Rf /glib2/usr/local/include /glib2/usr/local/bin /glib2/usr/local/libexec
+RUN rsync -aHAX --keep-dirlinks  /glib2/. /tools
+COPY --from=libffi /libffi /libffi
+RUN rsync -aHAX --keep-dirlinks  /libffi/. /tools
+COPY --from=pcre2 /pcre2 /pcre2
+RUN rsync -aHAX --keep-dirlinks  /pcre2/. /tools
+
+# In default images (no cloud) we dont add any extra tools for now)
+FROM scratch AS default-tools
+# create the dir at least so the copy doesnt fail
+WORKDIR /tools
+# no-op
+
+# Target to copy from
+FROM ${KERNEL_TYPE}-tools AS extra-tools
+# no-op
 
 ## Build image with all the deps on it
 ## Busybox provides the following tools for the final images:
@@ -3387,6 +3578,7 @@ COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
 
 FROM scratch AS toolchain
+ARG VERSION
 # These are the default values for the toolchain
 # Set them so anything using the toolchain will use the default values
 ARG VENDOR="hadron"
@@ -3419,6 +3611,7 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
+RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 CMD ["/bin/bash", "-l"]
 
 ########################################################
@@ -3558,7 +3751,6 @@ RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobann
 RUN find /skeleton -name "*.pyc" -delete
 RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
-
 # Container base image, it has the minimal required to run as a container
 FROM scratch AS container
 ARG VERSION
@@ -3574,6 +3766,8 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
+# Set the version here as otherwise its easy to invalidate the cache with a version change
+RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
@@ -3593,7 +3787,7 @@ RUN setfacl --version
 RUN busybox --list
 RUN openssl version
 
-# stage2-merge is where we prepare stuff for the final image
+# full-image-merge-base is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
 FROM alpine-base AS full-image-merge-base
 
@@ -3693,6 +3887,12 @@ RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
 
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton
+
+COPY --from=extra-tools /tools /tools
+RUN rsync -aHAX --keep-dirlinks  /tools/. /skeleton
+
+# Clean m4 leftover files if any, they are not used in runtime
+RUN find /skeleton -type f -name '*.m4' -delete
 
 # Strip binaries
 RUN find /skeleton -type f ! -name 'fips.so' -print0 | xargs -0 scanelf --nobanner --osabi --etype "ET_DYN,ET_EXEC" --format "%F" | xargs -r strip --strip-unneeded
@@ -3796,7 +3996,7 @@ ARG VERSION
 ARG BUILD_ARCH
 ## Cleanup first
 # We don't need headers
-RUN rm -rf /usr/include
+RUN rm -rf /RUN tree /skeleton usr/include
 # Remove man files, 4,9Mb
 RUN rm -rf /usr/share/man
 RUN rm -rf /usr/local/share/man
@@ -3809,6 +4009,18 @@ RUN rm -rf /usr/share/local/info
 RUN rm -rf /usr/share/locale
 # Remove bash completions
 RUN rm -rf /usr/share/bash-completion
+RUN rm -rf /usr/local/share/bash-completion
+# Remove gdb debug files
+RUN rm -rf /usr/share/gdb/
+RUN rm -rf /usr/local/share/gdb/
+# Remove glib2 extra leftovers
+RUN rm -rf /usr/local/share/glib-2.0
+RUN rm -rf /usr/local/lib/glib-2.0/include/
+RUN rm -rf /usr/local/share/gettext/its
+# remove vmware translations
+RUN rm -rf /usr/share/open-vm-tools/messages
+# Remove cmake leftovers
+RUN rm -rf /usr/lib/cmake/
 # Remove zsh/fish completions
 RUN rm -rf /usr/share/zsh
 RUN rm -rf /usr/share/fish

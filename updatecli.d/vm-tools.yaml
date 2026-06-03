@@ -1,0 +1,86 @@
+---
+name: VM Tools Updates
+
+sources:
+  qemu:
+    kind: gittag
+    spec:
+      url: https://gitlab.com/qemu-project/qemu.git
+      versionfilter:
+        kind: regex/semver
+        regex: '^v([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  glib:
+    kind: gittag
+    spec:
+      url: https://gitlab.gnome.org/GNOME/glib.git
+      versionfilter:
+        kind: regex/semver
+        # stable releases: even minor (2.84.x, 2.86.x). Skip odd minor dev branches.
+        regex: '^([0-9]+\.[0-9]*[02468]\.[0-9]+)$'
+        pattern: '*'
+
+  open_vm_tools:
+    kind: gittag
+    spec:
+      url: https://github.com/vmware/open-vm-tools.git
+      versionfilter:
+        kind: regex/semver
+        regex: '^stable-([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: stable-
+
+  mspack:
+    kind: gittag
+    spec:
+      url: https://github.com/kyz/libmspack.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+targets:
+  qemu:
+    name: QEMU_AGENT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: QEMU_AGENT_VERSION
+    sourceid: qemu
+
+  glib:
+    name: GLIB_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: GLIB_VERSION
+    sourceid: glib
+
+  open_vm_tools:
+    name: OPENVM_TOOLS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: OPENVM_TOOLS_VERSION
+    sourceid: open_vm_tools
+
+  mspack:
+    name: MSPACK_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: MSPACK_VERSION
+    sourceid: mspack
