@@ -389,36 +389,6 @@ FROM sources-downloader-base AS libffi-download
 ARG LIBFFI_VERSION=3.5.2
 RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
-# LLVM/clang (+ libclc) — required by Mesa hardware GL drivers (radeonsi needs
-# libLLVM/AMDGPU; iris pulls the full OpenCL-C stack). LLVM 20.1.8 is validated
-# to build with the Hadron toolchain (GCC 15 / musl); LLVM 18 fails on GCC 15.
-FROM sources-downloader-base AS llvm-download
-ARG LLVM_VERSION=20.1.8
-RUN wget -q https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-project-${LLVM_VERSION}.src.tar.xz -O llvm.tar.xz
-
-# SPIRV stack for iris's CLC path. NOTE: these tags are not yet rebuild-verified
-# against LLVM 20 — confirm on the first toolchain CI rebuild (wget hard-fails
-# loudly if a tag is wrong, so there is no silent breakage).
-FROM sources-downloader-base AS spirv-headers-download
-ARG SPIRV_HEADERS_VERSION=vulkan-sdk-1.4.309.0
-RUN wget -q https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/${SPIRV_HEADERS_VERSION}.tar.gz -O spirv-headers.tar.gz
-
-FROM sources-downloader-base AS spirv-tools-download
-ARG SPIRV_TOOLS_VERSION=vulkan-sdk-1.4.309.0
-RUN wget -q https://github.com/KhronosGroup/SPIRV-Tools/archive/refs/tags/${SPIRV_TOOLS_VERSION}.tar.gz -O spirv-tools.tar.gz
-
-FROM sources-downloader-base AS spirv-llvm-translator-download
-ARG SPIRV_LLVM_TRANSLATOR_VERSION=20.1.3
-RUN wget -q https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/refs/tags/v${SPIRV_LLVM_TRANSLATOR_VERSION}.tar.gz -O spirv-llvm-translator.tar.gz
-
-# The translator pins an EXACT SPIRV-Headers commit (spirv-headers-tag.conf);
-# its sources reference newer SPIR-V capabilities (e.g. BFloat16*) than the
-# spirv-tools headers tag, so it gets its own checkout. Bump this commit in
-# lockstep with SPIRV_LLVM_TRANSLATOR_VERSION.
-FROM sources-downloader-base AS spirv-headers-translator-download
-ARG SPIRV_HEADERS_TRANSLATOR_COMMIT=0e710677989b4326ac974fd80c5308191ed80965
-RUN wget -q https://github.com/KhronosGroup/SPIRV-Headers/archive/${SPIRV_HEADERS_TRANSLATOR_COMMIT}.tar.gz -O spirv-headers-translator.tar.gz
-
 FROM sources-downloader-base AS tpm2-tss-download
 ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
@@ -576,11 +546,6 @@ COPY --from=pax-utils-download /sources/downloads/pax-utils.tar.gz /sources/down
 COPY --from=openscsi-download /sources/downloads/openscsi.tar.gz /sources/downloads/
 COPY --from=gdb-download /sources/downloads/gdb.tar.gz /sources/downloads/
 COPY --from=libffi-download /sources/downloads/libffi.tar.gz /sources/downloads/
-COPY --from=llvm-download /sources/downloads/llvm.tar.xz /sources/downloads/
-COPY --from=spirv-headers-download /sources/downloads/spirv-headers.tar.gz /sources/downloads/
-COPY --from=spirv-tools-download /sources/downloads/spirv-tools.tar.gz /sources/downloads/
-COPY --from=spirv-llvm-translator-download /sources/downloads/spirv-llvm-translator.tar.gz /sources/downloads/
-COPY --from=spirv-headers-translator-download /sources/downloads/spirv-headers-translator.tar.gz /sources/downloads/
 COPY --from=tpm2-tss-download /sources/downloads/tpm2-tss.tar.gz /sources/downloads/
 COPY --from=libxml2-download /sources/downloads/libxml2.tar.xz /sources/downloads/
 COPY --from=gzip-download /sources/downloads/gzip.tar.xz /sources/downloads/
@@ -2319,96 +2284,6 @@ WORKDIR /sources/jsonc-build/
 RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_BUILD_TYPE=release -DBUILD_STATIC_LIBS=OFF -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/jsonc && make -s -j${JOBS} -l${MAX_LOAD} install
 
-## SPIRV-Headers + SPIRV-Tools — SPIR-V tooling consumed by Mesa's CLC path
-## (iris/intel_clc) and rusticl. VALIDATED to build on the Hadron musl toolchain
-## with the vulkan-sdk-1.4.309.0 tag.
-FROM rsync AS spirv-tools
-ARG JOBS
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks /cmake/. /
-RUN pip3 install ninja
-COPY --from=sources-downloader /sources/downloads/spirv-headers.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/spirv-tools.tar.gz /sources/
-RUN mkdir -p /spirv-tools
-WORKDIR /sources
-RUN tar -xf spirv-headers.tar.gz && mv SPIRV-Headers-* spirv-headers && \
-    tar -xf spirv-tools.tar.gz && mv SPIRV-Tools-* spirv-tools && \
-    cp -a spirv-headers spirv-tools/external/spirv-headers
-# SPIRV-Headers (header-only) — install for downstream pkg-config/cmake.
-WORKDIR /sources/spirv-headers
-RUN cmake -G Ninja -B build -DCMAKE_INSTALL_PREFIX=/usr && \
-    DESTDIR=/spirv-tools ninja -C build install
-WORKDIR /sources/spirv-tools
-RUN cmake -G Ninja -B build \
-      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-      -DSPIRV_SKIP_TESTS=ON -DBUILD_SHARED_LIBS=ON \
-      -DSPIRV-Headers_SOURCE_DIR=/sources/spirv-tools/external/spirv-headers
-RUN ninja -C build -j${JOBS} && DESTDIR=/spirv-tools ninja -C build install
-
-## LLVM + clang + libclc — Mesa hardware GL (radeonsi needs libLLVM/AMDGPU; iris
-## pulls the full OpenCL-C stack). LLVM 20.1.8 + clang is VALIDATED to build with
-## the Hadron musl toolchain. LTO is brutal for LLVM so strip it; ship the shared
-## libLLVM dylib; libxml2/zstd/terminfo off to avoid pulling extra ABI surface.
-## SPIRV is kept in LLVM_TARGETS (the in-tree backend) so clang can emit SPIR-V.
-## libclc builds the amdgcn targets only: the spirv-mesa3d libclc targets need
-## llvm-spirv (from SPIRV-LLVM-Translator) AT CONFIGURE TIME, which is a circular
-## dependency on LLVM (libclc/CMakeLists.txt:150 — its "spirv-tools is not
-## installed" message actually means llvm-spirv is missing). If iris's intel_clc
-## turns out to require the spirv libclc bytecode, add a standalone libclc-spirv
-## stage built AFTER spirv-llvm-translator. radeonsi + AMD CLC work as-is.
-FROM rsync AS llvm
-ARG JOBS
-ENV CFLAGS="${CFLAGS//-flto=auto/}"
-ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks /cmake/. /
-RUN pip3 install ninja
-COPY --from=sources-downloader /sources/downloads/llvm.tar.xz /sources/
-RUN mkdir -p /llvm
-WORKDIR /sources
-RUN tar -xf llvm.tar.xz && rm llvm.tar.xz && mv llvm-project-* llvm-project
-WORKDIR /sources/llvm-project
-RUN cmake -G Ninja -S llvm -B build \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_C_FLAGS="-O2 -pipe" -DCMAKE_CXX_FLAGS="-O2 -pipe" \
-      -DCMAKE_INSTALL_PREFIX=/usr -DLLVM_LIBDIR_SUFFIX="" \
-      -DLLVM_TARGETS_TO_BUILD="X86;AMDGPU;SPIRV" \
-      -DLLVM_ENABLE_PROJECTS="clang;libclc" \
-      -DLIBCLC_TARGETS_TO_BUILD="amdgcn--;amdgcn--amdhsa" \
-      -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON \
-      -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF -DLLVM_ENABLE_TERMINFO=OFF \
-      -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF \
-      -DCLANG_ENABLE_STATIC_ANALYZER=OFF -DCLANG_ENABLE_ARCMT=OFF
-RUN ninja -C build -j${JOBS} && DESTDIR=/llvm ninja -C build install
-RUN /sources/llvm-project/build/bin/llvm-config --version && ls /llvm/usr/lib/libLLVM*.so*
-
-## SPIRV-LLVM-Translator (llvm-spirv) — OpenCL-C / SPIR-V path. Builds against
-## the toolchain LLVM + SPIRV-Tools above. Not yet rebuild-verified.
-FROM rsync AS spirv-llvm-translator
-ARG JOBS
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks /cmake/. /
-RUN pip3 install ninja
-COPY --from=llvm /llvm /llvm
-RUN rsync -aHAX --keep-dirlinks /llvm/. /
-COPY --from=spirv-tools /spirv-tools /spirv-tools
-RUN rsync -aHAX --keep-dirlinks /spirv-tools/. /
-COPY --from=sources-downloader /sources/downloads/spirv-llvm-translator.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/spirv-headers-translator.tar.gz /sources/
-RUN mkdir -p /spirv-llvm-translator
-WORKDIR /sources
-RUN tar -xf spirv-llvm-translator.tar.gz && mv SPIRV-LLVM-Translator-* spirv-llvm-translator
-# The translator's cmake otherwise git-clones SPIRV-Headers (no git/network in
-# the build); point it at the local source pinned to its required commit.
-RUN tar -xf spirv-headers-translator.tar.gz && mv SPIRV-Headers-* spirv-headers
-WORKDIR /sources/spirv-llvm-translator
-RUN cmake -G Ninja -B build \
-      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
-      -DLLVM_DIR=/usr/lib/cmake/llvm \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/sources/spirv-headers
-RUN ninja -C build -j${JOBS} && DESTDIR=/spirv-llvm-translator ninja -C build install
-
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
 ARG JOBS
@@ -3701,15 +3576,6 @@ COPY --from=bc /bc /merge
 COPY --from=libelf /libelf /merge
 COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
-
-# LLVM/clang/libclc + SPIRV stack for Mesa hardware GL (radeonsi/iris). Adds
-# ~0.8-1.5GB to the toolchain image; it's a shared, cacheable build dependency.
-COPY --from=llvm /llvm /llvm
-RUN rsync -aHAX --keep-dirlinks /llvm/. /merge
-COPY --from=spirv-tools /spirv-tools /spirv-tools
-RUN rsync -aHAX --keep-dirlinks /spirv-tools/. /merge
-COPY --from=spirv-llvm-translator /spirv-llvm-translator /spirv-llvm-translator
-RUN rsync -aHAX --keep-dirlinks /spirv-llvm-translator/. /merge
 
 FROM scratch AS toolchain
 ARG VERSION

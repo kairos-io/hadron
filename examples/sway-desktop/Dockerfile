@@ -13,6 +13,9 @@
 # autologin user, with a terminal (foot).
 
 ARG BASE_IMAGE=ghcr.io/kairos-io/hadron:main
+# GPU=vm (default): software/virtual GL only — no LLVM is built.
+# GPU=full: hardware GL (iris/radeonsi) — builds the LLVM/SPIRV stack below.
+ARG GPU=vm
 
 FROM ghcr.io/kairos-io/hadron-toolchain:main AS toolchain
 
@@ -48,8 +51,105 @@ RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false
 RUN DESTDIR=/libdrm ninja -C buildDir install
 
 
+# ===========================================================================
+# LLVM / SPIRV stack for hardware GL (Mesa iris + radeonsi).
+#
+# Kept ENTIRELY inside this example so the main Hadron toolchain Dockerfile is
+# never touched: these stages build LLVM/clang/libclc + SPIRV on top of the
+# published hadron-toolchain (same musl ABI — no Alpine cross-mix). They are
+# compiled ONLY for GPU=full; the `llvm-stack` indirection at the bottom makes
+# the default GPU=vm build prune all of them (BuildKit only builds referenced
+# stages), so a normal build never pays for LLVM.
+#
+# Validated on hadron-toolchain (musl / GCC 15): LLVM 20.1.8 (LLVM 18 fails on
+# GCC 15), amdgcn libclc, SPIRV-Tools, and llvm-spirv all compile; Mesa 25.3
+# links iris/radeonsi against them.
+# ===========================================================================
+
+FROM toolchain AS spirv-tools
+ARG SPIRV_HEADERS_VERSION=vulkan-sdk-1.4.309.0
+ARG SPIRV_TOOLS_VERSION=vulkan-sdk-1.4.309.0
+RUN pip3 install ninja
+WORKDIR /b
+RUN curl -fL https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/${SPIRV_HEADERS_VERSION}.tar.gz -o sh.tgz && \
+    curl -fL https://github.com/KhronosGroup/SPIRV-Tools/archive/refs/tags/${SPIRV_TOOLS_VERSION}.tar.gz -o st.tgz && \
+    tar -xf sh.tgz && mv SPIRV-Headers-* spirv-headers && \
+    tar -xf st.tgz && mv SPIRV-Tools-* spirv-tools && \
+    cp -a spirv-headers spirv-tools/external/spirv-headers
+RUN cd spirv-headers && cmake -G Ninja -B build -DCMAKE_INSTALL_PREFIX=/usr && \
+    DESTDIR=/spirv-tools ninja -C build install
+RUN cd spirv-tools && cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+      -DSPIRV_SKIP_TESTS=ON -DBUILD_SHARED_LIBS=ON \
+      -DSPIRV-Headers_SOURCE_DIR=/b/spirv-tools/external/spirv-headers && \
+    ninja -C build -j$(nproc) && DESTDIR=/spirv-tools ninja -C build install
+
+# LLVM + clang + amdgcn libclc. LTO off (brutal for LLVM); shared libLLVM dylib;
+# in-tree SPIRV backend kept so clang can emit SPIR-V. The spirv libclc targets
+# need llvm-spirv at configure time (circular dep on LLVM), so libclc builds the
+# amdgcn targets only — enough for radeonsi + Mesa's libclc dependency.
+FROM toolchain AS llvm
+ARG LLVM_VERSION=20.1.8
+RUN pip3 install ninja
+WORKDIR /build
+RUN curl -fL https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/llvm-project-${LLVM_VERSION}.src.tar.xz -o llvm.tar.xz && \
+    tar -xf llvm.tar.xz && rm llvm.tar.xz && mv llvm-project-* llvm-project
+WORKDIR /build/llvm-project
+RUN cmake -G Ninja -S llvm -B build \
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-O2 -pipe" -DCMAKE_CXX_FLAGS="-O2 -pipe" \
+      -DCMAKE_INSTALL_PREFIX=/usr -DLLVM_LIBDIR_SUFFIX="" \
+      -DLLVM_TARGETS_TO_BUILD="X86;AMDGPU;SPIRV" \
+      -DLLVM_ENABLE_PROJECTS="clang;libclc" \
+      -DLIBCLC_TARGETS_TO_BUILD="amdgcn--;amdgcn--amdhsa" \
+      -DLLVM_BUILD_LLVM_DYLIB=ON -DLLVM_LINK_LLVM_DYLIB=ON \
+      -DLLVM_ENABLE_ZSTD=OFF -DLLVM_ENABLE_LIBXML2=OFF -DLLVM_ENABLE_TERMINFO=OFF \
+      -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF \
+      -DCLANG_ENABLE_STATIC_ANALYZER=OFF -DCLANG_ENABLE_ARCMT=OFF
+RUN ninja -C build -j$(nproc) && DESTDIR=/llvm ninja -C build install
+
+# SPIRV-LLVM-Translator (llvm-spirv). Its cmake otherwise git-clones SPIRV-Headers
+# at a pinned commit; with no git/network in the build, feed it a local checkout
+# at exactly that commit (its sources use newer SPIR-V caps than the spirv-tools
+# headers tag).
+FROM toolchain AS spirv-llvm-translator
+ARG SPIRV_LLVM_TRANSLATOR_VERSION=20.1.3
+ARG SPIRV_HEADERS_TRANSLATOR_COMMIT=0e710677989b4326ac974fd80c5308191ed80965
+RUN pip3 install ninja
+COPY --from=llvm /llvm /llvm
+RUN rsync -aHAX --keep-dirlinks /llvm/. /
+WORKDIR /b
+RUN curl -fL https://github.com/KhronosGroup/SPIRV-Headers/archive/${SPIRV_HEADERS_TRANSLATOR_COMMIT}.tar.gz -o sh.tgz && \
+    tar -xf sh.tgz && mv SPIRV-Headers-* spirv-headers && \
+    curl -fL https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/refs/tags/v${SPIRV_LLVM_TRANSLATOR_VERSION}.tar.gz -o tr.tgz && \
+    tar -xf tr.tgz && mv SPIRV-LLVM-Translator-* tr
+RUN cd tr && cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+      -DLLVM_DIR=/usr/lib/cmake/llvm -DBUILD_SHARED_LIBS=OFF \
+      -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/b/spirv-headers && \
+    ninja -C build -j$(nproc) && DESTDIR=/translator ninja -C build install
+
+# Merge the three installs into one /llvm-out tree (GPU=full path).
+FROM toolchain AS llvm-stack-full
+COPY --from=spirv-tools /spirv-tools /s
+COPY --from=llvm /llvm /l
+COPY --from=spirv-llvm-translator /translator /t
+RUN mkdir -p /llvm-out && \
+    rsync -aHAX /l/. /llvm-out && \
+    rsync -aHAX /s/. /llvm-out && \
+    rsync -aHAX /t/. /llvm-out
+
+# Empty stand-in (GPU=vm path) — selecting this prunes every LLVM stage above.
+FROM toolchain AS llvm-stack-vm
+RUN mkdir -p /llvm-out
+
+# Pick the stack by GPU flag. For vm this resolves to the empty stage, so the
+# heavy LLVM stages are never referenced and BuildKit skips them.
+FROM llvm-stack-${GPU} AS llvm-stack
+
+
 FROM toolchain AS mesa
 COPY --from=libdrm /libdrm /
+# LLVM stack: a populated /usr tree for GPU=full, empty for GPU=vm.
+COPY --from=llvm-stack /llvm-out /llvm-out
+RUN rsync -aHAX --keep-dirlinks /llvm-out/. / && rm -rf /llvm-out
 COPY --from=wayland /wayland /
 ARG MESA_VERSION=25.3.0
 RUN mkdir -p /mesa
@@ -57,14 +157,12 @@ WORKDIR /build
 RUN curl -L https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz -o mesa.tar.xz && tar -xf mesa.tar.xz && rm mesa.tar.xz && mv mesa-* mesa-src
 WORKDIR /build/mesa-src
 RUN pip3 install meson ninja setuptools mako pyyaml
-# GPU=vm (default): software/virtual GL only (virgl/softpipe/svga), no LLVM —
-#   works headless in QEMU and needs nothing extra from the toolchain.
-# GPU=full: real hardware GL — iris (Intel) + radeonsi (AMD). These need LLVM
-#   (+ clang/libclc/SPIRV for iris's CLC), which the Hadron toolchain now ships
-#   built against the same musl ABI (no Alpine cross-mix). Pair with
-#   --build-arg FIRMWARE=true so the i915/amdgpu blobs are present at runtime.
+# GPU=vm (default): software/virtual GL only (virgl/softpipe/svga), no LLVM.
+# GPU=full: real hardware GL — iris (Intel) + radeonsi (AMD), linked against the
+#   LLVM/libclc/SPIRV stack built by the stages above (rsync'd into /usr). Pair
+#   with --build-arg FIRMWARE=true so the i915/amdgpu blobs are present.
 ARG GPU=vm
-# The toolchain's libLLVM is built without RTTI, so Mesa must disable it too
+# The example's libLLVM is built without RTTI, so Mesa must disable it too
 # (cpp_rtti=false) when linking LLVM; harmless for the software-only vm build.
 RUN if [ "$GPU" = "full" ]; then \
       DRV="iris,radeonsi,virgl,softpipe,svga"; LLVMOPT=true; RTTI=false; \
@@ -83,6 +181,14 @@ RUN if [ "$GPU" = "full" ]; then \
     -Dcpp_rtti="$RTTI" \
     -Dbuild-tests=false
 RUN DESTDIR=/mesa ninja -C buildDir install
+# The radeonsi/iris megadriver links libLLVM (+ libelf) at runtime; these come
+# from the toolchain and aren't otherwise in the OS image, so bundle them for
+# the GPU=full build (~125MB — the cost of hardware GL).
+RUN if [ "$GPU" = "full" ]; then \
+      mkdir -p /mesa/usr/lib && \
+      cp -a /usr/lib/libLLVM.so* /mesa/usr/lib/ && \
+      cp -a /usr/lib/libelf.so* /mesa/usr/lib/ ; \
+    fi
 
 
 FROM toolchain AS xkeyboard-config

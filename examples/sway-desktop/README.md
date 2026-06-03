@@ -117,34 +117,24 @@ docker build --build-arg GPU=full --build-arg FIRMWARE=true \
 ```
 
 `GPU=full` builds Mesa `iris` (Intel) + `radeonsi` (AMD), which require LLVM.
-That LLVM/clang/libclc + SPIRV stack now ships in `hadron-toolchain` itself
-(built against the same musl ABI — no Alpine cross-mix), so the example flips
-`-Dllvm=true`, sets `-Dcpp_rtti=false` (the toolchain's libLLVM is built without
-RTTI), and bundles `libLLVM.so` + `libelf.so` into the image (the megadriver
-links them at runtime, ~125 MB).
+The example builds its **own** LLVM/clang/libclc + SPIRV stack on top of the
+published `hadron-toolchain` (same musl ABI — no Alpine cross-mix) as dedicated
+stages in this Dockerfile, so **the main Hadron toolchain is never touched and
+no extra orchestration is needed** — a plain `docker build` is enough. Those
+stages are gated: for `GPU=vm` (the default) BuildKit prunes them, so a normal
+build never compiles LLVM.
 
-**This requires a `hadron-toolchain` image that includes the LLVM stack** (see
-`docs/superpowers/specs/2026-06-03-toolchain-llvm-for-mesa.md`). Once the main
-toolchain Dockerfile is rebuilt/published, plain `docker build --build-arg
-GPU=full …` works. To build/test *before* that publish, assemble a derived
-toolchain locally (published toolchain + the LLVM/SPIRV stack) and point the
-example at it:
+For the hardware path the example flips `-Dllvm=true`, sets `-Dcpp_rtti=false`
+(its libLLVM is built without RTTI), and bundles `libLLVM.so` + `libelf.so` into
+the image (the megadriver links them at runtime, ~125 MB). Building LLVM adds
+~15–20 min to the `GPU=full` build.
 
-```sh
-# build hadron-toolchain:llvm = published toolchain + LLVM/clang/libclc + SPIRV
-docker build -t hadron-toolchain:llvm /tmp/toolchain-llvm   # recipe in the spec
-
-docker build \
-  --build-context ghcr.io/kairos-io/hadron-toolchain:main=docker-image://hadron-toolchain:llvm \
-  --build-arg GPU=full --build-arg FIRMWARE=true \
-  -t sway-desktop:hw examples/sway-desktop
-```
-
-Validated this way: Mesa 25.3 builds `iris`/`radeonsi`/`virgl`/`softpipe` into
-`libgallium-25.3.0.so` against the Hadron-built libLLVM, and the megadriver
-resolves all runtime symbols in the image. Actual GPU *rendering* is validated
-on physical hardware — QEMU has no real GPU, so a VM boot falls back to
+Validated: Mesa 25.3 builds `iris`/`radeonsi`/`virgl`/`softpipe` into
+`libgallium-25.3.0.so` against the example-built libLLVM, the megadriver resolves
+all runtime symbols, and the resulting ISO boots. Actual GPU *rendering* is
+validated on physical hardware — QEMU has no real GPU, so a VM boot falls back to
 softpipe/virgl (software) while the hardware drivers ride along for real metal.
+See `docs/superpowers/specs/2026-06-03-toolchain-llvm-for-mesa.md`.
 
 ## Layout
 
