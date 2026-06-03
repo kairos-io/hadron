@@ -86,6 +86,33 @@ if want M0; then
   fi
 fi
 
+# ----- M3: PipeWire audio ---------------------------------------------------
+if want M3; then
+  U3="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"; RT3="/run/user/$U3"
+  swu() { su "$DESKUSER" -c "XDG_RUNTIME_DIR=$RT3 $1" 2>/dev/null; }
+  info "snd_cards=$(tr '\n' ';' </proc/asound/cards 2>/dev/null | cut -c1-90)"
+  # PipeWire is socket-activated: connecting a client starts the whole stack.
+  # Wait for the user systemd instance, then warm it up.
+  wait_for 40 sh -c "su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT3 systemctl --user is-system-running --wait' >/dev/null 2>&1; [ -S $RT3/pipewire-0 ] || su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT3 wpctl status' >/dev/null 2>&1"
+  # PipeWire core reachable (this connection triggers socket activation)
+  if wait_for 30 sh -c "su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT3 pw-cli info 0' >/dev/null 2>&1"; then pass pipewire_running; else fail pipewire_running; fi
+  # WirePlumber should now be active for the user
+  if wait_for 30 sh -c "su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT3 systemctl --user is-active wireplumber' 2>/dev/null | grep -q '^active'"; then
+    pass wireplumber_active
+  else
+    fail wireplumber_active
+    su "$DESKUSER" -c "XDG_RUNTIME_DIR=$RT3 systemctl --user --no-pager status wireplumber pipewire" 2>&1 | tail -8 | while read -r l; do info "diag wp: $l"; done
+  fi
+  # An audio sink (the QEMU intel-hda device) should be present
+  if wait_for 30 sh -c "su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT3 wpctl status' 2>/dev/null | sed -n '/Sinks:/,/Sources:/p' | grep -qiE 'alsa_output|hda|built-in|audio'"; then
+    pass audio_sink
+    info "sink=$(swu 'wpctl status' | sed -n '/Sinks:/,/Sources:/p' | grep -m1 -iE 'alsa|hda|audio' | tr -s ' ' | cut -c1-70)"
+  else
+    fail audio_sink
+    swu "wpctl status" 2>&1 | sed -n '/Audio/,/Video/p' | head -16 | while read -r l; do info "diag wpctl: $l"; done
+  fi
+fi
+
 # ----- M2: NetworkManager + wifi --------------------------------------------
 if want M2; then
   if wait_for 60 sh -c "systemctl is-active NetworkManager >/dev/null 2>&1"; then

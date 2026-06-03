@@ -611,6 +611,70 @@ RUN DESTDIR=/networkmanager ninja -C buildDir install
 
 
 # ===========================================================================
+# M3: audio — PipeWire + WirePlumber
+# ===========================================================================
+
+# ALSA library
+FROM toolchain AS alsa-lib
+ARG ALSA_VERSION=1.2.12
+RUN mkdir -p /alsa-lib
+WORKDIR /build
+RUN curl -L https://www.alsa-project.org/files/pub/lib/alsa-lib-${ALSA_VERSION}.tar.bz2 -o alsa-lib.tar.bz2 && tar -xjf alsa-lib.tar.bz2 && rm alsa-lib.tar.bz2 && mv alsa-lib-* alsa-lib-src
+WORKDIR /build/alsa-lib-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-python
+RUN make -j$(nproc) && make install DESTDIR=/alsa-lib
+
+
+# ALSA UCM configuration (data files describing sound cards)
+FROM toolchain AS alsa-ucm-conf
+ARG ALSA_UCM_VERSION=1.2.12
+RUN mkdir -p /alsa-ucm-conf
+WORKDIR /build
+RUN curl -L https://www.alsa-project.org/files/pub/lib/alsa-ucm-conf-${ALSA_UCM_VERSION}.tar.bz2 -o ucm.tar.bz2 && tar -xjf ucm.tar.bz2 && rm ucm.tar.bz2 && mv alsa-ucm-conf-* ucm-src
+RUN mkdir -p /alsa-ucm-conf/usr/share/alsa && cp -a ucm-src/ucm2 /alsa-ucm-conf/usr/share/alsa/
+
+
+# PipeWire
+FROM toolchain AS pipewire
+COPY --from=alsa-lib /alsa-lib /
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+ARG PIPEWIRE_VERSION=1.2.7
+RUN mkdir -p /pipewire
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/pipewire/pipewire/-/archive/${PIPEWIRE_VERSION}/pipewire-${PIPEWIRE_VERSION}.tar.gz -o pipewire.tar.gz && tar -xzf pipewire.tar.gz && rm pipewire.tar.gz && mv pipewire-* pipewire-src
+WORKDIR /build/pipewire-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} \
+    -Dalsa=enabled -Dpipewire-alsa=enabled \
+    -Ddbus=enabled -Dsystemd=enabled -Dsystemd-user-service=enabled \
+    -Dbluez5=disabled -Djack=disabled -Dvulkan=disabled -Dv4l2=disabled \
+    -Dlibcamera=disabled -Dexamples=disabled -Dtests=disabled -Dman=disabled \
+    -Dgstreamer=disabled -Dsndfile=disabled -Dreadline=disabled -Draop=disabled \
+    -Dlibpulse=disabled -Davahi=disabled -Dx11=disabled -Dlegacy-rtkit=true \
+    -Dudev=enabled -Dsession-managers=[]
+RUN DESTDIR=/pipewire ninja -C buildDir install
+
+
+# WirePlumber (session manager; uses its bundled Lua)
+FROM toolchain AS wireplumber
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=pipewire /pipewire /
+COPY --from=alsa-lib /alsa-lib /
+ARG WIREPLUMBER_VERSION=0.5.7
+RUN mkdir -p /wireplumber
+WORKDIR /build
+RUN curl -L https://gitlab.freedesktop.org/pipewire/wireplumber/-/archive/${WIREPLUMBER_VERSION}/wireplumber-${WIREPLUMBER_VERSION}.tar.gz -o wireplumber.tar.gz && tar -xzf wireplumber.tar.gz && rm wireplumber.tar.gz && mv wireplumber-* wireplumber-src
+WORKDIR /build/wireplumber-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} \
+    -Dsystem-lua=false -Dintrospection=disabled -Ddoc=disabled -Dtests=false \
+    -Delogind=disabled -Dsystemd=enabled -Dsystemd-user-service=true -Dsystemd-system-service=false
+RUN DESTDIR=/wireplumber ninja -C buildDir install
+
+
+# ===========================================================================
 # Final assembly
 # ===========================================================================
 
@@ -649,6 +713,11 @@ COPY --from=libndp /libndp /
 COPY --from=networkmanager /networkmanager /
 COPY --from=wireless-regdb /wireless-regdb /
 COPY --from=ncurses /ncurses /
+# M3: audio
+COPY --from=alsa-lib /alsa-lib /
+COPY --from=alsa-ucm-conf /alsa-ucm-conf /
+COPY --from=pipewire /pipewire /
+COPY --from=wireplumber /wireplumber /
 
 
 FROM ${BASE_IMAGE} AS default
@@ -665,7 +734,8 @@ COPY --from=toolchain /usr/lib/libreadline.so* /usr/lib/
 COPY rootfs/ /
 # Desktop user (logind grants device ACLs to the active tty1 session via uaccess)
 RUN ldconfig 2>/dev/null || true; \
-    useradd -m -u 1000 -s /bin/bash sway && \
+    groupadd -f audio; groupadd -f video; groupadd -f render; \
+    useradd -m -u 1000 -s /bin/bash -G audio,video,render sway && \
     install -d -o sway -g sway /home/sway/.config && \
     printf '%s\n' \
       '# Launch Sway on the first VT after autologin.' \
@@ -680,4 +750,6 @@ RUN ldconfig 2>/dev/null || true; \
     # the Kairos init layer to enable; it is disabled at runtime in favour of NM
     # via the cloud-config drop-in shipped below.)
     systemctl enable NetworkManager.service 2>/dev/null || true; \
-    systemctl enable wpa_supplicant.service 2>/dev/null || true
+    systemctl enable wpa_supplicant.service 2>/dev/null || true; \
+    # M3: PipeWire + WirePlumber as per-user services
+    systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true

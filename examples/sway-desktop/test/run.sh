@@ -102,6 +102,7 @@ qemu-system-x86_64 \
   -serial "file:$CONSOLE" \
   -rtc base=utc,clock=rt \
   -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+  -audiodev none,id=snd0 -device intel-hda -device hda-output,audiodev=snd0 \
   -drive if=none,id=scratch,format=raw,file="$SCRATCH" \
   -device virtio-blk-pci,drive=scratch,serial=swayscratch \
   -cdrom "$ISO" \
