@@ -118,12 +118,33 @@ docker build --build-arg GPU=full --build-arg FIRMWARE=true \
 
 `GPU=full` builds Mesa `iris` (Intel) + `radeonsi` (AMD), which require LLVM.
 That LLVM/clang/libclc + SPIRV stack now ships in `hadron-toolchain` itself
-(built against the same musl ABI — no Alpine cross-mix), so the example just
-flips `-Dllvm=true`. **This requires a `hadron-toolchain` image that includes
-the LLVM stack** (see `docs/superpowers/specs/2026-06-03-toolchain-llvm-for-mesa.md`);
-until that toolchain is rebuilt/published, `GPU=full` will fail at the Mesa
-stage. Actual GPU *rendering* is validated on physical hardware — QEMU has no
-real GPU, so CI only confirms the drivers build/load.
+(built against the same musl ABI — no Alpine cross-mix), so the example flips
+`-Dllvm=true`, sets `-Dcpp_rtti=false` (the toolchain's libLLVM is built without
+RTTI), and bundles `libLLVM.so` + `libelf.so` into the image (the megadriver
+links them at runtime, ~125 MB).
+
+**This requires a `hadron-toolchain` image that includes the LLVM stack** (see
+`docs/superpowers/specs/2026-06-03-toolchain-llvm-for-mesa.md`). Once the main
+toolchain Dockerfile is rebuilt/published, plain `docker build --build-arg
+GPU=full …` works. To build/test *before* that publish, assemble a derived
+toolchain locally (published toolchain + the LLVM/SPIRV stack) and point the
+example at it:
+
+```sh
+# build hadron-toolchain:llvm = published toolchain + LLVM/clang/libclc + SPIRV
+docker build -t hadron-toolchain:llvm /tmp/toolchain-llvm   # recipe in the spec
+
+docker build \
+  --build-context ghcr.io/kairos-io/hadron-toolchain:main=docker-image://hadron-toolchain:llvm \
+  --build-arg GPU=full --build-arg FIRMWARE=true \
+  -t sway-desktop:hw examples/sway-desktop
+```
+
+Validated this way: Mesa 25.3 builds `iris`/`radeonsi`/`virgl`/`softpipe` into
+`libgallium-25.3.0.so` against the Hadron-built libLLVM, and the megadriver
+resolves all runtime symbols in the image. Actual GPU *rendering* is validated
+on physical hardware — QEMU has no real GPU, so a VM boot falls back to
+softpipe/virgl (software) while the hardware drivers ride along for real metal.
 
 ## Layout
 
