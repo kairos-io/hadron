@@ -271,6 +271,7 @@ FROM toolchain AS cairo
 COPY --from=pixman /pixman /
 COPY --from=freetype /freetype /
 COPY --from=fontconfig /fontconfig /
+COPY --from=libpng /libpng /
 # 1.18.4 fixes the COLRv1 / FreeType 2.13.x cairo-ft detection bug.
 ARG CAIRO_VERSION=1.18.4
 RUN mkdir -p /cairo
@@ -278,8 +279,9 @@ WORKDIR /build
 RUN curl -L https://cairographics.org/releases/cairo-${CAIRO_VERSION}.tar.xz -o cairo.tar.xz && tar -xf cairo.tar.xz && rm cairo.tar.xz && mv cairo-* cairo-src
 WORKDIR /build/cairo-src
 RUN pip3 install meson ninja
+# PNG enabled so cairo_image_surface_create_from_png is available (swaybar/swaybg).
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=disabled -Dglib=disabled -Dspectre=disabled \
-    -Dfreetype=enabled -Dfontconfig=enabled -Dpng=disabled -Dxlib=disabled -Dxcb=disabled
+    -Dfreetype=enabled -Dfontconfig=enabled -Dpng=enabled -Dxlib=disabled -Dxcb=disabled
 RUN DESTDIR=/cairo ninja -C buildDir install
 
 
@@ -293,6 +295,7 @@ COPY --from=fontconfig /fontconfig /
 COPY --from=fribidi /fribidi /
 COPY --from=cairo /cairo /
 COPY --from=pixman /pixman /
+COPY --from=libpng /libpng /
 ARG PANGO_VERSION=1.54.0
 RUN mkdir -p /pango
 WORKDIR /build
@@ -358,14 +361,15 @@ COPY --from=fontconfig /fontconfig /
 COPY --from=fribidi /fribidi /
 COPY --from=hwdata /hwdata /
 COPY --from=libdisplay-info /libdisplay-info /
+COPY --from=libpng /libpng /
 ARG SWAY_VERSION=1.10.1
 RUN mkdir -p /sway
 WORKDIR /build
 RUN curl -L https://github.com/swaywm/sway/releases/download/${SWAY_VERSION}/sway-${SWAY_VERSION}.tar.gz -o sway.tar.gz && tar -xzf sway.tar.gz && rm sway.tar.gz && mv sway-* sway-src
 WORKDIR /build/sway-src
 RUN pip3 install meson ninja
-# swaybar/swaynag image loading needs cairo PNG; defer the bar to waybar (M5).
-RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dgdk-pixbuf=disabled -Dtray=disabled -Dswaybar=false -Dswaynag=false -Dwerror=false
+# swaybar/swaynag image loading uses cairo PNG (libpng now available).
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dgdk-pixbuf=disabled -Dtray=disabled -Dswaybar=true -Dswaynag=true -Dwerror=false
 RUN DESTDIR=/sway ninja -C buildDir install
 
 
@@ -712,6 +716,125 @@ RUN DESTDIR=/wireplumber ninja -C buildDir install
 
 
 # ===========================================================================
+# M5: desktop polish — wallpaper, notifications, launcher, clipboard, etc.
+# ===========================================================================
+
+# swaybg — wallpaper daemon
+FROM toolchain AS swaybg
+COPY --from=wayland /wayland /
+COPY --from=cairo /cairo /
+COPY --from=pixman /pixman /
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=freetype /freetype /
+COPY --from=fontconfig /fontconfig /
+COPY --from=libpng /libpng /
+ARG SWAYBG_VERSION=1.2.1
+RUN mkdir -p /swaybg
+WORKDIR /build
+RUN curl -L https://github.com/swaywm/swaybg/releases/download/v${SWAYBG_VERSION}/swaybg-${SWAYBG_VERSION}.tar.gz -o swaybg.tar.gz && tar -xzf swaybg.tar.gz && rm swaybg.tar.gz && mv swaybg-* swaybg-src
+WORKDIR /build/swaybg-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dgdk-pixbuf=disabled -Dwerror=false
+RUN DESTDIR=/swaybg ninja -C buildDir install
+
+
+# mako — notification daemon
+FROM toolchain AS mako
+COPY --from=wayland /wayland /
+COPY --from=cairo /cairo /
+COPY --from=pango /pango /
+COPY --from=pixman /pixman /
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=harfbuzz /harfbuzz /
+COPY --from=freetype /freetype /
+COPY --from=fontconfig /fontconfig /
+COPY --from=fribidi /fribidi /
+COPY --from=libpng /libpng /
+ARG MAKO_VERSION=1.9.0
+RUN mkdir -p /mako
+WORKDIR /build
+RUN curl -L https://github.com/emersion/mako/releases/download/v${MAKO_VERSION}/mako-${MAKO_VERSION}.tar.gz -o mako.tar.gz && tar -xzf mako.tar.gz && rm mako.tar.gz && mv mako-* mako-src
+WORKDIR /build/mako-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dsd-bus-provider=libsystemd
+RUN DESTDIR=/mako ninja -C buildDir install
+
+
+# fuzzel — application launcher
+FROM toolchain AS fuzzel
+COPY --from=wayland /wayland /
+COPY --from=libxkb /libxkb /
+COPY --from=pixman /pixman /
+COPY --from=freetype /freetype /
+COPY --from=fontconfig /fontconfig /
+COPY --from=fcft /fcft /
+COPY --from=tllist /tllist /
+COPY --from=harfbuzz /harfbuzz /
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=libpng /libpng /
+ARG FUZZEL_VERSION=1.11.0
+RUN mkdir -p /fuzzel
+WORKDIR /build
+RUN curl -L https://codeberg.org/dnkl/fuzzel/archive/${FUZZEL_VERSION}.tar.gz -o fuzzel.tar.gz && tar -xzf fuzzel.tar.gz && rm fuzzel.tar.gz && mv fuzzel* fuzzel-src
+WORKDIR /build/fuzzel-src
+RUN pip3 install meson ninja
+# Drop the man-page subdir (needs scdoc, which we don't build).
+RUN sed -i "/subdir('doc')/d" meson.build
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Denable-cairo=disabled -Dpng-backend=libpng -Dsvg-backend=none -Dwerror=false
+RUN DESTDIR=/fuzzel ninja -C buildDir install
+
+
+# wl-clipboard — clipboard utilities
+FROM toolchain AS wl-clipboard
+COPY --from=wayland /wayland /
+ARG WLCLIP_VERSION=2.2.1
+RUN mkdir -p /wl-clipboard
+WORKDIR /build
+RUN curl -L https://github.com/bugaevc/wl-clipboard/archive/refs/tags/v${WLCLIP_VERSION}.tar.gz -o wlclip.tar.gz && tar -xzf wlclip.tar.gz && rm wlclip.tar.gz && mv wl-clipboard-* wlclip-src
+WORKDIR /build/wlclip-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
+RUN DESTDIR=/wl-clipboard ninja -C buildDir install
+
+
+# slurp — region selection (pairs with grim)
+FROM toolchain AS slurp
+COPY --from=wayland /wayland /
+COPY --from=cairo /cairo /
+COPY --from=pixman /pixman /
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=freetype /freetype /
+COPY --from=fontconfig /fontconfig /
+COPY --from=libpng /libpng /
+COPY --from=libxkb /libxkb /
+ARG SLURP_VERSION=1.5.0
+RUN mkdir -p /slurp
+WORKDIR /build
+RUN curl -L https://github.com/emersion/slurp/releases/download/v${SLURP_VERSION}/slurp-${SLURP_VERSION}.tar.gz -o slurp.tar.gz && tar -xzf slurp.tar.gz && rm slurp.tar.gz && mv slurp-* slurp-src
+WORKDIR /build/slurp-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled
+RUN DESTDIR=/slurp ninja -C buildDir install
+
+
+# swayidle — idle management
+FROM toolchain AS swayidle
+COPY --from=wayland /wayland /
+ARG SWAYIDLE_VERSION=1.8.0
+RUN mkdir -p /swayidle
+WORKDIR /build
+RUN curl -L https://github.com/swaywm/swayidle/releases/download/${SWAYIDLE_VERSION}/swayidle-${SWAYIDLE_VERSION}.tar.gz -o swayidle.tar.gz && tar -xzf swayidle.tar.gz && rm swayidle.tar.gz && mv swayidle-* swayidle-src
+WORKDIR /build/swayidle-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dman-pages=disabled -Dlogind=enabled
+RUN DESTDIR=/swayidle ninja -C buildDir install
+
+
+# ===========================================================================
 # Final assembly
 # ===========================================================================
 
@@ -758,6 +881,13 @@ COPY --from=wireplumber /wireplumber /
 # M4: bluetooth
 COPY --from=sbc /sbc /
 COPY --from=bluez /bluez /
+# M5: desktop polish
+COPY --from=swaybg /swaybg /
+COPY --from=mako /mako /
+COPY --from=fuzzel /fuzzel /
+COPY --from=wl-clipboard /wl-clipboard /
+COPY --from=slurp /slurp /
+COPY --from=swayidle /swayidle /
 
 
 FROM ${BASE_IMAGE} AS default

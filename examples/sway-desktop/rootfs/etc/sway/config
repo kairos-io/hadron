@@ -1,26 +1,46 @@
-# Minimal Sway config for the Hadron sway-desktop example.
-# Expanded with bar/launcher/notifications in later milestones (M5).
+# Sway config for the Hadron sway-desktop example.
 
 set $mod Mod4
+set $term foot
+set $menu fuzzel
 
-# Solid background colour (gdk-pixbuf is disabled, so no image wallpapers yet).
+# Wallpaper (solid colour; swaybg renders it)
 output * bg #1a1b26 solid_color
 
-# Terminal
-set $term foot
-bindsym $mod+Return exec $term
+# Autostart: terminal, notification daemon, idle management
+exec $term
+exec mako
+exec swayidle -w \
+    timeout 600 'swaymsg "output * dpms off"' \
+    resume 'swaymsg "output * dpms on"'
 
-# Window management basics
+# Keybindings
 floating_modifier $mod normal
+bindsym $mod+Return exec $term
+bindsym $mod+d exec $menu
 bindsym $mod+Shift+q kill
 bindsym $mod+Shift+e exec swaymsg exit
 bindsym $mod+Shift+c reload
+# Screenshots (grim + slurp + wl-clipboard)
+bindsym Print exec grim - | wl-copy
+bindsym $mod+Print exec grim -g "$(slurp)" - | wl-copy
 
 # Focus / move (vim-style + arrows)
 bindsym $mod+Left focus left
 bindsym $mod+Down focus down
 bindsym $mod+Up focus up
 bindsym $mod+Right focus right
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+bindsym $mod+l focus right
 
-# Launch a terminal on startup so there's always something on screen.
-exec $term
+# Status bar (built-in swaybar)
+bar {
+    position top
+    status_command while date +'%Y-%m-%d %H:%M'; do sleep 30; done
+    colors {
+        statusline #c0caf5
+        background #15161e
+    }
+}

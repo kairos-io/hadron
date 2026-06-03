@@ -86,6 +86,41 @@ if want M0; then
   fi
 fi
 
+# ----- M5: desktop polish ---------------------------------------------------
+if want M5; then
+  U5="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"; RT5="/run/user/$U5"
+  WD5="$(basename "$(ls "$RT5"/wayland-* 2>/dev/null | grep -v '\.lock' | head -1)" 2>/dev/null)"; WD5="${WD5:-wayland-1}"
+  desk() { su "$DESKUSER" -c "XDG_RUNTIME_DIR=$RT5 WAYLAND_DISPLAY=$WD5 $1" 2>/dev/null; }
+  SOCK5="$(ls "$RT5"/sway-ipc.*.sock 2>/dev/null | head -1)"
+  # all polish tools present
+  miss=""; for b in swaybar swaybg mako fuzzel wl-copy slurp swayidle grim; do command -v "$b" >/dev/null 2>&1 || miss="$miss $b"; done
+  [ -z "$miss" ] && pass polish_tools_present || fail polish_tools_present "missing:$miss"
+  # swaybar: sway should have loaded the bar from its config (the bar block in
+  # /etc/sway/config), which proves swaybar is wired up.
+  if [ -n "$SOCK5" ] && su "$DESKUSER" -c "SWAYSOCK=$SOCK5 swaymsg -t get_bar_config" 2>/dev/null | grep -q 'bar-'; then
+    pass swaybar_configured
+  else
+    fail swaybar_configured
+    info "bars=$(su "$DESKUSER" -c "SWAYSOCK=$SOCK5 swaymsg -t get_bar_config" 2>/dev/null | cut -c1-60)"
+  fi
+  # mako: a notification daemon should own org.freedesktop.Notifications on the
+  # user session bus (mako is autostarted from the sway config via `exec mako`).
+  if wait_for 25 sh -c "su $DESKUSER -c 'XDG_RUNTIME_DIR=$RT5 busctl --user list' 2>/dev/null | grep -q org.freedesktop.Notifications"; then
+    pass mako_running
+  else
+    fail mako_running
+    info "notif_owner=$(desk 'busctl --user list' 2>/dev/null | grep -i notif | cut -c1-50)"
+  fi
+  # clipboard round-trip via wl-copy / wl-paste
+  if desk "sh -c 'printf swaytest-clip | wl-copy'" && [ "$(desk 'wl-paste -n')" = "swaytest-clip" ]; then
+    pass clipboard
+  else
+    fail clipboard
+  fi
+  # fuzzel launches (dmenu mode, fed empty input, exits cleanly)
+  if desk "sh -c 'printf \"\" | fuzzel --dmenu --no-run-if-empty; true'" >/dev/null 2>&1; then pass fuzzel_runs; else fail fuzzel_runs; fi
+fi
+
 # ----- M4: BlueZ bluetooth --------------------------------------------------
 if want M4; then
   # Fabricate a virtual HCI controller: hci_vhci + btvirt (from BlueZ)
