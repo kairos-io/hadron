@@ -1,0 +1,17 @@
+# Test instrumentation overlay.
+#
+# Layered on top of the Kairos-wrapped sway-desktop image by test/run.sh. It
+# injects the in-guest assertion script and a oneshot systemd service that runs
+# it on boot. This is kept separate from the production Dockerfile so the
+# shipped image stays clean.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG MILESTONE=M0
+
+COPY test/guest/check.sh /usr/local/bin/swaytest-check.sh
+COPY test/guest/swaytest.service /etc/systemd/system/swaytest.service
+RUN chmod +x /usr/local/bin/swaytest-check.sh && \
+    echo "${MILESTONE}" > /etc/swaytest-milestone && \
+    mkdir -p /etc/systemd/system/multi-user.target.wants && \
+    ln -sf /etc/systemd/system/swaytest.service \
+        /etc/systemd/system/multi-user.target.wants/swaytest.service

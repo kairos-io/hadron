@@ -1,0 +1,16 @@
+[Unit]
+Description=Sway desktop e2e test harness check
+# Run late, once the system is basically up. The check script does its own
+# polling/timeouts for things that come up asynchronously.
+After=systemd-user-sessions.service getty.target network.target
+Wants=getty.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/swaytest-check.sh
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

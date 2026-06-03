@@ -20,3 +20,6 @@ actionlint
 
 files/hadron-splash/*.o
 files/hadron-splash/hadron
+
+# sway-desktop example test artifacts
+examples/sway-desktop/test/artifacts/
