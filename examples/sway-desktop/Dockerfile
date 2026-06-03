@@ -64,10 +64,12 @@ RUN pip3 install meson ninja setuptools mako pyyaml
 #   built against the same musl ABI (no Alpine cross-mix). Pair with
 #   --build-arg FIRMWARE=true so the i915/amdgpu blobs are present at runtime.
 ARG GPU=vm
+# The toolchain's libLLVM is built without RTTI, so Mesa must disable it too
+# (cpp_rtti=false) when linking LLVM; harmless for the software-only vm build.
 RUN if [ "$GPU" = "full" ]; then \
-      DRV="iris,radeonsi,virgl,softpipe,svga"; LLVMOPT=true; \
+      DRV="iris,radeonsi,virgl,softpipe,svga"; LLVMOPT=true; RTTI=false; \
     else \
-      DRV="virgl,softpipe,svga"; LLVMOPT=false; \
+      DRV="virgl,softpipe,svga"; LLVMOPT=false; RTTI=true; \
     fi; \
     meson setup buildDir ${COMMON_MESON_FLAGS} -Dplatforms=wayland \
     -Dgallium-drivers="$DRV" \
@@ -78,6 +80,7 @@ RUN if [ "$GPU" = "full" ]; then \
     -Degl=enabled \
     -Dvulkan-drivers= \
     -Dllvm="$LLVMOPT" \
+    -Dcpp_rtti="$RTTI" \
     -Dbuild-tests=false
 RUN DESTDIR=/mesa ninja -C buildDir install
 

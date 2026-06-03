@@ -411,6 +411,14 @@ FROM sources-downloader-base AS spirv-llvm-translator-download
 ARG SPIRV_LLVM_TRANSLATOR_VERSION=20.1.3
 RUN wget -q https://github.com/KhronosGroup/SPIRV-LLVM-Translator/archive/refs/tags/v${SPIRV_LLVM_TRANSLATOR_VERSION}.tar.gz -O spirv-llvm-translator.tar.gz
 
+# The translator pins an EXACT SPIRV-Headers commit (spirv-headers-tag.conf);
+# its sources reference newer SPIR-V capabilities (e.g. BFloat16*) than the
+# spirv-tools headers tag, so it gets its own checkout. Bump this commit in
+# lockstep with SPIRV_LLVM_TRANSLATOR_VERSION.
+FROM sources-downloader-base AS spirv-headers-translator-download
+ARG SPIRV_HEADERS_TRANSLATOR_COMMIT=0e710677989b4326ac974fd80c5308191ed80965
+RUN wget -q https://github.com/KhronosGroup/SPIRV-Headers/archive/${SPIRV_HEADERS_TRANSLATOR_COMMIT}.tar.gz -O spirv-headers-translator.tar.gz
+
 FROM sources-downloader-base AS tpm2-tss-download
 ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
@@ -572,6 +580,7 @@ COPY --from=llvm-download /sources/downloads/llvm.tar.xz /sources/downloads/
 COPY --from=spirv-headers-download /sources/downloads/spirv-headers.tar.gz /sources/downloads/
 COPY --from=spirv-tools-download /sources/downloads/spirv-tools.tar.gz /sources/downloads/
 COPY --from=spirv-llvm-translator-download /sources/downloads/spirv-llvm-translator.tar.gz /sources/downloads/
+COPY --from=spirv-headers-translator-download /sources/downloads/spirv-headers-translator.tar.gz /sources/downloads/
 COPY --from=tpm2-tss-download /sources/downloads/tpm2-tss.tar.gz /sources/downloads/
 COPY --from=libxml2-download /sources/downloads/libxml2.tar.xz /sources/downloads/
 COPY --from=gzip-download /sources/downloads/gzip.tar.xz /sources/downloads/
@@ -2385,14 +2394,19 @@ RUN rsync -aHAX --keep-dirlinks /llvm/. /
 COPY --from=spirv-tools /spirv-tools /spirv-tools
 RUN rsync -aHAX --keep-dirlinks /spirv-tools/. /
 COPY --from=sources-downloader /sources/downloads/spirv-llvm-translator.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/spirv-headers-translator.tar.gz /sources/
 RUN mkdir -p /spirv-llvm-translator
 WORKDIR /sources
 RUN tar -xf spirv-llvm-translator.tar.gz && mv SPIRV-LLVM-Translator-* spirv-llvm-translator
+# The translator's cmake otherwise git-clones SPIRV-Headers (no git/network in
+# the build); point it at the local source pinned to its required commit.
+RUN tar -xf spirv-headers-translator.tar.gz && mv SPIRV-Headers-* spirv-headers
 WORKDIR /sources/spirv-llvm-translator
 RUN cmake -G Ninja -B build \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
       -DLLVM_DIR=/usr/lib/cmake/llvm \
-      -DBUILD_SHARED_LIBS=OFF
+      -DBUILD_SHARED_LIBS=OFF \
+      -DLLVM_EXTERNAL_SPIRV_HEADERS_SOURCE_DIR=/sources/spirv-headers
 RUN ninja -C build -j${JOBS} && DESTDIR=/spirv-llvm-translator ninja -C build install
 
 # pax-utils provives scanelf which lddconfig needs
