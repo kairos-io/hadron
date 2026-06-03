@@ -57,16 +57,27 @@ WORKDIR /build
 RUN curl -L https://archive.mesa3d.org/mesa-${MESA_VERSION}.tar.xz -o mesa.tar.xz && tar -xf mesa.tar.xz && rm mesa.tar.xz && mv mesa-* mesa-src
 WORKDIR /build/mesa-src
 RUN pip3 install meson ninja setuptools mako pyyaml
-RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dplatforms=wayland \
-    -Dgallium-drivers=virgl,softpipe,svga \
-    -Dglx=dri \
+# GPU=vm (default): software/virtual GL only (virgl/softpipe/svga), no LLVM —
+#   works headless in QEMU and needs nothing extra from the toolchain.
+# GPU=full: real hardware GL — iris (Intel) + radeonsi (AMD). These need LLVM
+#   (+ clang/libclc/SPIRV for iris's CLC), which the Hadron toolchain now ships
+#   built against the same musl ABI (no Alpine cross-mix). Pair with
+#   --build-arg FIRMWARE=true so the i915/amdgpu blobs are present at runtime.
+ARG GPU=vm
+RUN if [ "$GPU" = "full" ]; then \
+      DRV="iris,radeonsi,virgl,softpipe,svga"; LLVMOPT=true; \
+    else \
+      DRV="virgl,softpipe,svga"; LLVMOPT=false; \
+    fi; \
+    meson setup buildDir ${COMMON_MESON_FLAGS} -Dplatforms=wayland \
+    -Dgallium-drivers="$DRV" \
+    -Dglx=disabled \
     -Dopengl=true \
     -Dgles1=enabled \
     -Dgles2=enabled \
     -Degl=enabled \
     -Dvulkan-drivers= \
-    -Dllvm=false \
-    -Dglx=disabled \
+    -Dllvm="$LLVMOPT" \
     -Dbuild-tests=false
 RUN DESTDIR=/mesa ninja -C buildDir install
 

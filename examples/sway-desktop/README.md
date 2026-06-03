@@ -105,6 +105,26 @@ This bundles a curated `linux-firmware` subset (iwlwifi, ath, rtw, brcm, intel
 bluetooth, i915, amdgpu, …) into `/lib/firmware`. Wifi/BT/audio on real hardware
 is validated by booting on a physical machine.
 
+### Hardware GPU (accelerated GL)
+
+The default Mesa build (`GPU=vm`) ships only software/virtual drivers
+(virgl/softpipe/svga) — correct for QEMU and needs nothing from LLVM. For
+accelerated GL on real Intel/AMD laptops, build with `GPU=full`:
+
+```sh
+docker build --build-arg GPU=full --build-arg FIRMWARE=true \
+  -t sway-desktop:hw examples/sway-desktop
+```
+
+`GPU=full` builds Mesa `iris` (Intel) + `radeonsi` (AMD), which require LLVM.
+That LLVM/clang/libclc + SPIRV stack now ships in `hadron-toolchain` itself
+(built against the same musl ABI — no Alpine cross-mix), so the example just
+flips `-Dllvm=true`. **This requires a `hadron-toolchain` image that includes
+the LLVM stack** (see `docs/superpowers/specs/2026-06-03-toolchain-llvm-for-mesa.md`);
+until that toolchain is rebuilt/published, `GPU=full` will fail at the Mesa
+stage. Actual GPU *rendering* is validated on physical hardware — QEMU has no
+real GPU, so CI only confirms the drivers build/load.
+
 ## Layout
 
 ```
