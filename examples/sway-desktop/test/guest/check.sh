@@ -86,6 +86,37 @@ if want M0; then
   fi
 fi
 
+# ----- M4: BlueZ bluetooth --------------------------------------------------
+if want M4; then
+  # Fabricate a virtual HCI controller: hci_vhci + btvirt (from BlueZ)
+  modprobe hci_vhci 2>/dev/null
+  if [ -e /dev/vhci ]; then pass vhci_dev; else fail vhci_dev; fi
+  ( btvirt -l -L >/tmp/btvirt.log 2>&1 & ) 2>/dev/null
+  sleep 3
+  # bluetoothd / bluetoothctl should see the controller (this also dbus-activates
+  # bluetoothd if it is not running yet)
+  if wait_for 25 sh -c "bluetoothctl list 2>/dev/null | grep -qi Controller || ls /sys/class/bluetooth/hci0 >/dev/null 2>&1"; then
+    pass bt_adapter
+    info "adapter=$(bluetoothctl list 2>/dev/null | head -1 | cut -c1-60) hci=$(ls /sys/class/bluetooth 2>/dev/null | tr '\n' ' ')"
+  else
+    fail bt_adapter
+    info "hci=$(ls /sys/class/bluetooth 2>/dev/null | tr '\n' ' ') btvirt=$(tail -2 /tmp/btvirt.log 2>/dev/null | tr '\n' ';')"
+  fi
+  # bluetoothd should now be active (bluetooth.service is D-Bus activated)
+  if wait_for 25 sh -c "systemctl is-active bluetooth >/dev/null 2>&1"; then
+    pass bluetoothd_active
+  else
+    fail bluetoothd_active
+    journalctl -b -u bluetooth --no-pager 2>/dev/null | tail -6 | while read -r l; do info "diag bt: $l"; done
+  fi
+  # PipeWire's bluez5 SPA plugin should be installed (Bluetooth audio support)
+  if ls /usr/lib/spa-0.2/bluez5/libspa-bluez5.so >/dev/null 2>&1 || find /usr/lib -name 'libspa-bluez5*' 2>/dev/null | grep -q .; then
+    pass pipewire_bluez5
+  else
+    fail pipewire_bluez5
+  fi
+fi
+
 # ----- M3: PipeWire audio ---------------------------------------------------
 if want M3; then
   U3="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"; RT3="/run/user/$U3"

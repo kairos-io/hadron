@@ -634,11 +634,48 @@ RUN curl -L https://www.alsa-project.org/files/pub/lib/alsa-ucm-conf-${ALSA_UCM_
 RUN mkdir -p /alsa-ucm-conf/usr/share/alsa && cp -a ucm-src/ucm2 /alsa-ucm-conf/usr/share/alsa/
 
 
+# sbc — Bluetooth A2DP audio codec (used by PipeWire's bluez5 plugin)
+FROM toolchain AS sbc
+ARG SBC_VERSION=2.0
+RUN mkdir -p /sbc
+WORKDIR /build
+RUN curl -L https://www.kernel.org/pub/linux/bluetooth/sbc-${SBC_VERSION}.tar.xz -o sbc.tar.xz && tar -xf sbc.tar.xz && rm sbc.tar.xz && mv sbc-* sbc-src
+WORKDIR /build/sbc-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-tester
+RUN make -j$(nproc) && make install DESTDIR=/sbc
+
+
+# BlueZ — bluetoothd, bluetoothctl, btvirt (virtual HCI for the test)
+FROM toolchain AS bluez
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=ncurses /ncurses /
+RUN sed -i 's/-lreadline/-lreadline -lncurses/' /usr/lib/pkgconfig/readline.pc /usr/lib64/pkgconfig/readline.pc 2>/dev/null || true
+ARG BLUEZ_VERSION=5.79
+RUN mkdir -p /bluez
+WORKDIR /build
+RUN curl -L https://www.kernel.org/pub/linux/bluetooth/bluez-${BLUEZ_VERSION}.tar.xz -o bluez.tar.xz && tar -xf bluez.tar.xz && rm bluez.tar.xz && mv bluez-* bluez-src
+WORKDIR /build/bluez-src
+# MAX_INPUT is gated behind _GNU_SOURCE in musl's <limits.h>; define it directly.
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking \
+    --enable-client --enable-tools --enable-deprecated --enable-library \
+    --enable-systemd --enable-udev --disable-obex --disable-mesh --disable-cups \
+    --disable-manpages --enable-testing --disable-nfc --disable-sap --disable-midi \
+    --with-dbusconfdir=/usr/share --with-systemdsystemunitdir=/usr/lib/systemd/system \
+    --with-systemduserunitdir=/usr/lib/systemd/user \
+    CFLAGS="-O2 -g -DMAX_INPUT=255" LIBS="-lncurses"
+RUN make -j$(nproc) && make install DESTDIR=/bluez
+# btvirt is a tool not installed by default; place it on PATH for the test
+RUN cp -f tools/btvirt /bluez/usr/bin/ 2>/dev/null || cp -f emulator/btvirt /bluez/usr/bin/ 2>/dev/null || true
+
+
 # PipeWire
 FROM toolchain AS pipewire
 COPY --from=alsa-lib /alsa-lib /
 COPY --from=glib2 /glib2 /
 COPY --from=pcre2 /pcre2 /
+COPY --from=sbc /sbc /
+COPY --from=bluez /bluez /
 ARG PIPEWIRE_VERSION=1.2.7
 RUN mkdir -p /pipewire
 WORKDIR /build
@@ -648,7 +685,7 @@ RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} \
     -Dalsa=enabled -Dpipewire-alsa=enabled \
     -Ddbus=enabled -Dsystemd=enabled -Dsystemd-user-service=enabled \
-    -Dbluez5=disabled -Djack=disabled -Dvulkan=disabled -Dv4l2=disabled \
+    -Dbluez5=enabled -Djack=disabled -Dvulkan=disabled -Dv4l2=disabled \
     -Dlibcamera=disabled -Dexamples=disabled -Dtests=disabled -Dman=disabled \
     -Dgstreamer=disabled -Dsndfile=disabled -Dreadline=disabled -Draop=disabled \
     -Dlibpulse=disabled -Davahi=disabled -Dx11=disabled -Dlegacy-rtkit=true \
@@ -718,6 +755,9 @@ COPY --from=alsa-lib /alsa-lib /
 COPY --from=alsa-ucm-conf /alsa-ucm-conf /
 COPY --from=pipewire /pipewire /
 COPY --from=wireplumber /wireplumber /
+# M4: bluetooth
+COPY --from=sbc /sbc /
+COPY --from=bluez /bluez /
 
 
 FROM ${BASE_IMAGE} AS default
@@ -752,4 +792,8 @@ RUN ldconfig 2>/dev/null || true; \
     systemctl enable NetworkManager.service 2>/dev/null || true; \
     systemctl enable wpa_supplicant.service 2>/dev/null || true; \
     # M3: PipeWire + WirePlumber as per-user services
-    systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true
+    systemctl --global enable pipewire.socket pipewire-pulse.socket wireplumber.service 2>/dev/null || true; \
+    # M4: Bluetooth daemon
+    systemctl enable bluetooth.service 2>/dev/null || true; \
+    groupadd -f bluetooth; usermod -aG bluetooth sway 2>/dev/null || true; \
+    install -d -o sway -g sway /home/sway/.local/state 2>/dev/null || true
