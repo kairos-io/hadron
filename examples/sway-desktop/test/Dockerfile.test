@@ -15,3 +15,31 @@ RUN chmod +x /usr/local/bin/swaytest-check.sh && \
     mkdir -p /etc/systemd/system/multi-user.target.wants && \
     ln -sf /etc/systemd/system/swaytest.service \
         /etc/systemd/system/multi-user.target.wants/swaytest.service
+# Headless QEMU: virtio-gpu gets 0 scanouts with -display none (DRM backend
+# unusable), and there is no active VT so the production getty@tty1 autologin
+# never starts. So the test launches Sway via a dedicated service using the
+# wlroots headless backend + pixman software renderer (the canonical way sway
+# is tested in CI). Real getty/DRM/KMS rendering is validated on hardware (M6).
+#
+# env.testsvc is consumed by sway-headless.service (systemd EnvironmentFile, so
+# plain KEY=val, no `export`).
+COPY test/guest/sway-headless.service /etc/systemd/system/sway-headless.service
+RUN mkdir -p /etc/sway-desktop && \
+    printf '%s\n' \
+      'WLR_BACKENDS=headless' \
+      'WLR_RENDERER=pixman' \
+      'WLR_LIBINPUT_NO_DEVICES=1' \
+      'WLR_NO_HARDWARE_CURSORS=1' \
+      'XDG_CURRENT_DESKTOP=sway' \
+      'XDG_SESSION_TYPE=wayland' \
+      > /etc/sway-desktop/env.testsvc && \
+    ln -sf /etc/systemd/system/sway-headless.service \
+        /etc/systemd/system/multi-user.target.wants/sway-headless.service && \
+    mkdir -p /etc/systemd/system/getty@tty1.service.d && \
+    printf '%s\n' \
+      '# In the test image, Sway is launched by sway-headless.service, not by' \
+      '# tty1 autologin. Neutralise the autologin to avoid a double launch.' \
+      '[Service]' \
+      'ExecStart=' \
+      'ExecStart=-/sbin/agetty --noclear %I $TERM' \
+      > /etc/systemd/system/getty@tty1.service.d/zzzz-test-noautologin.conf

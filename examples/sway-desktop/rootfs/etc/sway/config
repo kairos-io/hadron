@@ -1,0 +1,26 @@
+# Minimal Sway config for the Hadron sway-desktop example.
+# Expanded with bar/launcher/notifications in later milestones (M5).
+
+set $mod Mod4
+
+# Solid background colour (gdk-pixbuf is disabled, so no image wallpapers yet).
+output * bg #1a1b26 solid_color
+
+# Terminal
+set $term foot
+bindsym $mod+Return exec $term
+
+# Window management basics
+floating_modifier $mod normal
+bindsym $mod+Shift+q kill
+bindsym $mod+Shift+e exec swaymsg exit
+bindsym $mod+Shift+c reload
+
+# Focus / move (vim-style + arrows)
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Launch a terminal on startup so there's always something on screen.
+exec $term

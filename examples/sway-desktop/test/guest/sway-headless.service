@@ -1,0 +1,21 @@
+[Unit]
+# Test-only launcher: brings Sway up under the wlroots headless backend so the
+# compositor can be exercised in headless QEMU (no VT / no DRM scanout, which
+# the production getty@tty1 autologin path requires). PAMName=login makes
+# pam_systemd register a logind session and create XDG_RUNTIME_DIR.
+Description=Sway headless compositor (test harness)
+After=systemd-user-sessions.service systemd-logind.service dbus.service
+Wants=systemd-logind.service dbus.service
+
+[Service]
+Type=simple
+User=sway
+PAMName=login
+EnvironmentFile=/etc/sway-desktop/env.testsvc
+ExecStart=/usr/bin/sway -d
+StandardOutput=append:/tmp/sway.log
+StandardError=append:/tmp/sway.log
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+# Environment sourced before launching Sway (by the sway user's ~/.bash_profile).
+# Production defaults. The test harness drops a second file that forces the
+# software (pixman) renderer, since headless QEMU has no host GL.
+
+export XDG_CURRENT_DESKTOP=sway
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+export _JAVA_AWT_WM_NONREPARENTING=1

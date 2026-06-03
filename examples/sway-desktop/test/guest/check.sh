@@ -88,7 +88,73 @@ fi
 
 # ----- M1: sway display + logind seat ---------------------------------------
 if want M1; then
-  : # implemented in M1
+  UID_SWAY="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"
+  RT="/run/user/$UID_SWAY"
+
+  # logind should have created a graphical session on seat0 for the autologin user
+  if wait_for 60 sh -c "loginctl list-sessions 2>/dev/null | grep -q $DESKUSER"; then
+    pass logind_session
+    info "session=$(loginctl list-sessions --no-legend 2>/dev/null | tr -s ' ' | head -1)"
+  else
+    fail logind_session
+  fi
+
+  # sway IPC socket appears once the compositor is up
+  find_sock() { ls "$RT"/sway-ipc.*.sock 2>/dev/null | head -1; }
+  if ! wait_for 30 sh -c "ls $RT/sway-ipc.*.sock >/dev/null 2>&1"; then
+    # diagnostics: why didn't sway come up?
+    info "diag getty@tty1=$(systemctl is-active getty@tty1.service 2>/dev/null)"
+    info "diag sessions=[$(loginctl list-sessions --no-legend 2>/dev/null | tr '\n' ';')]"
+    info "diag run_user=[$(ls /run/user 2>/dev/null | tr '\n' ' ')]"
+    info "diag sway_proc=[$(pgrep -a sway 2>/dev/null | head -1)]"
+    info "diag tty1_exec=$(systemctl show -p ExecStart getty@tty1.service 2>/dev/null | grep -o 'autologin [a-z]*' | head -1)"
+    journalctl -b -u getty@tty1.service --no-pager 2>/dev/null | tail -6 | while read -r l; do info "diag j: $l"; done
+    [ -f /tmp/sway.log ] && tail -12 /tmp/sway.log | while read -r l; do info "diag sway: $l"; done || info "diag sway: no /tmp/sway.log"
+  fi
+  if wait_for 90 sh -c "ls $RT/sway-ipc.*.sock >/dev/null 2>&1"; then
+    SOCK="$(find_sock)"
+    pass sway_ipc_socket
+    info "swaysock=$SOCK"
+    # query sway over IPC (as the desktop user)
+    if su "$DESKUSER" -c "SWAYSOCK=$SOCK swaymsg -t get_version" >/tmp/swayver 2>/dev/null; then
+      pass sway_running
+      info "sway=$(tr -d '\n' </tmp/swayver | cut -c1-80)"
+    else
+      fail sway_running
+    fi
+    # at least one active output
+    if su "$DESKUSER" -c "SWAYSOCK=$SOCK swaymsg -t get_outputs" 2>/dev/null | grep -q '"active": true'; then
+      pass sway_output
+    else
+      fail sway_output
+    fi
+    # foot terminal: verify it launches under sway, connects to the compositor,
+    # and runs a command. (A persistent autostarted foot exits on stdin EOF in a
+    # headless/no-input VM, so we drive it explicitly instead of pgrep.)
+    WD="$(basename "$(ls "$RT"/wayland-* 2>/dev/null | grep -v '\.lock' | head -1)" 2>/dev/null)"
+    WD="${WD:-wayland-1}"
+    if timeout 15 su "$DESKUSER" -c "XDG_RUNTIME_DIR=$RT WAYLAND_DISPLAY=$WD foot -e /bin/true" >/tmp/footerr 2>&1; then
+      pass foot_launch
+    else
+      fail foot_launch
+      tail -5 /tmp/footerr 2>/dev/null | while read -r l; do info "diag foot: $l"; done
+    fi
+  else
+    fail sway_ipc_socket
+  fi
+
+  # screenshot proof: grim must succeed and produce a real PNG; ship it to host
+  WD="$(basename "$(ls "$RT"/wayland-* 2>/dev/null | grep -v '\.lock' | head -1)" 2>/dev/null)"
+  WD="${WD:-wayland-1}"
+  mkdir -p "$SHOT_DIR" && chmod 0777 "$SHOT_DIR"
+  if su "$DESKUSER" -c "XDG_RUNTIME_DIR=$RT WAYLAND_DISPLAY=$WD grim $SHOT_DIR/m1-sway.png" 2>/tmp/grimerr; then
+    sz=$(stat -c%s "$SHOT_DIR/m1-sway.png" 2>/dev/null || echo 0)
+    info "screenshot_bytes=$sz"
+    if [ "$sz" -gt 500 ] && head -c8 "$SHOT_DIR/m1-sway.png" | grep -q PNG; then pass screenshot; else fail screenshot "small_or_not_png:$sz"; fi
+    dev="$(scratch_dev)" && ( cd "$SHOT_DIR" && tar -cf - m1-sway.png ) | dd of="$dev" bs=1M conv=notrunc 2>/dev/null
+  else
+    fail screenshot "grim:$(tr -d '\n' </tmp/grimerr | cut -c1-80)"
+  fi
 fi
 
 say "DONE"
