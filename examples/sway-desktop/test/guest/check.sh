@@ -86,6 +86,75 @@ if want M0; then
   fi
 fi
 
+# ----- M2: NetworkManager + wifi --------------------------------------------
+if want M2; then
+  if wait_for 60 sh -c "systemctl is-active NetworkManager >/dev/null 2>&1"; then
+    pass nm_active
+  else
+    fail nm_active
+    journalctl -b -u NetworkManager --no-pager 2>/dev/null | tail -8 | while read -r l; do info "diag nm: $l"; done
+  fi
+
+  # Wired: NM should manage the virtio NIC and get a DHCP lease from QEMU usernet
+  WIRED="$(ls /sys/class/net 2>/dev/null | grep -E '^(en|eth)' | head -1)"
+  info "wired_dev=$WIRED"
+  if wait_for 45 sh -c "ip -4 addr show $WIRED 2>/dev/null | grep -q 'inet '"; then
+    pass wired_ip
+    info "wired_ip=$(ip -4 -o addr show "$WIRED" 2>/dev/null | awk '{print $4}')"
+  else
+    fail wired_ip
+    info "nmcli=$(nmcli -t -f DEVICE,STATE,CONNECTION dev 2>/dev/null | tr '\n' ';')"
+  fi
+  # DHCP/gateway reachability (QEMU usernet gateway is 10.0.2.2)
+  if ping -c1 -W3 10.0.2.2 >/dev/null 2>&1; then pass wired_ping; else fail wired_ping; fi
+
+  # Wifi: fabricate virtual radios, run an AP on one, let NM scan/associate on the other
+  modprobe mac80211_hwsim radios=2 2>/dev/null
+  if wait_for 20 sh -c "ls /sys/class/net | grep -q '^wlan'"; then
+    pass wifi_radios
+    info "wlan=$(ls /sys/class/net | grep '^wlan' | tr '\n' ' ')"
+    # wlan0 = AP (hostapd; marked unmanaged in NM via the test conf.d snippet),
+    # wlan1 = client (NetworkManager + wpa_supplicant).
+    ip link set wlan0 up 2>/dev/null; sleep 1
+    printf '%s\n' 'interface=wlan0' 'driver=nl80211' 'ssid=swaytest' 'hw_mode=g' 'channel=1' \
+      'ieee80211n=1' 'wmm_enabled=1' 'ctrl_interface=/var/run/hostapd' > /tmp/hostapd.conf
+    hostapd -B -t /tmp/hostapd.conf >/tmp/hostapd.log 2>&1
+    if wait_for 15 sh -c "grep -q AP-ENABLED /tmp/hostapd.log"; then
+      pass wifi_ap
+    else
+      fail wifi_ap; tail -6 /tmp/hostapd.log 2>/dev/null | while read -r l; do info "diag hostapd: $l"; done
+    fi
+    # NM device should appear as wifi
+    if wait_for 20 sh -c "nmcli -t -f DEVICE,TYPE dev 2>/dev/null | grep -q ':wifi'"; then pass wifi_device; else fail wifi_device; fi
+    # Scan: NM (via wpa_supplicant on wlan1) should see the AP beacon
+    nmcli device wifi rescan ifname wlan1 2>/dev/null
+    if wait_for 40 sh -c "nmcli device wifi rescan ifname wlan1 2>/dev/null; nmcli -t -f SSID dev wifi list ifname wlan1 2>/dev/null | grep -qx swaytest"; then
+      pass wifi_scan
+    else
+      fail wifi_scan
+      info "wifi_list=$(nmcli -t -f SSID dev wifi list 2>/dev/null | tr '\n' ',')"
+      info "wpa_active=$(systemctl is-active wpa_supplicant 2>/dev/null) ap=$(grep -c AP-ENABLED /tmp/hostapd.log)"
+      info "wlan1_state=$(nmcli -t -f DEVICE,STATE dev 2>/dev/null | grep '^wlan1:' | cut -d: -f2)"
+    fi
+    # Association: NM connects wlan1 to the open AP. Use link-local addressing so
+    # the (DHCP-less) open network still reaches a "connected" state instead of
+    # being torn down. Proof of L2 association: the AP lists wlan1 as a station.
+    nmcli con delete swaytest-test 2>/dev/null
+    nmcli con add type wifi con-name swaytest-test ifname wlan1 ssid swaytest \
+      ipv4.method link-local ipv6.method ignore 2>/dev/null
+    nmcli con up swaytest-test ifname wlan1 2>/tmp/wific.log
+    if wait_for 25 sh -c "nmcli -t -f DEVICE,STATE dev 2>/dev/null | grep -q '^wlan1:connected' || hostapd_cli -p /var/run/hostapd -i wlan0 list_sta 2>/dev/null | grep -q ."; then
+      pass wifi_associate
+      info "wifi_sta=$(hostapd_cli -p /var/run/hostapd -i wlan0 list_sta 2>/dev/null | head -1) wlan1=$(nmcli -t -f DEVICE,STATE dev 2>/dev/null | grep '^wlan1:' | cut -d: -f2)"
+    else
+      fail wifi_associate
+      info "wifi_wlan1_state=$(nmcli -t -f DEVICE,STATE dev 2>/dev/null | grep '^wlan1:' | cut -d: -f2) conn_err=$(tr -d '\n' </tmp/wific.log | cut -c1-90)"
+    fi
+  else
+    fail wifi_radios
+  fi
+fi
+
 # ----- M1: sway display + logind seat ---------------------------------------
 if want M1; then
   UID_SWAY="$(id -u "$DESKUSER" 2>/dev/null || echo 1000)"

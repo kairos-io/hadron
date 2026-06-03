@@ -438,6 +438,179 @@ RUN DESTDIR=/grim ninja -C buildDir install
 
 
 # ===========================================================================
+# M2: networking — NetworkManager + wpa_supplicant + wifi
+# ===========================================================================
+
+# libnl — netlink library, needed by wpa_supplicant/hostapd (nl80211)
+FROM toolchain AS libnl
+ARG LIBNL_VERSION=3.11.0
+RUN mkdir -p /libnl
+WORKDIR /build
+RUN curl -L https://github.com/thom311/libnl/releases/download/libnl3_11_0/libnl-${LIBNL_VERSION}.tar.gz -o libnl.tar.gz && tar -xzf libnl.tar.gz && rm libnl.tar.gz && mv libnl-* libnl-src
+WORKDIR /build/libnl-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
+RUN make -j$(nproc) && make install DESTDIR=/libnl
+
+
+# wpa_supplicant — wifi backend for NetworkManager (D-Bus control interface)
+FROM toolchain AS wpa-supplicant
+COPY --from=libnl /libnl /
+ARG WPA_VERSION=2.11
+RUN mkdir -p /wpa
+WORKDIR /build
+RUN curl -L https://w1.fi/releases/wpa_supplicant-${WPA_VERSION}.tar.gz -o wpa.tar.gz && tar -xzf wpa.tar.gz && rm wpa.tar.gz && mv wpa_supplicant-* wpa-src
+WORKDIR /build/wpa-src/wpa_supplicant
+RUN printf '%s\n' \
+    'CONFIG_DRIVER_NL80211=y' \
+    'CONFIG_LIBNL32=y' \
+    'CONFIG_CTRL_IFACE=y' \
+    'CONFIG_CTRL_IFACE_DBUS_NEW=y' \
+    'CONFIG_CTRL_IFACE_DBUS_INTRO=y' \
+    'CONFIG_BACKEND=file' \
+    'CONFIG_TLS=openssl' \
+    'CONFIG_IEEE80211W=y' \
+    'CONFIG_IEEE80211AC=y' \
+    'CONFIG_AP=y' \
+    'CONFIG_WPS=y' \
+    'CONFIG_EAP=y' \
+    'CONFIG_PKCS12=y' \
+    'CONFIG_DEBUG_FILE=y' \
+    > .config
+# Toolchain OpenSSL is built with OPENSSL_NO_MD4; drop the (unused for WPA2-PSK)
+# EVP_md4 reference so the crypto backend compiles and links.
+RUN sed -i 's/EVP_md4()/NULL/g' ../src/crypto/crypto_openssl.c
+# Install to /usr/bin (the base image is usrmerged: /usr/sbin -> /usr/bin).
+RUN make -j$(nproc) BINDIR=/usr/bin
+RUN make install DESTDIR=/wpa BINDIR=/usr/bin
+# D-Bus + systemd service files so NetworkManager can use wpa_supplicant.
+# Written explicitly (the upstream .in templates use @BINDIR@ placeholders).
+RUN mkdir -p /wpa/usr/share/dbus-1/system-services /wpa/usr/share/dbus-1/system.d /wpa/usr/lib/systemd/system && \
+    cp dbus/dbus-wpa_supplicant.conf /wpa/usr/share/dbus-1/system.d/wpa_supplicant.conf && \
+    printf '%s\n' \
+      '[D-BUS Service]' \
+      'Name=fi.w1.wpa_supplicant1' \
+      'Exec=/usr/bin/wpa_supplicant -u -O /run/wpa_supplicant' \
+      'User=root' \
+      'SystemdService=wpa_supplicant.service' \
+      > /wpa/usr/share/dbus-1/system-services/fi.w1.wpa_supplicant1.service && \
+    printf '%s\n' \
+      '[Unit]' \
+      'Description=WPA supplicant' \
+      'Before=network.target' \
+      'After=dbus.service' \
+      'Wants=network.target' \
+      '[Service]' \
+      'Type=dbus' \
+      'BusName=fi.w1.wpa_supplicant1' \
+      'ExecStart=/usr/bin/wpa_supplicant -u -O /run/wpa_supplicant' \
+      'ExecReload=/bin/kill -HUP $MAINPID' \
+      '[Install]' \
+      'WantedBy=multi-user.target' \
+      'Alias=dbus-fi.w1.wpa_supplicant1.service' \
+      > /wpa/usr/lib/systemd/system/wpa_supplicant.service
+
+
+# hostapd — test-only AP for exercising wifi association against mac80211_hwsim
+FROM toolchain AS hostapd
+COPY --from=libnl /libnl /
+ARG HOSTAPD_VERSION=2.11
+RUN mkdir -p /hostapd
+WORKDIR /build
+RUN curl -L https://w1.fi/releases/hostapd-${HOSTAPD_VERSION}.tar.gz -o hostapd.tar.gz && tar -xzf hostapd.tar.gz && rm hostapd.tar.gz && mv hostapd-* hostapd-src
+WORKDIR /build/hostapd-src/hostapd
+RUN printf '%s\n' \
+    'CONFIG_DRIVER_NL80211=y' \
+    'CONFIG_LIBNL32=y' \
+    'CONFIG_IEEE80211N=y' \
+    'CONFIG_IEEE80211AC=y' \
+    > .config
+RUN sed -i 's/EVP_md4()/NULL/g' ../src/crypto/crypto_openssl.c
+RUN make -j$(nproc) BINDIR=/usr/bin
+RUN make install DESTDIR=/hostapd BINDIR=/usr/bin
+
+
+# libndp — IPv6 router/neighbour discovery, required by NetworkManager
+FROM toolchain AS libndp
+ARG LIBNDP_VERSION=1.9
+RUN mkdir -p /libndp
+WORKDIR /build
+RUN curl -L https://github.com/jpirko/libndp/archive/refs/tags/v${LIBNDP_VERSION}.tar.gz -o libndp.tar.gz && tar -xzf libndp.tar.gz && rm libndp.tar.gz && mv libndp-* libndp-src
+WORKDIR /build/libndp-src
+RUN ./autogen.sh 2>/dev/null || true
+# libndp 1.9 has musl pointer-type mismatches that GCC 14+ treats as errors.
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking \
+    CFLAGS="-O2 -g -Wno-error=incompatible-pointer-types -Wno-error=int-conversion"
+RUN make -j$(nproc) && make install DESTDIR=/libndp
+
+
+# wireless-regdb — regulatory database (loaded by cfg80211 from /lib/firmware)
+FROM toolchain AS wireless-regdb
+ARG WIRELESS_REGDB_VERSION=2024.10.07
+# Use /usr/lib (the base image is usrmerged; /lib -> usr/lib). Installing to a
+# top-level /lib would create a real dir that conflicts with the /lib symlink.
+RUN mkdir -p /wireless-regdb/usr/lib/firmware
+WORKDIR /build
+RUN curl -L https://www.kernel.org/pub/software/network/wireless-regdb/wireless-regdb-${WIRELESS_REGDB_VERSION}.tar.xz -o regdb.tar.xz && tar -xf regdb.tar.xz && rm regdb.tar.xz && mv wireless-regdb-* regdb-src
+RUN cp regdb-src/regulatory.db regdb-src/regulatory.db.p7s /wireless-regdb/usr/lib/firmware/
+
+
+# ncurses — provides the termcap library (libtinfo) that the toolchain's
+# libreadline needs; without it nmcli fails to link (undefined tgetent, tputs…).
+FROM toolchain AS ncurses
+ARG NCURSES_VERSION=6.5
+RUN mkdir -p /ncurses
+WORKDIR /build
+RUN curl -L https://ftp.gnu.org/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz -o ncurses.tar.gz && tar -xzf ncurses.tar.gz && rm ncurses.tar.gz && mv ncurses-* ncurses-src
+WORKDIR /build/ncurses-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-shared --enable-termcap --disable-widec \
+    --without-debug --without-ada --without-cxx --without-cxx-binding \
+    --without-tests --disable-stripping --without-manpages
+# install.libs installs just the libraries/headers (libncurses); the full
+# `install` cross-runs `tic` to build the terminfo DB, which fails here and is
+# not needed (we only want the termcap symbols for readline).
+RUN make -j$(nproc) libs && make install.libs install.includes DESTDIR=/ncurses
+
+
+# libxslt — provides xsltproc, a build-time requirement of NetworkManager
+FROM toolchain AS libxslt
+ARG LIBXSLT_VERSION=1.1.42
+RUN mkdir -p /libxslt
+WORKDIR /build
+RUN curl -L https://download.gnome.org/sources/libxslt/1.1/libxslt-${LIBXSLT_VERSION}.tar.xz -o libxslt.tar.xz && tar -xf libxslt.tar.xz && rm libxslt.tar.xz && mv libxslt-* libxslt-src
+WORKDIR /build/libxslt-src
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --without-python
+RUN make -j$(nproc) && make install DESTDIR=/libxslt
+
+
+# NetworkManager
+FROM toolchain AS networkmanager
+COPY --from=glib2 /glib2 /
+COPY --from=pcre2 /pcre2 /
+COPY --from=libndp /libndp /
+COPY --from=libnl /libnl /
+COPY --from=libxslt /libxslt /
+COPY --from=ncurses /ncurses /
+# The toolchain's libreadline needs termcap symbols from libncurses; make the
+# readline pkg-config dependency pull it in so nmcli links cleanly.
+RUN sed -i 's/-lreadline/-lreadline -lncurses/' /usr/lib/pkgconfig/readline.pc /usr/lib64/pkgconfig/readline.pc 2>/dev/null || true
+ARG NM_VERSION=1.50.0
+RUN mkdir -p /networkmanager
+WORKDIR /build
+RUN curl -L https://download.gnome.org/sources/NetworkManager/1.50/NetworkManager-${NM_VERSION}.tar.xz -o nm.tar.xz && tar -xf nm.tar.xz && rm nm.tar.xz && mv NetworkManager-* nm-src
+WORKDIR /build/nm-src
+RUN pip3 install meson ninja
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} --sbindir=bin \
+    -Dpolkit=false -Dwifi=true -Diwd=false -Dwext=false \
+    -Dnmcli=true -Dnmtui=false -Dmodem_manager=false -Dppp=false -Dovs=false \
+    -Dintrospection=false -Ddocs=false -Dtests=no -Dlibpsl=false -Dqt=false \
+    -Dselinux=false -Dvapi=false -Difcfg_rh=false -Dlibaudit=no \
+    -Dsession_tracking=systemd -Dsuspend_resume=systemd -Dsystemd_journal=true \
+    -Dcrypto=null -Dconfig_dns_rc_manager_default=symlink \
+    -Dc_link_args=-lncurses
+RUN DESTDIR=/networkmanager ninja -C buildDir install
+
+
+# ===========================================================================
 # Final assembly
 # ===========================================================================
 
@@ -468,6 +641,14 @@ COPY --from=fcft /fcft /
 COPY --from=foot /foot /
 COPY --from=libpng /libpng /
 COPY --from=grim /grim /
+# M2: networking
+COPY --from=libnl /libnl /
+COPY --from=wpa-supplicant /wpa /
+COPY --from=hostapd /hostapd /
+COPY --from=libndp /libndp /
+COPY --from=networkmanager /networkmanager /
+COPY --from=wireless-regdb /wireless-regdb /
+COPY --from=ncurses /ncurses /
 
 
 FROM ${BASE_IMAGE} AS default
@@ -479,6 +660,7 @@ COPY --from=toolchain /usr/lib/libexpat.so* /usr/lib/
 COPY --from=toolchain /usr/lib/libjson-c.so* /usr/lib/
 COPY --from=toolchain /usr/lib/libstdc++.so.6* /usr/lib/
 COPY --from=toolchain /usr/lib/libgcc_s.so* /usr/lib/
+COPY --from=toolchain /usr/lib/libreadline.so* /usr/lib/
 # Static config / launch layer
 COPY rootfs/ /
 # Desktop user (logind grants device ACLs to the active tty1 session via uaccess)
@@ -493,4 +675,9 @@ RUN ldconfig 2>/dev/null || true; \
       '  exec sway -d >/tmp/sway.log 2>&1' \
       'fi' > /home/sway/.bash_profile && \
     chown sway:sway /home/sway/.bash_profile && \
-    systemctl enable getty@tty1.service 2>/dev/null || true
+    systemctl enable getty@tty1.service 2>/dev/null || true; \
+    # M2: NetworkManager is the network manager. (systemd-networkd is left for
+    # the Kairos init layer to enable; it is disabled at runtime in favour of NM
+    # via the cloud-config drop-in shipped below.)
+    systemctl enable NetworkManager.service 2>/dev/null || true; \
+    systemctl enable wpa_supplicant.service 2>/dev/null || true

@@ -8,6 +8,17 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 ARG MILESTONE=M0
 
+# Make NetworkManager the sole network manager for the test (the Kairos init
+# layer enables systemd-networkd; mask it here, after that layer has run).
+RUN systemctl mask systemd-networkd.service systemd-networkd.socket \
+        systemd-networkd-wait-online.service 2>/dev/null || true
+# The wifi test fabricates two mac80211_hwsim radios: wlan0 runs a hostapd AP,
+# wlan1 is the NetworkManager client. Keep wlan0 out of NM's hands so hostapd
+# can own it.
+RUN mkdir -p /etc/NetworkManager/conf.d && \
+    printf '%s\n' '[keyfile]' 'unmanaged-devices=interface-name:wlan0' \
+      > /etc/NetworkManager/conf.d/99-test-unmanage-wlan0.conf
+
 COPY test/guest/check.sh /usr/local/bin/swaytest-check.sh
 COPY test/guest/swaytest.service /etc/systemd/system/swaytest.service
 RUN chmod +x /usr/local/bin/swaytest-check.sh && \
