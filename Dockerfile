@@ -205,7 +205,7 @@ ARG LIBTOOL_VERSION=2.5.4
 RUN wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz -O libtool.tar.xz
 
 FROM sources-downloader-base AS libelf-download
-ARG LIBELF_VERSION=0.193
+ARG LIBELF_VERSION=0.195
 RUN wget -q https://github.com/arachsys/libelf/archive/refs/tags/v${LIBELF_VERSION}.tar.gz -O libelf.tar.gz
 
 FROM sources-downloader-base AS xz-download
@@ -430,7 +430,7 @@ ARG SHIM_VERSION=16.1
 RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shim-${SHIM_VERSION}.tar.bz2 -O shim.tar.bz2
 
 FROM sources-downloader-base AS libiconv-download
-ARG ICONV_VERSION=1.18
+ARG ICONV_VERSION=1.19
 RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz -O libiconv.tar.gz
 
 FROM sources-downloader-base AS bc-download
