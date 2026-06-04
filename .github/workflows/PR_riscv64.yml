@@ -2,7 +2,8 @@
 name: 'PR build and test images (riscv64)'
 
 on:
-  pull_request:
+  #pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-image-riscv64-${{ github.head_ref || github.ref }}-${{ github.repository }}
