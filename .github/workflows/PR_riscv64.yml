@@ -2,30 +2,26 @@
 name: 'PR build and test images (riscv64)'
 
 on:
-  #pull_request:
+  pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-image-riscv64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
-# Everything runs on oracle-vm-32cpu-128gb-x86-64 with QEMU RISC-V emulation.
-# The Dockerfile has no FROM --platform overrides, so every stage executes riscv64
-# binaries regardless of runner.  QEMU on 32 cores + 128 GB beats native RISC-V on
-# 4 cores + 16 GB: the RAM headroom alone prevents swap during large builds (kernel,
-# systemd, cmake), and 32 parallel QEMU processes match ~4 native cores in throughput.
+# PR-only pipeline to validate the split RISC-V build before enabling it on main/tags.
+# Runs on oracle-vm-32cpu-128gb-x86-64 with QEMU (linux/riscv64); no GHCR releases, no ISO.
 #
-# The build is split into small sequential and parallel jobs so each individual job
-# is time-bounded and its result is written to the quay cache.  Subsequent jobs only
-# compile the delta on top of what is already cached, meaning a timeout or failure
-# only loses one small step rather than the entire multi-hour toolchain build.
-#
-# Dependency graph (→ = "depends on"):
-#
-#   stage0 → stage1 → rsync ─┬→ cmake ───┐
-#                             ├→ kernel ──┤
-#                             ├→ systemd ─┤→ toolchain → container → hadron-grub → …
-#                             └→ python ──┘
+# Dependency graph:
+#   stage0 → stage1 → rsync ─┬→ cmake ────────────────┐
+#                             ├→ kernel (cloud+default) ┤→ toolchain → container
+#                             ├→ systemd ─────────────┤       ↓
+#                             └→ python ────────────────┘  hadron-grub-warm (per kernel)
+#                                                              ↓
+#                                                         hadron-grub (push ttl.sh)
+
+env:
+  CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
 
 jobs:
   check-kernel-configs:
@@ -49,7 +45,6 @@ jobs:
           done
           exit $FAILED
 
-  # ── 1 ─ mussel cross-compiler ────────────────────────────────────────────────
   stage0:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
@@ -64,6 +59,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -80,11 +81,11 @@ jobs:
           target: stage0
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # ── 2 ─ stage1-merge: musl/gcc/binutils/kernel-headers rebuilt for target ───
   stage1:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [stage0]
@@ -100,6 +101,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -117,13 +124,11 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # ── 3 ─ rsync: the chain stage1→xxhash→zstd→lz4→attr→acl→zlib→gawk→rsync ───
-  # rsync is the base FROM image for the majority of packages; caching it here
-  # avoids rebuilding this chain independently in each of the parallel jobs below.
   rsync:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [stage1]
@@ -139,6 +144,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -157,14 +168,10 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
-
-  # ── 4a-4d ─ parallel cache-warming: the four most expensive independent builds
-  # Each job reads all upstream caches and writes only its own delta.
-  # They all run in parallel, so wall-clock time = max(cmake, kernel, systemd, python)
-  # instead of sum.
 
   cmake:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -181,6 +188,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -200,13 +213,18 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
+  # One job per KERNEL_TYPE so hadron-grub (default) can reuse kernel-misc-default-riscv64.
   kernel:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    strategy:
+      matrix:
+        kernel: [cloud, default]
     permissions:
       contents: read
     steps:
@@ -219,11 +237,15 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      # kernel-misc captures kernel-build + kernel-modules in one shot.
-      # KERNEL_TYPE=cloud matches what hadron-grub uses for RISC-V.
       - name: Build kernel + modules (kernel-misc target)
         uses: docker/build-push-action@v7
         env:
@@ -239,11 +261,13 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
-            KERNEL_TYPE=cloud
+            KERNEL_TYPE=${{ matrix.kernel }}
 
   systemd:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -260,6 +284,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -279,6 +309,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -298,10 +329,15 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      # python-build is the base for dbus, pam, kmod, pax-utils, grub-base, and openscsi.
       - name: Build python-build
         uses: docker/build-push-action@v7
         env:
@@ -318,13 +354,11 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # ── 5 ─ assemble the full toolchain ──────────────────────────────────────────
-  # By now all expensive sub-builds are in the cache.  This job only has to run
-  # the remaining packages and the final full-toolchain-merge → scratch copy.
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [cmake, kernel, systemd, python]
@@ -340,6 +374,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -361,10 +401,13 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -384,6 +427,12 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -405,16 +454,21 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,${{ env.CACHE_TO }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
       - name: Test container image
         uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -426,6 +480,8 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
@@ -435,12 +491,13 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  hadron-grub:
+  # Heavy final image: cache-only pass so a retry or push job does not redo hours of work.
+  hadron-grub-warm:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
     strategy:
       matrix:
-        kernel: ["cloud"]
+        kernel: [cloud, default]
     permissions:
       contents: read
     steps:
@@ -453,10 +510,74 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      - name: Build default image
+      - name: Warm grub/default image cache (${{ matrix.kernel }})
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+
+  # Push ephemeral PR image; should be mostly cache hits after hadron-grub-warm.
+  hadron-grub:
+    runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: [hadron-grub-warm]
+    strategy:
+      matrix:
+        kernel: [cloud, default]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Log in to quay.io for cache
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Build and push default image (${{ matrix.kernel }})
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -474,65 +595,16 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             ARCH=riscv64
             BUILD_ARCH=riscv64
-
-  build-kairos-grub:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
-    needs: [hadron-grub]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-      - name: Download Dockerfile from kairos repository
-        run: |
-          mkdir -p build
-          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        env:
-          SOURCE_DATE_EPOCH: 0
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./build/Dockerfile.kairos
-          push: true
-          platforms: linux/riscv64
-          tags: ttl.sh/hadron-init-riscv64:${{ github.sha }}
-          build-args: |
-            BASE_IMAGE=ttl.sh/hadron-riscv64-cloud:${{ github.sha }}
-            VERSION=v0.0.1-${{ github.sha }}
-            KAIROS_INIT_VERSION=v0.12.0
-            TRUSTED_BOOT=false
-
-  # ISO: native riscv64 via https://github.com/apps/rise-risc-v-runners (no QEMU for Auroraboot).
-  build-grub-iso:
-    runs-on: ubuntu-24.04-riscv
-    needs: [build-kairos-grub]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Build ISO
-        run: |
-          mkdir build
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=riscv64 \
-          -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-riscv64-${{ github.sha }} \
-          docker:ttl.sh/hadron-init-riscv64:${{ github.sha }}
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: kairos-hadron-riscv64-${{ github.sha }}.iso.zip
-          path: build/*.iso
