@@ -16,9 +16,11 @@ concurrency:
 #   stage0 → stage1 → rsync ─┬→ cmake ────────────────┐
 #                             ├→ kernel (cloud+default) ┤→ toolchain → container
 #                             ├→ systemd ─────────────┤       ↓
-#                             └→ python ────────────────┘  hadron-grub-warm (per kernel)
+#                             └→ python ────────────────┘  hadron-grub-warm (x86+QEMU, full-image-grub)
 #                                                              ↓
-#                                                         hadron-grub (push ttl.sh)
+#                                                         hadron-grub (native riscv64, default → ttl.sh)
+#
+# full-image-final runs systemctl preset-all; that SIGSEGVs under QEMU. Compile on x86, finalize natively.
 
 env:
   CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
@@ -491,10 +493,11 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # Heavy final image: cache-only pass so a retry or push job does not redo hours of work.
+  # QEMU-safe: build through full-image-grub (stops before systemctl preset-all in full-image-final).
   hadron-grub-warm:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
+    timeout-minutes: 360
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -519,7 +522,7 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      - name: Warm grub/default image cache (${{ matrix.kernel }})
+      - name: Warm full-image-grub cache (${{ matrix.kernel }})
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -529,7 +532,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/riscv64
           labels: ${{ steps.meta.outputs.labels }}
-          target: default
+          target: full-image-grub
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
@@ -541,18 +544,20 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # Push ephemeral PR image; should be mostly cache hits after hadron-grub-warm.
+  # Native riscv64: full-image-final (systemctl) + default scratch image. No QEMU emulator.
   hadron-grub:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: ubuntu-24.04-riscv
     needs: [hadron-grub-warm]
+    timeout-minutes: 120
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -601,6 +606,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
           cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
           build-args: |
