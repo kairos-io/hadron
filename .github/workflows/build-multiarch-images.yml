@@ -326,10 +326,7 @@ jobs:
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
-        fips: [ "no-fips" ]
-        include:
-          - kernel: "cloud"
-            fips: "fips"
+        fips: [ "no-fips", "fips" ]
     permissions:
       packages: write
       contents: read
@@ -393,10 +390,7 @@ jobs:
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
-        fips: [ "no-fips" ]
-        include:
-          - kernel: "cloud"
-            fips: "fips"
+        fips: [ "no-fips", "fips" ]
     permissions:
       packages: write
       contents: read
