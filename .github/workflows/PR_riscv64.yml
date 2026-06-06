@@ -21,9 +21,11 @@ concurrency:
 #                                                         hadron-grub (native riscv64, default → ttl.sh)
 #
 # full-image-final runs systemctl preset-all; that SIGSEGVs under QEMU. Compile on x86, finalize natively.
+# Native RISE runners cannot import mode=max registry cache (manifest blob >1MB); warm exports mode=min.
 
 env:
   CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
+  CACHE_TO_MIN: mode=min,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
 
 jobs:
   check-kernel-configs:
@@ -546,7 +548,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -557,8 +559,9 @@ jobs:
   hadron-grub:
     runs-on: ubuntu-24.04-riscv
     needs: [hadron-grub-warm]
-    timeout-minutes: 120
+    timeout-minutes: 360
     strategy:
+      max-parallel: 1
       matrix:
         kernel: [cloud, default]
     permissions:
@@ -596,19 +599,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=min
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
