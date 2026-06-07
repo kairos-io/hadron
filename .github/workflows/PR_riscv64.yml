@@ -18,10 +18,10 @@ concurrency:
 #                             ├→ systemd ─────────────┤       ↓
 #                             └→ python ────────────────┘  hadron-grub-warm (x86+QEMU, full-image-grub)
 #                                                              ↓
-#                                                         hadron-grub (native riscv64, default → ttl.sh)
+#                                                         hadron-grub (native riscv64, systemctl + default)
 #
-# full-image-final runs systemctl preset-all; that SIGSEGVs under QEMU. Compile on x86, finalize natively.
-# Native RISE runners cannot import mode=max registry cache (manifest blob >1MB); warm exports mode=min.
+# x86+QEMU builds full-image-pre-preset (~30–40 min with cache), pushes OCI to ttl.sh.
+# Native imports that image as build-context and only runs full-image-final onward.
 
 env:
   CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
@@ -495,7 +495,7 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # QEMU-safe: build through full-image-grub (stops before systemctl preset-all in full-image-final).
+  # x86+QEMU through full-image-pre-preset (stops before systemctl). Push OCI for native handoff.
   hadron-grub-warm:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
@@ -524,7 +524,7 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      - name: Warm full-image-grub cache (${{ matrix.kernel }})
+      - name: Build and push pre-preset image (${{ matrix.kernel }})
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -533,8 +533,10 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/riscv64
+          push: true
+          tags: ttl.sh/hadron-pre-preset-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
-          target: full-image-grub
+          target: full-image-pre-preset
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
@@ -555,11 +557,11 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # Native riscv64: full-image-final (systemctl) + default scratch image. No QEMU emulator.
+  # Native riscv64: import pre-preset OCI, run systemctl + remainder, push default image.
   hadron-grub:
     runs-on: ubuntu-24.04-riscv
     needs: [hadron-grub-warm]
-    timeout-minutes: 360
+    timeout-minutes: 60
     strategy:
       max-parallel: 1
       matrix:
@@ -576,12 +578,6 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
-        uses: docker/login-action@v4
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -598,9 +594,8 @@ jobs:
           tags: ttl.sh/hadron-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
-          cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=min
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
+          build-contexts: |
+            full-image-pre-preset=docker-image://ttl.sh/hadron-pre-preset-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}

@@ -3987,10 +3987,10 @@ FROM scratch AS full-image-systemd
 COPY --from=full-image-pre-systemd /skeleton /
 
 ## Final image depending on the bootloader
-# We run some final tasks like creating /etc/shadow, /etc/passwd, etc
-# We also add some default configs for sysctl, login.defs, etc
-# We also run systemctl preset-all to have default presets for systemd services
-FROM full-image-${BOOTLOADER} AS full-image-final
+# Split before systemctl preset-all: QEMU cannot run that step reliably (SIGSEGV).
+# CI builds full-image-pre-preset on x86, pushes OCI, then native riscv64 imports it
+# via buildx --build-context full-image-pre-preset=docker-image://… for full-image-final.
+FROM full-image-${BOOTLOADER} AS full-image-pre-preset
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
 ARG BUILD_ARCH
@@ -4046,7 +4046,12 @@ RUN chmod 644 /etc/bash.bashrc
 RUN busybox --install
 # mkfs.fat is a script that calls mkfs.vfat busybox applet with the proper name and pass all args for compatibility
 RUN echo -e '#!/bin/sh\nexec /bin/mkfs.vfat "$@"\n' > /bin/mkfs.fat && chmod +x /bin/mkfs.fat
-# preset all systemd services
+
+FROM full-image-pre-preset AS full-image-final
+SHELL ["/bin/bash", "-c"]
+ARG VERSION
+ARG BUILD_ARCH
+# preset all systemd services (native riscv64 in CI; crashes under QEMU)
 RUN systemctl preset-all
 # Disable systemd-make-policy as we don't use it and it conflicts with
 # measurements with PCR policies
