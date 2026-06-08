@@ -9,16 +9,15 @@ concurrency:
   group: ci-image-riscv64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
-# PR-only pipeline to validate the split RISC-V build before enabling it on main/tags.
-# Runs on oracle-vm-32cpu-128gb-x86-64 with QEMU (linux/riscv64); no GHCR releases, no ISO.
+# PR-only pipeline: split RISC-V build (x86+QEMU pre-preset, native finalize). No GHCR releases, no ISO.
 #
 # Dependency graph:
 #   stage0 → stage1 → rsync ─┬→ cmake ────────────────┐
 #                             ├→ kernel (cloud+default) ┤→ toolchain → container
 #                             ├→ systemd ─────────────┤       ↓
-#                             └→ python ────────────────┘  hadron-grub-warm (x86+QEMU, full-image-grub)
+#                             └→ python ────────────────┘  hadron-bios-warm (x86+QEMU, full-image-pre-preset)
 #                                                              ↓
-#                                                         hadron-grub (native riscv64, systemctl + default)
+#                                                         hadron-bios (native riscv64, systemctl + default)
 #
 # x86+QEMU builds full-image-pre-preset (~30–40 min with cache), pushes OCI to ttl.sh.
 # Native imports that image as build-context and only runs full-image-final onward.
@@ -496,7 +495,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   # x86+QEMU through full-image-pre-preset (stops before systemctl). Push OCI for native handoff.
-  hadron-grub-warm:
+  hadron-bios-warm:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
     timeout-minutes: 360
@@ -558,9 +557,9 @@ jobs:
             BUILD_ARCH=riscv64
 
   # Native riscv64: import pre-preset OCI, run systemctl + remainder, push default image.
-  hadron-grub:
+  hadron-bios:
     runs-on: ubuntu-24.04-riscv
-    needs: [hadron-grub-warm]
+    needs: [hadron-bios-warm]
     timeout-minutes: 60
     strategy:
       max-parallel: 1
@@ -591,7 +590,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/riscv64
           push: true
-          tags: ttl.sh/hadron-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
+          provenance: false
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-riscv64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           build-contexts: |
