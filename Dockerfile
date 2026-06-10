@@ -64,7 +64,7 @@ ARG CURL_VERSION=8.20.0
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 FROM sources-downloader-base AS rsync-download
-ARG RSYNC_VERSION=3.4.3
+ARG RSYNC_VERSION=3.4.4
 RUN wget -q https://github.com/RsyncProject/rsync/releases/download/v${RSYNC_VERSION}/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
 FROM sources-downloader-base AS xxhash-download
