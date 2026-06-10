@@ -14,7 +14,7 @@ ARG ARCH
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
-FROM alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS alpine-base
+FROM alpine:3.24.0@sha256:8ddefa941e689fc29abcdeb8dae3b3c6d139cc08ce9a52633931160701770685 AS alpine-base
 RUN apk update && \
     apk add --no-cache git bash wget bash perl build-base make patch busybox-static \
     curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync \
