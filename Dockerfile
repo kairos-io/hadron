@@ -297,7 +297,7 @@ ARG SHADOW_VERSION=4.19.4
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 FROM sources-downloader-base AS aports-download
-ARG APORTS_VERSION=3.23.4
+ARG APORTS_VERSION=3.24.0
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 FROM sources-downloader-base AS busybox-download
