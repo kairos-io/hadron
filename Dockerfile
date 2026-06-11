@@ -2066,11 +2066,26 @@ FROM kernel-build AS kernel-no-fips
 # This will generate the needed FIPS HMAC for the kernel so dracut can verify it
 FROM kernel-build AS kernel-fips
 WORKDIR /sources/
-COPY --from=libkcapi /libkcapi /libkcapi
-RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /
-# Use generate the HMAC for the kernel, make sure to set the path to the runtime path
-RUN kver=$(cat /kernel/kernel-release) && sha512hmac /kernel/vmlinuz-${kver} | sed 's|  /kernel/|  /boot/|' > /kernel/.vmlinuz-${kver}.hmac
-RUN kver=$(cat /kernel/kernel-release) && chmod 0644 /kernel/.vmlinuz-${kver}.hmac
+# Generate the FIPS integrity HMAC for the kernel. libkcapi/sha512hmac can only reach the
+# kernel crypto API through AF_ALG, which Docker's default seccomp profile blocks at build
+# time (socket(AF_ALG) -> EPERM). Instead compute the HMAC with the FIPS OpenSSL (the
+# openssl-${FIPS} alias selects the FIPS build): HMAC-SHA512 with the well-known sha512hmac
+# key produces a byte-identical digest that `kcapi-hasher -c` accepts at runtime, and it
+# needs no kernel crypto API so it works under qemu emulation for every architecture.
+COPY --from=openssl /openssl /openssl
+RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+# Make sure the kernel image we are about to hash actually exists and is not empty.
+RUN kver=$(cat /kernel/kernel-release) && \
+    [ -s "/kernel/vmlinuz-${kver}" ] || { echo "ERROR: kernel image /kernel/vmlinuz-${kver} is missing or empty" >&2; exit 1; }
+# Compute the HMAC and write the checkfile with the runtime /boot path so dracut can verify it at boot.
+RUN kver=$(cat /kernel/kernel-release) && \
+    hmac=$(openssl dgst -sha512 -hmac "FIPS-FTW-RHT2009" "/kernel/vmlinuz-${kver}" | awk '{print $NF}') && \
+    [ -n "${hmac}" ] || { echo "ERROR: computed kernel HMAC is empty" >&2; exit 1; } && \
+    printf '%s  /boot/vmlinuz-%s\n' "${hmac}" "${kver}" > "/kernel/.vmlinuz-${kver}.hmac"
+# Make sure the checkfile was actually written, then set the permissions dracut expects.
+RUN kver=$(cat /kernel/kernel-release) && \
+    [ -s "/kernel/.vmlinuz-${kver}.hmac" ] || { echo "ERROR: generated /kernel/.vmlinuz-${kver}.hmac is empty" >&2; exit 1; } && \
+    chmod 0644 "/kernel/.vmlinuz-${kver}.hmac"
 
 FROM kernel-${FIPS} AS kernel
 
