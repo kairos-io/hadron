@@ -29,6 +29,8 @@ env:
 jobs:
   riscv64-disabled:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: RISC-V64 pipeline disabled
         run: echo "RISC-V64 CI pipeline is temporarily disabled."
@@ -36,6 +38,8 @@ jobs:
   check-kernel-configs:
     if: ${{ false }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
