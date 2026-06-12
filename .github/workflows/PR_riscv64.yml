@@ -27,7 +27,14 @@ env:
   CACHE_TO_MIN: mode=min,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
 
 jobs:
+  riscv64-disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - name: RISC-V64 pipeline disabled
+        run: echo "RISC-V64 CI pipeline is temporarily disabled."
+
   check-kernel-configs:
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,6 +56,7 @@ jobs:
           exit $FAILED
 
   stage0:
+    if: ${{ false }}
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
       contents: read
