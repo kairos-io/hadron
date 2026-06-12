@@ -66,6 +66,12 @@ There is some args that you can pass to the make command to customize the build:
 
 **Note**: The following examples are for testing purposes only. The Dockerfile used for building Kairos images is automatically fetched from the [kairos repository](https://github.com/kairos-io/kairos) and should not be modified locally.
 
+### Adding Custom CA Certificates
+
+To add a custom CA certificate to a Hadron-based image, copy the certificate into `/usr/local/share/ca-certificates/` with a `.crt` extension and then run `update-ca-certificates`.
+
+`/usr/local/share/ca-certificates/` is the recommended location for custom CAs. You do not need to edit `/etc/ca-certificates.conf` for certificates placed there. That file is only needed when enabling or disabling certificates shipped under `/usr/share/ca-certificates/`.
+
 #### Building a Core Kairos Image
 
 To build a core Kairos image (without Kubernetes distribution) based on Hadron:
