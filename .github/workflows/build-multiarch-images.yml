@@ -153,7 +153,6 @@ jobs:
           sources: |
             ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-amd64
             ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-arm64
-            # ghcr.io/${{ github.repository }}-toolchain:${{ github.ref_name }}-riscv64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
           container: "${{ github.event.repository.name }}-toolchain"
@@ -165,7 +164,6 @@ jobs:
           prune-tags-regexes: |
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
-            # ^${{ github.ref_name }}-riscv64$
   container-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -308,7 +306,6 @@ jobs:
           sources: |
             ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-amd64
             ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-arm64
-            # ghcr.io/${{ github.repository }}-container:${{ github.ref_name }}-riscv64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
           container: "${{ github.event.repository.name }}-container"
@@ -320,7 +317,6 @@ jobs:
           prune-tags-regexes: |
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
-            # ^${{ github.ref_name }}-riscv64$
   hadron-bios-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -486,7 +482,6 @@ jobs:
           sources: |
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
             ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64
-            # ${{ matrix.fips == 'no-fips' && format('ghcr.io/{0}{1}:{2}-riscv64', github.repository, matrix.kernel == 'cloud' && '-cloud' || '', github.ref_name) || '' }}
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
           container: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}"
@@ -498,7 +493,6 @@ jobs:
           prune-tags-regexes: |
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
-            # ^${{ github.ref_name }}-riscv64$
   hadron-trusted-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
