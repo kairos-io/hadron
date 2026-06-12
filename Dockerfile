@@ -3924,15 +3924,7 @@ FROM full-image-merge-base AS full-image-merge-no-fips
 FROM full-image-merge-base AS full-image-merge-fips
 COPY --from=libkcapi /libkcapi /libkcapi
 RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /skeleton
-RUN printf '%s\n' \
-    "# Hadron FIPS-specific sshd config" \
-    "Ciphers aes256-gcm@openssh.com,aes256-ctr,aes128-gcm@openssh.com,aes128-ctr" \
-    "KexAlgorithms ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521" \
-    "MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256,hmac-sha2-512" \
-    "HostKeyAlgorithms ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-256,rsa-sha2-512" \
-    "HostKey /etc/ssh/ssh_host_ecdsa_key" \
-    "HostKey /etc/ssh/ssh_host_rsa_key" \
-    > /skeleton/etc/ssh/sshd_config.d/100-hadron-fips.conf
+COPY files/ssh/sshd_config.d/100-hadron-fips.conf /skeleton/etc/ssh/sshd_config.d/100-hadron-fips.conf
 
 
 FROM full-image-merge-${FIPS} AS full-image-merge
