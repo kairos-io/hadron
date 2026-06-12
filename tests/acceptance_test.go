@@ -168,6 +168,22 @@ var _ = Describe("kairos basic test", func() {
 			Expect(out).To(ContainSubstring("Moved"))
 		})
 
+		By("checking custom CA installation", func() {
+			out, err := vm.Sudo(`set -eu
+command -v run-parts
+openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes \
+  -subj "/CN=hadron-custom-ca" \
+  -keyout /tmp/hadron-custom-ca.key \
+  -out /usr/local/share/ca-certificates/hadron-custom-ca.crt \
+  >/tmp/hadron-custom-ca.openssl.log 2>&1
+update-ca-certificates
+test -L /etc/ssl/certs/hadron-custom-ca.pem
+openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("run-parts"))
+			Expect(out).To(ContainSubstring("CN = hadron-custom-ca"))
+		})
+
 		By("checking corresponding state", func() {
 			out, err := vm.Sudo("kairos-agent state")
 			Expect(err).ToNot(HaveOccurred())
