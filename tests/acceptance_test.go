@@ -183,7 +183,8 @@ update-ca-certificates
 test -L /etc/ssl/certs/ca-cert-hadron-custom-ca.pem
 openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(ContainSubstring("CN=hadron-custom-ca"))
+			// openssl prints "CN = ..." or "CN=..." depending on version; match both.
+			Expect(out).To(MatchRegexp(`CN\s*=\s*hadron-custom-ca`))
 		})
 
 		By("checking corresponding state", func() {
