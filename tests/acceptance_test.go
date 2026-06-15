@@ -7,10 +7,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
 var stateContains = func(vm VM, query string, expected ...string) {
@@ -183,7 +180,7 @@ update-ca-certificates
 test -L /etc/ssl/certs/ca-cert-hadron-custom-ca.pem
 openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(ContainSubstring("CN = hadron-custom-ca"))
+			Expect(out).To(ContainSubstring("CN=hadron-custom-ca"))
 		})
 
 		By("checking corresponding state", func() {
