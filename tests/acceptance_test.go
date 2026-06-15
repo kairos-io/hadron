@@ -27,9 +27,13 @@ var _ = Describe("kairos basic test", func() {
 	var vm VM
 	var datasource string
 
+	// BeforeEach only brings the live-CD VM up so that an install/reboot failure
+	// is reported against the test that exercises it, not as a setup failure.
+	// The actual install + reboot-to-active is an explicit step in each It below
+	// (see installAndBootToActive).
 	BeforeEach(func() {
 		datafile := "assets/acceptance.yaml"
-		if os.Getenv("FIPS") == "fips" {
+		if fipsEnabled() {
 			datafile = "assets/acceptance-fips.yaml"
 		}
 		datasource = CreateDatasource(datafile)
@@ -37,11 +41,20 @@ var _ = Describe("kairos basic test", func() {
 		_, vm = startVM()
 		vm.EventuallyConnects(600)
 		expectDefaultService(vm)
-		expectStartedInstallation(vm)
-		By("Rebooting into installed system")
-		vm.Reboot()
-		expectRebootedToActive(vm)
 	})
+
+	// installAndBootToActive performs the install assertion and the reboot into
+	// the installed system. It used to live in the BeforeEach, which meant an
+	// install failure looked like a setup failure; it is now an explicit,
+	// clearly-labeled part of each spec's flow.
+	installAndBootToActive := func() {
+		By("Installing and booting to active", func() {
+			expectStartedInstallation(vm)
+			By("Rebooting into installed system")
+			vm.Reboot()
+			expectRebootedToActive(vm)
+		})
+	}
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
@@ -59,13 +72,11 @@ var _ = Describe("kairos basic test", func() {
 		Expect(os.Remove(datasource)).ToNot(HaveOccurred())
 	})
 
-	It("passes checks", Label("acceptance"), func() {
-		if os.Getenv("FIPS") == "fips" {
-			By("Checking that FIPS is enabled", func() {
-				out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
-				Expect(err).ToNot(HaveOccurred(), out)
-				Expect(out).To(ContainSubstring("1"))
-			})
+	It("passes checks", Label("acceptance", "fips"), func() {
+		installAndBootToActive()
+
+		if fipsEnabled() {
+			assertFIPSEnabled(vm)
 		}
 		By("checking grubenv file", func() {
 			out, err := vm.Sudo("cat /oem/grubenv")
@@ -99,25 +110,9 @@ var _ = Describe("kairos basic test", func() {
 			Expect(cmdline).To(ContainSubstring("rd.shell=0"))
 		})
 
-		By("checking writeable tmp", func() {
-			_, err := vm.Sudo("echo 'foo' > /tmp/bar")
-			Expect(err).ToNot(HaveOccurred())
+		assertWriteableTmp(vm)
 
-			out, err := vm.Sudo("sudo cat /tmp/bar")
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(out).To(ContainSubstring("foo"))
-		})
-
-		By("checking bpf mount", func() {
-			Eventually(func() string {
-				out, _ := vm.Sudo("mount")
-				return out
-			}, 5*time.Minute, 1*time.Second).Should(
-				Or(
-					ContainSubstring("bpf"),
-				))
-		})
+		assertBpfMounted(vm)
 
 		By("checking correct permissions", func() {
 			out, err := vm.Sudo(`stat -c "%a" /oem`)
@@ -149,11 +144,7 @@ var _ = Describe("kairos basic test", func() {
 			Expect(out).To(ContainSubstring("/var/lib/longhorn"))
 		})
 
-		By("checking rootfs shared mount", func() {
-			out, err := vm.Sudo(`cat /proc/1/mountinfo | grep ' / / '`)
-			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(ContainSubstring("shared"))
-		})
+		assertRootfsShared(vm)
 
 		By("checking that it doesn't has grub data into the cloud config", func() {
 			out, err := vm.Sudo(`cat /oem/90_custom.yaml`)
@@ -162,11 +153,7 @@ var _ = Describe("kairos basic test", func() {
 			Expect(out).ToNot(ContainSubstring("videotest"))
 		})
 
-		By("checking that networking is functional", func() {
-			out, err := vm.Sudo(`curl google.it`)
-			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(ContainSubstring("Moved"))
-		})
+		assertNetworking(vm)
 
 		By("checking custom CA installation", func() {
 			out, err := vm.Sudo(`set -eu
@@ -188,8 +175,6 @@ openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
 			out, err := vm.Sudo("kairos-agent state")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out).To(ContainSubstring("boot: active_boot"))
-			currentVersion, err := vm.Sudo(getVersionCmd)
-			Expect(err).ToNot(HaveOccurred(), currentVersion)
 
 			stateAssertVM(vm, "oem.mounted", "true")
 			stateAssertVM(vm, "oem.found", "true")
@@ -205,26 +190,11 @@ openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
 			stateAssertVM(vm, "oem.read_only", "false")
 			stateAssertVM(vm, "persistent.read_only", "false")
 			stateAssertVM(vm, "state.read_only", "true")
-			stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-			stateContains(vm, "system.os.name", "hadron")
-			stateContains(vm, "kairos.flavor", "hadron")
+
+			assertKairosState(vm)
 		})
 
-		By("Checking install/recovery services do not exist", func() {
-			if !isFlavor(vm, "alpine") {
-				for _, service := range []string{"kairos-interactive", "kairos-recovery"} {
-					By(fmt.Sprintf("Checking that service %s does nto exist", service), func() {})
-					Eventually(func() string {
-						out, _ := vm.Sudo(fmt.Sprintf("systemctl status %s", service))
-						return out
-					}, 3*time.Minute, 2*time.Second).Should(
-						And(
-							ContainSubstring(fmt.Sprintf("Unit %s.service could not be found", service)),
-						),
-					)
-				}
-			}
-		})
+		assertInstallRecoveryServicesAbsent(vm)
 
 		By("Checking that k9s bundle is present", func() {
 			k9s, err := vm.Sudo("k9s version")
@@ -232,13 +202,11 @@ openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
 			Expect(k9s).To(ContainSubstring("v0.50.9"))
 		})
 	})
-	It("resets", Label("reset"), func() {
-		if os.Getenv("FIPS") == "fips" {
-			By("Checking that FIPS is enabled", func() {
-				out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
-				Expect(err).ToNot(HaveOccurred(), out)
-				Expect(out).To(ContainSubstring("1"))
-			})
+	It("resets", Label("reset", "fips"), func() {
+		installAndBootToActive()
+
+		if fipsEnabled() {
+			assertFIPSEnabled(vm)
 		}
 
 		Eventually(func() string {

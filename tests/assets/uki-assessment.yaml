@@ -1,0 +1,51 @@
+#cloud-config
+
+# Boot assessment test fixture.
+#
+# This config installs a normal UKI/trusted-boot system (same base install as
+# uki.yaml: auto install on /dev/vda, kairos/kairos user in the admin group,
+# random hostname) and then deliberately breaks the FIRST boot of the ACTIVE
+# entry so systemd-boot's automatic boot assessment kicks in.
+#
+# How the failure is forced:
+#   systemd-boot decrements the boot counter in the entry filename
+#   (active+3.conf -> active+2.conf -> ...) on every boot attempt and only
+#   marks the boot as "good" once systemd-bless-boot.service runs after
+#   boot-complete.target is reached. By rebooting hard during the initramfs
+#   "fs" stage (before boot-complete is ever reached) we guarantee the active
+#   boot never gets blessed. After the retries are exhausted the active entry
+#   is renamed to active+0-3.conf (0 tries left of 3) and systemd-boot fails
+#   over to the passive entry, which boots cleanly and is marked good.
+#
+# Expected end state (asserted by tests/uki_test.go):
+#   - system boots into passive (kairos-agent state -> boot: passive_boot)
+#   - /efi/loader/entries/active+0-3.conf exists
+#   - /efi/loader/entries/passive.conf exists
+#
+# Source: adapted from the upstream kairos-io/kairos fixture
+# tests/assets/uki-assessment.yaml. The "/run/cos/active_mode" marker and the
+# initramfs "fs" stage reboot are the canonical Kairos mechanism for this test.
+
+install:
+  auto: true
+  device: /dev/vda
+  grub_options:
+    extra_cmdline: "rd.immucore.debug"
+
+debug: true
+strict: true
+
+stages:
+  initramfs:
+    - name: "Set user and password"
+      users:
+        kairos:
+          passwd: "kairos"
+          groups:
+            - "admin"
+      hostname: kairos-{{ trunc 4 .Random }}
+  fs:
+    - name: "Reboot on active initramfs so we dont reach boot-complete"
+      if: '[ -f "/run/cos/active_mode" ]'
+      commands:
+        - "systemctl reboot --force"

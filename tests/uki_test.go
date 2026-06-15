@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,12 +55,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				out, err := vm.Sudo("kairos-agent state")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(out).To(ContainSubstring("boot: active_boot"))
-				currentVersion, err := vm.Sudo(getVersionCmd)
-				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
-				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "hadron")
-				stateContains(vm, "kairos.flavor", "hadron")
+				assertKairosState(vm)
 			})
 
 			By("rebooting to recovery")
@@ -109,12 +104,8 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 				out, err := vm.Sudo("kairos-agent state")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(out).To(ContainSubstring("boot: passive_boot"))
-				currentVersion, err := vm.Sudo(getVersionCmd)
-				Expect(err).ToNot(HaveOccurred(), currentVersion)
 
-				stateAssertVM(vm, "kairos.version", strings.ReplaceAll(strings.ReplaceAll(currentVersion, "\r", ""), "\n", ""))
-				stateContains(vm, "system.os.name", "hadron")
-				stateContains(vm, "kairos.flavor", "hadron")
+				assertKairosState(vm)
 			})
 
 			By("Checking that the active entry is broken and with 0 retries", func() {
@@ -219,45 +210,11 @@ func genericTests(vm VM) {
 		Expect(out).To(ContainSubstring("Running stage: initramfs.after"))
 		Expect(out).To(ContainSubstring("Running stage: initramfs"))
 	})
-	By("checking writeable tmp", func() {
-		_, err := vm.Sudo("echo 'foo' > /tmp/bar")
-		Expect(err).ToNot(HaveOccurred())
-
-		out, err := vm.Sudo("sudo cat /tmp/bar")
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(out).To(ContainSubstring("foo"))
-	})
-	By("checking bpf mount", func() {
-		out, err := vm.Sudo("mount")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(out).To(ContainSubstring("bpf"))
-	})
-	By("checking rootfs shared mount", func() {
-		out, err := vm.Sudo(`cat /proc/1/mountinfo | grep ' / / '`)
-		Expect(err).ToNot(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("shared"))
-	})
-	By("checking that networking is functional", func() {
-		out, err := vm.Sudo(`curl google.it`)
-		Expect(err).ToNot(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("Moved"))
-	})
-	By("Checking install/recovery services do not exist", func() {
-		if !isFlavor(vm, "alpine") {
-			for _, service := range []string{"kairos-interactive", "kairos-recovery"} {
-				By(fmt.Sprintf("Checking that service %s does not exist", service), func() {})
-				Eventually(func() string {
-					out, _ := vm.Sudo(fmt.Sprintf("systemctl status %s", service))
-					return out
-				}, 3*time.Minute, 2*time.Second).Should(
-					And(
-						ContainSubstring(fmt.Sprintf("Unit %s.service could not be found", service)),
-					),
-				)
-			}
-		}
-	})
+	assertWriteableTmp(vm)
+	assertBpfMounted(vm)
+	assertRootfsShared(vm)
+	assertNetworking(vm)
+	assertInstallRecoveryServicesAbsent(vm)
 	By("Checking sysext was copied during boot", func() {
 		out, err := vm.Sudo("ls /run/extensions")
 		Expect(err).ToNot(HaveOccurred(), out)

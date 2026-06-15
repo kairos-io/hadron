@@ -1,0 +1,197 @@
+package hadron_test
+
+// image_structure_test.go contains fast, VM-free structural checks that
+// introspect an already-built Hadron CONTAINER OCI image. Unlike the rest of
+// the suite, these specs do NOT use peg/QEMU. They run the image with the
+// local container runtime (docker by default) and assert on the contents of
+// the rootfs.
+//
+// The image reference is taken from the CONTAINER_IMAGE env var. If it is
+// unset, the whole Describe is skipped. The container runtime can be
+// overridden with CONTAINER_RUNTIME (defaults to "docker").
+//
+// Prerequisites:
+//   - A built (or pulled) Hadron container image, e.g. via `make build-hadron`
+//     or `docker pull ghcr.io/kairos-io/hadron:main`.
+//   - A working `docker` (or other CONTAINER_RUNTIME) on the host.
+//
+// Run locally with:
+//
+//	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main \
+//	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
+//
+// Or with a custom runtime:
+//
+//	CONTAINER_IMAGE=hadron:dev CONTAINER_RUNTIME=podman \
+//	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+// crashSignalExitCodes mirrors the crash-signal logic in
+// files/verify_binaries.sh. A binary that exits with one of these codes
+// (128 + signal) was killed by a crash signal rather than exiting cleanly.
+//
+//	139 = SIGSEGV (Segmentation fault)
+//	132 = SIGILL  (Illegal instruction)
+//	134 = SIGABRT (Abort)
+//	133 = SIGTRAP (Trace/breakpoint trap)
+//	136 = SIGFPE  (Floating point exception)
+//	138 = SIGBUS  (Bus error)
+var crashSignalExitCodes = map[int]string{
+	139: "SIGSEGV",
+	132: "SIGILL",
+	134: "SIGABRT",
+	133: "SIGTRAP",
+	136: "SIGFPE",
+	138: "SIGBUS",
+}
+
+var _ = Describe("hadron container image structure", Label("image-structure"), func() {
+	var (
+		image   string
+		runtime string
+		arch    string
+	)
+
+	// runInImage executes `<runtime> run --rm --entrypoint <bin> <image> <args...>`
+	// and returns combined stdout+stderr, the process exit code, and any error
+	// starting the process. Note: a non-zero exit code from the in-container
+	// program is NOT returned as err (err is reserved for failures to launch
+	// the runtime itself).
+	runInImage := func(bin string, args ...string) (string, int, error) {
+		runArgs := []string{"run", "--rm", "--entrypoint", bin, image}
+		runArgs = append(runArgs, args...)
+		cmd := exec.Command(runtime, runArgs...)
+		out, err := cmd.CombinedOutput()
+		exitCode := 0
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+				// The runtime ran fine; the in-container command exited
+				// non-zero. That is not a launch failure.
+				err = nil
+			}
+		}
+		return string(out), exitCode, err
+	}
+
+	// shInImage runs an arbitrary shell snippet inside the image via
+	// `sh -c '<script>'`. Returns trimmed combined output and exit code.
+	shInImage := func(script string) (string, int) {
+		out, code, err := runInImage("sh", "-c", script)
+		Expect(err).ToNot(HaveOccurred(), "failed to invoke %q: %s", runtime, out)
+		return strings.TrimSpace(out), code
+	}
+
+	BeforeEach(func() {
+		image = os.Getenv("CONTAINER_IMAGE")
+		if image == "" {
+			Skip("CONTAINER_IMAGE is not set; skipping VM-free container image " +
+				"structure checks. Set CONTAINER_IMAGE to a built/pulled Hadron " +
+				"image (e.g. ghcr.io/kairos-io/hadron:main) to run these specs.")
+		}
+
+		runtime = os.Getenv("CONTAINER_RUNTIME")
+		if runtime == "" {
+			runtime = "docker"
+		}
+
+		// Detect the architecture inside the container so the rest of the
+		// checks can tolerate x86_64/aarch64/riscv64 differences.
+		out, _, err := runInImage("uname", "-m")
+		Expect(err).ToNot(HaveOccurred(),
+			"could not run %q against image %q: %s", runtime, image, out)
+		arch = strings.TrimSpace(out)
+		Expect(arch).ToNot(BeEmpty(), "uname -m returned empty output")
+	})
+
+	It("reports ID=hadron in /etc/os-release", func() {
+		out, code := shInImage("cat /etc/os-release")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(ContainSubstring("ID=hadron"))
+	})
+
+	It("ships the musl dynamic loader for the current arch", func() {
+		loader := fmt.Sprintf("/lib/ld-musl-%s.so.1", arch)
+		out, code := shInImage(fmt.Sprintf("test -e %s && echo OK", loader))
+		Expect(code).To(Equal(0),
+			"expected musl loader %s to exist; output: %s", loader, out)
+		Expect(out).To(ContainSubstring("OK"))
+	})
+
+	It("does NOT ship glibc (no ld-linux*.so* or libc.so.6)", func() {
+		// find prints nothing when there are no matches; we assert the
+		// output is empty so any glibc artifact fails the spec loudly.
+		out, code := shInImage(
+			"find /lib /usr/lib \\( -name 'ld-linux*.so*' -o -name 'libc.so.6' \\) 2>/dev/null")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(BeEmpty(),
+			"found glibc artifacts that should not be present:\n%s", out)
+	})
+
+	DescribeTable("core binaries run without crashing",
+		func(bin string, args ...string) {
+			out, code, err := runInImage(bin, args...)
+			Expect(err).ToNot(HaveOccurred(),
+				"failed to invoke %q: %s", runtime, out)
+			if sig, crashed := crashSignalExitCodes[code]; crashed {
+				Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
+					bin, sig, code, out))
+			}
+		},
+		Entry("bash", "bash", "--version"),
+		Entry("busybox", "busybox", "--help"),
+		Entry("openssl", "openssl", "version"),
+		Entry("curl", "curl", "--version"),
+		Entry("systemctl", "systemctl", "--version"),
+		Entry("sshd", "sshd", "-V"),
+		Entry("rsync", "rsync", "--version"),
+		Entry("grep", "grep", "--version"),
+		Entry("find", "find", "--version"),
+	)
+
+	It("resolves /bin/sh to bash", func() {
+		out, code := shInImage("readlink -f /bin/sh")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(HaveSuffix("bash"),
+			"expected /bin/sh to resolve to bash, got %q", out)
+	})
+
+	It("ships no static archives (*.a)", func() {
+		out, code := shInImage("find / -name '*.a' 2>/dev/null")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(BeEmpty(),
+			"found static archives that should be stripped:\n%s", out)
+	})
+
+	It("ships no python bytecode (*.pyc / __pycache__)", func() {
+		out, code := shInImage(
+			"find / \\( -name '*.pyc' -o -name '__pycache__' \\) 2>/dev/null")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(BeEmpty(),
+			"found python bytecode artifacts that should be removed:\n%s", out)
+	})
+
+	DescribeTable("top-level dirs are symlinks into usr",
+		func(dir, wantTarget string) {
+			// -L: path is a symlink. Then compare the readlink target.
+			out, code := shInImage(fmt.Sprintf(
+				"test -L %s && readlink %s", dir, dir))
+			Expect(code).To(Equal(0),
+				"expected %s to be a symlink; output: %s", dir, out)
+			Expect(out).To(ContainSubstring(wantTarget),
+				"expected %s to point into usr (got %q)", dir, out)
+		},
+		Entry("/sbin -> usr/bin", "/sbin", "usr"),
+		Entry("/lib -> usr/lib", "/lib", "usr"),
+		Entry("/bin -> usr/bin", "/bin", "usr"),
+	)
+})
