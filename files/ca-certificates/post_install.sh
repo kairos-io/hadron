@@ -15,9 +15,12 @@ find -- /ca-certificates/usr/share/ca-certificates -name '*.crt' | sort | while 
 done > /ca-certificates/etc/ssl/certs/ca-certificates.crt
 
 
+# Use `openssl rehash` instead of c_rehash: c_rehash is a perl script, and
+# openssl rehash is a builtin in the modern OpenSSL we ship everywhere. This
+# drops the perl runtime dependency from update-ca-certificates.
 cat > /ca-certificates/etc/ca-certificates/update.d/certhash <<-EOF
 #!/bin/sh
-exec /usr/bin/c_rehash /etc/ssl/certs
+exec /usr/bin/openssl rehash /etc/ssl/certs
 EOF
 chmod +x /ca-certificates/etc/ca-certificates/update.d/certhash
 
@@ -35,3 +38,10 @@ ln -s /etc/ssl/cert.pem /ca-certificates/etc/ssl1.1/
 mkdir -p /ca-certificates/etc/pki/tls/certs
 
 ln -s /etc/ssl/certs/ca-certificates.crt /ca-certificates/etc/pki/tls/certs/ca-bundle.crt
+
+# Verify `openssl rehash` works at build time (same command the runtime
+# certhash hook runs). The bundle is the only file here so it is skipped (no
+# hash symlinks created); this just fails the build fast if openssl rehash
+# errors. Real hash symlinks get created at runtime when individual CA files
+# are dropped into /etc/ssl/certs.
+/usr/bin/openssl rehash /ca-certificates/etc/ssl/certs
