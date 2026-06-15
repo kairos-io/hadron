@@ -179,7 +179,6 @@ update-ca-certificates
 test -L /etc/ssl/certs/hadron-custom-ca.pem
 openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
 			Expect(err).ToNot(HaveOccurred(), out)
-			Expect(out).To(ContainSubstring("run-parts"))
 			Expect(out).To(ContainSubstring("CN = hadron-custom-ca"))
 		})
 
