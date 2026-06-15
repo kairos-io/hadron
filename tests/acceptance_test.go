@@ -170,6 +170,9 @@ var _ = Describe("kairos basic test", func() {
 
 		By("checking custom CA installation", func() {
 			out, err := vm.Sudo(`set -eu
+# On a booted Kairos node the persistent partition mounts over /usr/local,
+# shadowing the image's dir, so recreate it before writing the cert.
+mkdir -p /usr/local/share/ca-certificates
 openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes \
   -subj "/CN=hadron-custom-ca" \
   -keyout /tmp/hadron-custom-ca.key \
