@@ -176,8 +176,9 @@ openssl req -x509 -newkey rsa:2048 -sha256 -days 1 -nodes \
   -out /usr/local/share/ca-certificates/hadron-custom-ca.crt \
   >/tmp/hadron-custom-ca.openssl.log 2>&1
 update-ca-certificates
-test -L /etc/ssl/certs/hadron-custom-ca.pem
-openssl x509 -in /etc/ssl/certs/hadron-custom-ca.pem -noout -subject`)
+# Alpine's update-ca-certificates names per-cert symlinks ca-cert-<name>.pem
+test -L /etc/ssl/certs/ca-cert-hadron-custom-ca.pem
+openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(out).To(ContainSubstring("CN = hadron-custom-ca"))
 		})
