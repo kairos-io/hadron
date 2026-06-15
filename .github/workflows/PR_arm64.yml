@@ -98,6 +98,9 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/arm64
+          # load into the local docker image store so the structure tests below
+          # can `docker run` it without a registry round-trip.
+          load: true
           tags: ttl.sh/hadron-container-arm64:${{ github.sha }}
           labels: |
             ${{ steps.meta.outputs.labels }}
@@ -108,7 +111,7 @@ jobs:
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
-      - name: Test container image
+      - name: Test container image (build-time smoke)
         uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
@@ -122,15 +125,6 @@ jobs:
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
-  tests-container:
-    runs-on: ubuntu-24.04-arm  # structural OCI introspection only, no VM/KVM needed; arm64 host pulls the arm64 image natively
-    needs:
-      - container
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v6
         timeout-minutes: 5
@@ -139,7 +133,7 @@ jobs:
           cache-dependency-path: tests/go.sum
       - name: Run image-structure tests
         env:
-          # Pushed by the container job above. ttl.sh is anonymous-pull.
+          # Image was loaded locally by the build step above (no push needed).
           CONTAINER_IMAGE: ttl.sh/hadron-container-arm64:${{ github.sha }}
         run: |
           cp tests/go.* .
