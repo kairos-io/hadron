@@ -115,6 +115,29 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
+  tests-container:
+    runs-on: ubuntu-latest  # structural OCI introspection only, no VM/KVM needed
+    needs:
+      - container
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v6
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Run image-structure tests
+        env:
+          # Pushed by the container job above. ttl.sh is anonymous-pull.
+          CONTAINER_IMAGE: ttl.sh/hadron-container:${{ github.sha }}
+        run: |
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
   hadron-bios:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
