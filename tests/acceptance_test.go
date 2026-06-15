@@ -7,7 +7,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	. "github.com/spectrocloud/peg/matcher"
 )
 
 var stateContains = func(vm VM, query string, expected ...string) {
