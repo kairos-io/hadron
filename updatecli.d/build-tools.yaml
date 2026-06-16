@@ -128,25 +128,24 @@ sources:
 
 
   binutils:
-    # Much faster to query this thant to use the gittag which actually clones the repository fully
-    # Somehow they changed behaviour here. When the tag was 2.45 or 2.44 etc... they released the archives as
-    # 2.45.tar.gx or 2.44.tar.gz but ont his last tag they put 2.46 and released it as 2.46.0.tar.gz so we need to add a special case for this one
-    kind: shell
+    # Use lsremote so we only query remote tags instead of cloning the whole repo.
+    # binutils tags use underscores (binutils-2_46_1) so we convert them to dots (2.46.1).
+    # History: the first release of a series is tagged 2-part (binutils-2_46) but published
+    # 3-part (binutils-2.46.0.tar.xz); point releases map directly (binutils-2_46_1 -> 2.46.1).
+    # If a future first-of-series 2-part tag becomes the latest, its archive will carry a
+    # trailing .0 that this transform won't add and the download will need a manual fixup.
+    kind: gittag
     spec:
-      command: |
-        git ls-remote --refs --tags git://sourceware.org/git/binutils-gdb.git | grep -v '\^{}' \
-        | awk -F/ '{print $NF}' | grep -E '^binutils-[0-9]+_[0-9]+(_[0-9]+)?$' \
-        | sort -V | tail -n 1
+      url: git://sourceware.org/git/binutils-gdb.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: '^binutils-[0-9]+_[0-9]+(_[0-9]+)?$'
     transformers:
       - trimprefix: binutils-
       - replacer:
           from: '_'
           to: '.'
-      - replacer:
-          from: '2.46'
-          to: '2.46.0'
-      - sort:
-          method: semver
 
 targets:
   flex:
