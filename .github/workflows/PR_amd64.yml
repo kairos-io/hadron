@@ -16,9 +16,11 @@ jobs:
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
+          [[ "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
           FAILED=0
           for cfg in files/kernel/cloud.config files/kernel/default.config; do
             CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+(\.\d+)?' || true)
+            [[ "$CONFIG_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && CONFIG_VERSION="${CONFIG_VERSION}.0"
             if [ "$CONFIG_VERSION" != "$KERNEL_VERSION" ]; then
               echo "ERROR: $cfg is stale (generated for $CONFIG_VERSION, current kernel is $KERNEL_VERSION)"
               echo "Run 'make update-kernel-configs' and commit the result."
@@ -488,4 +490,3 @@ jobs:
           name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
-
