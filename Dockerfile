@@ -310,7 +310,7 @@ ARG MUSL_VERSION=1.2.6
 RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.tar.gz
 
 FROM sources-downloader-base AS gcc-download
-ARG GCC_VERSION=15.2.0
+ARG GCC_VERSION=15.3.0
 RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
 
 FROM sources-downloader-base AS gmp-download
@@ -747,10 +747,11 @@ RUN tar -xf gcc.tar.xz && mv gcc-* gcc
 RUN tar -xf gmp.tar.bz2 && mv -v gmp-* gcc/gmp
 RUN tar -xf mpc.tar.xz && mv -v mpc-* gcc/mpc
 RUN tar -xf mpfr.tar.bz2 && mv -v mpfr-* gcc/mpfr
-
-RUN <<EOT bash
-    mkdir -p /sysroot/usr/include
-    cd gcc && mkdir -v build && cd build && ../configure --quiet \
+COPY patches/0001-gcc-atomic-template-body-gcc15.patch /gcc/
+RUN cd /gcc && patch -p1 < 0001-gcc-atomic-template-body-gcc15.patch
+RUN mkdir -p /sysroot/usr/include
+WORKDIR /gcc/build
+RUN ../configure --quiet \
         --prefix=/usr \
         --build=${BUILD_ARCH} \
         --host=${TARGET} \
@@ -762,10 +763,9 @@ RUN <<EOT bash
         --enable-long-long \
         --disable-libmudflap \
         --disable-multilib \
-        --disable-libsanitizer && \
-        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
-        make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install ;
-EOT
+        --disable-libsanitizer
+RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD}
+RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
 
 ###
 ### Make

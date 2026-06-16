@@ -1,0 +1,21 @@
+Suppress -Wtemplate-body for libstdc++ std::atomic constexpr constructor.
+
+In C++11 mode the constexpr atomic(_Tp) constructor has a non-empty body
+(it conditionally calls __builtin_clear_padding). The header already
+suppresses the resulting -Wc++14-extensions diagnostic, but GCC 15's newer
+template-body checker re-reports the same constexpr-ctor-body violation
+under -Wtemplate-body, which is not silenced and breaks the gnu++0x
+precompiled header build during the cross toolchain bootstrap. Ignore that
+warning too, mirroring the existing pragma.
+
+--- a/libstdc++-v3/include/std/atomic
++++ b/libstdc++-v3/include/std/atomic
+@@ -242,7 +242,8 @@
+       atomic& operator=(const atomic&) volatile = delete;
+
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wc++14-extensions" // constexpr ctor body
++#pragma GCC diagnostic ignored "-Wtemplate-body" // constexpr ctor body, C++11
+       constexpr atomic(_Tp __i) noexcept : _M_i(__i)
+       {
+ #if __has_builtin(__builtin_clear_padding)
