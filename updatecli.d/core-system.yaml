@@ -121,6 +121,45 @@ sources:
     transformers:
       - trimprefix: bash-
 
+  bash_patch_level:
+    kind: shell
+    spec:
+      command: |
+        version='{{ source "bash" }}'
+        version_nodot=$(printf '%s' "$version" | tr -d '.')
+        url="https://ftp.gnu.org/gnu/bash/bash-${version}-patches/"
+
+        patch_level=$(
+          wget -qO- "$url" \
+            | grep -oE "bash${version_nodot}-[0-9]{3}" \
+            | sed -E "s/^bash${version_nodot}-0*//" \
+            | sort -n \
+            | tail -n 1
+        )
+
+        if [ -z "$patch_level" ]; then
+          misses=0
+          i=1
+
+          while [ "$misses" -lt 3 ]; do
+            candidate=$(printf '%03d' "$i")
+            if wget -q --spider "${url}bash${version_nodot}-${candidate}"; then
+              patch_level=$i
+              misses=0
+            else
+              misses=$((misses + 1))
+            fi
+            i=$((i + 1))
+          done
+        fi
+
+        if [ -z "$patch_level" ]; then
+          echo "unable to determine bash patch level for ${version}" >&2
+          exit 1
+        fi
+
+        printf '%s' "$patch_level"
+
 
 targets:
   musl:
@@ -232,3 +271,13 @@ targets:
         keyword: ARG
         matcher: BASH_VERSION
     sourceid: bash
+
+  bash_patch_level:
+    name: PATCH_LEVEL in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: PATCH_LEVEL
+    sourceid: bash_patch_level
