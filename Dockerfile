@@ -176,6 +176,30 @@ FROM sources-downloader-base AS libnftnl-download
 ARG LIBNFTNL_VERSION=1.3.1
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
+FROM sources-downloader-base AS libnfnetlink-download
+ARG LIBNFNETLINK_VERSION=1.0.2
+RUN wget -q https://www.netfilter.org/projects/libnfnetlink/files/libnfnetlink-${LIBNFNETLINK_VERSION}.tar.bz2 -O libnfnetlink.tar.bz2
+
+FROM sources-downloader-base AS libnetfilter_conntrack-download
+ARG LIBNETFILTER_CONNTRACK_VERSION=1.1.1
+RUN wget -q https://www.netfilter.org/projects/libnetfilter_conntrack/files/libnetfilter_conntrack-${LIBNETFILTER_CONNTRACK_VERSION}.tar.xz -O libnetfilter_conntrack.tar.xz
+
+FROM sources-downloader-base AS libnetfilter_cttimeout-download
+ARG LIBNETFILTER_CTTIMEOUT_VERSION=1.0.1
+RUN wget -q https://www.netfilter.org/projects/libnetfilter_cttimeout/files/libnetfilter_cttimeout-${LIBNETFILTER_CTTIMEOUT_VERSION}.tar.bz2 -O libnetfilter_cttimeout.tar.bz2
+
+FROM sources-downloader-base AS libnetfilter_cthelper-download
+ARG LIBNETFILTER_CTHELPER_VERSION=1.0.1
+RUN wget -q https://www.netfilter.org/projects/libnetfilter_cthelper/files/libnetfilter_cthelper-${LIBNETFILTER_CTHELPER_VERSION}.tar.bz2 -O libnetfilter_cthelper.tar.bz2
+
+FROM sources-downloader-base AS libnetfilter_queue-download
+ARG LIBNETFILTER_QUEUE_VERSION=1.0.5
+RUN wget -q https://www.netfilter.org/projects/libnetfilter_queue/files/libnetfilter_queue-${LIBNETFILTER_QUEUE_VERSION}.tar.bz2 -O libnetfilter_queue.tar.bz2
+
+FROM sources-downloader-base AS conntrack-tools-download
+ARG CONNTRACK_TOOLS_VERSION=1.4.9
+RUN wget -q https://www.netfilter.org/projects/conntrack-tools/files/conntrack-tools-${CONNTRACK_TOOLS_VERSION}.tar.xz -O conntrack-tools.tar.xz
+
 FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=7.1
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
@@ -560,6 +584,12 @@ COPY --from=glib-download /sources/downloads/glib.tar.xz /sources/downloads/
 COPY --from=qemu-download /sources/downloads/qemu.tar.xz /sources/downloads/
 COPY --from=mspack-download /sources/downloads/mspack.tar.gz /sources/downloads/
 COPY --from=open-vm-tools-download /sources/downloads/open-vm-tools.tar.gz /sources/downloads
+COPY --from=libnfnetlink-download /sources/downloads/libnfnetlink.tar.bz2 /sources/downloads/
+COPY --from=libnetfilter_conntrack-download /sources/downloads/libnetfilter_conntrack.tar.xz /sources/downloads/
+COPY --from=libnetfilter_cttimeout-download /sources/downloads/libnetfilter_cttimeout.tar.bz2 /sources/downloads/
+COPY --from=libnetfilter_cthelper-download /sources/downloads/libnetfilter_cthelper.tar.bz2 /sources/downloads/
+COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.tar.bz2 /sources/downloads/
+COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 
 ########################################################
 #
@@ -2214,6 +2244,83 @@ RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables  --disable-legacy-utils --disable-bpf-compiler --disable-nfs --disable-libipq
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/iptables
 
+## libnfnetlink (low-level netlink helper used by the libnetfilter_* libs)
+FROM rsync AS libnfnetlink
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnfnetlink.tar.bz2 /sources/
+RUN mkdir -p /libnfnetlink
+WORKDIR /sources
+RUN tar -xf libnfnetlink.tar.bz2 && mv libnfnetlink-* libnfnetlink
+WORKDIR /sources/libnfnetlink
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnfnetlink
+
+## libnetfilter_conntrack (conntrack object/netlink library used by conntrack-tools)
+FROM rsync AS libnetfilter_conntrack
+ARG JOBS
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
+RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnetfilter_conntrack.tar.xz /sources/
+RUN mkdir -p /libnetfilter_conntrack
+WORKDIR /sources
+RUN tar -xf libnetfilter_conntrack.tar.xz && mv libnetfilter_conntrack-* libnetfilter_conntrack
+WORKDIR /sources/libnetfilter_conntrack
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_conntrack
+
+## libnetfilter_cttimeout (connection-tracking timeout policy library used by conntrackd)
+FROM rsync AS libnetfilter_cttimeout
+ARG JOBS
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnetfilter_cttimeout.tar.bz2 /sources/
+RUN mkdir -p /libnetfilter_cttimeout
+WORKDIR /sources
+RUN tar -xf libnetfilter_cttimeout.tar.bz2 && mv libnetfilter_cttimeout-* libnetfilter_cttimeout
+WORKDIR /sources/libnetfilter_cttimeout
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_cttimeout
+
+## libnetfilter_cthelper (user-space conntrack helper library used by conntrackd)
+FROM rsync AS libnetfilter_cthelper
+ARG JOBS
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnetfilter_cthelper.tar.bz2 /sources/
+RUN mkdir -p /libnetfilter_cthelper
+WORKDIR /sources
+RUN tar -xf libnetfilter_cthelper.tar.bz2 && mv libnetfilter_cthelper-* libnetfilter_cthelper
+WORKDIR /sources/libnetfilter_cthelper
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_cthelper
+
+## libnetfilter_queue (packet-queueing library used by conntrack-tools)
+FROM rsync AS libnetfilter_queue
+ARG JOBS
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
+RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/libnetfilter_queue.tar.bz2 /sources/
+RUN mkdir -p /libnetfilter_queue
+WORKDIR /sources
+RUN tar -xf libnetfilter_queue.tar.bz2 && mv libnetfilter_queue-* libnetfilter_queue
+WORKDIR /sources/libnetfilter_queue
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_queue
+
 ## libaio for lvm2
 FROM rsync AS libaio
 # remove -lto from CFLAGS as it causes issues building libaio
@@ -2414,6 +2521,38 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --enable-rpcdb
 RUN make -s -j${JOBS} -l${MAX_LOAD}
 RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
+
+## conntrack-tools (conntrack + conntrackd binaries). Defined after libtirpc
+## because conntrackd's RPC sync support requires it at configure time.
+FROM rsync AS conntrack-tools
+ARG JOBS
+COPY --from=libmnl /libmnl /libmnl
+RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
+COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
+RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
+COPY --from=libnetfilter_conntrack /libnetfilter_conntrack /libnetfilter_conntrack
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_conntrack/. /
+COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout /libnetfilter_cttimeout
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cttimeout/. /
+COPY --from=libnetfilter_cthelper /libnetfilter_cthelper /libnetfilter_cthelper
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cthelper/. /
+COPY --from=libnetfilter_queue /libnetfilter_queue /libnetfilter_queue
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_queue/. /
+COPY --from=flex /flex /flex
+RUN rsync -aHAX --keep-dirlinks  /flex/. /
+COPY --from=bison /bison /bison
+RUN rsync -aHAX --keep-dirlinks  /bison/. /
+COPY --from=libtirpc /libtirpc /libtirpc
+RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/conntrack-tools.tar.xz /sources/
+RUN mkdir -p /conntrack-tools
+WORKDIR /sources
+RUN tar -xf conntrack-tools.tar.xz && mv conntrack-tools-* conntrack-tools
+WORKDIR /sources/conntrack-tools
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/conntrack-tools
 
 
 ## libnl - netlink library. Hard build-time dep of nfs-utils >= 2.7 (used
@@ -3829,6 +3968,20 @@ COPY --from=libmnl /libmnl /libmnl
 RUN rsync -aHAX --keep-dirlinks  /libmnl/. /skeleton
 COPY --from=libnftnl /libnftnl /libnftnl
 RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /skeleton
+
+## conntrack-tools (conntrack + conntrackd) for k8s/kube-proxy; baremetal-only, not in container base
+COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
+RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /skeleton
+COPY --from=libnetfilter_conntrack /libnetfilter_conntrack /libnetfilter_conntrack
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_conntrack/. /skeleton
+COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout /libnetfilter_cttimeout
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cttimeout/. /skeleton
+COPY --from=libnetfilter_cthelper /libnetfilter_cthelper /libnetfilter_cthelper
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cthelper/. /skeleton
+COPY --from=libnetfilter_queue /libnetfilter_queue /libnetfilter_queue
+RUN rsync -aHAX --keep-dirlinks  /libnetfilter_queue/. /skeleton
+COPY --from=conntrack-tools /conntrack-tools /conntrack-tools
+RUN rsync -aHAX --keep-dirlinks  /conntrack-tools/. /skeleton
 
 ## cryptsetup for encrypted partitions
 COPY --from=cryptsetup /cryptsetup /cryptsetup
