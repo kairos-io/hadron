@@ -126,6 +126,10 @@ versionfilter:
   constraint: '^14'
 ```
 
+### Bash Patch Level
+Bash uses two Updatecli values in `/home/runner/work/hadron/hadron/Dockerfile`: `BASH_VERSION` and `PATCH_LEVEL`.
+`BASH_VERSION` comes from upstream tags, while `PATCH_LEVEL` is derived by parsing the upstream Bash patch directory for the selected minor version and taking the highest available patch number.
+
 ## Testing
 
 Validate all configurations:

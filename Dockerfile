@@ -407,7 +407,7 @@ RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar
 FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
-# TODO: Maybe we should try like 15 patches and stop once 2 have gone without finding a patch? So we cover more ground without hardcoding a number?
+# It is bumped separately from BASH_VERSION by updatecli.d/core-system.yaml
 ARG PATCH_LEVEL=9
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
