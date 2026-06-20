@@ -534,7 +534,7 @@ jobs:
         # Fork PRs only get a read-only token, so posting will fail there; the
         # step summary above is still written. Never block the pipeline on it.
         continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
         with:
           header: image-size-report
           path: report.md
