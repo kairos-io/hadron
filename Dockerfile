@@ -503,7 +503,7 @@ ARG GDB_VERSION=17.2
 RUN wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz -O gdb.tar.gz
 
 FROM sources-downloader-base AS libffi-download
-ARG LIBFFI_VERSION=3.5.2
+ARG LIBFFI_VERSION=3.6.0
 RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
 FROM sources-downloader-base AS tpm2-tss-download

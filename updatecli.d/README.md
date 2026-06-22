@@ -152,10 +152,64 @@ In CI/CD pipelines, ensure the `GITHUB_TOKEN` environment variable is set:
   run: updatecli diff --config updatecli.d/
 ```
 
-The autobumper workflow also uses the configured Updatecli manifest to enrich dependency bump PRs:
+The autobumper workflow enriches dependency bump PRs with changelog context. The
+logic lives in [`.github/scripts/autobumper-changelog.rb`](../.github/scripts/autobumper-changelog.rb),
+which reads the staged Dockerfile diff together with the manifest referenced by
+`UPDATECLI_MANIFEST` and writes the PR title, commit message and body.
 
-- For `githubrelease` sources, it looks up the matching GitHub release for the selected version
-- PR bodies include the version change, a release link, and a truncated excerpt of the published release notes when available
-- For `gittag`, `http`, and `shell` sources, the PR body falls back to the upstream source URL (when defined) and explicitly notes that release notes are unavailable for that source type
+For every bumped dependency the PR body shows the version change plus, depending
+on where the source is hosted:
 
-This keeps PRs compact while still surfacing changelog context for sources that publish trustworthy release notes.
+- **GitHub** (`githubrelease`, or any `gittag` whose `spec.url` points at
+  `github.com`): the matching GitHub release link and a truncated excerpt of its
+  release notes (folded in a `<details>` block), **plus** a
+  `…/compare/<old_tag>...<new_tag>` link. The compare link is always included so
+  major-version diffs are one click away even when a repository only tags and
+  does not publish releases.
+- **GitLab** (any `gittag`/`gitlab` source whose URL points at a `gitlab*` host):
+  a best-effort release-notes excerpt from the GitLab API (public projects need
+  no token) and a `…/-/compare/<old_tag>...<new_tag>` link.
+- **Everything else** (cgit hosts, other forges, `shell` and `http` sources):
+  the links taken from the optional `changelog` hint on the source (see below).
+- When none of the above apply, the body falls back to the upstream source URL
+  and notes that release notes are unavailable for that source type.
+
+Because GitHub and GitLab coordinates are derived directly from `spec.url`, any
+new `gittag` source added on those forges gets changelog links for free with no
+extra configuration.
+
+### Changelog hints
+
+Sources that cannot be auto-derived (Savannah/GNU cgit, kernel.org, netfilter,
+sourceware, pagure, and `shell`/`http` sources) can attach an optional
+source-level `changelog` block. Updatecli ignores the extra key; only the
+enrichment script reads it:
+
+```yaml
+sources:
+  grep:
+    kind: gittag
+    spec:
+      url: git://git.git.savannah.gnu.org/grep.git
+    transformers:
+      - trimprefix: v
+    changelog:
+      url: https://git.savannah.gnu.org/cgit/grep.git/tree/NEWS
+      compare: "https://git.savannah.gnu.org/cgit/grep.git/diff/?id={new_tag}&id2={old_tag}"
+```
+
+Supported fields:
+
+- `url` — link to the upstream changelog / NEWS / release page.
+- `compare` — link to a tag-to-tag diff. Omit it for `shell`/`http` sources whose
+  upstream tags cannot be reconstructed reliably.
+- `forge`, `owner`, `repository`, `host`, `path` — force GitHub/GitLab handling
+  (release-notes lookup + compare links) for a source whose `spec.url` does not
+  expose those coordinates.
+
+The `url` and `compare` templates support the placeholders `{old}` / `{new}`
+(the Dockerfile versions) and `{old_tag}` / `{new_tag}` (the upstream git tags,
+reconstructed by reversing the source `transformers`).
+
+This keeps PRs compact while still surfacing a changelog link — or a real
+release-notes excerpt — for essentially every source.

@@ -10,6 +10,8 @@ sources:
       - findsubmatch:
           pattern: 'latest stable version of the Linux kernel.*?([0-9]+\.[0-9]+(?:\.[0-9]+)?)'
           captureindex: 1
+    changelog:
+      url: "https://www.kernel.org/category/releases.html"
 
   kmod:
     kind: gittag
@@ -20,6 +22,9 @@ sources:
         pattern: '*'
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/tree/NEWS"
+      compare: "https://git.kernel.org/pub/scm/utils/kernel/kmod/kmod.git/diff/?id={new_tag}&id2={old_tag}"
 
   dracut:
     kind: gittag
@@ -36,6 +41,8 @@ sources:
         | sort -V | tail -n 1
     transformers:
       - trimprefix: grub-
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/grub.git/tree/ChangeLog"
 
   kbd:
     kind: gittag
@@ -46,6 +53,9 @@ sources:
         pattern: '*'
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git/tree/"
+      compare: "https://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git/diff/?id={new_tag}&id2={old_tag}"
 
 
 targets:

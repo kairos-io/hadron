@@ -39,6 +39,9 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git/tree/"
+      compare: "https://git.kernel.org/pub/scm/fs/ext2/e2fsprogs.git/diff/?id={new_tag}&id2={old_tag}"
 
   dosfstools:
     kind: gittag
@@ -60,6 +63,9 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/parted.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/parted.git/diff/?id={new_tag}&id2={old_tag}"
 
   urcu:
     kind: gittag

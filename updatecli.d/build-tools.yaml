@@ -39,6 +39,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/bison.git/tree/NEWS"
 
   autoconf:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -52,6 +54,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/autoconf.git/tree/NEWS"
 
   automake:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -65,6 +69,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/automake.git/tree/NEWS"
 
   libtool:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -79,6 +85,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/libtool.git/tree/NEWS"
 
   cmake:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -92,6 +100,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://cmake.org/cmake/help/latest/release/index.html"
 
   make:
     kind: gittag
@@ -103,6 +113,9 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/make.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/make.git/diff/?id={new_tag}&id2={old_tag}"
 
   m4:
     kind: gittag
@@ -114,6 +127,9 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/m4.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/m4.git/diff/?id={new_tag}&id2={old_tag}"
 
   gawk:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -125,6 +141,8 @@ sources:
         | sort -V | tail -n 1
     transformers:
       - trimprefix: gawk-
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/gawk.git/tree/NEWS"
 
 
   binutils:
@@ -146,6 +164,8 @@ sources:
       - replacer:
           from: '_'
           to: '.'
+    changelog:
+      url: "https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=binutils/NEWS;hb=HEAD"
 
 targets:
   flex:

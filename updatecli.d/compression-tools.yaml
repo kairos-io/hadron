@@ -80,6 +80,8 @@ sources:
         | sort -V | tail -n 1
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/gzip.git/tree/NEWS"
 
 targets:
   curl:

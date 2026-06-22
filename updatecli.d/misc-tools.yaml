@@ -77,6 +77,8 @@ sources:
           to: '.'
       - sort:
           method: semver
+    changelog:
+      url: "https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=gdb/NEWS;hb=HEAD"
 
   bc:
     kind: gittag
@@ -98,6 +100,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/patch.git/tree/NEWS"
 
 targets:
   python:

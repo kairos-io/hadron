@@ -8,6 +8,9 @@ sources:
       url: git://git.git.savannah.gnu.org/acl.git
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/acl.git/tree/"
+      compare: "https://git.savannah.gnu.org/cgit/acl.git/diff/?id={new_tag}&id2={old_tag}"
 
   attr:
     kind: gittag
@@ -15,6 +18,9 @@ sources:
       url: git://git.git.savannah.gnu.org/attr.git
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/attr.git/tree/"
+      compare: "https://git.savannah.gnu.org/cgit/attr.git/diff/?id={new_tag}&id2={old_tag}"
 
   libcap:
     kind: gittag
@@ -27,6 +33,9 @@ sources:
       - trimprefix: libcap-
       - sort:
           method: semver
+    changelog:
+      url: "https://git.kernel.org/pub/scm/libs/libcap/libcap.git/tree/"
+      compare: "https://git.kernel.org/pub/scm/libs/libcap/libcap.git/diff/?id={new_tag}&id2={old_tag}"
 
   libmnl:
     kind: gittag
@@ -39,6 +48,9 @@ sources:
       - trimprefix: libmnl-
       - sort:
           method: semver
+    changelog:
+      url: "https://git.netfilter.org/libmnl/tree/"
+      compare: "https://git.netfilter.org/libmnl/diff/?id={new_tag}&id2={old_tag}"
 
   libnftnl:
     kind: gittag
@@ -51,6 +63,9 @@ sources:
       - trimprefix: libnftnl-
       - sort:
           method: semver
+    changelog:
+      url: "https://git.netfilter.org/libnftnl/tree/"
+      compare: "https://git.netfilter.org/libnftnl/diff/?id={new_tag}&id2={old_tag}"
 
   seccomp:
     kind: gittag
@@ -83,6 +98,8 @@ sources:
       - trimprefix: libaio-
       - sort:
           method: semver
+    changelog:
+      url: "https://pagure.io/libaio"
 
   dbus:
     kind: gittag
@@ -179,6 +196,8 @@ sources:
       - trimprefix: v
       - sort:
           method: semver
+    changelog:
+      url: "https://www.gnu.org/software/libiconv/"
 
   pcre2:
     kind: githubrelease
