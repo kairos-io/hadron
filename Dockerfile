@@ -3419,6 +3419,8 @@ COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 COPY --from=sources-downloader /sources/downloads/pam.tar.xz /sources/
 RUN mkdir -p /pam
 WORKDIR /sources
