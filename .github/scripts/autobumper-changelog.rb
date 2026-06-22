@@ -250,11 +250,11 @@ def render_notes(bump)
   notes = format_notes(bump["release_notes"])
   if notes
     excerpt, truncated = notes
-    block = +"- Notes:\n"
-    block << "  <details>\n"
-    block << "  <summary>Release notes excerpt#{truncated ? " (truncated)" : ""}</summary>\n\n"
+    block = +"- Notes:\n\n"
+    block << "<details>\n"
+    block << "<summary>Release notes excerpt#{truncated ? " (truncated)" : ""}</summary>\n\n"
     block << excerpt
-    block << "\n\n  </details>\n"
+    block << "\n\n</details>\n\n"
     block
   else
     case bump["release_notes_status"]
