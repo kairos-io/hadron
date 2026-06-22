@@ -22,8 +22,10 @@
 # is almost certainly noise rather than a real size impact.
 set -euo pipefail
 # Stable, locale-independent byte sorting so the path merges below are correct
-# regardless of the runner locale.
-export LC_ALL=C
+# regardless of the runner locale. (LC_ALL and human() come from the lib.)
+
+# Shared variant list + human() helper, kept in sync with size-history.sh.
+source "$(dirname "${BASH_SOURCE[0]}")/size-history-lib.sh"
 
 SHA="${1:?usage: image-size-report.sh <pr-sha> <repo-slug>}"
 REPO="${2:?usage: image-size-report.sh <pr-sha> <repo-slug>}"
@@ -31,17 +33,20 @@ REPO="${2:?usage: image-size-report.sh <pr-sha> <repo-slug>}"
 # How many individual files to show in the per-image "top file changes" table.
 TOP_FILES="${TOP_FILES:-15}"
 
-# name | PR image (this build, pushed to ttl.sh) | main baseline (ghcr.io)
+# Build the per-variant comparison table from the shared SIZE_VARIANTS list:
+#   name | PR image (this build, pushed to ttl.sh) | main baseline (ghcr.io)
 # PR bios tags carry a -amd64 suffix; trusted tags do not (see PR_amd64.yml).
-VARIANTS=(
-  "hadron-cloud|ttl.sh/hadron-cloud-amd64:${SHA}|ghcr.io/${REPO}-cloud:main"
-  "hadron|ttl.sh/hadron-amd64:${SHA}|ghcr.io/${REPO}:main"
-  "hadron-cloud-trusted|ttl.sh/hadron-cloud-trusted:${SHA}|ghcr.io/${REPO}-cloud-trusted:main"
-  "hadron-trusted|ttl.sh/hadron-trusted:${SHA}|ghcr.io/${REPO}-trusted:main"
-)
-
-# Human-readable IEC size; strips a leading "-" so callers control the sign.
-human() { numfmt --to=iec --suffix=B "${1#-}"; }
+VARIANTS=()
+for _v in "${SIZE_VARIANTS[@]}"; do
+  _name="${_v%%|*}"
+  case "$_name" in
+    *-trusted) _pr="ttl.sh/${_name}:${SHA}" ;;        # trusted tags: no -amd64
+    *)         _pr="ttl.sh/${_name}-amd64:${SHA}" ;;  # bios tags: -amd64 suffix
+  esac
+  _main="$(size_variant_ghcr "$REPO" "$_name")"
+  VARIANTS+=("${_name}|${_pr}|${_main}")
+done
+unset _v _name _pr _main
 
 # Emit "<bytes>\t<path>" for every regular file in the image rootfs, staying on
 # the rootfs device so /proc, /sys and /dev are skipped. Sorted by path so the

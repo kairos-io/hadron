@@ -1320,3 +1320,86 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
             ARCH=riscv64
             BUILD_ARCH=riscv64
+
+  # ============================================================================
+  # Image size history
+  # ============================================================================
+  # Records the uncompressed size of each shipped :main image once per merge and
+  # appends it to a durable time series on the dedicated `size-history` branch
+  # (size-history.csv + a regenerated Markdown table and SVG chart). Unlike the
+  # per-PR report's step summary, this survives log/summary purging so we can see
+  # how the images grow over time. Informational only: never blocks the build.
+  size-history:
+    if: ${{ github.ref_name == 'main' }}
+    needs:
+      - hadron-bios
+      - hadron-trusted
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # push the size-history branch
+      packages: read    # pull the :main images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Log in to ghcr.io (to read :main images)
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Record image sizes and render history
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO='${{ github.repository }}'
+          BRANCH='size-history'
+          DATA_DIR="${RUNNER_TEMP}/size-history"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          # Load the existing history branch, or start a fresh orphan one.
+          if git clone --quiet --branch "$BRANCH" --single-branch "$REMOTE" "$DATA_DIR" 2>/dev/null; then
+            echo "Loaded existing '$BRANCH' branch"
+          else
+            echo "No '$BRANCH' branch yet; starting a fresh one"
+            mkdir -p "$DATA_DIR"
+            git -C "$DATA_DIR" init -q -b "$BRANCH"
+          fi
+          "${GITHUB_WORKSPACE}/.github/scripts/size-history.sh" all \
+            "${DATA_DIR}/size-history.csv" '${{ github.sha }}' "$REPO" "$DATA_DIR" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Publish history branch
+        # Never fail the build on a history hiccup; the step summary above is
+        # still written even if the commit/push cannot complete.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO='${{ github.repository }}'
+          BRANCH='size-history'
+          DATA_DIR="${RUNNER_TEMP}/size-history"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+          cd "$DATA_DIR"
+          git add size-history.csv SIZE_HISTORY.md size-history.svg
+          if git diff --cached --quiet; then
+            echo "No size changes to commit"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -q -m "size-history: ${{ github.sha }}"
+          # Merges can land close together: rebase-and-retry on push rejection so
+          # two runs don't clobber each other's history.
+          for attempt in 1 2 3 4 5; do
+            if git push --quiet "$REMOTE" "HEAD:${BRANCH}"; then
+              echo "Pushed history (attempt ${attempt})"
+              exit 0
+            fi
+            echo "Push rejected (attempt ${attempt}); syncing and retrying"
+            if git fetch --quiet "$REMOTE" "$BRANCH"; then
+              git rebase --quiet FETCH_HEAD || { git rebase --abort || true; }
+            fi
+            sleep $((attempt * 3))
+          done
+          echo "Could not push history after retries" >&2
+          exit 1
