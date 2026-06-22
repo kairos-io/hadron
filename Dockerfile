@@ -218,7 +218,7 @@ ARG CONNTRACK_TOOLS_VERSION=1.4.9
 RUN wget -q https://www.netfilter.org/projects/conntrack-tools/files/conntrack-tools-${CONNTRACK_TOOLS_VERSION}.tar.xz -O conntrack-tools.tar.xz
 
 FROM sources-downloader-base AS linux-download
-ARG KERNEL_VERSION=7.1
+ARG KERNEL_VERSION=7.1.1
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 FROM sources-downloader-base AS flex-download
