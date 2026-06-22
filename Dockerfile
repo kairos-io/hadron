@@ -3283,6 +3283,8 @@ COPY --from=fts /fts /fts
 RUN rsync -aHAX --keep-dirlinks  /fts/. /
 COPY --from=xz /xz /xz
 RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 
 COPY --from=sources-downloader /sources/downloads/dracut.tar.gz /sources/
 RUN mkdir -p /dracut
@@ -3343,6 +3345,9 @@ RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
 # devmapper
 COPY --from=lvm2-systemd /lvm2 /lvm2
 RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 
 ## get libudev from systemd
 COPY --from=systemd /systemd /systemd
@@ -3509,6 +3514,8 @@ COPY --from=perl /perl /perl
 RUN rsync -aHAX --keep-dirlinks  /perl/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 
 COPY --from=sources-downloader /sources/downloads/openscsi.tar.gz /sources/
 RUN pip3 install meson ninja
@@ -4156,6 +4163,9 @@ RUN rsync -aHAX --keep-dirlinks  /keyutils/. /skeleton/
 
 COPY --from=nfs-utils /nfs-utils /nfs-utils
 RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /skeleton/
+
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /skeleton
 
 ## systemd
 COPY --from=systemd /systemd /systemd
