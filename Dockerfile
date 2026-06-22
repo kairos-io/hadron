@@ -11,6 +11,11 @@ ARG FIPS="no-fips"
 ARG TARGETARCH
 ARG CFLAGS
 ARG ARCH
+## GNU mirror fallback list - tried in order for all GNU FTP package downloads.
+## Override any of these if a mirror is consistently unavailable in your region.
+ARG GNU_MIRROR_1=https://ftpmirror.gnu.org
+ARG GNU_MIRROR_2=https://ftp.gnu.org/gnu
+ARG GNU_MIRROR_3=https://mirror.netcologne.de/gnu
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
@@ -55,6 +60,14 @@ ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
 # Base dowload target with some preparation common to all downloads.
 FROM alpine-base AS sources-downloader-base
+## Re-declare global GNU mirror ARGs and export as ENV so all child download
+## stages inherit them without needing to redeclare ARG in each stage.
+ARG GNU_MIRROR_1
+ARG GNU_MIRROR_2
+ARG GNU_MIRROR_3
+ENV GNU_MIRROR_1=${GNU_MIRROR_1} \
+    GNU_MIRROR_2=${GNU_MIRROR_2} \
+    GNU_MIRROR_3=${GNU_MIRROR_3}
 RUN mkdir -p /sources/downloads
 WORKDIR /sources/downloads
 
@@ -93,7 +106,11 @@ RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSI
 
 FROM sources-downloader-base AS gawk-download
 ARG GAWK_VERSION=5.4.0
-RUN wget -q https://ftpmirror.gnu.org/gawk/gawk-${GAWK_VERSION}.tar.xz -O gawk.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/gawk/gawk-${GAWK_VERSION}.tar.xz" -O gawk.tar.xz && break; \
+        rm -f gawk.tar.xz; \
+    done; \
+    test -s gawk.tar.xz
 
 FROM sources-downloader-base AS ca-certificates-download
 ARG CA_CERTIFICATES_VERSION=20260611
@@ -210,15 +227,27 @@ RUN wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/fl
 
 FROM sources-downloader-base AS bison-download
 ARG BISON_VERSION=3.8.2
-RUN wget -q https://ftpmirror.gnu.org/bison/bison-${BISON_VERSION}.tar.xz -O bison.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/bison/bison-${BISON_VERSION}.tar.xz" -O bison.tar.xz && break; \
+        rm -f bison.tar.xz; \
+    done; \
+    test -s bison.tar.xz
 
 FROM sources-downloader-base AS autoconf-download
 ARG AUTOCONF_VERSION=2.73
-RUN wget -q https://ftpmirror.gnu.org/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz -O autoconf.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/autoconf/autoconf-${AUTOCONF_VERSION}.tar.xz" -O autoconf.tar.xz && break; \
+        rm -f autoconf.tar.xz; \
+    done; \
+    test -s autoconf.tar.xz
 
 FROM sources-downloader-base AS automake-download
 ARG AUTOMAKE_VERSION=1.18.1
-RUN wget -q https://ftpmirror.gnu.org/automake/automake-${AUTOMAKE_VERSION}.tar.xz -O automake.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/automake/automake-${AUTOMAKE_VERSION}.tar.xz" -O automake.tar.xz && break; \
+        rm -f automake.tar.xz; \
+    done; \
+    test -s automake.tar.xz
 
 FROM sources-downloader-base AS musl-fts-download
 ARG FTS_VERSION=1.2.7
@@ -226,7 +255,11 @@ RUN wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz 
 
 FROM sources-downloader-base AS libtool-download
 ARG LIBTOOL_VERSION=2.5.4
-RUN wget -q https://ftpmirror.gnu.org/libtool/libtool-${LIBTOOL_VERSION}.tar.xz -O libtool.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/libtool/libtool-${LIBTOOL_VERSION}.tar.xz" -O libtool.tar.xz && break; \
+        rm -f libtool.tar.xz; \
+    done; \
+    test -s libtool.tar.xz
 
 FROM sources-downloader-base AS libelf-download
 ARG LIBELF_VERSION=0.195
@@ -270,7 +303,11 @@ RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -
 
 FROM sources-downloader-base AS parted-download
 ARG PARTED_VERSION=3.7
-RUN wget -q https://ftpmirror.gnu.org/gnu/parted/parted-${PARTED_VERSION}.tar.xz -O parted.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/parted/parted-${PARTED_VERSION}.tar.xz" -O parted.tar.xz && break; \
+        rm -f parted.tar.xz; \
+    done; \
+    test -s parted.tar.xz
 
 FROM sources-downloader-base AS e2fsprogs-download
 ARG E2FSPROGS_VERSION=1.47.4
@@ -310,7 +347,11 @@ RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERS
 
 FROM sources-downloader-base AS grub-download
 ARG GRUB_VERSION=2.14
-RUN wget -q https://mirrors.edge.kernel.org/gnu/grub/grub-${GRUB_VERSION}.tar.xz -O grub.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/grub/grub-${GRUB_VERSION}.tar.xz" -O grub.tar.xz && break; \
+        rm -f grub.tar.xz; \
+    done; \
+    test -s grub.tar.xz
 
 FROM sources-downloader-base AS pam-download
 ARG PAM_VERSION=1.7.2
@@ -335,23 +376,43 @@ RUN wget -q http://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz -O musl.ta
 
 FROM sources-downloader-base AS gcc-download
 ARG GCC_VERSION=15.3.0
-RUN wget -q http://mirror.netcologne.de/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz -O gcc.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz" -O gcc.tar.xz && break; \
+        rm -f gcc.tar.xz; \
+    done; \
+    test -s gcc.tar.xz
 
 FROM sources-downloader-base AS gmp-download
 ARG GMP_VERSION=6.3.0
-RUN wget -q http://mirror.netcologne.de/gnu/gmp/gmp-${GMP_VERSION}.tar.bz2 -O gmp.tar.bz2
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/gmp/gmp-${GMP_VERSION}.tar.bz2" -O gmp.tar.bz2 && break; \
+        rm -f gmp.tar.bz2; \
+    done; \
+    test -s gmp.tar.bz2
 
 FROM sources-downloader-base AS mpc-download
 ARG MPC_VERSION=1.4.1
-RUN wget -q http://mirror.netcologne.de/gnu/mpc/mpc-${MPC_VERSION}.tar.xz -O mpc.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/mpc/mpc-${MPC_VERSION}.tar.xz" -O mpc.tar.xz && break; \
+        rm -f mpc.tar.xz; \
+    done; \
+    test -s mpc.tar.xz
 
 FROM sources-downloader-base AS mpfr-download
 ARG MPFR_VERSION=4.2.2
-RUN wget -q http://mirror.netcologne.de/gnu/mpfr/mpfr-${MPFR_VERSION}.tar.bz2 -O mpfr.tar.bz2
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/mpfr/mpfr-${MPFR_VERSION}.tar.bz2" -O mpfr.tar.bz2 && break; \
+        rm -f mpfr.tar.bz2; \
+    done; \
+    test -s mpfr.tar.bz2
 
 FROM sources-downloader-base AS make-download
 ARG MAKE_VERSION=4.4.1
-RUN wget -q https://mirror.netcologne.de/gnu/make/make-${MAKE_VERSION}.tar.gz -O make.tar.gz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/make/make-${MAKE_VERSION}.tar.gz" -O make.tar.gz && break; \
+        rm -f make.tar.gz; \
+    done; \
+    test -s make.tar.gz
 
 FROM sources-downloader-base AS binutils-download
 ARG BINUTILS_VERSION=2.46.1
@@ -363,11 +424,19 @@ RUN wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.g
 
 FROM sources-downloader-base AS m4-download
 ARG M4_VERSION=1.4.21
-RUN wget -q http://mirror.easyname.at/gnu/m4/m4-${M4_VERSION}.tar.xz -O m4.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/m4/m4-${M4_VERSION}.tar.xz" -O m4.tar.xz && break; \
+        rm -f m4.tar.xz; \
+    done; \
+    test -s m4.tar.xz
 
 FROM sources-downloader-base AS readline-download
 ARG READLINE_VERSION=8.3
-RUN wget -q http://mirror.easyname.at/gnu/readline/readline-${READLINE_VERSION}.tar.gz -O readline.tar.gz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/readline/readline-${READLINE_VERSION}.tar.gz" -O readline.tar.gz && break; \
+        rm -f readline.tar.gz; \
+    done; \
+    test -s readline.tar.gz
 
 FROM sources-downloader-base AS perl-download
 ARG PERL_VERSION=5.42.2
@@ -375,23 +444,43 @@ RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar
 
 FROM sources-downloader-base AS coreutils-download
 ARG COREUTILS_VERSION=9.11
-RUN wget -q http://mirror.easyname.at/gnu/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz -O coreutils.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/coreutils/coreutils-${COREUTILS_VERSION}.tar.xz" -O coreutils.tar.xz && break; \
+        rm -f coreutils.tar.xz; \
+    done; \
+    test -s coreutils.tar.xz
 
 FROM sources-downloader-base AS findutils-download
 ARG FINDUTILS_VERSION=4.10.0
-RUN wget -q http://mirror.easyname.at/gnu/findutils/findutils-${FINDUTILS_VERSION}.tar.xz -O findutils.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/findutils/findutils-${FINDUTILS_VERSION}.tar.xz" -O findutils.tar.xz && break; \
+        rm -f findutils.tar.xz; \
+    done; \
+    test -s findutils.tar.xz
 
 FROM sources-downloader-base AS grep-download
 ARG GREP_VERSION=3.12
-RUN wget -q http://mirror.easyname.at/gnu/grep/grep-${GREP_VERSION}.tar.xz -O grep.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/grep/grep-${GREP_VERSION}.tar.xz" -O grep.tar.xz && break; \
+        rm -f grep.tar.xz; \
+    done; \
+    test -s grep.tar.xz
 
 FROM sources-downloader-base AS gperf-download
 ARG GPERF_VERSION=3.3
-RUN wget -q http://mirror.easyname.at/gnu/gperf/gperf-${GPERF_VERSION}.tar.gz -O gperf.tar.gz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/gperf/gperf-${GPERF_VERSION}.tar.gz" -O gperf.tar.gz && break; \
+        rm -f gperf.tar.gz; \
+    done; \
+    test -s gperf.tar.gz
 
 FROM sources-downloader-base AS diffutils-download
 ARG DIFFUTILS_VERSION=3.12
-RUN wget -q http://ftpmirror.gnu.org/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz -O diffutils.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/diffutils/diffutils-${DIFFUTILS_VERSION}.tar.xz" -O diffutils.tar.xz && break; \
+        rm -f diffutils.tar.xz; \
+    done; \
+    test -s diffutils.tar.xz
 
 FROM sources-downloader-base AS sudo-download
 ARG SUDO_VERSION=1.9.17p2
@@ -426,7 +515,11 @@ RUN major="${LIBXML2_VERSION%%.*}" \
 
 FROM sources-downloader-base AS gzip-download
 ARG GZIP_VERSION=1.14
-RUN wget -q https://ftp.gnu.org/gnu/gzip/gzip-${GZIP_VERSION}.tar.xz -O gzip.tar.xz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/gzip/gzip-${GZIP_VERSION}.tar.xz" -O gzip.tar.xz && break; \
+        rm -f gzip.tar.xz; \
+    done; \
+    test -s gzip.tar.xz
 
 FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
@@ -436,11 +529,20 @@ ARG PATCH_LEVEL=9
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
 # But the index starts at 1
-RUN wget -q http://mirror.easyname.at/gnu/bash/bash-${BASH_VERSION}.tar.gz && tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/bash/bash-${BASH_VERSION}.tar.gz" -O bash-${BASH_VERSION}.tar.gz && break; \
+        rm -f bash-${BASH_VERSION}.tar.gz; \
+    done; \
+    test -s bash-${BASH_VERSION}.tar.gz; \
+    tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
 WORKDIR /sources/downloads/bash
 RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
         echo "Applying bash patch bash${BASH_VERSION//./}-00${i}"; \
-        wget -q https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-00${i} -O bash-patch-${i}.patch; \
+        for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+            wget -q "${mirror}/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-00${i}" -O bash-patch-${i}.patch && break; \
+            rm -f bash-patch-${i}.patch; \
+        done; \
+        test -s bash-patch-${i}.patch || { echo "Failed to download bash patch ${i} from all mirrors"; exit 1; }; \
         patch -p0 < bash-patch-${i}.patch; \
     done
 WORKDIR /sources/downloads
@@ -455,7 +557,11 @@ RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shi
 
 FROM sources-downloader-base AS libiconv-download
 ARG ICONV_VERSION=1.19
-RUN wget -q https://ftpmirror.gnu.org/libiconv/libiconv-${ICONV_VERSION}.tar.gz -O libiconv.tar.gz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/libiconv/libiconv-${ICONV_VERSION}.tar.gz" -O libiconv.tar.gz && break; \
+        rm -f libiconv.tar.gz; \
+    done; \
+    test -s libiconv.tar.gz
 
 FROM sources-downloader-base AS bc-download
 ARG BC_VERSION=7.1.0
@@ -463,7 +569,11 @@ RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc
 
 FROM sources-downloader-base AS patch-download
 ARG PATCH_VERSION=2.8
-RUN wget -q https://ftpmirror.gnu.org/patch/patch-${PATCH_VERSION}.tar.gz -O patch.tar.gz
+RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
+        wget -q "${mirror}/patch/patch-${PATCH_VERSION}.tar.gz" -O patch.tar.gz && break; \
+        rm -f patch.tar.gz; \
+    done; \
+    test -s patch.tar.gz
 
 
 FROM sources-downloader-base AS pcre2-download
