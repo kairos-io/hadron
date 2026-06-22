@@ -217,6 +217,10 @@ FROM sources-downloader-base AS conntrack-tools-download
 ARG CONNTRACK_TOOLS_VERSION=1.4.9
 RUN wget -q https://www.netfilter.org/projects/conntrack-tools/files/conntrack-tools-${CONNTRACK_TOOLS_VERSION}.tar.xz -O conntrack-tools.tar.xz
 
+FROM sources-downloader-base AS procps-ng-download
+ARG PROCPS_NG_VERSION=4.0.6
+RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-${PROCPS_NG_VERSION}.tar.xz -O procps-ng.tar.xz
+
 FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=7.1
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
@@ -701,6 +705,7 @@ COPY --from=libnetfilter_cttimeout-download /sources/downloads/libnetfilter_ctti
 COPY --from=libnetfilter_cthelper-download /sources/downloads/libnetfilter_cthelper.tar.bz2 /sources/downloads/
 COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.tar.bz2 /sources/downloads/
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
+COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
 
 ########################################################
 #
@@ -2665,6 +2670,35 @@ WORKDIR /sources/conntrack-tools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/conntrack-tools
 
+## procps-ng — provides the sysctl(8) CLI. systemd-sysctl only applies
+## drop-in config files (it cannot read/list/set keys at runtime) and is
+## explicitly not a sysctl replacement upstream. Consumers like Stylus run
+## `sysctl --system` in preflight, so we ship the real binary. Final image
+## only (baremetal), not the container base. Built with a static libproc2
+## (--disable-shared --enable-static) so the result is a single
+## self-contained binary; ncurses/nls/kill/pidof are dropped since we only
+## keep sysctl.
+FROM rsync AS procps-ng
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/procps-ng.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf procps-ng.tar.xz && mv procps-ng-* procps-ng
+WORKDIR /sources/procps-ng
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+      --disable-shared --enable-static \
+      --disable-nls \
+      --without-ncurses \
+      --without-systemd \
+      --disable-kill \
+      --disable-pidof
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/procps-ng-full
+## Keep only the sysctl binary (location varies by usrmerge layout)
+RUN mkdir -p /procps-ng/usr/sbin && \
+    cp "$(find /procps-ng-full -type f -name sysctl | head -n1)" /procps-ng/usr/sbin/sysctl
+
 
 ## libnl - netlink library. Hard build-time dep of nfs-utils >= 2.7 (used
 ## for the in-kernel notification netlink interface). Standard autotools
@@ -4093,6 +4127,10 @@ COPY --from=libnetfilter_queue /libnetfilter_queue /libnetfilter_queue
 RUN rsync -aHAX --keep-dirlinks  /libnetfilter_queue/. /skeleton
 COPY --from=conntrack-tools /conntrack-tools /conntrack-tools
 RUN rsync -aHAX --keep-dirlinks  /conntrack-tools/. /skeleton
+
+## sysctl(8) CLI from procps-ng (final image only, not container base)
+COPY --from=procps-ng /procps-ng /procps-ng
+RUN rsync -aHAX --keep-dirlinks  /procps-ng/. /skeleton
 
 ## cryptsetup for encrypted partitions
 COPY --from=cryptsetup /cryptsetup /cryptsetup
