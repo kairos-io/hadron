@@ -3315,6 +3315,8 @@ COPY --from=ca-certificates /ca-certificates /ca-certificates
 RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
 COPY --from=openssl /openssl /openssl
 RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 
 
 COPY --from=sources-downloader /sources/downloads/lvm2.tgz /sources/
@@ -3392,6 +3394,8 @@ COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
 # install target
 RUN mkdir -p /dbus
@@ -3439,6 +3443,8 @@ FROM shadow-base AS shadow-systemd
 ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 COPY --from=systemd /systemd /systemd
 RUN rsync -aHAX --keep-dirlinks  /systemd/. /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
@@ -3464,6 +3470,8 @@ FROM sudo-base AS sudo-systemd
 ARG JOBS
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
 RUN mkdir -p /sudo
 WORKDIR /sources
