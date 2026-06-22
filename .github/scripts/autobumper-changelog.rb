@@ -279,10 +279,11 @@ def changelog_lines(bump, token)
     repository = bump["github_repository"]
     bump.merge!(fetch_github_release(bump.merge("owner" => owner, "repository" => repository), token))
 
-    if bump["release_url"].to_s.empty?
-      lines << "- Release: [#{owner}/#{repository} releases](https://github.com/#{owner}/#{repository}/releases)\n"
-    else
+    status = bump["release_notes_status"]
+    if %w[available empty].include?(status) && !bump["release_url"].to_s.empty?
       lines << "- Release: [#{owner}/#{repository} #{bump["new_version"]}](#{bump["release_url"]})\n"
+    else
+      lines << "- Release: [#{owner}/#{repository} releases](https://github.com/#{owner}/#{repository}/releases)\n"
     end
 
     notes = render_notes(bump)
