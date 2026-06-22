@@ -506,6 +506,10 @@ FROM sources-downloader-base AS tpm2-tss-download
 ARG TPM2_TSS_VERSION=4.1.3
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
+FROM sources-downloader-base AS libucontext-download
+ARG LIBUCONTEXT_VERSION=1.5.1
+RUN wget -q https://github.com/kaniini/libucontext/archive/refs/tags/libucontext-${LIBUCONTEXT_VERSION}.tar.gz -O libucontext.tar.gz
+
 FROM sources-downloader-base AS libxml2-download
 ARG LIBXML2_VERSION=2.15.3
 RUN major="${LIBXML2_VERSION%%.*}" \
@@ -682,6 +686,7 @@ COPY --from=openscsi-download /sources/downloads/openscsi.tar.gz /sources/downlo
 COPY --from=gdb-download /sources/downloads/gdb.tar.gz /sources/downloads/
 COPY --from=libffi-download /sources/downloads/libffi.tar.gz /sources/downloads/
 COPY --from=tpm2-tss-download /sources/downloads/tpm2-tss.tar.gz /sources/downloads/
+COPY --from=libucontext-download /sources/downloads/libucontext.tar.gz /sources/downloads/
 COPY --from=libxml2-download /sources/downloads/libxml2.tar.xz /sources/downloads/
 COPY --from=gzip-download /sources/downloads/gzip.tar.xz /sources/downloads/
 COPY --from=bash-download /sources/downloads/bash /sources/downloads/bash
@@ -3101,6 +3106,16 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}     --disable-fapi \
                                              --disable-tcti-pcap
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/tpm2-tss
 
+FROM rsync AS libucontext
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/libucontext.tar.gz /sources/
+RUN mkdir -p /libucontext
+WORKDIR /sources
+RUN tar -xf libucontext.tar.gz && mv libucontext-* libucontext
+WORKDIR /sources/libucontext
+RUN make -s -j${JOBS} ARCH=${BUILD_ARCH} FREESTANDING=yes
+RUN make -s ARCH=${BUILD_ARCH} FREESTANDING=yes install DESTDIR=/libucontext
+
 ## systemd
 ## Try to build it at the end so we have most libraries already built
 ## Anything that depends on systemd should be built after this stage
@@ -3166,6 +3181,9 @@ RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
 
 COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
 RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /
+
+COPY --from=libucontext /libucontext /libucontext
+RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
 
 COPY --from=sources-downloader /sources/downloads/systemd.tar.gz /sources/
 WORKDIR /sources

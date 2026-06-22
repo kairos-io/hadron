@@ -32,6 +32,17 @@ sources:
       owner: tpm2-software
       repository: tpm2-tss
 
+  libucontext:
+    kind: gittag
+    spec:
+      url: https://github.com/kaniini/libucontext.git
+      versionfilter:
+        kind: regex/semver
+        regex: '^libucontext-([0-9]+\.[0-9]+\.[0-9]+)$'
+        pattern: '*'
+    transformers:
+      - trimprefix: libucontext-
+
   pax_utils:
     kind: gittag
     spec:
@@ -129,6 +140,16 @@ targets:
         keyword: ARG
         matcher: TPM2_TSS_VERSION
     sourceid: tpm2_tss
+
+  libucontext:
+    name: LIBUCONTEXT_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: LIBUCONTEXT_VERSION
+    sourceid: libucontext
 
   pax_utils:
     name: PAX_UTILS_VERSION in Dockerfile updated to {{ source "pax_utils" }}
