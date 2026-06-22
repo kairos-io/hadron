@@ -12,6 +12,8 @@ sources:
         | sort -V | tail -n 1
     transformers:
       - trimprefix: gcc-
+    changelog:
+      url: "https://gcc.gnu.org/releases.html"
 
   gmp:
     kind: http
@@ -27,6 +29,8 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://gmplib.org/#NEWS"
 
   mpc:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -36,6 +40,8 @@ sources:
         git ls-remote --refs --tags https://gitlab.inria.fr/mpc/mpc.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
         | sort -V | tail -n 1
+    changelog:
+      url: "https://www.multiprecision.org/mpc/download.html"
 
   mpfr:
     # Much faster to query this thant to use the gittag which actually clones the repository fully
@@ -45,6 +51,8 @@ sources:
         git ls-remote --refs --tags https://gitlab.inria.fr/mpfr/mpfr.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
         | sort -V | tail -n 1
+    changelog:
+      url: "https://www.mpfr.org/mpfr-current/"
 
 # perl doesnt have releases but the kind will fallback to tags. This is faster than using gittag which will clone the entire repo
   perl:

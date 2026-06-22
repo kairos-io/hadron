@@ -11,6 +11,9 @@ sources:
         pattern: '*'
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.netfilter.org/iptables/tree/"
+      compare: "https://git.netfilter.org/iptables/diff/?id={new_tag}&id2={old_tag}"
 
   open_iscsi:
     kind: gittag
@@ -79,6 +82,9 @@ sources:
           method: semver
       - semver:
           constraint: '*'
+    changelog:
+      url: "https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/tree/"
+      compare: "https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/diff/?id={new_tag}&id2={old_tag}"
 
 targets:
   iptables:

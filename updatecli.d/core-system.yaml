@@ -12,6 +12,9 @@ sources:
         pattern: "v*"
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.musl-libc.org/cgit/musl/tree/WHATSNEW"
+      compare: "https://git.musl-libc.org/cgit/musl/diff/?id={new_tag}&id2={old_tag}"
 
   busybox:
     kind: gittag
@@ -21,6 +24,9 @@ sources:
       - replacer:
           from: '_'
           to: '.'
+    changelog:
+      url: "https://git.busybox.net/busybox/log/"
+      compare: "https://git.busybox.net/busybox/diff/?id={new_tag}&id2={old_tag}"
 
   systemd:
     kind: gittag
@@ -65,6 +71,9 @@ sources:
         pattern: "v*"
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/findutils.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/findutils.git/diff/?id={new_tag}&id2={old_tag}"
 
   grep:
     kind: gittag
@@ -76,6 +85,9 @@ sources:
         pattern: "v*"
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/grep.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/grep.git/diff/?id={new_tag}&id2={old_tag}"
 
   gperf:
     kind: gittag
@@ -87,6 +99,9 @@ sources:
         pattern: "v*"
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/gperf.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/gperf.git/diff/?id={new_tag}&id2={old_tag}"
 
   diffutils:
     kind: gittag
@@ -98,6 +113,9 @@ sources:
         pattern: "v*"
     transformers:
       - trimprefix: v
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/diffutils.git/tree/NEWS"
+      compare: "https://git.savannah.gnu.org/cgit/diffutils.git/diff/?id={new_tag}&id2={old_tag}"
 
   readline:
     kind: gittag
@@ -109,6 +127,9 @@ sources:
         pattern: "^readline-(\\d+\\.\\d+)$"
     transformers:
       - trimprefix: readline-
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/readline.git/tree/"
+      compare: "https://git.savannah.gnu.org/cgit/readline.git/diff/?id={new_tag}&id2={old_tag}"
 
   bash:
     kind: gittag
@@ -120,6 +141,9 @@ sources:
         pattern: ^bash-(\d+\.\d+)$
     transformers:
       - trimprefix: bash-
+    changelog:
+      url: "https://git.savannah.gnu.org/cgit/bash.git/tree/"
+      compare: "https://git.savannah.gnu.org/cgit/bash.git/diff/?id={new_tag}&id2={old_tag}"
 
   bash_patch_level:
     kind: shell
