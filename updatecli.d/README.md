@@ -151,3 +151,11 @@ In CI/CD pipelines, ensure the `GITHUB_TOKEN` environment variable is set:
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   run: updatecli diff --config updatecli.d/
 ```
+
+The autobumper workflow also uses the configured Updatecli manifest to enrich dependency bump PRs:
+
+- For `githubrelease` sources, it looks up the matching GitHub release for the selected version
+- PR bodies include the version change, a release link, and a truncated excerpt of the published release notes when available
+- For `gittag`, `http`, and `shell` sources, the PR body falls back to the upstream source URL (when defined) and explicitly notes that release notes are unavailable for that source type
+
+This keeps PRs compact while still surfacing changelog context for sources that publish trustworthy release notes.

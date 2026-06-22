@@ -108,60 +108,237 @@ jobs:
           # Commit and push changes
           git config user.name "ci-robbot"
           git config user.email "robot@c3os.io"
-          
-          # Prepare commit message with all changed files
-          msg=$(
-            git diff --cached -U0 |
-            awk '
-            BEGIN { old=""; new="" }
-            
-            # capture removed line (old)
-            /^-/ && !/^---/ { old=substr($0,2); next }
-            
-            # capture added line (new) and try to pair with previous old
-            /^\+/ && !/^\+\+\+/ {
-              new=substr($0,2)
-              
-              # Only handle ARG ..._VERSION=... lines
-              if (old ~ /^ARG[[:space:]]+[A-Z0-9]+_VERSION=/ && new ~ /^ARG[[:space:]]+[A-Z0-9]+_VERSION=/) {
-              # extract name token between "ARG " and "_VERSION="
-              tmp=old
-              sub(/^ARG[[:space:]]+/, "", tmp)          # drop "ARG "
-              sub(/_VERSION=.*/, "", tmp)               # keep just NAME part
-              
-              # extract versions (everything after "=")
-              oldv=old; sub(/.*=/, "", oldv)
-              newv=new; sub(/.*=/, "", newv)
-              
-              # normalize name: lowercase
-              name=tmp
-              for (i=1; i<=length(name); i++) {
-                c=substr(name,i,1)
-                if (c ~ /[A-Z]/) c=tolower(c)
-                out=out c
+          export UPDATECLI_MANIFEST="updatecli.d/${{ matrix.config }}.yaml"
+          ruby <<'RUBY'
+          require "json"
+          require "net/http"
+          require "uri"
+          require "yaml"
+
+          def parse_bumps(diff_text)
+            bumps = []
+            old_line = nil
+
+            diff_text.each_line do |line|
+              if line.start_with?("-") && !line.start_with?("---")
+                old_line = line[1..].strip
+                next
+              end
+
+              next unless line.start_with?("+") && !line.start_with?("+++")
+
+              new_line = line[1..].strip
+
+              if old_line && (old_match = old_line.match(/^ARG\s+([A-Z0-9_]+)=(.+)$/)) && (new_match = new_line.match(/^ARG\s+([A-Z0-9_]+)=(.+)$/))
+                matcher = old_match[1]
+                if matcher == new_match[1]
+                  bumps << {
+                    "matcher" => matcher,
+                    "old_version" => old_match[2],
+                    "new_version" => new_match[2]
+                  }
+                end
+              end
+
+              old_line = nil
+            end
+
+            bumps
+          end
+
+          def apply_transformers(value, transformers)
+            return value if value.nil?
+
+            Array(transformers).reduce(value.dup) do |current, transformer|
+              key, spec = transformer.first
+
+              case key
+              when "trimprefix"
+                current.start_with?(spec.to_s) ? current.delete_prefix(spec.to_s) : current
+              when "trimsuffix"
+                current.end_with?(spec.to_s) ? current.delete_suffix(spec.to_s) : current
+              when "replacer"
+                current.gsub(spec.fetch("from").to_s, spec.fetch("to").to_s)
+              else
+                current
+              end
+            end
+          end
+
+          def github_api_get(url, token)
+            uri = URI(url)
+            request = Net::HTTP::Get.new(uri)
+            request["Accept"] = "application/vnd.github+json"
+            request["User-Agent"] = "hadron-autobumper"
+            request["Authorization"] = "Bearer " + token unless token.to_s.empty?
+
+            Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
+              response = http.request(request)
+              raise "GitHub API request failed for #{url}: #{response.code} #{response.message}" unless response.is_a?(Net::HTTPSuccess)
+
+              JSON.parse(response.body)
+            end
+          end
+
+          def fetch_release_details(bump, token)
+            owner = bump["owner"]
+            repository = bump["repository"]
+            return {} if owner.to_s.empty? || repository.to_s.empty?
+
+            begin
+              1.upto(10) do |page|
+                releases = github_api_get("https://api.github.com/repos/#{owner}/#{repository}/releases?per_page=100&page=#{page}", token)
+                break if releases.empty?
+
+                matched = releases.find do |release|
+                  apply_transformers(release["tag_name"].to_s, bump["transformers"]) == bump["new_version"]
+                end
+
+                return {
+                  "release_url" => matched["html_url"],
+                  "release_notes" => matched["body"].to_s,
+                  "release_notes_status" => matched["body"].to_s.strip.empty? ? "empty" : "available"
+                } if matched
+              end
+            rescue StandardError => e
+              warn "Unable to fetch release details for #{owner}/#{repository}: #{e.message}"
+              return {
+                "release_url" => "https://github.com/#{owner}/#{repository}/releases",
+                "release_notes_status" => "lookup_failed"
               }
-                
-              print out " was updated " oldv " -> " newv
-                
-                out=""   # reset for next record
-              }
-                
-              old=""
+            end
+
+            {
+              "release_url" => "https://github.com/#{owner}/#{repository}/releases",
+              "release_notes_status" => "unavailable"
             }
-            ' |
-            head -n 8 |
-            paste -sd ", " -
-          )
+          end
 
-          # Extract bumped names for PR title
-          bumped_names=$(echo "$msg" | awk -F' was updated ' '{print $1}' | paste -sd ", " -)
+          def format_notes(notes, limit: 1200, max_lines: 25)
+            text = notes.to_s.gsub("\r\n", "\n").strip
+            return nil if text.empty?
 
-          # Prepare commit message: summary, blank line, then details
-          commit_msg="Automatic bumps for $bumped_names\n\n$msg"
-          echo -e "$commit_msg" > /tmp/commit_msg.txt
+            excerpt = text.lines.first(max_lines).join.strip
+            truncated = text.lines.length > max_lines
+
+            if excerpt.length > limit
+              excerpt = excerpt[0, limit].rstrip + "…"
+              truncated = true
+            end
+
+            [excerpt, truncated]
+          end
+
+          manifest = YAML.safe_load(File.read(ENV.fetch("UPDATECLI_MANIFEST")), aliases: false)
+          targets = manifest.fetch("targets", {})
+          sources = manifest.fetch("sources", {})
+
+          target_lookup = {}
+          targets.each do |target_name, target|
+            matcher = target.dig("spec", "instruction", "matcher")
+            next if matcher.to_s.empty?
+
+            target_lookup[matcher] = {
+              "target_name" => target_name,
+              "sourceid" => target["sourceid"]
+            }
+          end
+
+          bumps = parse_bumps(`git diff --cached -U0 -- Dockerfile`).map do |bump|
+            target = target_lookup[bump["matcher"]] || {}
+            sourceid = target["sourceid"]
+            source = sources[sourceid] || {}
+
+            bump.merge(
+              "name" => (target["target_name"] || bump["matcher"].downcase),
+              "sourceid" => sourceid,
+              "source_kind" => source["kind"],
+              "source_url" => source.dig("spec", "url"),
+              "owner" => source.dig("spec", "owner"),
+              "repository" => source.dig("spec", "repository"),
+              "transformers" => source["transformers"] || []
+            )
+          end
+
+          if bumps.empty?
+            File.write("/tmp/pr_title.txt", "Automatic version bumps")
+            File.write("/tmp/commit_msg.txt", "Automatic version bumps")
+            File.write("/tmp/pr_body.md", "No version metadata was collected for this update.")
+            exit 0
+          end
+
+          token = ENV["GITHUB_TOKEN"].to_s
+          bumps.each do |bump|
+            next unless bump["source_kind"] == "githubrelease"
+
+            bump.merge!(fetch_release_details(bump, token))
+          end
+
+          title_names = bumps.first(8).map { |bump| bump["name"] }
+          overflow = bumps.length - title_names.length
+          title_suffix = overflow.positive? ? " and #{overflow} more" : ""
+          joined_names = title_names.join(", ")
+          pr_title = "Automatic version bumps for #{joined_names}#{title_suffix}"
+
+          summary_lines = bumps.map do |bump|
+            "- #{bump["name"]} was updated #{bump["old_version"]} -> #{bump["new_version"]}"
+          end
+
+          commit_msg = +"Automatic bumps for #{joined_names}#{title_suffix}\n\n"
+          commit_msg << summary_lines.join("\n")
+
+          body = +"## Summary\n\n"
+          body << summary_lines.join("\n")
+          body << "\n\n## Changelog\n"
+
+          bumps.each do |bump|
+            body << "\n### #{bump["name"]}\n"
+            body << "- Version: `#{bump["old_version"]}` -> `#{bump["new_version"]}`\n"
+
+            if bump["source_kind"] == "githubrelease"
+              release_url = bump["release_url"]
+              if release_url.to_s.empty?
+                body << "- Release notes: unavailable\n"
+              else
+                body << "- Release: [#{bump.fetch("owner")}/#{bump.fetch("repository")} #{bump["new_version"]}](#{release_url})\n"
+              end
+
+              notes = format_notes(bump["release_notes"])
+              if notes
+                excerpt, truncated = notes
+                body << "- Notes:\n"
+                body << "  <details>\n"
+                body << "  <summary>Release notes excerpt#{truncated ? " (truncated)" : ""}</summary>\n\n"
+                body << excerpt
+                body << "\n\n  </details>\n"
+              else
+                case bump["release_notes_status"]
+                when "empty"
+                  body << "- Notes: no release notes published for this release\n"
+                when "lookup_failed"
+                  body << "- Notes: unable to retrieve release notes during the workflow run\n"
+                else
+                  body << "- Notes: unavailable for this release\n"
+                end
+              end
+            else
+              if bump["source_url"].to_s.empty?
+                body << "- Source: #{bump["source_kind"] || "unknown"}\n"
+              else
+                body << "- Source: [upstream](#{bump["source_url"]}) (#{bump["source_kind"]})\n"
+              end
+              body << "- Notes: unavailable for this source type\n"
+            end
+          end
+
+          File.write("/tmp/pr_title.txt", pr_title)
+          File.write("/tmp/commit_msg.txt", commit_msg)
+          File.write("/tmp/pr_body.md", body)
+          RUBY
 
           git commit -s -F /tmp/commit_msg.txt
           git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
+          PR_TITLE=$(cat /tmp/pr_title.txt)
           
           # Check if PR already exists (open or closed)
           PR_INFO=$(gh pr list --head bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
@@ -175,16 +352,18 @@ jobs:
                 echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                 if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
                   echo "Failed to reopen PR. Creating a new one."
-                  gh pr create --title "Automatic version bumps for $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+                  gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+                else
+                  gh pr edit $PR_NUMBER --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
                 fi
               else
                 echo "PR #$PR_NUMBER is merged. Nothing to do."
               fi
             else
-              echo "PR #$PR_NUMBER already exists and is open. Just pushed new changes."
+              echo "PR #$PR_NUMBER already exists and is open. Updating title and body."
+              gh pr edit $PR_NUMBER --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
             fi
           else
             echo "No PR found. Creating a new one."
-            gh pr create --title "Automatic version bumps for: $bumped_names" --body "${msg}" --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+            gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
           fi
-
