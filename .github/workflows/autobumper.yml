@@ -77,8 +77,18 @@ jobs:
           git reset --hard upstream/main
           
           updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
+
+          # For kernel-and-boot, regenerate kernel configs to match the new kernel version
+          if [ "${{ matrix.config }}" = "kernel-and-boot" ]; then
+            make update-kernel-configs
+          fi
           
           git add Dockerfile
+
+          # For kernel-and-boot, also stage the regenerated kernel config files
+          if [ "${{ matrix.config }}" = "kernel-and-boot" ]; then
+            git add files/kernel/
+          fi
           
           # Check if there are staged changes
           if git diff --cached --quiet; then
