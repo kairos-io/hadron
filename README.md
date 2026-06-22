@@ -72,6 +72,12 @@ To add a custom CA certificate to a Hadron-based image, copy the certificate int
 
 `/usr/local/share/ca-certificates/` is the recommended location for custom CAs. You do not need to edit `/etc/ca-certificates.conf` for certificates placed there. That file is only needed when enabling or disabling certificates shipped under `/usr/share/ca-certificates/`.
 
+### Kernel Parameters (sysctl)
+
+The full `sysctl(8)` CLI from procps-ng ships in Hadron-based images, so `sysctl --system`, `sysctl -w`, `sysctl -a`, and reading individual keys all work as expected (consumers such as Stylus rely on `sysctl --system` during preflight).
+
+`sysctl` is included in the final/bootable image, not in the minimal Hadron container base image. systemd also ships `/usr/lib/systemd/systemd-sysctl`, but that tool only *applies* drop-in config files (`/etc/sysctl.d`, `/usr/lib/sysctl.d`, `/run/sysctl.d`) — it is [not a replacement](https://manpages.debian.org/testing/systemd/systemd-sysctl.service.8.en.html) for the `sysctl` command and cannot read, list, or set keys at runtime. Prefer the `sysctl` binary; `systemd-sysctl` is only a fallback for the `sysctl --system` apply step.
+
 #### Building a Core Kairos Image
 
 To build a core Kairos image (without Kubernetes distribution) based on Hadron:

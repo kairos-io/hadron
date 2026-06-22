@@ -174,6 +174,27 @@ openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 			Expect(out).To(MatchRegexp(`CN\s*=\s*hadron-custom-ca`))
 		})
 
+		By("checking the sysctl(8) CLI is present and functional", func() {
+			// procps-ng sysctl ships in the final image (not the container
+			// base) so consumers like Stylus can run `sysctl --system`.
+			// systemd-sysctl is not a substitute for the CLI.
+			out, err := vm.Sudo("command -v sysctl")
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("/sysctl"))
+
+			out, err = vm.Sudo("sysctl --version")
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("procps-ng"))
+
+			// Reading a key and applying drop-in config must both succeed.
+			out, err = vm.Sudo("sysctl -n kernel.ostype")
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("Linux"))
+
+			out, err = vm.Sudo("sysctl --system")
+			Expect(err).ToNot(HaveOccurred(), out)
+		})
+
 		By("checking corresponding state", func() {
 			out, err := vm.Sudo("kairos-agent state")
 			Expect(err).ToNot(HaveOccurred())
