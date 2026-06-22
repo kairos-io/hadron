@@ -117,7 +117,7 @@ ARG CA_CERTIFICATES_VERSION=20260611
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
 FROM sources-downloader-base AS systemd-download
-ARG SYSTEMD_VERSION=260.2
+ARG SYSTEMD_VERSION=261
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 FROM sources-downloader-base AS libcap-download
@@ -125,7 +125,7 @@ ARG LIBCAP_VERSION=2.78
 RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 FROM sources-downloader-base AS util-linux-download
-ARG UTIL_LINUX_VERSION=2.42.1
+ARG UTIL_LINUX_VERSION=2.42.2
 RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION#*.}"; UTIL_LINUX_VERSION_MINOR="${UTIL_LINUX_VERSION_MINOR%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
@@ -529,7 +529,7 @@ FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # It is bumped separately from BASH_VERSION by updatecli.d/core-system.yaml
-ARG PATCH_LEVEL=9
+ARG PATCH_LEVEL=15
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-NNN where NNN is a 3-digit zero-padded index
 # starting at 001.
