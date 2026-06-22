@@ -527,23 +527,24 @@ ARG BASH_VERSION=5.3
 # It is bumped separately from BASH_VERSION by updatecli.d/core-system.yaml
 ARG PATCH_LEVEL=9
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
-# They are in the format bash$BASH_VERSION_NO_DOT-00$PATCH_LEVEL
-# But the index starts at 1
+# They are in the format bash$BASH_VERSION_NO_DOT-NNN where NNN is a 3-digit zero-padded index
+# starting at 001.
 RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
-        wget -q "${mirror}/bash/bash-${BASH_VERSION}.tar.gz" -O bash-${BASH_VERSION}.tar.gz && break; \
+        wget -q -T 30 -t 1 "${mirror}/bash/bash-${BASH_VERSION}.tar.gz" -O bash-${BASH_VERSION}.tar.gz && break; \
         rm -f bash-${BASH_VERSION}.tar.gz; \
     done; \
     test -s bash-${BASH_VERSION}.tar.gz; \
     tar -xf bash-${BASH_VERSION}.tar.gz && mv bash-${BASH_VERSION} bash
 WORKDIR /sources/downloads/bash
-RUN for i in $(seq -w 1 ${PATCH_LEVEL}); do \
-        echo "Applying bash patch bash${BASH_VERSION//./}-00${i}"; \
+RUN for i in $(seq 1 ${PATCH_LEVEL}); do \
+        patch_num=$(printf '%03d' ${i}); \
+        echo "Applying bash patch bash${BASH_VERSION//./}-${patch_num}"; \
         for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
-            wget -q "${mirror}/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-00${i}" -O bash-patch-${i}.patch && break; \
-            rm -f bash-patch-${i}.patch; \
+            wget -q -T 30 -t 1 "${mirror}/bash/bash-${BASH_VERSION}-patches/bash${BASH_VERSION//./}-${patch_num}" -O bash-patch-${patch_num}.patch && break; \
+            rm -f bash-patch-${patch_num}.patch; \
         done; \
-        test -s bash-patch-${i}.patch || { echo "Failed to download bash patch ${i} from all mirrors"; exit 1; }; \
-        patch -p0 < bash-patch-${i}.patch; \
+        test -s bash-patch-${patch_num}.patch || { echo "Failed to download bash patch ${patch_num} from all mirrors"; exit 1; }; \
+        patch -p0 < bash-patch-${patch_num}.patch; \
     done
 WORKDIR /sources/downloads
 
