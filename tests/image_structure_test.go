@@ -219,6 +219,41 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
 			Expect(lc).ToNot(MatchRegexp(`(?m)^[[:space:]]*`+k+`[[:space:]]`),
 				"STIG drop-in must not set crypto keyword %q (breaks FIPS ordering)", k)
+	It("ships the STIG sysctl hardening drop-in", func() {
+		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
+		Expect(code).To(Equal(0), out)
+		for _, want := range []string{
+			"kernel.kptr_restrict = 1",
+			"kernel.dmesg_restrict = 1",
+			"fs.protected_symlinks = 1",
+			"net.ipv4.tcp_syncookies = 1",
+		} {
+			Expect(out).To(ContainSubstring(want),
+				"sysctl hardening drop-in missing %q", want)
+		}
+	})
+
+	It("sysctl hardening drop-in omits keys that break Kubernetes", func() {
+		// Forwarding, rp_filter, bridge-nf and user namespaces are owned by the
+		// CNI/kubelet; shipping STIG's restrictive values for them breaks a k8s
+		// node. Guard against a regression — checked against ACTIVE lines only so
+		// the documented "DELIBERATELY OMITTED" comments don't trip the match.
+		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
+		Expect(code).To(Equal(0), out)
+		var active strings.Builder
+		for _, line := range strings.Split(out, "\n") {
+			t := strings.TrimSpace(line)
+			if t == "" || strings.HasPrefix(t, "#") {
+				continue
+			}
+			active.WriteString(t + "\n")
+		}
+		for _, forbidden := range []string{
+			"ip_forward", ".forwarding", "rp_filter",
+			"bridge-nf-call", "max_user_namespaces",
+		} {
+			Expect(active.String()).ToNot(ContainSubstring(forbidden),
+				"drop-in must not set Kubernetes/CNI-owned key %q", forbidden)
 		}
 	})
 })

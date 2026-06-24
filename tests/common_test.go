@@ -149,6 +149,35 @@ func assertSSHCrypto(vm VM) {
 		} else {
 			Expect(lc).To(ContainSubstring("chacha20-poly1305"))
 			Expect(lc).To(ContainSubstring("curve25519-sha256"))
+// assertSysctlHardening verifies the GPOS/STIG sysctl baseline is applied on a
+// booted node and, critically, that `sysctl --system` returns success: a key
+// absent from the running kernel would make it fail, so the config-dependent
+// keys (yama/kexec/sysrq/perf/bpf_jit) use the "-" ignore-if-missing prefix.
+// Only universally-present keys are value-asserted here; the config-dependent
+// ones and the k8s-safety omissions are checked structurally in the
+// image-structure suite.
+func assertSysctlHardening(vm VM) {
+	By("checking sysctl --system applies cleanly (no missing-key failures)", func() {
+		out, err := vm.Sudo("sysctl --system")
+		Expect(err).ToNot(HaveOccurred(), out)
+	})
+	By("checking hardened sysctl values are in effect", func() {
+		want := map[string]string{
+			"kernel.kptr_restrict":                  "1",
+			"kernel.dmesg_restrict":                 "1",
+			"kernel.randomize_va_space":             "2",
+			"kernel.unprivileged_bpf_disabled":      "1",
+			"fs.suid_dumpable":                      "0",
+			"fs.protected_symlinks":                 "1",
+			"fs.protected_hardlinks":                "1",
+			"net.ipv4.conf.all.accept_redirects":    "0",
+			"net.ipv4.conf.all.accept_source_route": "0",
+			"net.ipv6.conf.all.accept_redirects":    "0",
+		}
+		for key, val := range want {
+			out, err := vm.Sudo("sysctl -n " + key)
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(strings.TrimSpace(out)).To(Equal(val), "sysctl %s should be %s", key, val)
 		}
 	})
 }

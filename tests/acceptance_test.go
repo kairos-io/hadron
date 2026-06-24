@@ -157,6 +157,7 @@ var _ = Describe("kairos basic test", func() {
 
 		assertSSHHardening(vm)
 		assertSSHCrypto(vm)
+		assertSysctlHardening(vm)
 
 		By("checking custom CA installation", func() {
 			out, err := vm.Sudo(`set -eu
