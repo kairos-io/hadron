@@ -254,6 +254,12 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		} {
 			Expect(active.String()).ToNot(ContainSubstring(forbidden),
 				"drop-in must not set Kubernetes/CNI-owned key %q", forbidden)
+	It("ships the legacy-network-protocol blacklist", func() {
+		out, code := shInImage("cat /etc/modprobe.d/disable-legacy-net-protocols.conf")
+		Expect(code).To(Equal(0), out)
+		for _, mod := range []string{"dccp", "rds", "tipc", "atm", "ax25", "netrom"} {
+			Expect(out).To(MatchRegexp(`(?m)^install\s+`+mod+`\s+/bin/false`),
+				"blacklist must disable %q via install /bin/false", mod)
 		}
 	})
 })

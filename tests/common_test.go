@@ -178,6 +178,23 @@ func assertSysctlHardening(vm VM) {
 			out, err := vm.Sudo("sysctl -n " + key)
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(strings.TrimSpace(out)).To(Equal(val), "sysctl %s should be %s", key, val)
+// assertLegacyNetDisabled verifies the legacy network protocol modules (DCCP,
+// RDS, TIPC, ATM, AX25, NETROM) are blocked from loading via modprobe.d.
+func assertLegacyNetDisabled(vm VM) {
+	By("checking legacy network protocols are blocked from loading", func() {
+		for _, mod := range []string{"dccp", "rds", "tipc", "atm", "ax25", "netrom"} {
+			// modprobe -n -v is a config-based dry run: with `install <mod>
+			// /bin/false` it resolves to /bin/false and exits 0 even when the
+			// module is not compiled, so this check is kernel-variant-agnostic.
+			out, err := vm.Sudo("modprobe -n -v " + mod)
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("/bin/false"),
+				"module %s must be blocked by install /bin/false", mod)
+			// A real load attempt must not actually load it.
+			vm.Sudo("modprobe " + mod + " >/dev/null 2>&1 || true")
+			lsmod, _ := vm.Sudo("lsmod")
+			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\b`),
+				"module %s must not be loaded", mod)
 		}
 	})
 }
