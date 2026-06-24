@@ -4,6 +4,13 @@
 ARG BOOTLOADER=grub
 ARG KERNEL_TYPE=default
 ARG VERSION=0.0.1
+## SBAT distro-version string baked into the systemd-boot/stub EFI .sbat metadata.
+## Intentionally STABLE and decoupled from the per-commit build VERSION so the
+## (expensive) systemd compile stage stays cache-valid across commits. The SBAT
+## *generation* (the revocation counter that actually gates boot) is a separate
+## field that defaults to 1; bump SBAT_DISTRO_VERSION manually only on a
+## security-relevant SBAT revocation.
+ARG SBAT_DISTRO_VERSION=1
 ARG JOBS=16
 ## Maximum load for make -l
 ARG MAX_LOAD=32
@@ -3154,7 +3161,7 @@ RUN make -s ARCH=${BUILD_ARCH} install DESTDIR=/libucontext
 ## Try to build it at the end so we have most libraries already built
 ## Anything that depends on systemd should be built after this stage
 FROM rsync AS systemd
-ARG VERSION
+ARG SBAT_DISTRO_VERSION
 
 COPY --from=gperf /gperf /gperf
 RUN rsync -aHAX --keep-dirlinks  /gperf/. /
@@ -3284,7 +3291,7 @@ RUN /usr/bin/meson setup buildDir \
       -D sbat-distro="Hadron" \
       -D sbat-distro-url="hadron-linux.io" \
       -Dsbat-distro-summary="Hadron Linux" \
-      -Dsbat-distro-version="${VERSION}"
+      -Dsbat-distro-version="${SBAT_DISTRO_VERSION}"
 RUN ninja -C buildDir
 RUN DESTDIR=/systemd ninja -C buildDir install
 
