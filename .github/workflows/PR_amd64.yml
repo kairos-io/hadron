@@ -272,7 +272,7 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted-${{ github.sha }}:24h
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
@@ -347,7 +347,7 @@ jobs:
           provenance: false
           tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-cloud-trusted:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud-trusted-${{ github.sha }}:24h
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=true
   build-bios-iso:
