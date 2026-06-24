@@ -219,6 +219,9 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
 			Expect(lc).ToNot(MatchRegexp(`(?m)^[[:space:]]*`+k+`[[:space:]]`),
 				"STIG drop-in must not set crypto keyword %q (breaks FIPS ordering)", k)
+		}
+	})
+
 	It("ships the STIG sysctl hardening drop-in", func() {
 		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
 		Expect(code).To(Equal(0), out)
@@ -254,6 +257,9 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		} {
 			Expect(active.String()).ToNot(ContainSubstring(forbidden),
 				"drop-in must not set Kubernetes/CNI-owned key %q", forbidden)
+		}
+	})
+
 	It("ships the legacy-network-protocol blacklist", func() {
 		out, code := shInImage("cat /etc/modprobe.d/disable-legacy-net-protocols.conf")
 		Expect(code).To(Equal(0), out)
@@ -261,5 +267,13 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			Expect(out).To(MatchRegexp(`(?m)^install\s+`+mod+`\s+/bin/false`),
 				"blacklist must disable %q via install /bin/false", mod)
 		}
+	})
+
+	It("ships STIG-hardened login.defs", func() {
+		out, code := shInImage("cat /etc/login.defs")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(MatchRegexp(`(?m)^PASS_MAX_DAYS\s+60\b`), "PASS_MAX_DAYS should be 60")
+		Expect(out).To(MatchRegexp(`(?m)^LOG_OK_LOGINS\s+yes\b`), "LOG_OK_LOGINS should be yes")
+		Expect(out).To(MatchRegexp(`(?m)^UMASK\s+077\b`), "UMASK should be 077")
 	})
 })

@@ -149,6 +149,10 @@ func assertSSHCrypto(vm VM) {
 		} else {
 			Expect(lc).To(ContainSubstring("chacha20-poly1305"))
 			Expect(lc).To(ContainSubstring("curve25519-sha256"))
+		}
+	})
+}
+
 // assertSysctlHardening verifies the GPOS/STIG sysctl baseline is applied on a
 // booted node and, critically, that `sysctl --system` returns success: a key
 // absent from the running kernel would make it fail, so the config-dependent
@@ -178,6 +182,10 @@ func assertSysctlHardening(vm VM) {
 			out, err := vm.Sudo("sysctl -n " + key)
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(strings.TrimSpace(out)).To(Equal(val), "sysctl %s should be %s", key, val)
+		}
+	})
+}
+
 // assertLegacyNetDisabled verifies the legacy network protocol modules (DCCP,
 // RDS, TIPC, ATM, AX25, NETROM) are blocked from loading via modprobe.d.
 func assertLegacyNetDisabled(vm VM) {
@@ -196,5 +204,17 @@ func assertLegacyNetDisabled(vm VM) {
 			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\b`),
 				"module %s must not be loaded", mod)
 		}
+	})
+}
+
+// assertLoginDefsHardening verifies the STIG login.defs hardening (password max
+// age, successful-login logging, restrictive default umask) on a booted node.
+func assertLoginDefsHardening(vm VM) {
+	By("checking login.defs STIG hardening values", func() {
+		out, err := vm.Sudo("cat /etc/login.defs")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(MatchRegexp(`(?m)^PASS_MAX_DAYS\s+60\b`), "PASS_MAX_DAYS should be 60")
+		Expect(out).To(MatchRegexp(`(?m)^LOG_OK_LOGINS\s+yes\b`), "LOG_OK_LOGINS should be yes")
+		Expect(out).To(MatchRegexp(`(?m)^UMASK\s+077\b`), "UMASK should be 077")
 	})
 }
