@@ -276,12 +276,13 @@ jobs:
           name: kairos-hadron-bios-${{ github.sha }}.iso.zip
           path: build/*.iso
 
-  # Single required status check. Point branch protection at THIS job (and drop the
-  # individual build jobs from the required list), otherwise a docs-only PR that
-  # skips them would leave their required checks pending forever. ci-ok passes when
-  # every pipeline job either succeeded or was skipped, and fails if any job failed
-  # or was cancelled.
-  ci-ok:
+  # Single required status check for this arch. Point branch protection at THIS job
+  # (and drop the individual build jobs from the required list), otherwise a
+  # docs-only PR that skips them would leave their required checks pending forever.
+  # Each arch has its own ci-ok-<arch> job so branch protection can require them
+  # independently. ci-ok passes when every pipeline job either succeeded or was
+  # skipped, and fails if any job failed or was cancelled.
+  ci-ok-arm64:
     if: ${{ always() }}
     needs:
       - changes
