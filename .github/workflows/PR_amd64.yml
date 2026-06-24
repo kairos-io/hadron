@@ -8,7 +8,37 @@ concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 jobs:
+  # Classify the PR diff. Only run the (expensive) image build + QEMU tests when a
+  # file that actually affects the image changes. Docs / markdown / examples /
+  # bump-config-only PRs skip straight to ci-ok. Extend the 'build' filter below if
+  # a new build input is added to the repo.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      build: ${{ steps.filter.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            build:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'Makefile'
+              - 'patches/**'
+              - 'files/**'
+              - 'tests/**'
+              - '.github/scripts/**'
+              - '.github/workflows/PR_amd64.yml'
+
   check-kernel-configs:
+    needs: changes
+    if: ${{ needs.changes.outputs.build == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,6 +62,8 @@ jobs:
           exit $FAILED
 
   toolchain:
+    needs: changes
+    if: ${{ needs.changes.outputs.build == 'true' }}
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
       packages: write
@@ -538,3 +570,40 @@ jobs:
         with:
           header: image-size-report
           path: report.md
+
+  # Single required status check. Point branch protection at THIS job (and drop the
+  # individual build/test jobs from the required list), otherwise a docs-only PR
+  # that skips them would leave their required checks pending forever. ci-ok passes
+  # when every pipeline job either succeeded or was skipped, and fails if any job
+  # failed or was cancelled.
+  ci-ok:
+    if: ${{ always() }}
+    needs:
+      - changes
+      - check-kernel-configs
+      - toolchain
+      - container
+      - hadron-bios
+      - hadron-trusted
+      - build-kairos-bios
+      - build-kairos-trusted
+      - build-bios-iso
+      - build-trusted-iso
+      - tests-bios
+      - tests-trusted
+      - tests-bios-fips
+      - image-size-report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check pipeline result
+        run: |
+          echo "Job results: ${{ join(needs.*.result, ' ') }}"
+          for r in ${{ join(needs.*.result, ' ') }}; do
+            case "$r" in
+              failure|cancelled)
+                echo "::error::A required job did not pass (result: $r)"
+                exit 1
+                ;;
+            esac
+          done
+          echo "All required jobs passed or were skipped."
