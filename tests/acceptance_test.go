@@ -155,6 +155,9 @@ var _ = Describe("kairos basic test", func() {
 
 		assertNetworking(vm)
 
+		assertSSHHardening(vm)
+		assertSSHCrypto(vm)
+
 		By("checking custom CA installation", func() {
 			out, err := vm.Sudo(`set -eu
 # On a booted Kairos node the persistent partition mounts over /usr/local,

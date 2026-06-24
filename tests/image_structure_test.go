@@ -194,4 +194,31 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("/lib -> usr/lib", "/lib", "usr"),
 		Entry("/bin -> usr/bin", "/bin", "usr"),
 	)
+
+	It("ships a valid, STIG-hardened sshd config (sshd -G parses cleanly)", func() {
+		out, code, err := runInImage("sshd", "-G")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
+		lc := strings.ToLower(out)
+		for _, want := range []string{
+			"permitrootlogin prohibit-password",
+			"x11forwarding no",
+			"maxauthtries 4",
+		} {
+			Expect(lc).To(ContainSubstring(want), "effective sshd config missing %q", want)
+		}
+	})
+
+	It("STIG sshd drop-in carries no crypto keywords (FIPS-safety invariant)", func() {
+		// The STIG drop-in sorts before the 100-* crypto file and sshd is
+		// first-value-wins for these keywords, so crypto here would silently
+		// override FIPS crypto in FIPS images. Guard against a regression.
+		out, code := shInImage("cat /etc/ssh/sshd_config.d/99-hadron-stig.conf")
+		Expect(code).To(Equal(0), out)
+		lc := strings.ToLower(out)
+		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
+			Expect(lc).ToNot(MatchRegexp(`(?m)^[[:space:]]*`+k+`[[:space:]]`),
+				"STIG drop-in must not set crypto keyword %q (breaks FIPS ordering)", k)
+		}
+	})
 })

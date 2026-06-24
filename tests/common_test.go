@@ -101,3 +101,54 @@ func assertKairosState(vm VM) {
 	stateContains(vm, "system.os.name", "hadron")
 	stateContains(vm, "kairos.flavor", "hadron")
 }
+
+// assertSSHHardening verifies the STIG sshd policy hardening is in effect on a
+// booted node. Uses `sshd -T` (effective config dump; host keys exist at
+// runtime via sshkeygen.service). Keyword names in -T output are lowercased.
+func assertSSHHardening(vm VM) {
+	By("checking sshd STIG policy hardening is effective", func() {
+		cfg, err := vm.Sudo("sshd -T")
+		Expect(err).ToNot(HaveOccurred(), cfg)
+		lc := strings.ToLower(cfg)
+		for _, want := range []string{
+			"permitrootlogin prohibit-password",
+			"permitemptypasswords no",
+			"permituserenvironment no",
+			"ignorerhosts yes",
+			"hostbasedauthentication no",
+			"x11forwarding no",
+			"allowtcpforwarding no",
+			"maxauthtries 4",
+			"logingracetime 60",
+			"clientaliveinterval 600",
+			"clientalivecountmax 1",
+		} {
+			Expect(lc).To(ContainSubstring(want), "expected effective sshd config to contain %q", want)
+		}
+	})
+	By("checking password auth stays enabled (Kairos provisions users with passwords)", func() {
+		cfg, err := vm.Sudo("sshd -T")
+		Expect(err).ToNot(HaveOccurred(), cfg)
+		Expect(strings.ToLower(cfg)).To(ContainSubstring("passwordauthentication yes"))
+	})
+}
+
+// assertSSHCrypto verifies the sshd crypto matches the image's FIPS posture and,
+// critically, that the STIG drop-in did NOT override the FIPS crypto in FIPS
+// images (it sorts before the 100-* crypto file and sshd is first-value-wins).
+func assertSSHCrypto(vm VM) {
+	By("checking sshd crypto matches the FIPS posture", func() {
+		cfg, err := vm.Sudo("sshd -T")
+		Expect(err).ToNot(HaveOccurred(), cfg)
+		lc := strings.ToLower(cfg)
+		Expect(lc).To(ContainSubstring("aes256-gcm@openssh.com"))
+		if fipsEnabled() {
+			Expect(lc).ToNot(ContainSubstring("chacha20-poly1305"), "FIPS image must not offer chacha20 (STIG drop-in must not override FIPS crypto)")
+			Expect(lc).ToNot(ContainSubstring("curve25519"), "FIPS image must not offer curve25519")
+			Expect(lc).To(ContainSubstring("kexalgorithms ecdh-sha2-nistp256"))
+		} else {
+			Expect(lc).To(ContainSubstring("chacha20-poly1305"))
+			Expect(lc).To(ContainSubstring("curve25519-sha256"))
+		}
+	})
+}

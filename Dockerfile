@@ -4259,7 +4259,10 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 
 FROM full-image-merge-base AS full-image-merge-no-fips
-# no-op
+# Non-FIPS crypto hardening for sshd. The FIPS variant ships 100-hadron-fips.conf
+# instead; exactly one 100-* crypto drop-in is present per image so neither can
+# override the other (sshd is first-value-wins for Ciphers/MACs/KexAlgorithms).
+COPY files/ssh/sshd_config.d/100-hadron-crypto.conf /skeleton/etc/ssh/sshd_config.d/100-hadron-crypto.conf
 
 FROM full-image-merge-base AS full-image-merge-fips
 COPY --from=libkcapi /libkcapi /libkcapi
@@ -4423,6 +4426,9 @@ COPY files/sysctl/* /etc/sysctl.d/
 COPY files/modprobe.d/* /etc/modprobe.d/
 # copy a new login.defs to have better defaults as some stuff is already done by shadow and pam
 COPY files/login.defs /etc/login.defs
+# STIG-hardening sshd drop-in (all images; carries NO crypto keywords so it never
+# pre-empts the 100-* crypto drop-in in FIPS builds — see the file header).
+COPY files/ssh/sshd_config.d/99-hadron-stig.conf /etc/ssh/sshd_config.d/99-hadron-stig.conf
 ## Remove users stuff
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 ## Override root shell to /bin/bash (systemd basic.conf default is /bin/sh); /etc/sysusers.d/ wins over /usr/lib/sysusers.d/
