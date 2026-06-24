@@ -91,6 +91,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		return strings.TrimSpace(out), code
 	}
 
+	// skipUnlessFullImage skips specs that assert on bootable-OS hardening files
+	// (sshd config, sysctl, modprobe, login.defs). Those ship only in the full
+	// image (the `default`/full-image-final target); the minimal `container`
+	// target — which CI structure-tests — deliberately omits them. systemd is
+	// present only in the full image, so it is a reliable discriminator.
+	skipUnlessFullImage := func() {
+		out, code := shInImage("test -x /usr/lib/systemd/systemd && echo full")
+		if code != 0 || !strings.Contains(out, "full") {
+			Skip("minimal container base ships no bootable-OS hardening files " +
+				"(sshd/sysctl/modprobe/login.defs); these specs apply to the full image only")
+		}
+	}
+
 	BeforeEach(func() {
 		image = os.Getenv("CONTAINER_IMAGE")
 		if image == "" {
@@ -196,6 +209,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	)
 
 	It("ships a valid, STIG-hardened sshd config (sshd -G parses cleanly)", func() {
+		skipUnlessFullImage()
 		out, code, err := runInImage("sshd", "-G")
 		Expect(err).ToNot(HaveOccurred(), out)
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
@@ -210,6 +224,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	It("STIG sshd drop-in carries no crypto keywords (FIPS-safety invariant)", func() {
+		skipUnlessFullImage()
 		// The STIG drop-in sorts before the 100-* crypto file and sshd is
 		// first-value-wins for these keywords, so crypto here would silently
 		// override FIPS crypto in FIPS images. Guard against a regression.
@@ -223,6 +238,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	It("ships the STIG sysctl hardening drop-in", func() {
+		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
 		Expect(code).To(Equal(0), out)
 		for _, want := range []string{
@@ -237,6 +253,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	It("sysctl hardening drop-in omits keys that break Kubernetes", func() {
+		skipUnlessFullImage()
 		// Forwarding, rp_filter, bridge-nf and user namespaces are owned by the
 		// CNI/kubelet; shipping STIG's restrictive values for them breaks a k8s
 		// node. Guard against a regression — checked against ACTIVE lines only so
@@ -261,6 +278,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	It("ships the legacy-network-protocol blacklist", func() {
+		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/modprobe.d/disable-legacy-net-protocols.conf")
 		Expect(code).To(Equal(0), out)
 		for _, mod := range []string{"dccp", "rds", "tipc", "atm", "ax25", "netrom"} {
@@ -270,6 +288,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	It("ships STIG-hardened login.defs", func() {
+		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/login.defs")
 		Expect(code).To(Equal(0), out)
 		Expect(out).To(MatchRegexp(`(?m)^PASS_MAX_DAYS\s+60\b`), "PASS_MAX_DAYS should be 60")
