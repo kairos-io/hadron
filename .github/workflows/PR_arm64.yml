@@ -7,6 +7,16 @@ on:
 concurrency:
   group: ci-image-arm64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
+
+env:
+  # Per-PR BuildKit cache. Each build job reads its own pr-<number>-* tag first
+  # (warm from a prior push or an earlier job in this same run) and falls back to
+  # the shared main cache tag. Only same-repo PRs can WRITE it (fork PRs have no
+  # secrets) — they still read the public cache. Stale pr-* tags are reclaimed by
+  # pr-cache-cleanup.yml when the PR closes.
+  PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  PR_NUM: ${{ github.event.pull_request.number }}
+
 jobs:
   check-kernel-configs:
     runs-on: ubuntu-latest
@@ -51,6 +61,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -65,7 +82,9 @@ jobs:
             ${{ steps.meta.outputs.labels }}
           target: toolchain
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -91,6 +110,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -108,8 +134,11 @@ jobs:
             ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -122,6 +151,8 @@ jobs:
           platforms: linux/arm64
           target: container-test
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
           build-args: |
@@ -168,6 +199,13 @@ jobs:
         uses: docker/metadata-action@v6
       # ttl.sh tags must not match PR_amd64.yml: both workflows trigger on PRs with the same
       # github.sha last-writer wins, so amd64 BIOS jobs would silently pull linux/arm64.
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -183,9 +221,13 @@ jobs:
             ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-grub-${{ matrix.kernel }}-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-grub-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}

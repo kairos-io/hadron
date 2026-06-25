@@ -7,6 +7,16 @@ on:
 concurrency:
   group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
+
+env:
+  # Per-PR BuildKit cache. Each build job reads its own pr-<number>-* tag first
+  # (warm from a prior push or an earlier job in this same run) and falls back to
+  # the shared main cache tag. Only same-repo PRs can WRITE it (fork PRs have no
+  # secrets) — they still read the public cache. Stale pr-* tags are reclaimed by
+  # pr-cache-cleanup.yml when the PR closes.
+  PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  PR_NUM: ${{ github.event.pull_request.number }}
+
 jobs:
   check-kernel-configs:
     runs-on: ubuntu-latest
@@ -51,6 +61,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -65,7 +82,9 @@ jobs:
             ${{ steps.meta.outputs.labels }}
             cache-label=quay-remote-amd64
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           target: toolchain
   container:
     runs-on: oracle-vm-32cpu-128gb-x86-64
@@ -89,6 +108,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         with:
@@ -104,8 +130,11 @@ jobs:
             ${{ steps.meta.outputs.labels }}
             cache-label=quay-remote-amd64
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           target: container
       - name: Test container image (build-time smoke)
         uses: docker/build-push-action@v7
@@ -118,6 +147,8 @@ jobs:
           platforms: linux/amd64
           target: container-test
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
       - name: Install Go
@@ -163,6 +194,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -180,9 +218,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-bios-{1}-{2}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel, matrix.fips) || '' }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -212,6 +254,13 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
         env:
@@ -223,13 +272,17 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.sha }}
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted-${{ github.sha }}:24h
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-trusted-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-trusted-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -294,7 +347,7 @@ jobs:
           provenance: false
           tags: ttl.sh/hadron-init-trusted:${{ github.sha }}
           build-args: |
-            BASE_IMAGE=ttl.sh/hadron-cloud-trusted:${{ github.sha }}
+            BASE_IMAGE=ttl.sh/hadron-cloud-trusted-${{ github.sha }}:24h
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=true
   build-bios-iso:
