@@ -4,8 +4,14 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
     paths:
       - 'docs/**'
+      - 'Dockerfile'
+      - 'updatecli.d/**'
+      - 'hack/gen-components.sh'
+      - 'hack/gen-snapshot.sh'
       - '.github/workflows/gh-pages.yml'
   workflow_dispatch:
 
@@ -30,6 +36,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -44,6 +51,9 @@ jobs:
       - name: Install dependencies
         working-directory: ./docs
         run: npm ci
+
+      - name: Generate component snapshots
+        run: ./hack/gen-snapshot.sh
 
       - name: Build with Docusaurus
         working-directory: ./docs

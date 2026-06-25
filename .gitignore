@@ -24,3 +24,4 @@ files/hadron-splash/hadron
 # Generated component manifest (build artifacts)
 /components.json
 /components.md
+/docs/static/components/
