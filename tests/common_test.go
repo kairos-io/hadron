@@ -12,10 +12,15 @@ import (
 )
 
 // fipsEnabled reports whether the suite is running in FIPS mode.
-// FIPS remains a runtime env flag (CI sets FIPS=true on the tests-bios-fips job),
+// FIPS remains a runtime env flag (CI currently uses both `fips` and `true`),
 // so detection stays centralized here rather than scattered across specs.
 func fipsEnabled() bool {
-	return os.Getenv("FIPS") == "fips"
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("FIPS"))) {
+	case "fips", "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 // assertFIPSEnabled verifies the kernel has FIPS mode enabled.
