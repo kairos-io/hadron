@@ -1403,3 +1403,44 @@ jobs:
           done
           echo "Could not push history after retries" >&2
           exit 1
+
+  release-notes:
+    name: Update release notes with component manifest
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate component manifest (markdown)
+        run: ./hack/gen-components.sh --ref "${GITHUB_REF_NAME}" --name release --out-dir . --format md
+
+      - name: Create or update the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo "## 📦 Shipped components"
+            echo
+            cat release.md
+          } > notes-append.md
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Append to the existing notes, preserving them.
+            gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
+            cat existing.md notes-append.md > final.md
+            gh release edit "$TAG" --notes-file final.md
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+            gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
+            cat existing.md notes-append.md > final.md
+            gh release edit "$TAG" --notes-file final.md
+          fi
