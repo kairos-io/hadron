@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    # Note: the `paths:` filter below applies to tag pushes too, so a `v*` tag
+    # that points at an existing commit (touching none of the filtered paths)
+    # will NOT trigger this workflow. That's intentional: tag manifests are
+    # regenerated on every main build (eventual consistency), so new tags
+    # appear on the next main rebuild. The `tags:` trigger only fires
+    # immediately when a tag push also touches one of the filtered paths.
     tags:
       - 'v*'
     paths:

@@ -19,8 +19,12 @@ TAGS="$(git -C "$ROOT" tag -l 'v*' --sort=-version:refname || true)"
   || "$GEN" --ref worktree --name main --out-dir "$OUT" --format both --date "$DATE"
 
 for tag in $TAGS; do
-  "$GEN" --ref "$tag" --name "$tag" --out-dir "$OUT" --format both --date "$DATE"
-  REFS="$REFS $tag"
+  # Skip (don't abort under set -e) any tag whose manifest can't be generated.
+  if "$GEN" --ref "$tag" --name "$tag" --out-dir "$OUT" --format both --date "$DATE"; then
+    REFS="$REFS $tag"
+  else
+    echo "warning: skipping tag $tag (could not generate manifest)" >&2
+  fi
 done
 
 # index.json
