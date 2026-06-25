@@ -200,8 +200,9 @@ func assertLegacyNetDisabled(vm VM) {
 				"module %s must be blocked by install /bin/false", mod)
 			// A real load attempt must not actually load it.
 			vm.Sudo("modprobe " + mod + " >/dev/null 2>&1 || true")
-			lsmod, _ := vm.Sudo("lsmod")
-			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\b`),
+			lsmod, err := vm.Sudo("lsmod")
+			Expect(err).ToNot(HaveOccurred(), lsmod)
+			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\\b`),
 				"module %s must not be loaded", mod)
 		}
 	})
