@@ -1,0 +1,113 @@
+---
+name: 'PR cache cleanup'
+
+# Reclaim the per-PR BuildKit cache tags (pr-<number>-*) that PR_amd64.yml /
+# PR_arm64.yml push to the shared cache repo. Quay (public quay.io) has no
+# auto-expire / auto-prune for these, so we delete them ourselves:
+#   - purge-pr-cache:       on PR close, delete that PR's tags (normal path).
+#   - sweep-stale-pr-cache: weekly, delete pr-<n>-* tags whose PR is no longer
+#                           open (backstop for any close-cleanup that was missed).
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    - cron: '0 3 * * 0'  # weekly, Sunday 03:00 UTC
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-cache-cleanup-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  CACHE_REPO: quay.io/kairos/hadron-build-cache
+
+jobs:
+  purge-pr-cache:
+    # On PR close: drop just this PR's cache tags. Fork PRs never wrote cache
+    # (no access to secrets), so there is nothing to clean for them.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+      - name: Delete pr-<number>-* build cache tags
+        env:
+          QUAY_USER: ${{ secrets.QUAY_IO_USERNAME }}
+          QUAY_PASS: ${{ secrets.QUAY_IO_PASSWORD }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$QUAY_PASS" | skopeo login quay.io -u "$QUAY_USER" --password-stdin
+
+          prefix="pr-${PR_NUM}-"
+          # skopeo list-tags returns {"Repository": "...", "Tags": ["pr-123-toolchain-amd64", ...]}
+          tags=$(skopeo list-tags "docker://${CACHE_REPO}" \
+            | python3 -c "import sys, json; print('\n'.join(t for t in json.load(sys.stdin).get('Tags', []) if t.startswith('${prefix}')))")
+
+          if [ -z "${tags}" ]; then
+            echo "No ${prefix}* cache tags found; nothing to delete."
+            exit 0
+          fi
+
+          echo "Deleting cache tags for PR #${PR_NUM}:"
+          echo "${tags}"
+          while IFS= read -r tag; do
+            [ -n "${tag}" ] || continue
+            echo "==> deleting ${CACHE_REPO}:${tag}"
+            # Non-fatal: a missing tag or a transient registry error must not fail
+            # the cleanup for the remaining tags.
+            skopeo delete "docker://${CACHE_REPO}:${tag}" || echo "WARN: could not delete ${tag} (continuing)"
+          done <<< "${tags}"
+
+  sweep-stale-pr-cache:
+    # Weekly backstop: delete pr-<n>-* tags whose PR number is NOT currently open.
+    # Catches stragglers from any missed/failed close-cleanup, and never touches an
+    # open PR's cache regardless of age (no date math needed).
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+      - name: Delete pr-<n>-* tags for closed PRs
+        env:
+          QUAY_USER: ${{ secrets.QUAY_IO_USERNAME }}
+          QUAY_PASS: ${{ secrets.QUAY_IO_PASSWORD }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$QUAY_PASS" | skopeo login quay.io -u "$QUAY_USER" --password-stdin
+
+          # Numbers of all currently-open PRs (these must be preserved).
+          open=$(gh pr list --repo "$GH_REPO" --state open --limit 1000 --json number --jq '.[].number' | sort -u)
+          echo "Open PRs: $(echo "${open}" | tr '\n' ' ')"
+
+          tags=$(skopeo list-tags "docker://${CACHE_REPO}" \
+            | python3 -c "import sys, json; print('\n'.join(t for t in json.load(sys.stdin).get('Tags', []) if t.startswith('pr-')))")
+
+          if [ -z "${tags}" ]; then
+            echo "No pr-* cache tags found; nothing to sweep."
+            exit 0
+          fi
+
+          while IFS= read -r tag; do
+            [ -n "${tag}" ] || continue
+            n=$(printf '%s' "${tag}" | sed -nE 's/^pr-([0-9]+)-.*/\1/p')
+            if [ -z "${n}" ]; then
+              echo "skip (no PR number): ${tag}"
+              continue
+            fi
+            if echo "${open}" | grep -qx "${n}"; then
+              echo "keep (PR #${n} open): ${tag}"
+              continue
+            fi
+            echo "==> deleting stale ${CACHE_REPO}:${tag} (PR #${n} not open)"
+            skopeo delete "docker://${CACHE_REPO}:${tag}" || echo "WARN: could not delete ${tag} (continuing)"
+          done <<< "${tags}"
