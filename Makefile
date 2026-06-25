@@ -77,6 +77,8 @@ targets:
 	@echo "build-iso: Build the GRUB or Trusted Boot ISO image based on the BOOTLOADER variable. Expects the Hadron+Kairos OCI images to be built already."
 	@echo "grub-iso: Build the GRUB ISO image. Expects the Hadron+Kairos OCI images to be built already."
 	@echo "trusted-iso: Build the Trusted Boot ISO image. Expects the Hadron+Kairos OCI images to be built already."
+	@echo "components: Generate components.json + components.md for the working tree"
+	@echo "test-components: Run the component-generator shell test"
 
 .PHONY: help
 help: targets
@@ -259,3 +261,11 @@ bump-deps:
 	@echo "Installing bump tool and updating dependencies..."
 	@go install github.com/wader/bump/cmd/bump@latest
 	@bump update
+
+.PHONY: components
+components: ## Generate components.json + components.md for the working tree
+	./hack/gen-components.sh --format both --out-dir .
+
+.PHONY: test-components
+test-components: ## Run the component-generator shell test
+	sh ./hack/gen-components_test.sh
