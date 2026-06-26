@@ -267,5 +267,6 @@ components: ## Generate components.json + components.md for the working tree
 	./hack/gen-components.sh --format both --out-dir .
 
 .PHONY: test-components
-test-components: ## Run the component-generator shell test
+test-components: ## Run the component-generator shell tests
 	sh ./hack/gen-components_test.sh
+	sh ./hack/gen-components_shipped_test.sh

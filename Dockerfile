@@ -4093,6 +4093,36 @@ RUN find /skeleton -name "*.pyc" -delete
 RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 # Container base image, it has the minimal required to run as a container
+# ------------------------------------------------------------------------------
+# Component version manifest
+# Parses the `ARG *_VERSION=` defaults from this very Dockerfile and emits a flat
+# `{ "name": "version" }` JSON per shipped image. The version map is intersected
+# with the packages each image's merge stages actually `COPY --from`, so each
+# image gets an accurate, per-image component list. Self-contained: generated at
+# build time from the Dockerfile itself (single source of truth, no host step).
+#
+# The full-image stage list is variant-aware: `full-image-merge-${FIPS}` selects
+# the fips/no-fips merge (fips adds libkcapi) and `full-image-pre-${BOOTLOADER}`
+# selects the grub/systemd path (grub adds dracut). This keeps the manifest in
+# step with what each FIPS/BOOTLOADER build actually ships.
+# Output is consumed by `container` and `full-image-final` below.
+# ------------------------------------------------------------------------------
+FROM alpine-base AS components
+ARG FIPS
+ARG BOOTLOADER
+COPY Dockerfile /src/Dockerfile
+COPY hack/gen-components.sh /src/hack/gen-components.sh
+# In fips builds the shipped `openssl` is the `FROM openssl-${FIPS} AS openssl`
+# alias built from the FIPS sources (OPENSSL_FIPS_VERSION), not OPENSSL_VERSION —
+# same component name, different version. --override reflects that.
+RUN cd /src && \
+    OVERRIDE=""; [ "${FIPS}" = "fips" ] && OVERRIDE="--override openssl=OPENSSL_FIPS_VERSION"; \
+    sh hack/gen-components.sh --shipped "stage2-merge" \
+       --format flat --name container --out-dir /out && \
+    sh hack/gen-components.sh \
+       --shipped "stage2-merge full-image-merge-base full-image-merge-${FIPS} full-image-pre-${BOOTLOADER} full-image-pre-preset full-image-final" \
+       ${OVERRIDE} --format flat --name full-image --out-dir /out
+
 FROM scratch AS container
 ARG VERSION
 COPY --from=stage2-merge /skeleton /
@@ -4109,6 +4139,8 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     fi
 # Set the version here as otherwise its easy to invalidate the cache with a version change
 RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
+# Per-image component manifest (late layer: only busts when a shipped version changes)
+COPY --from=components /out/container.json /usr/lib/hadron/components.json
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
@@ -4453,6 +4485,8 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
+# Per-image component manifest (late layer: only busts when a shipped version changes)
+COPY --from=components /out/full-image.json /usr/lib/hadron/components.json
 
 ## final image with debug
 FROM full-image-final AS debug

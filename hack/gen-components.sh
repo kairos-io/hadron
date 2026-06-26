@@ -7,6 +7,8 @@ NAME="components"
 OUT_DIR="."
 FORMAT="both"
 DATE="${SOURCE_DATE_EPOCH:-}"
+SHIPPED=""
+OVERRIDE=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -15,7 +17,9 @@ while [ $# -gt 0 ]; do
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --format)  FORMAT="$2";  shift 2 ;;
     --date)    DATE="$2";    shift 2 ;;
-    -h|--help) echo "usage: gen-components.sh [--ref REF] [--name BASENAME] [--out-dir DIR] [--format json|md|both] [--date STR]"; exit 0 ;;
+    --shipped)  SHIPPED="$2";  shift 2 ;;
+    --override) OVERRIDE="$2"; shift 2 ;;
+    -h|--help) echo "usage: gen-components.sh [--ref REF] [--name BASENAME] [--out-dir DIR] [--format json|md|flat|both] [--date STR] [--shipped \"STAGE...\"] [--override \"NAME=ARG...\"]"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -65,6 +69,59 @@ printf '%s\n' "$DOCKERFILE_CONTENT" \
 TAB="$(printf '\t')"
 sort -t"$TAB" -k1,1 -k2,2 "$ROWS_TMP" -o "$ROWS_TMP"
 
+# --- Optional: restrict to components actually shipped in given merge stage(s) ---
+# A component "ships" in a stage if that stage has a `COPY --from=<build-stage>`
+# whose name maps to it. Build-stage names are normalized the same way as ARG
+# names (lowercase, `_`->`-`), with a few suffix rules for two-pass / variant
+# stages (`pam-systemd`->`pam`, `grub-efi`->`grub`, `kernel-modules`->`kernel`).
+if [ -n "$SHIPPED" ]; then
+  ALLOWED_TMP="$(mktemp)"
+  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ALLOWED_TMP"' EXIT
+  for st in $SHIPPED; do
+    printf '%s\n' "$DOCKERFILE_CONTENT" | awk -v st="$st" '
+      $0 ~ "^FROM .* AS "st"$" { inb=1; next }
+      inb && /^FROM / { inb=0 }
+      inb && /^[ \t]*COPY --from=/ {
+        line=$0; sub(/.*--from=/, "", line); sub(/[ \t].*/, "", line); print line
+      }'
+  done \
+    | tr 'A-Z_' 'a-z-' \
+    | sed -E 's/-systemd$//; s/-final$//; s/-build$//; s/-efi$//; s/-bios$//; s/-stage0$//; s/^kernel-modules$/kernel/' \
+    | sed -E 's/^libseccomp$/seccomp/; s/^xz$/xzutils/; s/^openscsi$/open-scsi/' \
+    | sort -u > "$ALLOWED_TMP"
+
+  # Keep only rows whose component name is in the allowed (shipped) set.
+  FILTERED_TMP="$(mktemp)"
+  awk -F'\t' 'NR==FNR { a[$1]=1; next } ($2 in a)' "$ALLOWED_TMP" "$ROWS_TMP" > "$FILTERED_TMP"
+  mv "$FILTERED_TMP" "$ROWS_TMP"
+
+  # Log shipped names that had no matching *_VERSION ARG (mapping gaps / inter-stage refs).
+  awk -F'\t' 'NR==FNR { have[$2]=1; next } !($1 in have) { print $1 }' "$ROWS_TMP" "$ALLOWED_TMP" \
+    | while IFS= read -r miss; do
+        echo "note: shipped stage ref '$miss' has no *_VERSION ARG (skipped)" >&2
+      done
+fi
+
+# --- Version overrides: "component=ARG_NAME" pairs ---
+# Sets a shipped component's version from a different ARG while keeping its
+# on-disk name. Models `FROM <name>-${VAR} AS <name>` alias stages that swap the
+# built version per build arg — e.g. `openssl=OPENSSL_FIPS_VERSION` in fips
+# builds, where the shipped `openssl` is built from the FIPS sources (3.1.2).
+if [ -n "$OVERRIDE" ]; then
+  for ov in $OVERRIDE; do
+    cname="${ov%%=*}"
+    argn="${ov#*=}"
+    val="$(printf '%s\n' "$DOCKERFILE_CONTENT" | grep -E "^ARG ${argn}=" | head -1 \
+      | sed -E "s/^ARG ${argn}=//; s/^\"//; s/\"\$//; s/[[:space:]].*\$//")"
+    if [ -z "$val" ]; then
+      echo "note: --override '$ov': ARG $argn not found, skipping" >&2
+      continue
+    fi
+    awk -F'\t' -v c="$cname" -v v="$val" 'BEGIN { OFS="\t" } $2==c { $3=v } { print }' \
+      "$ROWS_TMP" > "$ROWS_TMP.ov" && mv "$ROWS_TMP.ov" "$ROWS_TMP"
+  done
+fi
+
 gen_json() {
   awk -F'\t' -v ref="$REF_NAME" -v commit="$COMMIT" -v date="$DATE" '
     BEGIN { printf "{\n  \"ref\": \"%s\",\n  \"commit\": \"%s\",\n  \"generated\": \"%s\",\n  \"groups\": {\n", ref, commit, date }
@@ -97,10 +154,25 @@ gen_md() {
   ' "$ROWS_TMP"
 }
 
+# Flat `{ "name": "version", ... }` map, sorted by component name. Intended for
+# machine consumption (the in-image manifest) — no groups, no metadata.
+gen_flat() {
+  sort -t"$TAB" -k2,2 "$ROWS_TMP" | awk -F'\t' '
+    BEGIN { print "{"; first=1 }
+    {
+      if (!first) printf ",\n"
+      printf "  \"%s\": \"%s\"", $2, $3
+      first=0
+    }
+    END { if (first) print "}"; else printf "\n}\n" }
+  '
+}
+
 mkdir -p "$OUT_DIR"
 case "$FORMAT" in
   json) gen_json > "$OUT_DIR/$NAME.json" ;;
   md)   gen_md   > "$OUT_DIR/$NAME.md" ;;
+  flat) gen_flat > "$OUT_DIR/$NAME.json" ;;
   both) gen_json > "$OUT_DIR/$NAME.json"; gen_md > "$OUT_DIR/$NAME.md" ;;
   *) echo "unknown format: $FORMAT" >&2; exit 2 ;;
 esac

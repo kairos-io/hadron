@@ -26,6 +26,7 @@ package hadron_test
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -130,6 +131,27 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		out, code := shInImage("cat /etc/os-release")
 		Expect(code).To(Equal(0), out)
 		Expect(out).To(ContainSubstring("ID=hadron"))
+	})
+
+	It("ships a parseable per-image component manifest", func() {
+		// Every shipped image carries /usr/lib/hadron/components.json: a flat
+		// { "name": "version" } map generated at build time from the
+		// Dockerfile's ARG *_VERSION defaults, filtered to what the image
+		// actually ships. See the `components` stage in the Dockerfile and
+		// hack/gen-components.sh.
+		out, code := shInImage("cat /usr/lib/hadron/components.json")
+		Expect(code).To(Equal(0),
+			"expected /usr/lib/hadron/components.json to exist; output: %s", out)
+
+		manifest := map[string]string{}
+		Expect(json.Unmarshal([]byte(out), &manifest)).To(Succeed(),
+			"components.json is not a flat string map:\n%s", out)
+		Expect(manifest).ToNot(BeEmpty(), "component manifest is empty")
+
+		// curl + openssl ship in both the minimal container and the full image.
+		Expect(manifest).To(HaveKey("curl"))
+		Expect(manifest).To(HaveKey("openssl"))
+		Expect(manifest["curl"]).ToNot(BeEmpty(), "curl version is empty")
 	})
 
 	It("ships the musl dynamic loader for the current arch", func() {
