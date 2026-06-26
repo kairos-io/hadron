@@ -17,4 +17,7 @@ session    optional   pam_motd.so
 session    optional   pam_mail.so          dir=/var/spool/mail standard quiet
 session    optional   pam_umask.so
 -session   optional   pam_systemd.so
+# STIG: record and display last login (pam_lastlog was removed in PAM 1.6,
+# replaced by pam_lastlog2 backed by /var/lib/lastlog/lastlog2.db).
+session    optional   pam_lastlog2.so      showfailed
 session    required   pam_env.so

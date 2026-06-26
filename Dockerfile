@@ -368,6 +368,19 @@ FROM sources-downloader-base AS pam-download
 ARG PAM_VERSION=1.7.2
 RUN wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz -O pam.tar.xz
 
+FROM sources-downloader-base AS cracklib-download
+ARG CRACKLIB_VERSION=2.10.3
+RUN wget -q https://github.com/cracklib/cracklib/releases/download/v${CRACKLIB_VERSION}/cracklib-${CRACKLIB_VERSION}.tar.xz -O cracklib.tar.xz
+RUN wget -q https://github.com/cracklib/cracklib/releases/download/v${CRACKLIB_VERSION}/cracklib-words-${CRACKLIB_VERSION}.bz2 -O cracklib-words.bz2
+
+FROM sources-downloader-base AS libpwquality-download
+ARG LIBPWQUALITY_VERSION=1.4.5
+RUN wget -q https://github.com/libpwquality/libpwquality/releases/download/libpwquality-${LIBPWQUALITY_VERSION}/libpwquality-${LIBPWQUALITY_VERSION}.tar.bz2 -O libpwquality.tar.bz2
+
+FROM sources-downloader-base AS lastlog2-download
+ARG LASTLOG2_VERSION=1.2.0
+RUN wget -q https://github.com/thkukuk/lastlog2/releases/download/v${LASTLOG2_VERSION}/lastlog2-${LASTLOG2_VERSION}.tar.xz -O lastlog2.tar.xz
+
 FROM sources-downloader-base AS shadow-download
 ARG SHADOW_VERSION=4.19.4
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
@@ -672,6 +685,10 @@ COPY --from=nfs-utils-download /sources/downloads/nfs-utils.tar.xz /sources/down
 COPY --from=cryptsetup-download /sources/downloads/cryptsetup.tar.xz /sources/downloads/
 COPY --from=grub-download /sources/downloads/grub.tar.xz /sources/downloads/
 COPY --from=pam-download /sources/downloads/pam.tar.xz /sources/downloads/
+COPY --from=cracklib-download /sources/downloads/cracklib.tar.xz /sources/downloads/
+COPY --from=cracklib-download /sources/downloads/cracklib-words.bz2 /sources/downloads/
+COPY --from=libpwquality-download /sources/downloads/libpwquality.tar.bz2 /sources/downloads/
+COPY --from=lastlog2-download /sources/downloads/lastlog2.tar.xz /sources/downloads/
 COPY --from=shadow-download /sources/downloads/shadow.tar.xz /sources/downloads/
 COPY --from=aports-download /sources/downloads/aports.tar.gz /sources/downloads/
 COPY --from=busybox-download /sources/downloads/busybox.tar.bz2 /sources/downloads/
@@ -1805,6 +1822,83 @@ RUN pip3 install meson ninja
 RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
 RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
+
+
+# cracklib: dictionary-based password checking, dependency of libpwquality (STIG #6)
+FROM rsync AS cracklib
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=sources-downloader /sources/downloads/cracklib.tar.xz /sources/
+# Rename the wordlist so it does not collide with the `cracklib-*` extract glob below.
+COPY --from=sources-downloader /sources/downloads/cracklib-words.bz2 /sources/words.bz2
+RUN mkdir -p /cracklib
+WORKDIR /sources
+RUN tar -xf cracklib.tar.xz && mv cracklib-*/ cracklib
+WORKDIR /sources/cracklib
+# Install into DESTDIR (to ship) and into / (so the freshly built cracklib-packer
+# and libcrack are runnable in the next step).
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-nls --without-python --sysconfdir=/etc && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/cracklib install && \
+    make -s -j${JOBS} -l${MAX_LOAD} install
+# Build the cracklib dictionary from the official wordlist with the just-built
+# cracklib-packer (runs natively or under binfmt on every arch; the 2.10 dict
+# format is byte-order-aware, so pw_dict is valid on every little-endian target).
+# We do NOT use create-cracklib-dict/cracklib-format here: that script relies on
+# GNU `gzip -cdf` (busybox gzip errors on non-gzip input) and `tr -cd '[:graph:]'`
+# (busybox tr treats the class as literal chars), which together silently reduced
+# a 1.9M-word list to ~14k garbage entries. Instead format the list with
+# busybox-safe operators (grep for the class, tr only for case) and pipe straight
+# to cracklib-packer. The trailing ls fails the build loudly if no dict resulted.
+RUN mkdir -p /cracklib/usr/share/cracklib && \
+    bunzip2 -c /sources/words.bz2 \
+      | grep -av '^#' \
+      | tr 'A-Z' 'a-z' \
+      | grep -aE '^[[:graph:]]+$' \
+      | cut -c1-1022 \
+      | LC_ALL=C sort -u \
+      | cracklib-packer /cracklib/usr/share/cracklib/pw_dict && \
+    ls -l /cracklib/usr/share/cracklib/pw_dict.pwd
+
+
+# libpwquality: provides pam_pwquality.so + pwscore (STIG #6 password complexity)
+FROM rsync AS libpwquality
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=cracklib /cracklib /cracklib
+RUN rsync -aHAX --keep-dirlinks  /cracklib/. /
+COPY --from=pam /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=sources-downloader /sources/downloads/libpwquality.tar.bz2 /sources/
+RUN mkdir -p /libpwquality
+WORKDIR /sources
+RUN tar -xf libpwquality.tar.bz2 && mv libpwquality-* libpwquality
+WORKDIR /sources/libpwquality
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-nls \
+    --disable-python-bindings --enable-pam --sysconfdir=/etc \
+    --with-securedir=/usr/lib/security && \
+    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/libpwquality install
+
+
+# lastlog2: pam_lastlog2.so + lastlog2 CLI (STIG #6 last-login; replaces the
+# pam_lastlog module removed upstream in PAM 1.6). sqlite-backed db in /var/lib/lastlog.
+FROM python-build AS lastlog2
+ARG JOBS
+COPY --from=pkgconfig /pkgconfig /pkgconfig
+RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pam /pam /pam
+RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=sqlite3 /sqlite3 /sqlite3
+RUN rsync -aHAX --keep-dirlinks  /sqlite3/. /
+COPY --from=sources-downloader /sources/downloads/lastlog2.tar.xz /sources/
+RUN mkdir -p /lastlog2
+WORKDIR /sources
+RUN tar -xf lastlog2.tar.xz && mv lastlog2-* lastlog2
+WORKDIR /sources/lastlog2
+RUN pip3 install meson ninja
+RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dpamlibdir=/usr/lib/security -Dman=false
+RUN DESTDIR=/lastlog2 ninja -j${JOBS} -C buildDir install
 
 
 # shadow-base only deps
@@ -4227,6 +4321,21 @@ RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /skeleton/
 # copy pam but with systemd support
 COPY --from=pam-systemd /pam /pam
 RUN rsync -aHAX --keep-dirlinks  /pam/. /skeleton
+
+# STIG #6: cracklib + libpwquality (pam_pwquality, pwscore, pw_dict) and
+# lastlog2 (pam_lastlog2). Full image only - the minimal container has no PAM.
+COPY --from=cracklib /cracklib /cracklib
+RUN rsync -aHAX --keep-dirlinks  /cracklib/. /skeleton
+COPY --from=libpwquality /libpwquality /libpwquality
+RUN rsync -aHAX --keep-dirlinks  /libpwquality/. /skeleton
+# pam_lastlog2 links liblastlog2 -> libsqlite3, which is otherwise only a build
+# dep and not shipped, so add the sqlite3 shared library (lib only, no CLI/headers).
+COPY --from=sqlite3 /sqlite3 /sqlite3
+RUN rsync -aHAX --keep-dirlinks  /sqlite3/usr/lib/. /skeleton/usr/lib/
+COPY --from=lastlog2 /lastlog2 /lastlog2
+RUN rsync -aHAX --keep-dirlinks  /lastlog2/. /skeleton
+# Hardened pwquality policy overrides libpwquality's commented default.
+COPY files/security/pwquality.conf /skeleton/etc/security/pwquality.conf
 
 # copy shadow but with systemd support
 COPY --from=shadow-systemd /shadow /shadow

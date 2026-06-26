@@ -224,3 +224,63 @@ func assertLoginDefsHardening(vm VM) {
 		Expect(out).To(MatchRegexp(`(?m)^UMASK\s+077\b`), "UMASK should be 077")
 	})
 }
+
+// assertPamPasswordPolicy verifies the STIG password-complexity hardening
+// (kairos-io/kairos#4058 finding 6): pam_pwquality + pam_pwhistory are present,
+// the hardened /etc/security/pwquality.conf ships, the modules are wired into
+// the password stack (with nullok removed), and the policy functionally rejects
+// weak passwords while accepting a strong one (which also proves the cracklib
+// dictionary loaded). pwquality only gates interactive password changes; yip
+// provisions by writing /etc/shadow directly, so this does not affect login.
+func assertPamPasswordPolicy(vm VM) {
+	By("checking the STIG PAM password-complexity stack is present", func() {
+		out, err := vm.Sudo("ls /usr/lib/security/pam_pwquality.so /usr/lib/security/pam_pwhistory.so")
+		Expect(err).ToNot(HaveOccurred(), out)
+		out, err = vm.Sudo("command -v pwscore")
+		Expect(err).ToNot(HaveOccurred(), out)
+	})
+	By("checking the hardened pwquality.conf values", func() {
+		out, err := vm.Sudo("cat /etc/security/pwquality.conf")
+		Expect(err).ToNot(HaveOccurred(), out)
+		for _, want := range []string{"minlen = 15", "minclass = 4", "dictcheck = 1", "enforce_for_root"} {
+			Expect(out).To(ContainSubstring(want), "pwquality.conf missing %q", want)
+		}
+	})
+	By("checking pwquality/pwhistory are wired into the password stack (no nullok)", func() {
+		out, err := vm.Sudo("cat /etc/pam.d/system-auth")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(MatchRegexp(`(?m)^password\s+requisite\s+pam_pwquality\.so`))
+		Expect(out).To(MatchRegexp(`(?m)^password\s+requisite\s+pam_pwhistory\.so`))
+		Expect(out).ToNot(MatchRegexp(`(?m)^password\s+.*pam_unix\.so.*\bnullok\b`),
+			"nullok must be removed from the password stack")
+	})
+	By("checking pwquality rejects a weak password and accepts a strong one", func() {
+		// weak -> non-zero exit (also exercises the cracklib dictcheck)
+		_, err := vm.Sudo("echo 'weak' | pwscore")
+		Expect(err).To(HaveOccurred(), "pwscore should reject a weak password")
+		// strong -> score printed, exit 0 (proves pw_dict loaded and the policy passes)
+		out, err := vm.Sudo("echo 'Zr7#kPq2!mNv4@Lx' | pwscore")
+		Expect(err).ToNot(HaveOccurred(), out)
+	})
+}
+
+// assertLastlog2 verifies the pam_lastlog2 last-login hardening
+// (kairos-io/kairos#4058 finding 6; pam_lastlog was removed upstream in PAM 1.6).
+// The module + CLI ship, and the current SSH session - which logs in through
+// sshd -> system-login -> pam_lastlog2 - is recorded in the sqlite db.
+func assertLastlog2(vm VM) {
+	By("checking pam_lastlog2 module and CLI are present", func() {
+		out, err := vm.Sudo("ls /usr/lib/security/pam_lastlog2.so")
+		Expect(err).ToNot(HaveOccurred(), out)
+		out, err = vm.Sudo("command -v lastlog2")
+		Expect(err).ToNot(HaveOccurred(), out)
+	})
+	By("checking the SSH login was recorded by pam_lastlog2", func() {
+		out, err := vm.Sudo("test -f /var/lib/lastlog/lastlog2.db && echo OK")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("OK"))
+		records, err := vm.Sudo("lastlog2")
+		Expect(err).ToNot(HaveOccurred(), records)
+		Expect(records).To(ContainSubstring(user()))
+	})
+}

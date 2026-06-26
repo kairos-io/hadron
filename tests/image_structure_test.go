@@ -193,6 +193,46 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			"found python bytecode artifacts that should be removed:\n%s", out)
 	})
 
+	It("ships the STIG PAM password-complexity stack (full image)", func() {
+		skipUnlessFullImage()
+		// modules + tooling present
+		out, code := shInImage(
+			"ls /usr/lib/security/pam_pwquality.so /usr/lib/security/pam_pwhistory.so " +
+				"/usr/lib/security/pam_lastlog2.so && command -v pwscore lastlog2")
+		Expect(code).To(Equal(0), out)
+		// hardened policy shipped
+		cfg, code := shInImage("cat /etc/security/pwquality.conf")
+		Expect(code).To(Equal(0), cfg)
+		for _, want := range []string{
+			"minlen = 15", "dcredit = -1", "ucredit = -1", "lcredit = -1",
+			"ocredit = -1", "minclass = 4", "dictcheck = 1", "enforce_for_root",
+		} {
+			Expect(cfg).To(ContainSubstring(want), "pwquality.conf missing %q", want)
+		}
+		// cracklib dictionary present (dictcheck would silently no-op without it)
+		_, code = shInImage("ls /usr/share/cracklib/pw_dict.pwd")
+		Expect(code).To(Equal(0), "cracklib pw_dict not shipped")
+		// wired into the password stack that passwd uses, with nullok removed
+		sa, code := shInImage("cat /etc/pam.d/system-auth")
+		Expect(code).To(Equal(0), sa)
+		Expect(sa).To(MatchRegexp(`(?m)^password\s+requisite\s+pam_pwquality\.so`))
+		Expect(sa).To(MatchRegexp(`(?m)^password\s+requisite\s+pam_pwhistory\.so`))
+		Expect(sa).ToNot(MatchRegexp(`(?m)^password\s+.*pam_unix\.so.*\bnullok\b`),
+			"nullok must be removed from the password stack")
+	})
+
+	It("wires pam_lastlog2 into the login session stack (full image)", func() {
+		skipUnlessFullImage()
+		// tmpfiles entry that creates the db directory at boot
+		tf, code := shInImage("cat /usr/lib/tmpfiles.d/lastlog2.conf")
+		Expect(code).To(Equal(0), tf)
+		Expect(tf).To(ContainSubstring("/var/lib/lastlog"))
+		// session hook present in the login stack
+		sl, code := shInImage("cat /etc/pam.d/system-login")
+		Expect(code).To(Equal(0), sl)
+		Expect(sl).To(MatchRegexp(`(?m)^session\s+optional\s+pam_lastlog2\.so`))
+	})
+
 	DescribeTable("top-level dirs are symlinks into usr",
 		func(dir, wantTarget string) {
 			// -L: path is a symlink. Then compare the readlink target.

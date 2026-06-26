@@ -211,6 +211,9 @@ openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 			Expect(strings.TrimSpace(out)).To(Equal("1"))
 		})
 
+		assertPamPasswordPolicy(vm)
+		assertLastlog2(vm)
+
 		By("checking corresponding state", func() {
 			out, err := vm.Sudo("kairos-agent state")
 			Expect(err).ToNot(HaveOccurred())

@@ -219,6 +219,8 @@ func genericTests(vm VM) {
 	assertSysctlHardening(vm)
 	assertLegacyNetDisabled(vm)
 	assertLoginDefsHardening(vm)
+	assertPamPasswordPolicy(vm)
+	assertLastlog2(vm)
 	assertInstallRecoveryServicesAbsent(vm)
 	By("Checking sysext was copied during boot", func() {
 		out, err := vm.Sudo("ls /run/extensions")
