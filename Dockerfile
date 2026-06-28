@@ -142,7 +142,7 @@ ARG PYTHON_VERSION=3.14.6
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
 FROM sources-downloader-base AS sqlite3-download
-ARG SQLITE3_VERSION=3.53.2
+ARG SQLITE3_VERSION=3.53.3
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 FROM sources-downloader-base AS openssl-download
