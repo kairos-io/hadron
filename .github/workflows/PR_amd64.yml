@@ -95,6 +95,7 @@ jobs:
       contents: read
       attestations: write
       id-token: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -165,6 +166,25 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
+      - name: Generate component versions report
+        continue-on-error: true
+        run: |
+          IMAGE="ttl.sh/hadron-container-amd64:${{ github.sha }}"
+          TARGET="container"
+          sh hack/gen-components.sh \
+            --shipped "stage2-merge" \
+            --format md --name container --out-dir /tmp/components
+          {
+            printf '## 🧩 Component versions — `%s` (amd64)\n\n' "$TARGET"
+            printf '**Image:** `%s`  \n**Target:** `%s`\n\n---\n\n' "$IMAGE" "$TARGET"
+            cat /tmp/components/container.md
+          } > /tmp/component-comment.md
+      - name: Post component versions as sticky PR comment
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        with:
+          header: component-versions-container
+          path: /tmp/component-comment.md
   hadron-bios:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -181,6 +201,7 @@ jobs:
       contents: read
       attestations: write
       id-token: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -229,6 +250,32 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      - name: Generate component versions report
+        # Only post once per FIPS variant (components don't differ by kernel type)
+        if: matrix.kernel == 'cloud'
+        continue-on-error: true
+        run: |
+          IMAGE="ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}"
+          TARGET="default (grub / ${{ matrix.fips }})"
+          FIPS="${{ matrix.fips }}"
+          OVERRIDE=""
+          [ "$FIPS" = "fips" ] && OVERRIDE="--override openssl=OPENSSL_FIPS_VERSION"
+          sh hack/gen-components.sh \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-${FIPS} full-image-pre-grub full-image-pre-preset full-image-final" \
+            ${OVERRIDE} \
+            --format md --name "full-image-bios-${FIPS}" --out-dir /tmp/components
+          {
+            printf '## 🧩 Component versions — bios / `%s` (amd64)\n\n' "$FIPS"
+            printf '**Image:** `%s`  \n**Target:** `%s`\n\n---\n\n' "$IMAGE" "$TARGET"
+            cat "/tmp/components/full-image-bios-${FIPS}.md"
+          } > /tmp/component-comment.md
+      - name: Post component versions as sticky PR comment
+        if: matrix.kernel == 'cloud'
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        with:
+          header: component-versions-bios-${{ matrix.fips }}
+          path: /tmp/component-comment.md
   hadron-trusted:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
@@ -241,6 +288,7 @@ jobs:
       contents: read
       attestations: write
       id-token: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -286,6 +334,28 @@ jobs:
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
+      - name: Generate component versions report
+        # Only post once (components don't differ by kernel type)
+        if: matrix.kernel == 'cloud'
+        continue-on-error: true
+        run: |
+          IMAGE="ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted-${{ github.sha }}:24h"
+          TARGET="default (systemd / no-fips)"
+          sh hack/gen-components.sh \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-systemd full-image-pre-preset full-image-final" \
+            --format md --name full-image-trusted --out-dir /tmp/components
+          {
+            printf '## 🧩 Component versions — trusted (amd64)\n\n'
+            printf '**Image:** `%s`  \n**Target:** `%s`\n\n---\n\n' "$IMAGE" "$TARGET"
+            cat /tmp/components/full-image-trusted.md
+          } > /tmp/component-comment.md
+      - name: Post component versions as sticky PR comment
+        if: matrix.kernel == 'cloud'
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        with:
+          header: component-versions-trusted
+          path: /tmp/component-comment.md
   build-kairos-bios:
     runs-on: ubuntu-latest
     needs:
