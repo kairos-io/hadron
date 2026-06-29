@@ -11,6 +11,7 @@ source of truth; this page and the chart are regenerated from it by
 
 | date | sha | hadron | hadron-cloud | hadron-trusted | hadron-cloud-trusted |
 |---|---|--:|--:|--:|--:|
+| 2026-06-29 | `42283828299d` | 210MB (+19KB) | 108MB (+19KB) | 183MB (+21KB) | 81MB (+19KB) |
 | 2026-06-28 | `d48f407110c3` | 210MB (+23KB) | 108MB (+26KB) | 183MB (+21KB) | 81MB (+26KB) |
 | 2026-06-26 | `ae12f001fb5c` | 210MB (+11KB) | 108MB (+12KB) | 183MB (+12KB) | 81MB (+12KB) |
 | 2026-06-25 | `239f9887abc3` | 210MB (+0B) | 108MB (+0B) | 183MB (+0B) | 81MB (+0B) |
