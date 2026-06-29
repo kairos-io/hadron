@@ -40,7 +40,7 @@ VARIANTS=()
 for _v in "${SIZE_VARIANTS[@]}"; do
   _name="${_v%%|*}"
   case "$_name" in
-    *-trusted) _pr="ttl.sh/${_name}:${SHA}" ;;        # trusted tags: no -amd64
+  *-trusted) _pr="ttl.sh/${_name}-${SHA}:24h" ;;    # trusted tags: SHA in name, TTL as tag
     *)         _pr="ttl.sh/${_name}-amd64:${SHA}" ;;  # bios tags: -amd64 suffix
   esac
   _main="$(size_variant_ghcr "$REPO" "$_name")"
