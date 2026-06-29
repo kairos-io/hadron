@@ -109,6 +109,9 @@ export default function Home() {
                   >
                     Source Code
                   </a>
+                  <a href="/components/" className="btn secondary" id="btn-components">
+                    Component Versions
+                  </a>
                 </div>
               </div>
 
@@ -135,7 +138,12 @@ export default function Home() {
                       </div>
                       <div>
                         <strong>Core Components</strong>
-                        <div className="muted">musl, systemd, vanilla kernels.</div>
+                        <div className="muted">
+                          musl, systemd, vanilla kernels.{' '}
+                          <a href="/components/" className="feature-link">
+                            See versions →
+                          </a>
+                        </div>
                       </div>
                     </li>
 
