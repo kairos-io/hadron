@@ -80,9 +80,11 @@ file_diff() {
 
 # Sort "<...>\t<...>\t<...>\t<delta>" rows by absolute value of the trailing
 # delta field, descending.
+# Note: stderr from sort/cut is suppressed because callers may pipe this into
+# "head -n N", which closes the pipe early and causes harmless SIGPIPE errors.
 sort_by_abs_delta() {
   awk -F'\t' '{v=$NF; if(v<0)v=-v; printf "%d\t%s\n", v, $0}' \
-    | sort -t"$(printf '\t')" -k1 -nr | cut -f2-
+    | sort -t"$(printf '\t')" -k1 -nr 2>/dev/null | cut -f2- 2>/dev/null
 }
 
 summary_rows=""
@@ -96,9 +98,16 @@ for v in "${VARIANTS[@]}"; do
     summary_rows+="| \`${name}\` | _not on main yet_ | — | — |"$'\n'
     continue
   fi
-  docker pull -q "$pr_img" >/dev/null
-
   main_sz=$(docker image inspect "$main_img" --format '{{.Size}}')
+
+  # PR image must exist since this job runs after the build jobs succeed. If it
+  # is somehow missing (e.g. push silently failed or tag expired), skip rather
+  # than aborting the whole report with no output.
+  if ! docker pull -q "$pr_img" >/dev/null 2>&1; then
+    summary_rows+="| \`${name}\` | $(human "$main_sz") | _PR image not found_ | — |"$'\n'
+    continue
+  fi
+
   pr_sz=$(docker image inspect "$pr_img" --format '{{.Size}}')
   delta=$((pr_sz - main_sz))
   pct=$(awk -v d="$delta" -v m="$main_sz" 'BEGIN{printf "%+.2f", (m>0)?(d/m*100):0}')
@@ -131,7 +140,10 @@ for v in "${VARIANTS[@]}"; do
 
   # Top individual files by absolute delta: this is what pinpoints whether the
   # change is a real new/grown binary or just a regenerated cache/index.
-  file_rows=$(printf '%s\n' "$fdiff" | sort_by_abs_delta | head -n "$TOP_FILES")
+  # "|| true" is required: head -n N closes the pipe early which causes sort
+  # inside sort_by_abs_delta to exit with SIGPIPE; pipefail would otherwise
+  # abort the script before the printf statements below ever run.
+  file_rows=$(printf '%s\n' "$fdiff" | sort_by_abs_delta | head -n "$TOP_FILES" || true)
   if [ -n "$file_rows" ]; then
     block+="**Top ${TOP_FILES} files by |Δ|**"$'\n\n'
     block+="| file | \`main\` | PR | Δ |"$'\n'"|---|--:|--:|--:|"$'\n'
