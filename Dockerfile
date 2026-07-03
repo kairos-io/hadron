@@ -104,11 +104,11 @@ ARG ZLIB_VERSION=1.3.2
 RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
 FROM sources-downloader-base AS acl-download
-ARG ACL_VERSION=2.3.2
+ARG ACL_VERSION=2.4.0
 RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl.tar.gz
 
 FROM sources-downloader-base AS attr-download
-ARG ATTR_VERSION=2.5.2
+ARG ATTR_VERSION=2.6.0
 RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
 FROM sources-downloader-base AS gawk-download
@@ -167,7 +167,7 @@ RUN wget -q https://dbus.freedesktop.org/releases/dbus/dbus-${DBUS_VERSION}.tar.
 
 FROM sources-downloader-base AS expat-download
 # libexpat
-ARG EXPAT_VERSION=2.8.1
+ARG EXPAT_VERSION=2.8.2
 # Use a single var and extract major/minor/patch to build the URL
 RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  && EXPAT_VERSION_MINOR="${EXPAT_VERSION#*.}"; EXPAT_VERSION_MINOR="${EXPAT_VERSION_MINOR%.*}" \
@@ -177,7 +177,7 @@ RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  -O expat.tar.gz
 
 FROM sources-downloader-base AS libseccomp-download
-ARG SECCOMP_VERSION=2.6.0
+ARG SECCOMP_VERSION=2.6.1
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
 FROM sources-downloader-base AS strace-download
@@ -230,7 +230,7 @@ RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procp
 
 FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=7.1.2
-RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
+RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-${KERNEL_VERSION}.tar.gz -O linux.tar.gz
 
 FROM sources-downloader-base AS flex-download
 ARG FLEX_VERSION=2.6.4
@@ -301,7 +301,7 @@ ARG MULTIPATH_TOOLS_VERSION=0.14.3
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 FROM sources-downloader-base AS json-c-download
-ARG JSONC_VERSION=0.18
+ARG JSONC_VERSION=0.19
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 FROM sources-downloader-base AS cmake-download
@@ -644,7 +644,7 @@ COPY --from=kbd-download /sources/downloads/kbd.tar.gz /sources/downloads/
 COPY --from=iptables-download /sources/downloads/iptables.tar.xz /sources/downloads/
 COPY --from=libmnl-download /sources/downloads/libmnl.tar.bz2 /sources/downloads/
 COPY --from=libnftnl-download /sources/downloads/libnftnl.tar.xz /sources/downloads/
-COPY --from=linux-download /sources/downloads/linux.tar.xz /sources/downloads/
+COPY --from=linux-download /sources/downloads/linux.tar.gz /sources/downloads/
 COPY --from=flex-download /sources/downloads/flex.tar.gz /sources/downloads/
 COPY --from=bison-download /sources/downloads/bison.tar.xz /sources/downloads/
 COPY --from=autoconf-download /sources/downloads/autoconf.tar.xz /sources/downloads/
@@ -966,10 +966,10 @@ EOT
 FROM make-stage0 AS kernel-headers-stage0
 ARG JOBS
 
-COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
 
 WORKDIR /sources
-RUN tar -xf linux.tar.xz && mv linux-* kernel
+RUN tar -xf linux.tar.gz && mv linux-* kernel
 WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
@@ -1135,18 +1135,12 @@ RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
 FROM lz4 AS attr
 ARG JOBS
 COPY --from=sources-downloader /sources/downloads/attr.tar.gz /sources/
-COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
 
 RUN mkdir -p /attr
 
-# extract the aport patch to apply to attr
-WORKDIR /sources/patches
-RUN tar -xf aports.tar.gz && mv aports-* aport
 WORKDIR /sources
 RUN tar -xf attr.tar.gz && mv attr-* attr
 WORKDIR /sources/attr
-# TODO: Its fixed on attr master so we can drop this patch when they do a new release
-RUN patch -p1 < /sources/patches/aport/main/attr/attr-basename.patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconfdir=/etc \
     --mandir=/usr/share/man \
     --localstatedir=/var \
@@ -2141,7 +2135,7 @@ RUN rsync -aHAX --keep-dirlinks  /xz/. /
 COPY --from=grep /grep /grep
 RUN rsync -aHAX --keep-dirlinks  /grep/. /
 
-COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
 
 RUN mkdir -p /sources/kernel-configs
 COPY ./files/kernel/* /sources/kernel-configs/
@@ -2149,7 +2143,7 @@ COPY ./files/kernel/* /sources/kernel-configs/
 RUN mkdir -p /kernel && mkdir -p /modules
 
 WORKDIR /sources
-RUN tar -xf linux.tar.xz && mv linux-* kernel
+RUN tar -xf linux.tar.gz && mv linux-* kernel
 
 # Apply kernel patches (sorted; ignore if none).
 # LP: #2137714 — virt: vmgenid: remap memory as decrypted (fixes SEV-SNP boot on AWS).
