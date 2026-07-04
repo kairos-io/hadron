@@ -346,7 +346,7 @@ jobs:
       - name: Post sticky PR comment
         # Fork PRs only get a read-only token; never block the pipeline on it.
         continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: component-versions-report
           path: /tmp/component-comment.md
@@ -651,7 +651,7 @@ jobs:
         # Fork PRs only get a read-only token, so posting will fail there; the
         # step summary above is still written. Never block the pipeline on it.
         continue-on-error: true
-        uses: marocchino/sticky-pull-request-comment@v3.0.4
+        uses: marocchino/sticky-pull-request-comment@v3.0.5
         with:
           header: image-size-report
           path: report.md
