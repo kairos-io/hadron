@@ -339,7 +339,7 @@ RUN LIBNL_TAG="libnl${LIBNL_VERSION//./_}" \
  && wget -q https://github.com/thom311/libnl/releases/download/${LIBNL_TAG}/libnl-${LIBNL_VERSION}.tar.gz -O libnl.tar.gz
 
 FROM sources-downloader-base AS libevent-download
-ARG LIBEVENT_VERSION=2.1.12
+ARG LIBEVENT_VERSION=2.1.13
 # Upstream release-tag convention is release-X.Y.Z-stable, and the tarball
 # is named libevent-X.Y.Z-stable.tar.gz.
 RUN wget -q https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}-stable/libevent-${LIBEVENT_VERSION}-stable.tar.gz -O libevent.tar.gz
