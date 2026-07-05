@@ -12,16 +12,16 @@
 <text x="64" y="83.0" text-anchor="end" fill="#555">0.17 GiB</text>
 <line x1="70" y1="20.0" x2="600" y2="20.0" stroke="#eee"/>
 <text x="64" y="23.0" text-anchor="end" fill="#555">0.20 GiB</text>
-<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="70.0,20.1 136.2,20.1 202.5,20.1 268.8,20.1 335.0,20.1 401.2,20.0 467.5,20.0 533.8,20.0 600.0,20.0 "/>
+<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="70.0,20.1 128.9,20.1 187.8,20.1 246.7,20.1 305.6,20.1 364.4,20.1 423.3,20.0 482.2,20.0 541.1,20.0 600.0,20.0 "/>
 <rect x="614" y="20" width="10" height="10" fill="#1f77b4"/>
 <text x="628" y="29" fill="#333">hadron</text>
-<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="70.0,210.0 136.2,210.1 202.5,210.1 268.8,210.1 335.0,210.0 401.2,210.0 467.5,209.9 533.8,209.9 600.0,209.9 "/>
+<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="70.0,210.1 128.9,210.1 187.8,210.1 246.7,210.1 305.6,210.0 364.4,210.0 423.3,210.0 482.2,210.0 541.1,210.0 600.0,209.9 "/>
 <rect x="614" y="38" width="10" height="10" fill="#ff7f0e"/>
 <text x="628" y="47" fill="#333">hadron-cloud</text>
-<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="70.0,70.0 136.2,70.0 202.5,70.0 268.8,70.0 335.0,70.0 401.2,70.0 467.5,69.9 533.8,69.9 600.0,70.0 "/>
+<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="70.0,70.1 128.9,70.0 187.8,70.1 246.7,70.1 305.6,70.0 364.4,70.0 423.3,70.0 482.2,70.0 541.1,70.0 600.0,69.9 "/>
 <rect x="614" y="56" width="10" height="10" fill="#2ca02c"/>
 <text x="628" y="65" fill="#333">hadron-trusted</text>
-<polyline fill="none" stroke="#d62728" stroke-width="2" points="70.0,260.0 136.2,260.0 202.5,260.0 268.8,260.0 335.0,260.0 401.2,259.9 467.5,259.9 533.8,259.9 600.0,259.9 "/>
+<polyline fill="none" stroke="#d62728" stroke-width="2" points="70.0,260.0 128.9,260.0 187.8,260.0 246.7,260.0 305.6,260.0 364.4,259.9 423.3,259.9 482.2,259.9 541.1,259.9 600.0,259.9 "/>
 <rect x="614" y="74" width="10" height="10" fill="#d62728"/>
 <text x="628" y="83" fill="#333">hadron-cloud-trusted</text>
 <text x="335" y="290" text-anchor="middle" fill="#555">merges over time (oldest → newest)</text>
