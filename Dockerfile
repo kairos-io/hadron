@@ -735,7 +735,7 @@ WORKDIR /sysroot
 RUN mkdir -pv {boot,home,mnt,opt,srv,tmp} \
         {etc,var} \
         etc/{opt,sysconfig} \
-        usr/{bin,lib} \
+        usr/{bin,sbin,lib} \
         usr/lib/firmware \
         usr/{,local/}{include,src} \
         usr/local/{bin,lib} \
@@ -754,8 +754,6 @@ RUN ln -sfv usr/bin sbin  # sbin -> usr/bin
 RUN ln -sfv usr/bin bin   # bin -> usr/bin
 RUN ln -sfv usr/lib lib   # lib -> usr/lib
 RUN ln -sfv usr/lib lib64 # lib64 -> usr/lib
-RUN ln -sfv bin usr/sbin  # usr/sbin -> usr/bin
-RUN ln -sfv lib usr/lib64 # usr/lib64 -> usr/lib
 RUN ln -sfv ../run var/run # var/run -> ../run important to be relative
 RUN ln -sfv ../run/lock var/lock # var/lock -> run/lock
 RUN ln -svf proc/mounts etc/mtab
@@ -1039,6 +1037,7 @@ ENV AR="gcc-ar"
 ENV NM="gcc-nm"
 ENV RANLIB="gcc-ranlib"
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${TARGET} --enable-lto --enable-shared --disable-static"
+ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=true"
 # Standard aggressive size optimization flags
 ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -flto=auto"
 ENV LDFLAGS="-Wl,--gc-sections -Wl,--as-needed -flto=auto"
@@ -1771,7 +1770,7 @@ WORKDIR /sources
 RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 
@@ -1796,7 +1795,7 @@ WORKDIR /sources
 RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
@@ -1926,7 +1925,7 @@ WORKDIR /sources
 RUN tar -xf kmod.tar.gz && mv kmod-* kmod
 WORKDIR /sources/kmod
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dmanpages=false
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dmanpages=false
 RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 
@@ -2537,7 +2536,7 @@ WORKDIR /sources
 RUN tar -xf pax-utils.tar.gz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true -Dtests=false -Duse_fuzzing=false
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false -Duse_fuzzing=false
 RUN DESTDIR=/pax-utils ninja -j${JOBS} -C buildDir install
 RUN ninja -j${JOBS} -C buildDir install
 
@@ -3229,8 +3228,7 @@ RUN python3 -m pip install meson ninja jinja2 pyelftools
 WORKDIR /sources/systemd
 
 RUN /usr/bin/meson setup buildDir \
-      --prefix=/usr           \
-      --buildtype=minsize -Dstrip=true     \
+      ${COMMON_MESON_FLAGS} \
       -D dbus=enabled  \
       -D tpm2=enabled          \
       -D pam=enabled \
@@ -3443,7 +3441,7 @@ WORKDIR /sources
 RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 
 ## final build of pam with systemd support
@@ -3471,7 +3469,7 @@ WORKDIR /sources
 RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize -Dstrip=true
+RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
@@ -3558,7 +3556,7 @@ RUN mkdir -p /openscsi
 WORKDIR /sources
 RUN tar -xf openscsi.tar.gz && mv open-iscsi-* openscsi
 WORKDIR /sources/openscsi
-RUN meson setup buildDir --prefix=/usr --buildtype=minsize --optimization 3 -D isns=disabled
+RUN meson setup buildDir ${COMMON_MESON_FLAGS} --optimization 3 -D isns=disabled
 RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
 
 FROM rsync AS bc
