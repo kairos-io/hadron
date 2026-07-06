@@ -1317,14 +1317,11 @@ RUN cd /sources && \
 ## bison
 FROM rsync AS bison
 ARG JOBS
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
+COPY --from=flex /flex/ /
 
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
 COPY --from=sources-downloader /sources/downloads/bison.tar.xz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xvf bison.tar.xz && mv bison-* bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
@@ -1384,11 +1381,9 @@ RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* lib
 ## openssl
 FROM rsync AS openssl-no-fips
 ARG JOBS
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=zlib /zlib/ /
 
 COPY --from=sources-downloader /sources/downloads/openssl.tar.gz /sources/
 WORKDIR /sources
@@ -1409,11 +1404,9 @@ RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j$
 FROM rsync AS openssl-fips
 
 ARG JOBS
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=zlib /zlib/ /
 
 COPY --from=sources-downloader /sources/downloads/openssl-fips.tar.gz /sources/
 WORKDIR /sources
@@ -1464,14 +1457,12 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install
 ## coreutils
 FROM rsync AS coreutils
 ARG JOBS
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
 COPY --from=sources-downloader /sources/downloads/coreutils.tar.xz /sources/
 RUN cd /sources && \
@@ -1511,30 +1502,24 @@ RUN cd /sources && \
 ## ca-certificates
 FROM rsync AS ca-certificates
 ARG JOBS
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
 ## readline
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 
 ## acl
-COPY --from=acl /acl /acl
-RUN rsync -aHAX --keep-dirlinks  /acl/. /
+COPY --from=acl /acl/ /
 
 ## attr
-COPY --from=attr /attr /attr
-RUN rsync -aHAX --keep-dirlinks  /attr/. /
+COPY --from=attr /attr/ /
 
 ## findutils
-COPY --from=findutils /findutils /findutils
-RUN rsync -aHAX --keep-dirlinks  /findutils/. /
+COPY --from=findutils /findutils/ /
 
 COPY --from=sources-downloader /sources/downloads/ca-certificates.tar.bz2 /sources/
 
@@ -1569,14 +1554,11 @@ RUN mkdir -p /sources && cd /sources && tar -xf sqlite3.tar.gz && \
 ## curl
 FROM rsync AS curl
 ARG JOBS
-COPY --from=ca-certificates /ca-certificates /ca-certificates
-RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
+COPY --from=ca-certificates /ca-certificates/ /
 
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
-COPY --from=zstd /zstd /zstd
-RUN rsync -aHAX --keep-dirlinks  /zstd/. /
+COPY --from=zstd /zstd/ /
 
 COPY --from=sources-downloader /sources/downloads/curl.tar.gz /sources/
 
@@ -1616,23 +1598,18 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## python
 FROM rsync AS python-build
 ARG JOBS
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=zlib /zlib/ /
 
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 
-COPY --from=libffi /libffi /libffi
-RUN rsync -aHAX --keep-dirlinks  /libffi/. /
+COPY --from=libffi /libffi/ /
 
 COPY --from=sources-downloader /sources/downloads/Python.tar.xz /sources/
 
@@ -1701,8 +1678,7 @@ RUN mkdir -p /hadron-splash && mv hadron-splash /hadron-splash
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
 ARG JOBS
-COPY --from=gperf /gperf /gperf
-RUN rsync -aHAX --keep-dirlinks  /gperf/. /
+COPY --from=gperf /gperf/ /
 COPY --from=sources-downloader /sources/downloads/libseccomp.tar.gz /sources/
 RUN mkdir -p /libseccomp
 WORKDIR /sources
@@ -1757,10 +1733,8 @@ RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/gdb install install-gdbserver
 ## dbus first pass without systemd support so we can build systemd afterwards
 FROM python-build AS dbus
 ARG JOBS
-COPY --from=expat /expat /expat
-RUN rsync -aHAX --keep-dirlinks  /expat/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=expat /expat/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
@@ -1777,12 +1751,9 @@ RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 # first pam build so we can build systemd against it
 FROM python-build AS pam
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
+COPY --from=readline /readline/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=util-linux /util-linux /util-linux
@@ -1802,10 +1773,8 @@ COPY files/pam/* /pam/etc/pam.d/
 
 # shadow-base only deps
 FROM rsync AS shadow-base
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=readline /readline/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=libcap /libcap /libcap
@@ -1815,8 +1784,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 # Shadow with PAM support, no systemd
 FROM shadow-base AS shadow
 ARG JOBS
-COPY --from=pam /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=pam /pam/ /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
 RUN mkdir -p /shadow
 WORKDIR /sources
@@ -1834,14 +1802,11 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_pref
 ## And enable --with-privsep-user=sshd during configure
 FROM rsync AS openssh
 ARG JOBS
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=zlib /zlib/ /
 
-COPY --from=pam /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=pam /pam/ /
 
 COPY --from=shadow /shadow /shadow
 
@@ -1908,8 +1873,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make install DESTDIR=/gzip
 FROM python-build AS kmod
 ARG JOBS
 ## we need liblzma from xz to build
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=xz /xz/ /
 
 ## Override ln so the install works
 COPY --from=coreutils /coreutils /coreutils
@@ -1932,12 +1896,10 @@ RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buil
 ## autoconf
 FROM rsync AS autoconf
 ARG JOBS
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
 COPY --from=sources-downloader /sources/downloads/autoconf.tar.xz /sources/
 
@@ -1949,14 +1911,11 @@ RUN mkdir -p /sources && cd /sources && tar -xvf autoconf.tar.xz && mv autoconf-
 ## automake
 FROM rsync AS automake
 ARG JOBS
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
+COPY --from=autoconf /autoconf/ /
 
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
 COPY --from=sources-downloader /sources/downloads/automake.tar.xz /sources/
 
@@ -1968,8 +1927,7 @@ RUN mkdir -p /sources && cd /sources && tar -xvf automake.tar.xz && mv automake-
 ## libtool
 FROM rsync AS libtool
 ARG JOBS
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
 COPY --from=sources-downloader /sources/downloads/libtool.tar.xz /sources/
 
@@ -1982,14 +1940,10 @@ gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-depen
 
 FROM rsync AS patch
 ARG JOBS
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
-COPY --from=automake /automake /automake
-RUN rsync -aHAX --keep-dirlinks  /automake/. /
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=autoconf /autoconf/ /
+COPY --from=automake /automake/ /
+COPY --from=m4 /m4/ /
+COPY --from=perl /perl/ /
 COPY --from=sources-downloader /sources/downloads/patch.tar.gz /sources/
 WORKDIR /sources
 RUN tar -xvf patch.tar.gz && mv patch-* patch
@@ -2005,23 +1959,17 @@ FROM rsync AS fts
 ARG JOBS
 ENV CFLAGS="$CFLAGS -fPIC"
 
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
+COPY --from=autoconf /autoconf/ /
 
-COPY --from=automake /automake /automake
-RUN rsync -aHAX --keep-dirlinks  /automake/. /
+COPY --from=automake /automake/ /
 
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
-COPY --from=libtool /libtool /libtool
-RUN rsync -aHAX --keep-dirlinks  /libtool/. /
+COPY --from=libtool /libtool/ /
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 
 COPY --from=sources-downloader /sources/downloads/musl-fts.tar.gz /sources/
 
@@ -2046,8 +1994,7 @@ FROM rsync AS diffutils
 ARG JOBS
 RUN mkdir -p /diffutils
 COPY --from=sources-downloader /sources/downloads/diffutils.tar.xz /sources/
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 WORKDIR /sources
 RUN tar xf diffutils.tar.xz && mv diffutils-* diffutils
 WORKDIR /sources/diffutils
@@ -2061,20 +2008,13 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install
 
 FROM rsync AS libkcapi
 ARG JOBS
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
-COPY --from=automake /automake /automake
-RUN rsync -aHAX --keep-dirlinks  /automake/. /
-COPY --from=libtool /libtool /libtool
-RUN rsync -aHAX --keep-dirlinks  /libtool/. /
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=autoconf /autoconf/ /
+COPY --from=automake /automake/ /
+COPY --from=libtool /libtool/ /
+COPY --from=m4 /m4/ /
+COPY --from=perl /perl/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 COPY --from=libcap /libcap /libcap
@@ -2095,44 +2035,31 @@ ARG JOBS
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
+COPY --from=flex /flex/ /
 
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
+COPY --from=m4 /m4/ /
 
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks  /bison/. /
+COPY --from=bison /bison/ /
 
-COPY --from=libelf /libelf /libelf
-RUN rsync -aHAX --keep-dirlinks  /libelf/. /
+COPY --from=libelf /libelf/ /
 
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=perl /perl/ /
 
-COPY --from=gawk /gawk /gawk
-RUN rsync -aHAX --keep-dirlinks  /gawk/. /
+COPY --from=gawk /gawk/ /
 
-COPY --from=findutils /findutils /findutils
-RUN rsync -aHAX --keep-dirlinks  /findutils/. /
+COPY --from=findutils /findutils/ /
 
-COPY --from=diffutils /diffutils /diffutils
-RUN rsync -aHAX --keep-dirlinks  /diffutils/. /
+COPY --from=diffutils /diffutils/ /
 
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+COPY --from=kmod /kmod/ /
 
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=xz /xz/ /
 
-COPY --from=grep /grep /grep
-RUN rsync -aHAX --keep-dirlinks  /grep/. /
+COPY --from=grep /grep/ /
 
 COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
 
@@ -2223,8 +2150,7 @@ WORKDIR /sources/
 # openssl-${FIPS} alias selects the FIPS build): HMAC-SHA512 with the well-known sha512hmac
 # key produces a byte-identical digest that `kcapi-hasher -c` accepts at runtime, and it
 # needs no kernel crypto API so it works under qemu emulation for every architecture.
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 # Make sure the kernel image we are about to hash actually exists and is not empty.
 RUN kver=$(cat /kernel/kernel-release) && \
     [ -s "/kernel/vmlinuz-${kver}" ] || { echo "ERROR: kernel image /kernel/vmlinuz-${kver} is missing or empty" >&2; exit 1; }
@@ -2283,15 +2209,13 @@ RUN cp /sources/kernel/Module.symvers /output/Module.symvers
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 
 # Use coreutils for install as it needs ln to support relative symlinks
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 # Use openssl for libssl and libcrypto
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
@@ -2306,8 +2230,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## strace
 FROM rsync AS strace
 ARG JOBS
-COPY --from=gawk /gawk /gawk
-RUN rsync -aHAX --keep-dirlinks  /gawk/. /
+COPY --from=gawk /gawk/ /
 COPY --from=sources-downloader /sources/downloads/strace.tar.xz /sources/
 RUN mkdir -p /strace
 WORKDIR /sources
@@ -2330,10 +2253,8 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnftnl
 FROM rsync AS libnftnl
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnftnl.tar.xz /sources/
 RUN mkdir -p /libnftnl
 WORKDIR /sources
@@ -2345,14 +2266,11 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## iptables
 FROM rsync AS iptables
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=libnftnl /libnftnl /libnftnl
-RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=libnftnl /libnftnl/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/iptables.tar.xz /sources/
 RUN mkdir -p /iptables
 WORKDIR /sources
@@ -2368,8 +2286,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnfnetlink (low-level netlink helper used by the libnetfilter_* libs)
 FROM rsync AS libnfnetlink
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnfnetlink.tar.bz2 /sources/
 RUN mkdir -p /libnfnetlink
 WORKDIR /sources
@@ -2381,12 +2298,9 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnetfilter_conntrack (conntrack object/netlink library used by conntrack-tools)
 FROM rsync AS libnetfilter_conntrack
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
-RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=libnfnetlink /libnfnetlink/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_conntrack.tar.xz /sources/
 RUN mkdir -p /libnetfilter_conntrack
 WORKDIR /sources
@@ -2398,10 +2312,8 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnetfilter_cttimeout (connection-tracking timeout policy library used by conntrackd)
 FROM rsync AS libnetfilter_cttimeout
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_cttimeout.tar.bz2 /sources/
 RUN mkdir -p /libnetfilter_cttimeout
 WORKDIR /sources
@@ -2413,10 +2325,8 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnetfilter_cthelper (user-space conntrack helper library used by conntrackd)
 FROM rsync AS libnetfilter_cthelper
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_cthelper.tar.bz2 /sources/
 RUN mkdir -p /libnetfilter_cthelper
 WORKDIR /sources
@@ -2428,12 +2338,9 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## libnetfilter_queue (packet-queueing library used by conntrack-tools)
 FROM rsync AS libnetfilter_queue
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
-RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=libnfnetlink /libnfnetlink/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_queue.tar.bz2 /sources/
 RUN mkdir -p /libnetfilter_queue
 WORKDIR /sources
@@ -2463,12 +2370,9 @@ RUN DESTDIR=/libaio make -j${JOBS} -l${MAX_LOAD} install
 ## TODO: build it with systemd support
 FROM rsync AS lvm2
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=libaio /libaio/ /
+COPY --from=readline /readline/ /
 COPY --from=sources-downloader /sources/downloads/lvm2.tgz /sources/
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
 
@@ -2492,10 +2396,8 @@ ARG JOBS
 # Disable lto for cmake as it gives us nothing but issues
 ENV CFLAGS="${CFLAGS//-flto=auto/}"
 ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
-COPY --from=curl /curl /curl
-RUN rsync -aHAX --keep-dirlinks  /curl/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=curl /curl/ /
+COPY --from=openssl /openssl/ /
 COPY --from=sources-downloader /sources/downloads/cmake.tar.gz /sources/
 
 RUN mkdir -p /cmake
@@ -2510,14 +2412,11 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 # which means we can drop cmake buiilding which is very slow and heavy
 FROM rsync AS jsonc
 ARG JOBS
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks  /cmake/. /
+COPY --from=cmake /cmake/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=readline /readline/ /
+COPY --from=openssl /openssl/ /
 COPY --from=sources-downloader /sources/downloads/json-c.tar.gz /sources/
 
 RUN mkdir -p /jsonc
@@ -2544,12 +2443,10 @@ RUN ninja -j${JOBS} -C buildDir install
 FROM rsync AS urcu
 ARG JOBS
 ENV CFLAGS="${CFLAGS} -fPIC"
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+COPY --from=pax-utils /pax-utils/ /
 
 COPY --from=sources-downloader /sources/downloads/urcu.tar.bz2 /sources/
 WORKDIR /sources
@@ -2562,8 +2459,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 
@@ -2589,8 +2485,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 FROM rsync AS libxml
 ARG JOBS
 RUN mkdir -p /libxml
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 
 COPY --from=sources-downloader /sources/downloads/libxml2.tar.xz /sources/
 WORKDIR /sources
@@ -2620,10 +2515,8 @@ RUN install -Dm644 -t /bsd-compat-headers/usr/include/sys \
 ## stage above for the source of those.
 FROM rsync AS libtirpc
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
-COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
-RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=bsd-compat-headers /bsd-compat-headers/ /
 
 COPY --from=sources-downloader /sources/downloads/libtirpc.tar.bz2 /sources/
 RUN mkdir -p /libtirpc
@@ -2647,26 +2540,16 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
 ## because conntrackd's RPC sync support requires it at configure time.
 FROM rsync AS conntrack-tools
 ARG JOBS
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /
-COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
-RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /
-COPY --from=libnetfilter_conntrack /libnetfilter_conntrack /libnetfilter_conntrack
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_conntrack/. /
-COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout /libnetfilter_cttimeout
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cttimeout/. /
-COPY --from=libnetfilter_cthelper /libnetfilter_cthelper /libnetfilter_cthelper
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cthelper/. /
-COPY --from=libnetfilter_queue /libnetfilter_queue /libnetfilter_queue
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_queue/. /
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks  /bison/. /
-COPY --from=libtirpc /libtirpc /libtirpc
-RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=libmnl /libmnl/ /
+COPY --from=libnfnetlink /libnfnetlink/ /
+COPY --from=libnetfilter_conntrack /libnetfilter_conntrack/ /
+COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout/ /
+COPY --from=libnetfilter_cthelper /libnetfilter_cthelper/ /
+COPY --from=libnetfilter_queue /libnetfilter_queue/ /
+COPY --from=flex /flex/ /
+COPY --from=bison /bison/ /
+COPY --from=libtirpc /libtirpc/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/conntrack-tools.tar.xz /sources/
 RUN mkdir -p /conntrack-tools
 WORKDIR /sources
@@ -2685,8 +2568,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## keep sysctl.
 FROM rsync AS procps-ng
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/procps-ng.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf procps-ng.tar.xz && mv procps-ng-* procps-ng
@@ -2710,14 +2592,10 @@ RUN mkdir -p /procps-ng/usr/sbin && \
 ## build; --disable-cli drops the libnl CLI utilities we don't ship.
 FROM rsync AS libnl
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks /flex/. /
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks /m4/. /
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks /bison/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=flex /flex/ /
+COPY --from=m4 /m4/ /
+COPY --from=bison /bison/ /
 
 COPY --from=sources-downloader /sources/downloads/libnl.tar.gz /sources/
 RUN mkdir -p /libnl
@@ -2734,10 +2612,8 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} \
 ## nfs-utils (used by sm-notify and by the new netlink-based daemons).
 FROM rsync AS libevent
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks /openssl/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
 
 COPY --from=sources-downloader /sources/downloads/libevent.tar.gz /sources/
 RUN mkdir -p /libevent
@@ -2787,29 +2663,22 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ##                            requiring a host one (Alpine builder has none).
 FROM rsync AS nfs-utils
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks /pkgconfig/. /
-COPY --from=libtirpc /libtirpc /libtirpc
-RUN rsync -aHAX --keep-dirlinks /libtirpc/. /
-COPY --from=libnl /libnl /libnl
-RUN rsync -aHAX --keep-dirlinks /libnl/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=libtirpc /libtirpc/ /
+COPY --from=libnl /libnl/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks /libcap/. /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks /util-linux/. /
-COPY --from=sqlite3 /sqlite3 /sqlite3
-RUN rsync -aHAX --keep-dirlinks /sqlite3/. /
-COPY --from=libxml /libxml /libxml
-RUN rsync -aHAX --keep-dirlinks /libxml/. /
-COPY --from=libevent /libevent /libevent
-RUN rsync -aHAX --keep-dirlinks /libevent/. /
+COPY --from=sqlite3 /sqlite3/ /
+COPY --from=libxml /libxml/ /
+COPY --from=libevent /libevent/ /
 COPY --from=keyutils /keyutils /keyutils
-RUN rsync -aHAX --keep-dirlinks /keyutils/. /
+RUN rsync -aHAX --keep-dirlinks  /keyutils/. /
 
 ## BSD compat headers (queue.h, cdefs.h, tree.h) - musl does not ship these
 ## and nfs-utils uses them in several places.
-COPY --from=bsd-compat-headers /bsd-compat-headers /bsd-compat-headers
-RUN rsync -aHAX --keep-dirlinks /bsd-compat-headers/. /
+COPY --from=bsd-compat-headers /bsd-compat-headers/ /
 
 COPY --from=sources-downloader /sources/downloads/nfs-utils.tar.xz /sources/
 RUN mkdir -p /nfs-utils
@@ -2891,28 +2760,21 @@ RUN rm -f \
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=lvm2 /lvm2/ /
+COPY --from=openssl /openssl/ /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+COPY --from=jsonc /jsonc/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
-COPY --from=popt /popt /popt
-RUN rsync -aHAX --keep-dirlinks  /popt/. /
+COPY --from=readline /readline/ /
+COPY --from=pax-utils /pax-utils/ /
+COPY --from=popt /popt/ /
 
 COPY --from=sources-downloader /sources/downloads/cryptsetup.tar.xz /sources/
 RUN mkdir -p /cryptsetup
@@ -2929,8 +2791,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 FROM rsync AS parted
 ARG JOBS
 ## device-mapper from lvm2
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+COPY --from=lvm2 /lvm2/ /
 
 ## util-linux for libuuid
 COPY --from=util-linux /util-linux /util-linux
@@ -2947,28 +2808,19 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 
 ## grub for bootloader installation
 FROM python-build AS grub-base
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks  /bison/. /
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
-COPY --from=gawk /gawk /gawk
-RUN rsync -aHAX --keep-dirlinks  /gawk/. /
+COPY --from=bison /bison/ /
+COPY --from=flex /flex/ /
+COPY --from=xz /xz/ /
+COPY --from=m4 /m4/ /
+COPY --from=lvm2 /lvm2/ /
+COPY --from=gawk /gawk/ /
 
 COPY --from=sources-downloader /sources/downloads/grub.tar.xz /sources/
 WORKDIR /sources
@@ -3081,10 +2933,8 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 
 FROM rsync AS shim
 ARG JOBS
-COPY --from=libelf /libelf /libelf
-RUN rsync -aHAX --keep-dirlinks  /libelf/. /
-COPY --from=iconv /iconv /iconv
-RUN rsync -aHAX --keep-dirlinks  /iconv/. /
+COPY --from=libelf /libelf/ /
+COPY --from=iconv /iconv/ /
 COPY --from=sources-downloader /sources/downloads/shim.tar.bz2 /sources/
 WORKDIR /sources
 RUN tar -xf shim.tar.bz2 && mv shim-* shim
@@ -3113,18 +2963,14 @@ FROM rsync AS tpm2-tss
 ARG JOBS
 RUN mkdir -p /tpm2-tss
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
+COPY --from=jsonc /jsonc/ /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=curl /curl /curl
-RUN rsync -aHAX --keep-dirlinks  /curl/. /
+COPY --from=curl /curl/ /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 COPY --from=sources-downloader /sources/downloads/tpm2-tss.tar.gz /sources/
@@ -3156,17 +3002,14 @@ RUN make -s ARCH=${BUILD_ARCH} install DESTDIR=/libucontext
 FROM rsync AS systemd
 ARG SBAT_DISTRO_VERSION
 
-COPY --from=gperf /gperf /gperf
-RUN rsync -aHAX --keep-dirlinks  /gperf/. /
+COPY --from=gperf /gperf/ /
 
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 
-COPY --from=python-build /python /python
-RUN rsync -aHAX --keep-dirlinks  /python/. /
+COPY --from=python-build /python/ /
 
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
+COPY --from=openssl /openssl/ /
 
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
@@ -3174,50 +3017,37 @@ RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 
-COPY --from=libseccomp /libseccomp /libseccomp
-RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /
+COPY --from=libseccomp /libseccomp/ /
 
-COPY --from=dbus /dbus /dbus
-RUN rsync -aHAX --keep-dirlinks  /dbus/. /
+COPY --from=dbus /dbus/ /
 
-COPY --from=pam /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=pam /pam/ /
 
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
+COPY --from=kmod /kmod/ /
 
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=xz /xz/ /
 
-COPY --from=libffi /libffi /libffi
-RUN rsync -aHAX --keep-dirlinks  /libffi/. /
+COPY --from=libffi /libffi/ /
 
 # Cryptsetup for systemd-cryptsetup
-COPY --from=cryptsetup /cryptsetup /cryptsetup
-RUN rsync -aHAX --keep-dirlinks  /cryptsetup/. /
+COPY --from=cryptsetup /cryptsetup/ /
 
 # jsonc for cryptsetup
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+COPY --from=jsonc /jsonc/ /
 
 # mapper for cryptsetup
-COPY --from=lvm2 /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+COPY --from=lvm2 /lvm2/ /
 
-COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
-RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /
+COPY --from=tpm2-tss /tpm2-tss/ /
 
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=libucontext /libucontext/ /
 
 COPY --from=sources-downloader /sources/downloads/systemd.tar.gz /sources/
 WORKDIR /sources
@@ -3290,34 +3120,24 @@ RUN DESTDIR=/systemd ninja -C buildDir install
 FROM rsync AS dracut
 ARG JOBS
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /
 
-COPY --from=zstd /zstd /zstd
-RUN rsync -aHAX --keep-dirlinks  /zstd/. /
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /
+COPY --from=zstd /zstd/ /
+COPY --from=zlib /zlib/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-COPY --from=fts /fts /fts
-RUN rsync -aHAX --keep-dirlinks  /fts/. /
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=openssl /openssl/ /
+COPY --from=readline /readline/ /
+COPY --from=kmod /kmod/ /
+COPY --from=systemd /systemd/ /
+COPY --from=fts /fts/ /
+COPY --from=xz /xz/ /
+COPY --from=libucontext /libucontext/ /
 
 COPY --from=sources-downloader /sources/downloads/dracut.tar.gz /sources/
 RUN mkdir -p /dracut
@@ -3334,24 +3154,17 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## This helps when a device is unlocked to makle the mapper show the device right away
 FROM rsync AS lvm2-systemd
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=libaio /libaio/ /
+COPY --from=readline /readline/ /
+COPY --from=systemd /systemd/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 COPY --from=python-build  /python /python
 RUN rsync -aHAX --keep-dirlinks  /python/. /
-COPY --from=ca-certificates /ca-certificates /ca-certificates
-RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=ca-certificates /ca-certificates/ /
+COPY --from=openssl /openssl/ /
+COPY --from=libucontext /libucontext/ /
 
 
 COPY --from=sources-downloader /sources/downloads/lvm2.tgz /sources/
@@ -3373,30 +3186,23 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## needed for dracut and other tools
 FROM rsync AS multipath-tools
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
+COPY --from=pkgconfig /pkgconfig/ /
 # devmapper
-COPY --from=lvm2-systemd /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /
+COPY --from=lvm2-systemd /lvm2/ /
 
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=libucontext /libucontext/ /
 
 ## get libudev from systemd
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=systemd /systemd/ /
 
 ## libaio for multipathd
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /
+COPY --from=libaio /libaio/ /
 
 ## json-c for multipathd
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /
+COPY --from=jsonc /jsonc/ /
 
 ## urcu for multipathd
-COPY --from=urcu /urcu /urcu
-RUN rsync -aHAX --keep-dirlinks  /urcu/. /
+COPY --from=urcu /urcu/ /
 
 ## util-linux for libmount.so
 COPY --from=util-linux /util-linux /util-linux
@@ -3406,8 +3212,7 @@ RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+COPY --from=pax-utils /pax-utils/ /
 
 COPY --from=sources-downloader /sources/downloads/multipath-tools.tar.gz /sources/
 RUN mkdir -p /multipath-tools
@@ -3424,16 +3229,12 @@ RUN rm -Rf /multipath/usr/share/man
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
 ARG JOBS
-COPY --from=expat /expat /expat
-RUN rsync -aHAX --keep-dirlinks  /expat/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=expat /expat/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=systemd /systemd/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=libucontext /libucontext/ /
 COPY --from=sources-downloader /sources/downloads/dbus.tar.xz /sources/
 # install target
 RUN mkdir -p /dbus
@@ -3447,22 +3248,17 @@ RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
 ARG JOBS
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=openssl /openssl/ /
+COPY --from=readline /readline/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=systemd /systemd/ /
+COPY --from=libucontext /libucontext/ /
 COPY --from=sources-downloader /sources/downloads/pam.tar.xz /sources/
 RUN mkdir -p /pam
 WORKDIR /sources
@@ -3479,12 +3275,9 @@ RUN chmod 644 /pam/etc/shells
 # Shadow with systemd support via PAM
 FROM shadow-base AS shadow-systemd
 ARG JOBS
-COPY --from=pam-systemd /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
+COPY --from=pam-systemd /pam/ /
+COPY --from=libucontext /libucontext/ /
+COPY --from=systemd /systemd/ /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
 RUN mkdir -p /shadow
 WORKDIR /sources
@@ -3495,21 +3288,16 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_pref
 
 FROM rsync AS sudo-base
 
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=readline /readline/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /
+COPY --from=pax-utils /pax-utils/ /
 
 FROM sudo-base AS sudo-systemd
 ARG JOBS
-COPY --from=pam-systemd /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=pam-systemd /pam/ /
+COPY --from=libucontext /libucontext/ /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
 RUN mkdir -p /sudo
 WORKDIR /sources
@@ -3520,8 +3308,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 
 FROM sudo-base AS sudo
 ARG JOBS
-COPY --from=pam /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /
+COPY --from=pam /pam/ /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
 RUN mkdir -p /sudo
 WORKDIR /sources
@@ -3533,22 +3320,16 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 FROM python-build AS openscsi
 ARG JOBS
 # Wee need cmake, libkmod, liblzma, mount, systemd, perl
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks  /cmake/. /
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /
+COPY --from=cmake /cmake/ /
+COPY --from=kmod /kmod/ /
+COPY --from=xz /xz/ /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
+COPY --from=systemd /systemd/ /
+COPY --from=perl /perl/ /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /
+COPY --from=libucontext /libucontext/ /
 
 COPY --from=sources-downloader /sources/downloads/openscsi.tar.gz /sources/
 RUN pip3 install meson ninja
@@ -3561,8 +3342,7 @@ RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C 
 
 FROM rsync AS bc
 ARG JOBS
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /
+COPY --from=readline /readline/ /
 COPY --from=sources-downloader /sources/downloads/bc.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf bc.tar.xz && mv bc-* bc
@@ -3598,8 +3378,7 @@ RUN DESTDIR=/glib2 ninja -C buildDir install
 
 FROM automake AS libmspack
 ARG JOBS
-COPY --from=libtool /libtool /libtool
-RUN rsync -aHAX --keep-dirlinks  /libtool/. /
+COPY --from=libtool /libtool/ /
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/mspack.tar.gz /sources/
 RUN tar -xf mspack.tar.gz && mv libmspack-* mspack
@@ -3617,10 +3396,8 @@ ARG JOBS
 COPY --from=pcre2 /pcre2/ /
 COPY --from=libffi /libffi/ /
 COPY --from=glib2 /glib2/ /
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks  /bison/. /
+COPY --from=flex /flex/ /
+COPY --from=bison /bison/ /
 WORKDIR /sources
 RUN pip3 install meson ninja
 COPY --from=sources-downloader /sources/downloads/qemu.tar.xz /sources/
@@ -3665,26 +3442,18 @@ COPY --from=libffi /libffi/ /
 COPY --from=glib2 /glib2/ /
 COPY --from=libmspack /libmspack/ /libmspack
 RUN rsync -aHAX --keep-dirlinks  /libmspack/. /
-COPY --from=libtool /libtool /libtool
-RUN rsync -aHAX --keep-dirlinks  /libtool/. /
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /
-COPY --from=automake /automake /automake
-RUN rsync -aHAX --keep-dirlinks  /automake/. /
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /
-COPY --from=libtirpc /libtirpc /libtirpc
-RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /
+COPY --from=libtool /libtool/ /
+COPY --from=autoconf /autoconf/ /
+COPY --from=automake /automake/ /
+COPY --from=m4 /m4/ /
+COPY --from=perl /perl/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=libtirpc /libtirpc/ /
 # We need rpcgen from nfs-utils
 COPY --from=nfs-utils /nfs-utils /nfs-utils
 RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /
 # Use proper patch as busybox one does not do proper fuzzing
-COPY --from=patch /patch /patch
-RUN rsync -aHAX --keep-dirlinks  /patch/. /
+COPY --from=patch /patch/ /
 COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/patches/
 COPY --from=sources-downloader /sources/downloads/open-vm-tools.tar.gz /sources/
 # extract the aport patch to apply to lvm2
@@ -3973,44 +3742,35 @@ COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /skeleton/
 
 ## CURL
-COPY --from=curl /curl /curl
-RUN rsync -aHAX --keep-dirlinks  /curl/. /skeleton/
+COPY --from=curl /curl/ /skeleton/
 
 ## ca-certificates
-COPY --from=ca-certificates /ca-certificates /ca-certificates
-RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /skeleton/
+COPY --from=ca-certificates /ca-certificates/ /skeleton/
 
 ## bash
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /skeleton/
 
 ## readline
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /skeleton/
+COPY --from=readline /readline/ /skeleton/
 
 ## acl
-COPY --from=acl /acl /acl
-RUN rsync -aHAX --keep-dirlinks  /acl/. /skeleton/
+COPY --from=acl /acl/ /skeleton/
 
 ## attr
-COPY --from=attr /attr /attr
-RUN rsync -aHAX --keep-dirlinks  /attr/. /skeleton/
+COPY --from=attr /attr/ /skeleton/
 
 ## findutils
-COPY --from=findutils /findutils /findutils
-RUN rsync -aHAX --keep-dirlinks  /findutils/. /skeleton/
+COPY --from=findutils /findutils/ /skeleton/
 
 ## grep
-COPY --from=grep /grep /grep
-RUN rsync -aHAX --keep-dirlinks  /grep/. /skeleton/
+COPY --from=grep /grep/ /skeleton/
 
 ## zstd
-COPY --from=zstd /zstd /zstd
-RUN rsync -aHAX --keep-dirlinks  /zstd/. /skeleton/
+COPY --from=zstd /zstd/ /skeleton/
 
 ## libz
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /skeleton/
+COPY --from=zlib /zlib/ /skeleton/
 
 ## libcap
 COPY --from=libcap /libcap /libcap
@@ -4021,27 +3781,21 @@ COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /skeleton/
 
 ## libexpat
-COPY --from=expat /expat /expat
-RUN rsync -aHAX --keep-dirlinks  /expat/. /skeleton/
+COPY --from=expat /expat/ /skeleton/
 
 ## libaio for io asynchronous operations
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /skeleton/
+COPY --from=libaio /libaio/ /skeleton/
 
 ## rsync
-COPY --from=rsync /rsync /rsync
-RUN rsync -aHAX --keep-dirlinks  /rsync/. /skeleton/
+COPY --from=rsync /rsync/ /skeleton/
 
-COPY --from=lz4 /lz4 /lz4
-RUN rsync -aHAX --keep-dirlinks  /lz4/. /skeleton
+COPY --from=lz4 /lz4/ /skeleton/
 
 ## xxhash needed by rsync
-COPY --from=xxhash /xxhash /xxhash
-RUN rsync -aHAX --keep-dirlinks  /xxhash/. /skeleton
+COPY --from=xxhash /xxhash/ /skeleton/
 
 ## kbd for loadkeys support
-COPY --from=kbd /kbd /kbd
-RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
+COPY --from=kbd /kbd/ /skeleton/
 
 # This is mostly for debugging purposes, not needed for final image
 # This provides scanelf needed by ldconfig
@@ -4056,8 +3810,7 @@ RUN rsync -aHAX --keep-dirlinks  /kbd/. /skeleton
 #RUN chmod 755 /skeleton/sbin/ldconfig
 
 ## OpenSSL
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
+COPY --from=openssl /openssl/ /skeleton/
 
 COPY --from=hadron-splash /hadron-splash/hadron-splash /skeleton/bin/hadron-splash
 
@@ -4156,126 +3909,93 @@ RUN openssl version
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
 FROM alpine-base AS full-image-merge-base
 
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /skeleton/
+COPY --from=openssl /openssl/ /skeleton/
 
 ## openssh
-COPY --from=openssh /openssh /openssh
-RUN rsync -aHAX --keep-dirlinks  /openssh/. /skeleton/
+COPY --from=openssh /openssh/ /skeleton/
 
 # kernel and modules
 COPY --from=kernel /kernel/ /skeleton/boot/
 COPY --from=kernel-modules /modules/lib/modules/ /skeleton/lib/modules
 
-COPY --from=sudo-systemd /sudo /sudo
-RUN rsync -aHAX --keep-dirlinks  /sudo/. /skeleton
+COPY --from=sudo-systemd /sudo/ /skeleton/
 
 # Iptables is needed to support k8s
-COPY --from=iptables /iptables /iptables
-RUN rsync -aHAX --keep-dirlinks  /iptables/. /skeleton
+COPY --from=iptables /iptables/ /skeleton/
 
 # For iptables-nft backend
-COPY --from=libmnl /libmnl /libmnl
-RUN rsync -aHAX --keep-dirlinks  /libmnl/. /skeleton
-COPY --from=libnftnl /libnftnl /libnftnl
-RUN rsync -aHAX --keep-dirlinks  /libnftnl/. /skeleton
+COPY --from=libmnl /libmnl/ /skeleton/
+COPY --from=libnftnl /libnftnl/ /skeleton/
 
 ## conntrack-tools (conntrack + conntrackd) for k8s/kube-proxy; baremetal-only, not in container base
-COPY --from=libnfnetlink /libnfnetlink /libnfnetlink
-RUN rsync -aHAX --keep-dirlinks  /libnfnetlink/. /skeleton
-COPY --from=libnetfilter_conntrack /libnetfilter_conntrack /libnetfilter_conntrack
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_conntrack/. /skeleton
-COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout /libnetfilter_cttimeout
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cttimeout/. /skeleton
-COPY --from=libnetfilter_cthelper /libnetfilter_cthelper /libnetfilter_cthelper
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_cthelper/. /skeleton
-COPY --from=libnetfilter_queue /libnetfilter_queue /libnetfilter_queue
-RUN rsync -aHAX --keep-dirlinks  /libnetfilter_queue/. /skeleton
-COPY --from=conntrack-tools /conntrack-tools /conntrack-tools
-RUN rsync -aHAX --keep-dirlinks  /conntrack-tools/. /skeleton
+COPY --from=libnfnetlink /libnfnetlink/ /skeleton/
+COPY --from=libnetfilter_conntrack /libnetfilter_conntrack/ /skeleton/
+COPY --from=libnetfilter_cttimeout /libnetfilter_cttimeout/ /skeleton/
+COPY --from=libnetfilter_cthelper /libnetfilter_cthelper/ /skeleton/
+COPY --from=libnetfilter_queue /libnetfilter_queue/ /skeleton/
+COPY --from=conntrack-tools /conntrack-tools/ /skeleton/
 
 ## sysctl(8) CLI from procps-ng (final image only, not container base)
-COPY --from=procps-ng /procps-ng /procps-ng
-RUN rsync -aHAX --keep-dirlinks  /procps-ng/. /skeleton
+COPY --from=procps-ng /procps-ng/ /skeleton/
 
 ## cryptsetup for encrypted partitions
-COPY --from=cryptsetup /cryptsetup /cryptsetup
-RUN rsync -aHAX --keep-dirlinks  /cryptsetup/. /skeleton
+COPY --from=cryptsetup /cryptsetup/ /skeleton/
 
 ## jsonc needed by libcryptsetup
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /skeleton
+COPY --from=jsonc /jsonc/ /skeleton/
 
 # device-mapper from lvm2
-COPY --from=lvm2-systemd /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /skeleton/
+COPY --from=lvm2-systemd /lvm2/ /skeleton/
 
-COPY --from=multipath-tools /multipath-tools /multipath-tools
-RUN rsync -aHAX --keep-dirlinks  /multipath-tools/. /skeleton/
+COPY --from=multipath-tools /multipath-tools/ /skeleton/
 ## Use mount and cp to preserv symlinks, otherwise if we copy directly
 ## we will resolve the symlinks and copy the real files multiple times
 ## Copy libgcc_s.so.1 for multipathd deps
 RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/usr/lib && cp -a /mnt/libgcc_s.so* /skeleton/usr/lib/
 
-COPY --from=e2fsprogs /e2fsprogs /e2fsprogs
-RUN rsync -aHAX --keep-dirlinks  /e2fsprogs/. /skeleton/
+COPY --from=e2fsprogs /e2fsprogs/ /skeleton/
 
 ## NFS client userspace. Required by Longhorn RWX and any other in-cluster
 ## NFS storage. The nfs-utils build stage trims its install to the
 ## client-only binaries we actually use, so the runtime deps reduce to
 ## libtirpc (mount.nfs) and libkeyutils (nfsidmap).
-COPY --from=libtirpc /libtirpc /libtirpc
-RUN rsync -aHAX --keep-dirlinks  /libtirpc/. /skeleton/
+COPY --from=libtirpc /libtirpc/ /skeleton/
 
-COPY --from=keyutils /keyutils /keyutils
-RUN rsync -aHAX --keep-dirlinks  /keyutils/. /skeleton/
+COPY --from=keyutils /keyutils/ /skeleton/
 
-COPY --from=nfs-utils /nfs-utils /nfs-utils
-RUN rsync -aHAX --keep-dirlinks  /nfs-utils/. /skeleton/
+COPY --from=nfs-utils /nfs-utils/ /skeleton/
 
-COPY --from=libucontext /libucontext /libucontext
-RUN rsync -aHAX --keep-dirlinks  /libucontext/. /skeleton
+COPY --from=libucontext /libucontext/ /skeleton/
 
 ## systemd
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /skeleton/
+COPY --from=systemd /systemd/ /skeleton/
 
 ## dbus
-COPY --from=dbus-systemd /dbus /dbus
-RUN rsync -aHAX --keep-dirlinks  /dbus/. /skeleton/
+COPY --from=dbus-systemd /dbus/ /skeleton/
 
 ## seccomp
-COPY --from=libseccomp /libseccomp /libseccomp
-RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /skeleton/
+COPY --from=libseccomp /libseccomp/ /skeleton/
 
 # copy pam but with systemd support
-COPY --from=pam-systemd /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /skeleton
+COPY --from=pam-systemd /pam/ /skeleton/
 
 # copy shadow but with systemd support
-COPY --from=shadow-systemd /shadow /shadow
-RUN rsync -aHAX --keep-dirlinks  /shadow/. /skeleton
+COPY --from=shadow-systemd /shadow/ /skeleton/
 
 # copy iscsi
-COPY --from=openscsi /openscsi /openscsi
-RUN rsync -aHAX --keep-dirlinks  /openscsi/. /skeleton
+COPY --from=openscsi /openscsi/ /skeleton/
 
 # kmod needed by openscsi
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /skeleton
+COPY --from=kmod /kmod/ /skeleton/
 
 # lzma needed by openscsi
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
+COPY --from=xz /xz/ /skeleton/
 
-COPY --from=tpm2-tss /tpm2-tss /tpm2-tss
-RUN rsync -aHAX --keep-dirlinks  /tpm2-tss/. /skeleton
+COPY --from=tpm2-tss /tpm2-tss/ /skeleton/
 
-COPY --from=libcap /libcap /libcap
-RUN rsync -aHAX --keep-dirlinks  /libcap/. /skeleton
+COPY --from=libcap /libcap/ /skeleton/
 
-COPY --from=extra-tools /tools /tools
-RUN rsync -aHAX --keep-dirlinks  /tools/. /skeleton
+COPY --from=extra-tools /tools/ /skeleton/
 
 # Clean m4 leftover files if any, they are not used in runtime
 RUN find /skeleton -type f -name '*.m4' -delete
@@ -4296,8 +4016,7 @@ FROM full-image-merge-base AS full-image-merge-no-fips
 COPY files/ssh/sshd_config.d/100-hadron-crypto.conf /skeleton/etc/ssh/sshd_config.d/100-hadron-crypto.conf
 
 FROM full-image-merge-base AS full-image-merge-fips
-COPY --from=libkcapi /libkcapi /libkcapi
-RUN rsync -aHAX --keep-dirlinks  /libkcapi/. /skeleton
+COPY --from=libkcapi /libkcapi/ /skeleton/
 COPY files/ssh/sshd_config.d/100-hadron-fips.conf /skeleton/etc/ssh/sshd_config.d/100-hadron-fips.conf
 
 
@@ -4308,38 +4027,29 @@ FROM stage0 AS dracut-final
 RUN apk add rsync pax-utils
 
 ## kmod for modprobe, insmod, lsmod, modinfo, rmmod. Draut depends on this
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /skeleton
+COPY --from=kmod /kmod/ /skeleton/
 
 ## fts library, dracut depends on this
-COPY --from=fts /fts /fts
-RUN rsync -aHAX --keep-dirlinks  /fts/. /skeleton
+COPY --from=fts /fts/ /skeleton/
 
 ## xz and liblzma, dracut depends on this
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /skeleton
+COPY --from=xz /xz/ /skeleton/
 
 ## lz4, dracut depends on this if mixed with systemd
-COPY --from=lz4 /lz4 /lz4
-RUN rsync -aHAX --keep-dirlinks  /lz4/. /skeleton
+COPY --from=lz4 /lz4/ /skeleton/
 
 ## gawk for dracut
-COPY --from=gawk /gawk /gawk
-RUN rsync -aHAX --keep-dirlinks  /gawk/. /skeleton
+COPY --from=gawk /gawk/ /skeleton/
 
 ## grub
-COPY --from=grub-efi /grub-efi /grub-efi
-RUN rsync -aHAX --keep-dirlinks  /grub-efi/. /skeleton
+COPY --from=grub-efi /grub-efi/ /skeleton/
 
-COPY --from=grub-bios /grub-bios /grub-bios
-RUN rsync -aHAX --keep-dirlinks  /grub-bios/. /skeleton
+COPY --from=grub-bios /grub-bios/ /skeleton/
 
-COPY --from=shim /shim /shim
-RUN rsync -aHAX --keep-dirlinks  /shim/. /skeleton
+COPY --from=shim /shim/ /skeleton/
 
 ## Dracut
-COPY --from=dracut /dracut /dracut
-RUN rsync -aHAX --keep-dirlinks  /dracut/. /skeleton
+COPY --from=dracut /dracut/ /skeleton/
 
 # Strip binaries
 # As this is added to the full-image-merge we still have to strip binaries here
