@@ -3563,78 +3563,46 @@ COPY --from=skeleton /sysroot /merge
 # Now prepare a merged directory with all the built tools
 COPY --from=busybox /sysroot /busybox
 RUN rsync -aHAX --keep-dirlinks  /busybox/. /merge
-COPY --from=cmake /cmake /cmake
-RUN rsync -aHAX --keep-dirlinks  /cmake/. /merge
-COPY --from=kmod /kmod /kmod
-RUN rsync -aHAX --keep-dirlinks  /kmod/. /merge
-COPY --from=xz /xz /xz
-RUN rsync -aHAX --keep-dirlinks  /xz/. /merge
+COPY --from=cmake /cmake/ /merge/
+COPY --from=kmod /kmod/ /merge/
+COPY --from=xz /xz/ /merge/
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /merge
-COPY --from=systemd /systemd /systemd
-RUN rsync -aHAX --keep-dirlinks  /systemd/. /merge
-COPY --from=perl /perl /perl
-RUN rsync -aHAX --keep-dirlinks  /perl/. /merge
+COPY --from=systemd /systemd/ /merge/
+COPY --from=perl /perl/ /merge/
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /merge
-COPY --from=pam-systemd /pam /pam
-RUN rsync -aHAX --keep-dirlinks  /pam/. /merge
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /merge
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /merge
+COPY --from=pam-systemd /pam/ /merge/
+COPY --from=pkgconfig /pkgconfig/ /merge/
+COPY --from=readline /readline/ /merge/
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /merge
-COPY --from=pax-utils /pax-utils /pax-utils
-RUN rsync -aHAX --keep-dirlinks  /pax-utils/. /merge
-COPY --from=readline /readline /readline
-RUN rsync -aHAX --keep-dirlinks  /readline/. /merge
-COPY --from=openssl /openssl /openssl
-RUN rsync -aHAX --keep-dirlinks  /openssl/. /merge
-COPY --from=bison /bison /bison
-RUN rsync -aHAX --keep-dirlinks  /bison/. /merge
-COPY --from=flex /flex /flex
-RUN rsync -aHAX --keep-dirlinks  /flex/. /merge
-COPY --from=m4 /m4 /m4
-RUN rsync -aHAX --keep-dirlinks  /m4/. /merge
-COPY --from=lvm2-systemd /lvm2 /lvm2
-RUN rsync -aHAX --keep-dirlinks  /lvm2/. /merge
-COPY --from=gawk /gawk /gawk
-RUN rsync -aHAX --keep-dirlinks  /gawk/. /merge
-COPY --from=jsonc /jsonc /jsonc
-RUN rsync -aHAX --keep-dirlinks  /jsonc/. /merge
-COPY --from=libaio /libaio /libaio
-RUN rsync -aHAX --keep-dirlinks  /libaio/. /merge
+COPY --from=pax-utils /pax-utils/ /merge/
+COPY --from=readline /readline/ /merge/
+COPY --from=openssl /openssl/ /merge/
+COPY --from=bison /bison/ /merge/
+COPY --from=flex /flex/ /merge/
+COPY --from=m4 /m4/ /merge/
+COPY --from=lvm2-systemd /lvm2/ /merge/
+COPY --from=gawk /gawk/ /merge/
+COPY --from=jsonc /jsonc/ /merge/
+COPY --from=libaio /libaio/ /merge/
 COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks  /coreutils/. /merge
-COPY --from=expat /expat /expat
-RUN rsync -aHAX --keep-dirlinks  /expat/. /merge
-COPY --from=zlib /zlib /zlib
-RUN rsync -aHAX --keep-dirlinks  /zlib/. /merge
-COPY --from=zstd /zstd /zstd
-RUN rsync -aHAX --keep-dirlinks  /zstd/. /merge
-COPY --from=fts /fts /fts
-RUN rsync -aHAX --keep-dirlinks  /fts/. /merge
-COPY --from=autoconf /autoconf /autoconf
-RUN rsync -aHAX --keep-dirlinks  /autoconf/. /merge
-COPY --from=automake /automake /automake
-RUN rsync -aHAX --keep-dirlinks  /automake/. /merge
-COPY --from=pkgconfig /pkgconfig /pkgconfig
-RUN rsync -aHAX --keep-dirlinks  /pkgconfig/. /merge
-COPY --from=libseccomp /libseccomp /libseccomp
-RUN rsync -aHAX --keep-dirlinks  /libseccomp/. /merge
-COPY --from=dbus /dbus /dbus
-RUN rsync -aHAX --keep-dirlinks  /dbus/. /merge
-COPY --from=python-build /python /python
-RUN rsync -aHAX --keep-dirlinks  /python/. /merge
-COPY --from=acl /acl /acl
-RUN rsync -aHAX --keep-dirlinks  /acl/. /merge
-COPY --from=ca-certificates /ca-certificates /ca-certificates
-RUN rsync -aHAX --keep-dirlinks  /ca-certificates/. /merge
-COPY --from=curl /curl /curl
-RUN rsync -aHAX --keep-dirlinks  /curl/. /merge
-COPY --from=rsync /rsync /rsync
-RUN rsync -aHAX --keep-dirlinks  /rsync/. /merge
+COPY --from=expat /expat/ /merge/
+COPY --from=zlib /zlib/ /merge/
+COPY --from=zstd /zstd/ /merge/
+COPY --from=fts /fts/ /merge/
+COPY --from=autoconf /autoconf/ /merge/
+COPY --from=automake /automake/ /merge/
+COPY --from=pkgconfig /pkgconfig/ /merge/
+COPY --from=libseccomp /libseccomp/ /merge/
+COPY --from=dbus /dbus/ /merge/
+COPY --from=python-build /python/ /merge/
+COPY --from=acl /acl/ /merge/
+COPY --from=ca-certificates /ca-certificates/ /merge/
+COPY --from=curl /curl/ /merge/
+COPY --from=rsync /rsync/ /merge/
 COPY --from=gcc-stage0 /sysroot /gcc
 RUN rsync -aHAX --keep-dirlinks /gcc/. /merge
 COPY --from=musl-stage0 /sysroot /musl
@@ -3643,35 +3611,23 @@ COPY --from=make-stage0 /sysroot /make
 RUN rsync -aHAX --keep-dirlinks /make/. /merge
 COPY --from=binutils-stage0 /sysroot /binutils
 RUN rsync -aHAX --keep-dirlinks /binutils/. /merge
-COPY --from=attr /attr /attr
-RUN rsync -aHAX --keep-dirlinks  /attr/. /merge
+COPY --from=attr /attr/ /merge/
 COPY --from=busybox /sysroot /busybox
 RUN rsync -aHAX --keep-dirlinks  /busybox/. /merge
-COPY --from=libffi /libffi /libffi
-RUN rsync -aHAX --keep-dirlinks  /libffi/. /merge
-COPY --from=lz4 /lz4 /lz4
-RUN rsync -aHAX --keep-dirlinks  /lz4/. /merge
-COPY --from=xxhash /xxhash /xxhash
-RUN rsync -aHAX --keep-dirlinks  /xxhash/. /merge
-COPY --from=libxml /libxml /libxml
-RUN rsync -aHAX --keep-dirlinks  /libxml/. /merge
-COPY --from=grep /grep /grep
-RUN rsync -aHAX --keep-dirlinks  /grep/. /merge
-COPY --from=diffutils /diffutils /diffutils
-RUN rsync -aHAX --keep-dirlinks  /diffutils/. /merge
+COPY --from=libffi /libffi/ /merge/
+COPY --from=lz4 /lz4/ /merge/
+COPY --from=xxhash /xxhash/ /merge/
+COPY --from=libxml /libxml/ /merge/
+COPY --from=grep /grep/ /merge/
+COPY --from=diffutils /diffutils/ /merge/
 ## Kernel but only the headers
 COPY --from=kernel-headers /linux-headers/ /linux-headers
 RUN rsync -aHAX --keep-dirlinks  /linux-headers/. /merge/usr/
-COPY --from=findutils /findutils /findutils
-RUN rsync -aHAX --keep-dirlinks  /findutils/. /merge
-COPY --from=gzip /gzip /gzip
-RUN rsync -aHAX --keep-dirlinks  /gzip/. /merge
-COPY --from=shadow-systemd /shadow /shadow
-RUN rsync -aHAX --keep-dirlinks  /shadow/. /merge
-COPY --from=libtool /libtool /libtool
-RUN rsync -aHAX --keep-dirlinks  /libtool/. /merge
-COPY --from=patch /patch /patch
-RUN rsync -aHAX --keep-dirlinks  /patch/. /merge
+COPY --from=findutils /findutils/ /merge/
+COPY --from=gzip /gzip/ /merge/
+COPY --from=shadow-systemd /shadow/ /merge/
+COPY --from=libtool /libtool/ /merge/
+COPY --from=patch /patch/ /merge/
 
 COPY --from=kernel-misc /output /merge/usr/share/kernel-misc
 COPY --from=bc /bc /merge
