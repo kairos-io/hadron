@@ -12,16 +12,16 @@
 <text x="64" y="83.0" text-anchor="end" fill="#555">0.17 GiB</text>
 <line x1="70" y1="20.0" x2="600" y2="20.0" stroke="#eee"/>
 <text x="64" y="23.0" text-anchor="end" fill="#555">0.20 GiB</text>
-<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="70.0,20.1 123.0,20.1 176.0,20.1 229.0,20.1 282.0,20.1 335.0,20.1 388.0,20.0 441.0,20.0 494.0,20.0 547.0,20.0 600.0,20.0 "/>
+<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="70.0,20.1 118.2,20.1 166.4,20.1 214.5,20.1 262.7,20.1 310.9,20.1 359.1,20.0 407.3,20.0 455.5,20.0 503.6,20.0 551.8,20.0 600.0,20.0 "/>
 <rect x="614" y="20" width="10" height="10" fill="#1f77b4"/>
 <text x="628" y="29" fill="#333">hadron</text>
-<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="70.0,210.1 123.0,210.1 176.0,210.1 229.0,210.1 282.0,210.0 335.0,210.0 388.0,210.0 441.0,210.0 494.0,210.0 547.0,209.9 600.0,209.9 "/>
+<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="70.0,210.1 118.2,210.1 166.4,210.1 214.5,210.1 262.7,210.0 310.9,210.0 359.1,210.0 407.3,210.0 455.5,210.0 503.6,209.9 551.8,209.9 600.0,208.2 "/>
 <rect x="614" y="38" width="10" height="10" fill="#ff7f0e"/>
 <text x="628" y="47" fill="#333">hadron-cloud</text>
-<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="70.0,70.1 123.0,70.0 176.0,70.1 229.0,70.1 282.0,70.0 335.0,70.0 388.0,70.0 441.0,70.0 494.0,70.0 547.0,69.9 600.0,69.9 "/>
+<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="70.0,70.1 118.2,70.1 166.4,70.1 214.5,70.1 262.7,70.0 310.9,70.0 359.1,70.0 407.3,70.0 455.5,70.0 503.6,70.0 551.8,70.0 600.0,69.9 "/>
 <rect x="614" y="56" width="10" height="10" fill="#2ca02c"/>
 <text x="628" y="65" fill="#333">hadron-trusted</text>
-<polyline fill="none" stroke="#d62728" stroke-width="2" points="70.0,260.0 123.0,260.0 176.0,260.0 229.0,260.0 282.0,260.0 335.0,259.9 388.0,259.9 441.0,259.9 494.0,259.9 547.0,259.9 600.0,259.9 "/>
+<polyline fill="none" stroke="#d62728" stroke-width="2" points="70.0,260.0 118.2,260.0 166.4,260.0 214.5,260.0 262.7,260.0 310.9,259.9 359.1,259.9 407.3,259.9 455.5,259.9 503.6,259.9 551.8,259.9 600.0,258.1 "/>
 <rect x="614" y="74" width="10" height="10" fill="#d62728"/>
 <text x="628" y="83" fill="#333">hadron-cloud-trusted</text>
 <text x="335" y="290" text-anchor="middle" fill="#555">merges over time (oldest → newest)</text>
