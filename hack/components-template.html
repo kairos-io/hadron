@@ -150,19 +150,20 @@
   .layer-tags[open] summary::before{transform:rotate(90deg)}
   .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.4rem; margin-top:.5rem}
   .tag-row{
-    display:flex; align-items:center; gap:.5rem;
-    padding:.3rem .4rem .3rem .55rem; border:1px solid var(--border); border-radius:6px;
-    font-size:.78rem; background:rgba(0,0,0,.15);
+    display:flex; align-items:center; gap:.55rem;
+    padding:.4rem .45rem .4rem .65rem; border:1px solid var(--border); border-radius:7px;
+    font-size:.8rem; background:rgba(0,0,0,.15);
   }
   .tag-row .tag-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis}
-  .tag-row .tag-date{color:var(--muted); font-size:.72rem; white-space:nowrap}
+  .tag-row .tag-date{color:var(--muted); font-size:.74rem; white-space:nowrap}
   .tag-copy{
-    background:transparent; border:1px solid transparent; color:var(--muted);
-    border-radius:5px; padding:.1rem .35rem; font:inherit; font-size:.72rem;
-    cursor:pointer; line-height:1; margin-left:.15rem;
+    background:rgba(27,170,255,.1); border:1px solid var(--border2); color:var(--accent2);
+    border-radius:6px; padding:.3rem .55rem; font:inherit; font-size:.82rem;
+    cursor:pointer; line-height:1; margin-left:.2rem; min-width:2rem;
+    display:inline-flex; align-items:center; justify-content:center;
   }
-  .tag-copy:hover{color:var(--accent2); border-color:var(--border2); background:rgba(27,170,255,.1)}
-  .tag-copy.copied{color:#c4f2a0; border-color:rgba(126,211,33,.4); background:rgba(126,211,33,.15)}
+  .tag-copy:hover{background:rgba(27,170,255,.22)}
+  .tag-copy.copied{color:#c4f2a0; border-color:rgba(126,211,33,.4); background:rgba(126,211,33,.18)}
 
   /* Buttons */
   .btn{
