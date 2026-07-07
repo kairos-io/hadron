@@ -5,7 +5,8 @@
 # the rolling :main baseline and writes an ephemeral step summary / PR comment,
 # this script maintains a *durable* time series: a CSV with one row per merge
 # (sha, date, and the uncompressed size of each shipped variant) plus a
-# regenerated Markdown table and a self-contained SVG line chart. The CSV is the
+# regenerated Markdown table and a self-contained SVG chart (one independently
+# scaled panel per image, so small KB/MB changes stay visible). The CSV is the
 # source of truth and is meant to be committed to a long-lived branch so the
 # history survives log and step-summary purging.
 #
@@ -96,11 +97,22 @@ record() {
   printf '\n'
 }
 
-# svg <csv> <out>: render a self-contained multi-line SVG chart of every
-# variant's size over the recorded merges. No external dependencies/services.
+# svg <csv> <out>: render a self-contained SVG chart with one small-multiple
+# panel per variant. Each panel has its *own* y-scale, tightly fit to that
+# image's own min/max (plus a little headroom), so KB/MB-scale changes are
+# visible instead of being flattened by a shared, GiB-dominated global scale.
+# A 1 MiB change reads very differently in an 80 MiB image than in a 200 MiB
+# one, so each image gets its own frame. No external dependencies/services.
 svg() {
   local csv="$1" out="$2"
   awk -F',' '
+    # human(bytes): compact IEC size label for axis ticks.
+    function human(b,   u,i,val) {
+      split("B KiB MiB GiB TiB", u, " ")
+      i=1; val=b
+      while (val>=1024 && i<5) { val/=1024; i++ }
+      return sprintf("%.1f %s", val, u[i])
+    }
     NR==1 { for (c=3;c<=NF;c++) names[c]=$c; ncol=NF; next }
     {
       n++
@@ -114,49 +126,59 @@ svg() {
       }
     }
     END {
-      W=760; H=300; L=70; R=160; T=20; B=40
-      pw=W-L-R; ph=H-T-B
-      # Global y-range across all variants so lines share one scale.
-      gmin=""; gmax=""
-      for (c=3;c<=ncol;c++) if (seen[c]) {
-        if (gmin==""||min[c]<gmin) gmin=min[c]
-        if (gmax==""||max[c]>gmax) gmax=max[c]
-      }
-      if (gmin=="") { gmin=0; gmax=1 }
-      if (gmax==gmin) gmax=gmin+1
-      printf "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" font-family=\"sans-serif\" font-size=\"11\">\n", W, H, W, H
-      printf "<rect width=\"%d\" height=\"%d\" fill=\"#ffffff\"/>\n", W, H
-      # Axes.
-      printf "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke=\"#888\"/>\n", L, T, L, T+ph
-      printf "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke=\"#888\"/>\n", L, T+ph, L+pw, T+ph
-      # Y gridlines / labels (GiB).
-      for (g=0;g<=4;g++) {
-        yy=T+ph-(g/4)*ph
-        val=gmin+(g/4)*(gmax-gmin)
-        printf "<line x1=\"%d\" y1=\"%.1f\" x2=\"%d\" y2=\"%.1f\" stroke=\"#eee\"/>\n", L, yy, L+pw, yy
-        printf "<text x=\"%d\" y=\"%.1f\" text-anchor=\"end\" fill=\"#555\">%.2f GiB</text>\n", L-6, yy+3, val/1073741824
-      }
       colors[3]="#1f77b4"; colors[4]="#ff7f0e"; colors[5]="#2ca02c"; colors[6]="#d62728"
       colors[7]="#9467bd"; colors[8]="#8c564b"
+
+      # Panel geometry: one stacked panel per tracked variant.
+      W=760; L=90; R=20; T=26; B=28; PH=120; GAP=30
+      pw=W-L-R
+      # Only variants that have at least one recorded point get a panel.
+      np=0
+      for (c=3;c<=ncol;c++) if (seen[c]) panels[++np]=c
+      if (np==0) { np=1; panels[1]=3; seen[3]=0 }
+      H=np*(T+PH+B) + (np-1)*GAP + 24
+
+      printf "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" font-family=\"sans-serif\" font-size=\"11\">\n", W, H, W, H
+      printf "<rect width=\"%d\" height=\"%d\" fill=\"#ffffff\"/>\n", W, H
+
       xstep=(n>1)?pw/(n-1):0
-      ly=T
-      for (c=3;c<=ncol;c++) {
-        if (!seen[c]) continue
+      oy=0
+      for (p=1;p<=np;p++) {
+        c=panels[p]
         col=(c in colors)?colors[c]:"#333"
-        pts=""; first=1
+        top=oy+T
+        # Per-panel y-range, padded so the line is not glued to the frame.
+        lo=min[c]; hi=max[c]
+        if (!seen[c]) { lo=0; hi=1 }
+        else if (lo==hi) { pad=(lo>0)?lo*0.05:1; lo-=pad; hi+=pad }
+        else { pad=(hi-lo)*0.15; lo-=pad; hi+=pad }
+        if (lo<0) lo=0
+        if (hi==lo) hi=lo+1
+
+        # Panel title.
+        printf "<text x=\"%d\" y=\"%d\" fill=\"%s\" font-weight=\"bold\">%s</text>\n", L, top-8, col, names[c]
+        # Axes.
+        printf "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke=\"#888\"/>\n", L, top, L, top+PH
+        printf "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" stroke=\"#888\"/>\n", L, top+PH, L+pw, top+PH
+        # Y gridlines / labels, per-panel human-readable scale.
+        for (g=0;g<=4;g++) {
+          yy=top+PH-(g/4)*PH
+          val=lo+(g/4)*(hi-lo)
+          printf "<line x1=\"%d\" y1=\"%.1f\" x2=\"%d\" y2=\"%.1f\" stroke=\"#eee\"/>\n", L, yy, L+pw, yy
+          printf "<text x=\"%d\" y=\"%.1f\" text-anchor=\"end\" fill=\"#555\">%s</text>\n", L-6, yy+3, human(val)
+        }
+        # Data line for this variant.
+        pts=""
         for (i=1;i<=n;i++) {
           if (v[i,c]=="") continue
           x=L+(i-1)*xstep
-          y=T+ph-((v[i,c]-gmin)/(gmax-gmin))*ph
+          y=top+PH-((v[i,c]-lo)/(hi-lo))*PH
           pts=pts sprintf("%.1f,%.1f ", x, y)
         }
         if (pts!="") printf "<polyline fill=\"none\" stroke=\"%s\" stroke-width=\"2\" points=\"%s\"/>\n", col, pts
-        # Legend.
-        printf "<rect x=\"%d\" y=\"%d\" width=\"10\" height=\"10\" fill=\"%s\"/>\n", L+pw+14, ly, col
-        printf "<text x=\"%d\" y=\"%d\" fill=\"#333\">%s</text>\n", L+pw+28, ly+9, names[c]
-        ly+=18
+        oy += T+PH+B+GAP
       }
-      printf "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" fill=\"#555\">merges over time (oldest → newest)</text>\n", L+pw/2, H-10
+      printf "<text x=\"%d\" y=\"%d\" text-anchor=\"middle\" fill=\"#555\">merges over time (oldest → newest)</text>\n", L+pw/2, H-8
       print "</svg>"
     }
   ' "$csv" >"$out"

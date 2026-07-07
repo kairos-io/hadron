@@ -26,7 +26,9 @@ image-size-report.sh <pr-sha> <repo-slug>
 Used by the `size-history` job in `build-multiarch-images.yml`, which runs once
 per merge to `main`. It records the size of each shipped `:main` image, appends
 a row to a **durable** time series, and regenerates a Markdown table and an SVG
-line chart. The data lives on the dedicated, orphan `size-history` branch
+chart with one independently scaled panel per image (so small KB/MB changes stay
+visible instead of flattening against a shared, GiB-dominated scale). The data
+lives on the dedicated, orphan `size-history` branch
 (`size-history.csv` is the source of truth, with `SIZE_HISTORY.md` and
 `size-history.svg` regenerated from it), so the history survives the log / step
 summary purging that the per-PR report is subject to. Deltas are computed
