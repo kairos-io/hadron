@@ -36,6 +36,8 @@ RUN curl -L https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3
 ARG LIBFFI_VERSION=3.5.2
 RUN curl -L https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -o libffi.tar.gz
 
+ARG LIBUCONTEXT_VERSION=1.5.1
+RUN curl -L https://github.com/kaniini/libucontext/archive/refs/tags/libucontext-${LIBUCONTEXT_VERSION}.tar.gz -o libucontext.tar.gz
 
 
 
@@ -49,6 +51,7 @@ RUN tar -xf gettext.tar.gz && mv gettext-* gettext
 RUN tar -xf fwupd.tar.xz && mv fwupd-* fwupd
 RUN tar -xf sqlite3.tar.gz && mv sqlite-version-* sqlite3
 RUN tar -xf libffi.tar.gz && mv libffi-* libffi
+RUN tar -xf libucontext.tar.gz && mv libucontext-* libucontext
 
 
 
@@ -120,6 +123,14 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs --libdir=/usr/lib --disa
 RUN make -s -j${JOBS}
 RUN make -s -j${JOBS} install DESTDIR=/output
 
+# libucontext provides getcontext/swapcontext/makecontext for musl systems.
+# libsystemd.so depends on it, so it must be present when linking fwupd.
+FROM downloader AS libucontext
+WORKDIR /sources/libucontext
+RUN mkdir -p /output
+RUN make -s -j${JOBS} ARCH=${BUILD_ARCH}
+RUN make -s ARCH=${BUILD_ARCH} install DESTDIR=/output
+
 FROM downloader AS libjcat
 COPY --from=glib2 /output /
 COPY --from=pcre2 /output /
@@ -137,6 +148,7 @@ COPY --from=json-glib /output/ /
 COPY --from=gettext /output/ /
 COPY --from=sqlite3 /output/ /
 COPY --from=libjcat /output/ /
+COPY --from=libucontext /output/ /
 WORKDIR /sources/fwupd
 # localstatedir is where it will store things like metadata
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} --localstatedir=/usr/local -Dintrospection=disabled -Dbash_completion=false \
