@@ -18,6 +18,8 @@ on:
       - 'updatecli.d/**'
       - 'hack/gen-components.sh'
       - 'hack/gen-snapshot.sh'
+      - 'hack/gen-external.sh'
+      - 'hack/components-template.html'
       - '.github/workflows/gh-pages.yml'
   workflow_dispatch:
 
@@ -60,6 +62,9 @@ jobs:
 
       - name: Generate component snapshots
         run: ./hack/gen-snapshot.sh
+
+      - name: Fetch firmware + layers snapshots
+        run: ./hack/gen-external.sh
 
       - name: Build with Docusaurus
         working-directory: ./docs

@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hadron · Components, Firmware &amp; Layers</title>
+<meta name="description" content="Component versions, firmware releases, and layer images shipped by Hadron Linux.">
+<style>
+  :root{
+    --bg0:#071026; --bg1:#0e2540; --accent:#1baaff; --accent2:#7fd4ff;
+    --pop:#ee5007; --text:#eaf2fb; --muted:#9fb3c8;
+    --card:rgba(255,255,255,.04); --border:rgba(27,170,255,.18); --border2:rgba(27,170,255,.32);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text); background:linear-gradient(145deg,var(--bg0),var(--bg1)) fixed;
+    min-height:100vh; line-height:1.5;
+  }
+  a{color:var(--accent2); text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .wrap{max-width:1140px; margin:0 auto; padding:2.2rem 1.2rem 4rem}
+  header{display:flex; align-items:center; gap:.9rem; margin-bottom:.4rem}
+  header img{height:42px; width:auto}
+  header .titles h1{font-size:1.5rem; margin:0; font-weight:650; letter-spacing:.2px}
+  header .titles p{margin:.15rem 0 0; color:var(--muted); font-size:.92rem}
+
+  .tabs{
+    display:flex; gap:.35rem; margin:1.4rem 0 0;
+    border-bottom:1px solid var(--border);
+  }
+  .tab{
+    background:transparent; border:none; color:var(--muted); cursor:pointer;
+    font:inherit; font-size:.95rem; padding:.7rem 1.1rem;
+    border-bottom:2px solid transparent; border-radius:8px 8px 0 0;
+    transition:color .12s ease, border-color .12s ease, background .12s ease;
+  }
+  .tab:hover{color:var(--text); background:rgba(255,255,255,.03)}
+  .tab.active{color:var(--accent2); border-bottom-color:var(--accent)}
+  .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  .controls{
+    position:sticky; top:0; z-index:5; margin:0 0 1.4rem; padding:.85rem 1rem;
+    display:flex; flex-wrap:wrap; align-items:center; gap:.8rem;
+    background:rgba(7,16,38,.82); backdrop-filter:blur(8px);
+    border:1px solid var(--border); border-top:none;
+    border-radius:0 0 12px 12px;
+  }
+  .controls label{font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-right:.1rem}
+  select,input[type=search]{
+    background:#0a1a33; color:var(--text); border:1px solid var(--border2);
+    border-radius:8px; padding:.5rem .7rem; font-size:.95rem; font-family:inherit;
+  }
+  select:focus,input:focus{outline:2px solid var(--accent); outline-offset:1px}
+  input[type=search]{flex:1; min-width:160px}
+  .meta{margin-left:auto; display:flex; align-items:center; gap:.9rem; font-size:.85rem; color:var(--muted); flex-wrap:wrap}
+  .chip{background:rgba(27,170,255,.12); border:1px solid var(--border); color:var(--accent2);
+    border-radius:999px; padding:.18rem .6rem; font-size:.78rem; white-space:nowrap}
+  .raw a{margin-left:.55rem; font-size:.85rem}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem}
+  .group{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:.2rem 0 .4rem; overflow:hidden}
+  .group.other{border-color:rgba(238,80,7,.28)}
+  .group h2{
+    display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+    font-size:.82rem; text-transform:uppercase; letter-spacing:.8px; color:var(--accent2);
+    margin:0; padding:.75rem 1rem .55rem; border-bottom:1px solid var(--border);
+  }
+  .group.other h2{color:#ffb27a}
+  .group h2 .cnt{font-size:.72rem; color:var(--muted); background:rgba(255,255,255,.05);
+    border-radius:999px; padding:.1rem .5rem; letter-spacing:.4px}
+  .row{display:flex; align-items:baseline; justify-content:space-between; gap:1rem;
+    padding:.34rem 1rem; font-size:.92rem}
+  .row:nth-child(even){background:rgba(255,255,255,.018)}
+  .row .name{color:var(--text)}
+  .row .ver{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.85rem;
+    color:var(--accent); text-align:right; word-break:break-all; max-width:55%}
+
+  /* Firmware tab */
+  .fw-list{display:flex; flex-direction:column; gap:.5rem}
+  .fw-item{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    padding:.7rem .9rem; display:grid;
+    grid-template-columns:1fr auto auto; gap:.6rem; align-items:center;
+  }
+  .fw-item .fw-name{font-weight:600; color:var(--text); word-break:break-all}
+  .fw-item .fw-sub{font-size:.78rem; color:var(--muted); grid-column:1/-1; margin-top:.15rem; word-break:break-all}
+  .fw-item .fw-sub code{color:var(--accent2)}
+  .btn{
+    background:rgba(27,170,255,.12); color:var(--accent2);
+    border:1px solid var(--border2); border-radius:8px;
+    padding:.35rem .6rem; font:inherit; font-size:.82rem; cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn:hover{background:rgba(27,170,255,.22)}
+  .btn.copied{background:rgba(126,211,33,.18); border-color:rgba(126,211,33,.4); color:#c4f2a0}
+  .btn:disabled{opacity:.4; cursor:not-allowed}
+
+  /* Layers tab */
+  .layer-list{display:flex; flex-direction:column; gap:1rem}
+  .layer{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:1rem 1.1rem;
+  }
+  .layer-head{display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap}
+  .layer-head h3{margin:0; font-size:1.05rem; color:var(--accent2)}
+  .layer-head .latest{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent)}
+  .layer-desc{color:var(--muted); font-size:.9rem; margin:.35rem 0 .6rem}
+  .layer-image code{background:rgba(255,255,255,.05); padding:.15rem .4rem; border-radius:6px; font-size:.85rem}
+  .layer-tags{margin-top:.7rem}
+  .layer-tags summary{cursor:pointer; color:var(--muted); font-size:.85rem; padding:.35rem 0}
+  .layer-tags summary:hover{color:var(--text)}
+  .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:.5rem; margin-top:.5rem}
+  .tag-row{
+    display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+    padding:.4rem .6rem; border:1px solid var(--border); border-radius:8px;
+    font-size:.82rem; background:rgba(0,0,0,.15);
+  }
+  .tag-row .tag-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent)}
+  .tag-row .tag-date{color:var(--muted); font-size:.75rem}
+
+  .empty{color:var(--muted); padding:2rem 1rem; text-align:center}
+  .stale{
+    background:rgba(238,80,7,.12); border:1px solid rgba(238,80,7,.4); color:#ffb27a;
+    border-radius:10px; padding:.6rem .9rem; margin:1rem 0; font-size:.86rem;
+  }
+  footer{margin-top:2.6rem; color:var(--muted); font-size:.82rem; border-top:1px solid var(--border); padding-top:1.1rem}
+  .hide{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="/images/hadron-logo.svg" alt="Hadron" onerror="this.style.display='none'">
+    <div class="titles">
+      <h1>Components, Firmware &amp; Layers</h1>
+      <p>Everything shipped by Hadron Linux — upstream versions, firmware releases, and layer images.</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" data-tab="components" role="tab" aria-selected="true">Components</button>
+    <button class="tab" data-tab="firmware"   role="tab" aria-selected="false">Firmware</button>
+    <button class="tab" data-tab="layers"     role="tab" aria-selected="false">Layers</button>
+  </nav>
+
+  <!-- ============================================================ -->
+  <!-- Components tab                                                -->
+  <!-- ============================================================ -->
+  <section id="panel-components" class="panel" role="tabpanel">
+    <div class="controls">
+      <label for="comp-ref">Release</label>
+      <select id="comp-ref" aria-label="Select a Hadron release"></select>
+      <input id="comp-filter" type="search" placeholder="Filter components…" aria-label="Filter components" autocomplete="off">
+      <div class="meta">
+        <span class="chip" id="comp-commit"></span>
+        <span class="chip" id="comp-count"></span>
+        <span class="raw" id="comp-raw"></span>
+      </div>
+    </div>
+    <div id="comp-content" class="grid"></div>
+    <div id="comp-empty" class="empty hide">No components match your filter.</div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Firmware tab                                                  -->
+  <!-- ============================================================ -->
+  <section id="panel-firmware" class="panel hide" role="tabpanel">
+    <div class="controls">
+      <label for="fw-rel">Release</label>
+      <select id="fw-rel" aria-label="Select a firmware release"></select>
+      <input id="fw-filter" type="search" placeholder="Filter firmware components…" aria-label="Filter firmware" autocomplete="off">
+      <div class="meta">
+        <span class="chip" id="fw-published"></span>
+        <span class="chip" id="fw-count"></span>
+        <span class="raw"><a id="fw-releaselink" href="#" target="_blank" rel="noopener">release notes ↗</a></span>
+      </div>
+    </div>
+    <div id="fw-stale" class="stale hide"></div>
+    <div id="fw-content" class="fw-list"></div>
+    <div id="fw-empty" class="empty hide">No firmware components match your filter.</div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- Layers tab                                                    -->
+  <!-- ============================================================ -->
+  <section id="panel-layers" class="panel hide" role="tabpanel">
+    <div class="controls">
+      <input id="ly-filter" type="search" placeholder="Filter layers…" aria-label="Filter layers" autocomplete="off">
+      <div class="meta">
+        <span class="chip" id="ly-count"></span>
+        <span class="chip" id="ly-generated"></span>
+      </div>
+    </div>
+    <div id="ly-content" class="layer-list"></div>
+    <div id="ly-empty" class="empty hide">No layers match your filter.</div>
+  </section>
+
+  <footer>
+    Components generated from the Hadron <code>Dockerfile</code>.
+    Firmware and layers snapshots pulled from
+    <a href="https://kairos-io.github.io/hadron-firmware/">hadron-firmware</a> and
+    <a href="https://kairos-io.github.io/hadron-layers/">hadron-layers</a>.
+    ·
+    <a href="https://github.com/kairos-io/hadron">github.com/kairos-io/hadron</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  // ------------------------------------------------------------------
+  // Utilities
+  // ------------------------------------------------------------------
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function fmtDate(iso){
+    if(!iso)return '';
+    var d=new Date(iso); if(isNaN(d))return iso;
+    return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+  }
+  function copy(text, btn){
+    var done=function(){
+      var old=btn.textContent; btn.textContent='Copied'; btn.classList.add('copied');
+      setTimeout(function(){btn.textContent=old; btn.classList.remove('copied');},1200);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done,function(){});
+    } else {
+      var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+      ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done();
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Tab routing
+  // ------------------------------------------------------------------
+  var TABS=['components','firmware','layers'];
+  var tabButtons=document.querySelectorAll('.tab');
+  var panels={
+    components:document.getElementById('panel-components'),
+    firmware:document.getElementById('panel-firmware'),
+    layers:document.getElementById('panel-layers'),
+  };
+
+  // Hash scheme:
+  //   #components[/<ref>]
+  //   #firmware[/<tag>]
+  //   #layers[/<name>[/<tag>]]
+  function parseHash(){
+    var raw=(location.hash||'').replace(/^#\/?/,'');
+    var parts=raw.split('/').filter(Boolean);
+    var tab=(parts[0]||'').toLowerCase();
+    if(TABS.indexOf(tab)<0){
+      // Back-compat: legacy hash was just the ref name for components.
+      return {tab:'components', args:parts};
+    }
+    return {tab:tab, args:parts.slice(1)};
+  }
+  function writeHash(tab, args){
+    var h='#'+tab+(args && args.length?('/'+args.join('/')):'');
+    if(location.hash!==h) history.replaceState(null,'',h);
+  }
+
+  function activate(tab, args, opts){
+    if(TABS.indexOf(tab)<0) tab='components';
+    tabButtons.forEach(function(b){
+      var on=b.dataset.tab===tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on?'true':'false');
+    });
+    TABS.forEach(function(t){panels[t].classList.toggle('hide', t!==tab);});
+    if(!opts || !opts.silent) writeHash(tab, args||[]);
+    if(tab==='components') componentsShow(args && args[0]);
+    else if(tab==='firmware') firmwareShow(args && args[0]);
+    else if(tab==='layers') layersShow(args && args[0], args && args[1]);
+  }
+  tabButtons.forEach(function(b){
+    b.addEventListener('click',function(){activate(b.dataset.tab, []);});
+  });
+  window.addEventListener('hashchange',function(){
+    var p=parseHash(); activate(p.tab, p.args, {silent:true});
+  });
+
+  // ==================================================================
+  // Components
+  // ==================================================================
+  var compRefSel=document.getElementById('comp-ref'),
+      compFilter=document.getElementById('comp-filter'),
+      compContent=document.getElementById('comp-content'),
+      compEmpty=document.getElementById('comp-empty'),
+      compCommit=document.getElementById('comp-commit'),
+      compCount=document.getElementById('comp-count'),
+      compRaw=document.getElementById('comp-raw');
+  var compCurrent=null, compRefs=null, compLoaded=false;
+
+  function componentsRender(){
+    if(!compCurrent){return;}
+    var q=(compFilter.value||'').trim().toLowerCase();
+    var groups=compCurrent.groups||{}, names=Object.keys(groups), shown=0, html='';
+    names.forEach(function(g){
+      var comps=groups[g]||{}, keys=Object.keys(comps);
+      var rows=keys.filter(function(k){
+        return !q || k.toLowerCase().indexOf(q)>=0 || String(comps[k]).toLowerCase().indexOf(q)>=0;
+      });
+      if(!rows.length){return;}
+      shown+=rows.length;
+      var isOther=g.toLowerCase()==='other';
+      html+='<section class="group'+(isOther?' other':'')+'">'+
+        '<h2>'+esc(g)+'<span class="cnt">'+rows.length+'</span></h2>';
+      rows.forEach(function(k){
+        html+='<div class="row"><span class="name">'+esc(k)+'</span>'+
+              '<span class="ver">'+esc(comps[k])+'</span></div>';
+      });
+      html+='</section>';
+    });
+    compContent.innerHTML=html;
+    compEmpty.classList.toggle('hide', shown>0);
+  }
+  function componentsTotal(m){var n=0,g=m.groups||{};Object.keys(g).forEach(function(k){n+=Object.keys(g[k]).length;});return n;}
+  function componentsLoad(ref){
+    fetch('./'+encodeURIComponent(ref)+'.json',{cache:'no-cache'})
+      .then(function(r){return r.json();})
+      .then(function(m){
+        compCurrent=m;
+        compCommit.textContent=m.commit?('commit '+m.commit):'';
+        compCommit.style.display=m.commit?'':'none';
+        compCount.textContent=componentsTotal(m)+' components';
+        compRaw.innerHTML='<a href="./'+ref+'.json">json</a><a href="./'+ref+'.md">markdown</a>';
+        componentsRender();
+        writeHash('components',[ref]);
+      })
+      .catch(function(){compContent.innerHTML='<div class="empty">Could not load manifest for '+esc(ref)+'.</div>';});
+  }
+  function componentsShow(wantRef){
+    if(compLoaded){
+      var ref=(wantRef && compRefs.indexOf(wantRef)>=0)?wantRef:compRefSel.value;
+      if(ref!==compRefSel.value) compRefSel.value=ref;
+      componentsLoad(ref); return;
+    }
+    fetch('./index.json',{cache:'no-cache'}).then(function(r){return r.json();}).then(function(refs){
+      compRefs=refs; compLoaded=true;
+      refs.forEach(function(ref){
+        var o=document.createElement('option'); o.value=ref;
+        o.textContent=ref==='main'?'main (latest)':ref; compRefSel.appendChild(o);
+      });
+      var start=(wantRef && refs.indexOf(wantRef)>=0)?wantRef:refs[0];
+      compRefSel.value=start; componentsLoad(start);
+    });
+  }
+  compRefSel.addEventListener('change',function(){componentsLoad(compRefSel.value);});
+  compFilter.addEventListener('input',componentsRender);
+
+  // ==================================================================
+  // Firmware
+  // ==================================================================
+  var fwSel=document.getElementById('fw-rel'),
+      fwFilter=document.getElementById('fw-filter'),
+      fwContent=document.getElementById('fw-content'),
+      fwEmpty=document.getElementById('fw-empty'),
+      fwStale=document.getElementById('fw-stale'),
+      fwPublished=document.getElementById('fw-published'),
+      fwCount=document.getElementById('fw-count'),
+      fwReleaseLink=document.getElementById('fw-releaselink');
+  var fwData=null, fwLoaded=false, fwCurrent=null;
+
+  function firmwareRow(name, image, sysextName, sysextUrl){
+    var subBits=[];
+    if(image) subBits.push('image: <code>'+esc(image)+'</code>');
+    if(sysextName) subBits.push('sysext: <code>'+esc(sysextName)+'</code>');
+    return '<div class="fw-item" data-name="'+esc(name)+'">'+
+      '<div class="fw-name">'+esc(name)+'</div>'+
+      (image?'<button class="btn" data-copy="'+esc(image)+'">Copy image</button>':'<span></span>')+
+      (sysextUrl
+        ? '<a class="btn" href="'+esc(sysextUrl)+'" target="_blank" rel="noopener">Download sysext</a>'
+        : '<span></span>')+
+      '<div class="fw-sub">'+subBits.join(' &nbsp;·&nbsp; ')+'</div>'+
+    '</div>';
+  }
+  function componentFromSysext(fname, tag){
+    var n=fname.replace(/\.sig$/,'').replace(/\.verity$/,'').replace(/\.raw$/,'').replace(/\.sysext$/,'');
+    if(tag){var suf='_'+tag; if(n.slice(-suf.length)===suf) n=n.slice(0,-suf.length);}
+    return n;
+  }
+  function firmwareRender(){
+    if(!fwCurrent){return;}
+    var q=(fwFilter.value||'').trim().toLowerCase();
+    var images=fwCurrent.images||{}, sysext=fwCurrent.sysext||{};
+    var byComp={};
+    Object.keys(images).forEach(function(name){byComp[name]={image:images[name]};});
+    Object.keys(sysext).forEach(function(fname){
+      var comp=componentFromSysext(fname, fwCurrent.tag);
+      if(!byComp[comp]) byComp[comp]={};
+      byComp[comp].sysextName=fname;
+      byComp[comp].sysextUrl=sysext[fname];
+    });
+    var names=Object.keys(byComp).sort(), shown=0, html='';
+    names.forEach(function(n){
+      if(q && n.toLowerCase().indexOf(q)<0) return;
+      var e=byComp[n];
+      html+=firmwareRow(n, e.image, e.sysextName, e.sysextUrl);
+      shown++;
+    });
+    fwContent.innerHTML=html;
+    fwEmpty.classList.toggle('hide', shown>0);
+    fwCount.textContent=shown+' / '+names.length+' components';
+  }
+  function firmwareSelect(tag){
+    var releases=fwData.releases||[];
+    var rel=null;
+    for(var i=0;i<releases.length;i++){if(releases[i].tag===tag){rel=releases[i];break;}}
+    if(!rel){rel=releases[0];}
+    if(!rel){fwContent.innerHTML='<div class="empty">No firmware releases published yet.</div>';return;}
+    fwCurrent=rel;
+    fwPublished.textContent='published '+fmtDate(rel.published_at);
+    fwReleaseLink.href=rel.html_url||'#';
+    fwSel.value=rel.tag;
+    firmwareRender();
+    writeHash('firmware',[rel.tag]);
+  }
+  function firmwareShow(wantTag){
+    if(fwLoaded){firmwareSelect(wantTag); return;}
+    fetch('./firmware.json',{cache:'no-cache'})
+      .then(function(r){if(!r.ok) throw new Error('http '+r.status); return r.json();})
+      .then(function(d){
+        fwData=d; fwLoaded=true;
+        var releases=d.releases||[];
+        if(d.generated){
+          var age=Date.now()-Date.parse(d.generated);
+          if(age > 7*24*3600*1000){
+            fwStale.textContent='Firmware snapshot may be stale (last generated '+fmtDate(d.generated)+').';
+            fwStale.classList.remove('hide');
+          }
+        }
+        releases.forEach(function(rel){
+          var o=document.createElement('option'); o.value=rel.tag;
+          o.textContent=rel.tag+(rel.prerelease?' (pre)':''); fwSel.appendChild(o);
+        });
+        firmwareSelect(wantTag);
+      })
+      .catch(function(err){
+        fwContent.innerHTML='<div class="empty">Could not load firmware data ('+esc(err.message||err)+').</div>';
+      });
+  }
+  fwSel.addEventListener('change',function(){firmwareSelect(fwSel.value);});
+  fwFilter.addEventListener('input',firmwareRender);
+  fwContent.addEventListener('click',function(e){
+    var btn=e.target.closest('button[data-copy]'); if(!btn) return;
+    copy(btn.getAttribute('data-copy'), btn);
+  });
+
+  // ==================================================================
+  // Layers
+  // ==================================================================
+  var lyFilter=document.getElementById('ly-filter'),
+      lyContent=document.getElementById('ly-content'),
+      lyEmpty=document.getElementById('ly-empty'),
+      lyCount=document.getElementById('ly-count'),
+      lyGenerated=document.getElementById('ly-generated');
+  var lyData=null, lyLoaded=false, lyOpen={};
+
+  function layerHtml(layer){
+    var tagsHtml='';
+    (layer.tags||[]).forEach(function(t){
+      tagsHtml+='<div class="tag-row">'+
+        '<span class="tag-name">'+esc(t.tag)+'</span>'+
+        '<span class="tag-date">'+esc(fmtDate(t.created))+'</span>'+
+      '</div>';
+    });
+    var openAttr=lyOpen[layer.name]?' open':'';
+    return '<article class="layer" data-name="'+esc(layer.name)+'">'+
+      '<div class="layer-head">'+
+        '<h3>'+esc(layer.title||layer.name)+'</h3>'+
+        (layer.latest?'<span>latest <span class="latest">'+esc(layer.latest)+'</span></span>':'')+
+      '</div>'+
+      (layer.description?'<p class="layer-desc">'+esc(layer.description)+'</p>':'')+
+      (layer.image?'<div class="layer-image"><code>'+esc(layer.image)+'</code></div>':'')+
+      '<details class="layer-tags" data-name="'+esc(layer.name)+'"'+openAttr+'>'+
+        '<summary>'+((layer.tags||[]).length)+' tags</summary>'+
+        '<div class="tag-list">'+tagsHtml+'</div>'+
+      '</details>'+
+    '</article>';
+  }
+  function layersRender(){
+    if(!lyData){return;}
+    var q=(lyFilter.value||'').trim().toLowerCase();
+    var layers=lyData.layers||[];
+    var shown=0, html='';
+    layers.forEach(function(l){
+      var hay=(l.name+' '+(l.title||'')+' '+(l.description||'')).toLowerCase();
+      if(q && hay.indexOf(q)<0) return;
+      html+=layerHtml(l); shown++;
+    });
+    lyContent.innerHTML=html;
+    lyEmpty.classList.toggle('hide', shown>0);
+    lyCount.textContent=shown+' / '+layers.length+' layers';
+  }
+  function layersShow(wantName, wantTag){
+    var render=function(){
+      if(wantName){lyOpen[wantName]=true;}
+      layersRender();
+      if(wantName){
+        var el=document.querySelector('.layer[data-name="'+CSS.escape(wantName)+'"]');
+        if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
+      }
+    };
+    if(lyLoaded){render(); return;}
+    fetch('./layers.json',{cache:'no-cache'})
+      .then(function(r){if(!r.ok) throw new Error('http '+r.status); return r.json();})
+      .then(function(d){
+        lyData=d; lyLoaded=true;
+        lyGenerated.textContent=d.generated?('generated '+fmtDate(d.generated)):'';
+        render();
+      })
+      .catch(function(err){
+        lyContent.innerHTML='<div class="empty">Could not load layers data ('+esc(err.message||err)+').</div>';
+      });
+  }
+  lyFilter.addEventListener('input',layersRender);
+  document.getElementById('ly-content').addEventListener('toggle',function(e){
+    var d=e.target;
+    if(d && d.tagName==='DETAILS' && d.classList.contains('layer-tags')){
+      lyOpen[d.dataset.name]=d.open;
+    }
+  }, true);
+
+  // ------------------------------------------------------------------
+  // Boot
+  // ------------------------------------------------------------------
+  var initial=parseHash();
+  activate(initial.tab, initial.args, {silent:true});
+})();
+</script>
+</body>
+</html>

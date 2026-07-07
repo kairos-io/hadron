@@ -36,7 +36,14 @@ const config = {
     image: 'images/hadron-logo.svg',
     navbar: {
       title: 'Hadron Linux',
-      items: [],
+      items: [
+        // `pathname://` prefix keeps Docusaurus's broken-link checker away from these
+        // static-file routes and forces a real navigation (the target is a
+        // hand-authored index.html, not a Docusaurus route).
+        { href: 'pathname:///components/#components', label: 'Components', position: 'left', target: '_self' },
+        { href: 'pathname:///components/#firmware',   label: 'Firmware',   position: 'left', target: '_self' },
+        { href: 'pathname:///components/#layers',     label: 'Layers',     position: 'left', target: '_self' },
+      ],
     },
     footer: {
       style: 'dark',
