@@ -27,6 +27,7 @@
   header .titles h1{font-size:1.5rem; margin:0; font-weight:650; letter-spacing:.2px}
   header .titles p{margin:.15rem 0 0; color:var(--muted); font-size:.92rem}
 
+  /* Tabs */
   .tabs{
     display:flex; gap:.35rem; margin:1.4rem 0 0;
     border-bottom:1px solid var(--border);
@@ -41,6 +42,7 @@
   .tab.active{color:var(--accent2); border-bottom-color:var(--accent)}
   .tab:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 
+  /* Sticky controls bar */
   .controls{
     position:sticky; top:0; z-index:5; margin:0 0 1.4rem; padding:.85rem 1rem;
     display:flex; flex-wrap:wrap; align-items:center; gap:.8rem;
@@ -60,8 +62,9 @@
     border-radius:999px; padding:.18rem .6rem; font-size:.78rem; white-space:nowrap}
   .raw a{margin-left:.55rem; font-size:.85rem}
 
-  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem}
-  .group{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:.2rem 0 .4rem; overflow:hidden}
+  /* Group cards (shared: components, firmware, layers) */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1rem}
+  .group{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:.2rem 0 .4rem; overflow:hidden; display:flex; flex-direction:column}
   .group.other{border-color:rgba(238,80,7,.28)}
   .group h2{
     display:flex; align-items:center; justify-content:space-between; gap:.5rem;
@@ -71,61 +74,55 @@
   .group.other h2{color:#ffb27a}
   .group h2 .cnt{font-size:.72rem; color:var(--muted); background:rgba(255,255,255,.05);
     border-radius:999px; padding:.1rem .5rem; letter-spacing:.4px}
-  .row{display:flex; align-items:baseline; justify-content:space-between; gap:1rem;
+  .group h2 .ver{
+    font-size:.72rem; color:var(--accent); font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    background:rgba(27,170,255,.1); border-radius:999px; padding:.1rem .5rem; text-transform:none; letter-spacing:.2px;
+  }
+
+  /* Row inside a group (name/version pair, shared across tabs) */
+  .row{display:flex; align-items:baseline; justify-content:space-between; gap:.6rem;
     padding:.34rem 1rem; font-size:.92rem}
   .row:nth-child(even){background:rgba(255,255,255,.018)}
   .row .name{color:var(--text)}
   .row .ver{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.85rem;
     color:var(--accent); text-align:right; word-break:break-all; max-width:55%}
+  .row.expandable{cursor:pointer}
+  .row.expandable:hover{background:rgba(27,170,255,.06)}
+  .row .caret{display:inline-block; color:var(--muted); font-size:.7rem; transition:transform .15s ease; margin-left:.25rem}
+  .row.open .caret{transform:rotate(90deg)}
+  .details{padding:.4rem 1rem .7rem; background:rgba(0,0,0,.18); border-top:1px dashed var(--border); font-size:.82rem; color:var(--muted); display:flex; flex-direction:column; gap:.5rem}
+  .details .kv{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+  .details .kv .k{color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.5px; min-width:56px}
+  .details .kv code{background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:.15rem .4rem; color:var(--accent2); font-size:.8rem; word-break:break-all; flex:1}
 
-  /* Firmware tab */
-  .fw-list{display:flex; flex-direction:column; gap:.5rem}
-  .fw-item{
-    background:var(--card); border:1px solid var(--border); border-radius:10px;
-    padding:.7rem .9rem; display:grid;
-    grid-template-columns:1fr auto auto; gap:.6rem; align-items:center;
-  }
-  .fw-item .fw-name{font-weight:600; color:var(--text); word-break:break-all}
-  .fw-item .fw-sub{font-size:.78rem; color:var(--muted); grid-column:1/-1; margin-top:.15rem; word-break:break-all}
-  .fw-item .fw-sub code{color:var(--accent2)}
-  .btn{
-    background:rgba(27,170,255,.12); color:var(--accent2);
-    border:1px solid var(--border2); border-radius:8px;
-    padding:.35rem .6rem; font:inherit; font-size:.82rem; cursor:pointer;
-    white-space:nowrap;
-  }
-  .btn:hover{background:rgba(27,170,255,.22)}
-  .btn.copied{background:rgba(126,211,33,.18); border-color:rgba(126,211,33,.4); color:#c4f2a0}
-  .btn:disabled{opacity:.4; cursor:not-allowed}
-
-  /* Layers tab */
-  .layer-list{display:flex; flex-direction:column; gap:1rem}
-  .layer{
-    background:var(--card); border:1px solid var(--border); border-radius:12px;
-    padding:1rem 1.1rem;
-  }
-  .layer-head{display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap}
-  .layer-head h3{margin:0; font-size:1.05rem; color:var(--accent2)}
-  .layer-head .latest{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent)}
-  .layer-desc{color:var(--muted); font-size:.9rem; margin:.35rem 0 .6rem}
-  .layer-image code{background:rgba(255,255,255,.05); padding:.15rem .4rem; border-radius:6px; font-size:.85rem}
-  .layer-tags{margin-top:.7rem}
-  .layer-tags summary{cursor:pointer; color:var(--muted); font-size:.85rem; padding:.35rem 0}
+  /* Layer-specific extras */
+  .layer-body{padding:.55rem 1rem .1rem; color:var(--muted); font-size:.86rem}
+  .layer-body p{margin:.15rem 0 .55rem}
+  .layer-image{display:flex; align-items:center; gap:.5rem; margin:.15rem 0 .55rem}
+  .layer-image code{background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:.2rem .45rem; color:var(--accent2); font-size:.8rem; word-break:break-all; flex:1}
+  .layer-tags{border-top:1px dashed var(--border); margin-top:.4rem; padding:.5rem 1rem .55rem}
+  .layer-tags summary{cursor:pointer; color:var(--muted); font-size:.82rem}
   .layer-tags summary:hover{color:var(--text)}
-  .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:.5rem; margin-top:.5rem}
+  .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.4rem; margin-top:.5rem}
   .tag-row{
     display:flex; align-items:center; justify-content:space-between; gap:.5rem;
-    padding:.4rem .6rem; border:1px solid var(--border); border-radius:8px;
-    font-size:.82rem; background:rgba(0,0,0,.15);
+    padding:.3rem .55rem; border:1px solid var(--border); border-radius:6px;
+    font-size:.78rem; background:rgba(0,0,0,.15);
   }
   .tag-row .tag-name{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent)}
-  .tag-row .tag-date{color:var(--muted); font-size:.75rem}
+  .tag-row .tag-date{color:var(--muted); font-size:.72rem}
+
+  /* Buttons */
+  .btn{
+    background:rgba(27,170,255,.12); color:var(--accent2);
+    border:1px solid var(--border2); border-radius:6px;
+    padding:.25rem .55rem; font:inherit; font-size:.78rem; cursor:pointer;
+    white-space:nowrap; text-decoration:none; display:inline-block;
+  }
+  .btn:hover{background:rgba(27,170,255,.22); text-decoration:none}
+  .btn.copied{background:rgba(126,211,33,.18); border-color:rgba(126,211,33,.4); color:#c4f2a0}
 
   .empty{color:var(--muted); padding:2rem 1rem; text-align:center}
-  .stale{
-    background:rgba(238,80,7,.12); border:1px solid rgba(238,80,7,.4); color:#ffb27a;
-    border-radius:10px; padding:.6rem .9rem; margin:1rem 0; font-size:.86rem;
-  }
   footer{margin-top:2.6rem; color:var(--muted); font-size:.82rem; border-top:1px solid var(--border); padding-top:1.1rem}
   .hide{display:none !important}
 </style>
@@ -178,8 +175,7 @@
         <span class="raw"><a id="fw-releaselink" href="#" target="_blank" rel="noopener">release notes ↗</a></span>
       </div>
     </div>
-    <div id="fw-stale" class="stale hide"></div>
-    <div id="fw-content" class="fw-list"></div>
+    <div id="fw-content" class="grid"></div>
     <div id="fw-empty" class="empty hide">No firmware components match your filter.</div>
   </section>
 
@@ -194,7 +190,7 @@
         <span class="chip" id="ly-generated"></span>
       </div>
     </div>
-    <div id="ly-content" class="layer-list"></div>
+    <div id="ly-content" class="grid"></div>
     <div id="ly-empty" class="empty hide">No layers match your filter.</div>
   </section>
 
@@ -232,6 +228,20 @@
       ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); done();
     }
   }
+  // Global click handler for anything with data-copy="…" (works across all tabs).
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('[data-copy]'); if(!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    copy(btn.getAttribute('data-copy'), btn);
+  });
+  // Toggle an expandable row when its .name/.ver area is clicked.
+  document.addEventListener('click',function(e){
+    var row=e.target.closest('.row.expandable'); if(!row) return;
+    if(e.target.closest('[data-copy]') || e.target.closest('a')) return;
+    var open=row.classList.toggle('open');
+    var d=row.nextElementSibling;
+    if(d && d.classList.contains('details')) d.classList.toggle('hide', !open);
+  });
 
   // ------------------------------------------------------------------
   // Tab routing
@@ -244,16 +254,11 @@
     layers:document.getElementById('panel-layers'),
   };
 
-  // Hash scheme:
-  //   #components[/<ref>]
-  //   #firmware[/<tag>]
-  //   #layers[/<name>[/<tag>]]
   function parseHash(){
     var raw=(location.hash||'').replace(/^#\/?/,'');
     var parts=raw.split('/').filter(Boolean);
     var tab=(parts[0]||'').toLowerCase();
     if(TABS.indexOf(tab)<0){
-      // Back-compat: legacy hash was just the ref name for components.
       return {tab:'components', args:parts};
     }
     return {tab:tab, args:parts.slice(1)};
@@ -274,7 +279,7 @@
     if(!opts || !opts.silent) writeHash(tab, args||[]);
     if(tab==='components') componentsShow(args && args[0]);
     else if(tab==='firmware') firmwareShow(args && args[0]);
-    else if(tab==='layers') layersShow(args && args[0], args && args[1]);
+    else if(tab==='layers') layersShow(args && args[0]);
   }
   tabButtons.forEach(function(b){
     b.addEventListener('click',function(){activate(b.dataset.tab, []);});
@@ -359,53 +364,69 @@
       fwFilter=document.getElementById('fw-filter'),
       fwContent=document.getElementById('fw-content'),
       fwEmpty=document.getElementById('fw-empty'),
-      fwStale=document.getElementById('fw-stale'),
       fwPublished=document.getElementById('fw-published'),
       fwCount=document.getElementById('fw-count'),
       fwReleaseLink=document.getElementById('fw-releaselink');
   var fwData=null, fwLoaded=false, fwCurrent=null;
 
-  function firmwareRow(name, image, sysextName, sysextUrl){
-    var subBits=[];
-    if(image) subBits.push('image: <code>'+esc(image)+'</code>');
-    if(sysextName) subBits.push('sysext: <code>'+esc(sysextName)+'</code>');
-    return '<div class="fw-item" data-name="'+esc(name)+'">'+
-      '<div class="fw-name">'+esc(name)+'</div>'+
-      (image?'<button class="btn" data-copy="'+esc(image)+'">Copy image</button>':'<span></span>')+
-      (sysextUrl
-        ? '<a class="btn" href="'+esc(sysextUrl)+'" target="_blank" rel="noopener">Download sysext</a>'
-        : '<span></span>')+
-      '<div class="fw-sub">'+subBits.join(' &nbsp;·&nbsp; ')+'</div>'+
-    '</div>';
+  // Drop the "linux-firmware-" prefix for display; keep full name for copy/details.
+  function displayFwName(full){
+    return full.replace(/^linux-firmware-/,'');
   }
   function componentFromSysext(fname, tag){
     var n=fname.replace(/\.sig$/,'').replace(/\.verity$/,'').replace(/\.raw$/,'').replace(/\.sysext$/,'');
     if(tag){var suf='_'+tag; if(n.slice(-suf.length)===suf) n=n.slice(0,-suf.length);}
     return n;
   }
+
   function firmwareRender(){
     if(!fwCurrent){return;}
     var q=(fwFilter.value||'').trim().toLowerCase();
-    var images=fwCurrent.images||{}, sysext=fwCurrent.sysext||{};
+    var images=fwCurrent.images||{}, sysext=fwCurrent.sysext||{}, tag=fwCurrent.tag||'';
     var byComp={};
     Object.keys(images).forEach(function(name){byComp[name]={image:images[name]};});
     Object.keys(sysext).forEach(function(fname){
-      var comp=componentFromSysext(fname, fwCurrent.tag);
+      var comp=componentFromSysext(fname, tag);
       if(!byComp[comp]) byComp[comp]={};
       byComp[comp].sysextName=fname;
       byComp[comp].sysextUrl=sysext[fname];
     });
-    var names=Object.keys(byComp).sort(), shown=0, html='';
-    names.forEach(function(n){
-      if(q && n.toLowerCase().indexOf(q)<0) return;
-      var e=byComp[n];
-      html+=firmwareRow(n, e.image, e.sysextName, e.sysextUrl);
-      shown++;
+    var names=Object.keys(byComp).sort();
+    var visible=names.filter(function(n){
+      if(!q) return true;
+      return n.toLowerCase().indexOf(q)>=0 || displayFwName(n).toLowerCase().indexOf(q)>=0;
     });
+    var rowsHtml='';
+    visible.forEach(function(n){
+      var e=byComp[n];
+      var short=displayFwName(n);
+      var detailKvs='';
+      if(e.image){
+        detailKvs+='<div class="kv"><span class="k">image</span><code>'+esc(e.image)+'</code>'+
+          '<button class="btn" data-copy="'+esc(e.image)+'">Copy</button></div>';
+      }
+      if(e.sysextUrl){
+        detailKvs+='<div class="kv"><span class="k">sysext</span><code>'+esc(e.sysextName||'')+'</code>'+
+          '<a class="btn" href="'+esc(e.sysextUrl)+'" target="_blank" rel="noopener">Download</a>'+
+          '<button class="btn" data-copy="'+esc(e.sysextUrl)+'">Copy URL</button></div>';
+      }
+      rowsHtml+='<div class="row expandable" data-name="'+esc(n)+'">'+
+        '<span class="name">'+esc(short)+' <span class="caret">▶</span></span>'+
+        '<span class="ver">'+esc(tag)+'</span>'+
+      '</div>'+
+      '<div class="details hide">'+detailKvs+'</div>';
+    });
+    var html=visible.length?
+      ('<section class="group">'+
+        '<h2>Firmware components <span class="cnt">'+visible.length+' / '+names.length+'</span></h2>'+
+        rowsHtml+
+      '</section>'):
+      '';
     fwContent.innerHTML=html;
-    fwEmpty.classList.toggle('hide', shown>0);
-    fwCount.textContent=shown+' / '+names.length+' components';
+    fwEmpty.classList.toggle('hide', visible.length>0);
+    fwCount.textContent=visible.length+' / '+names.length+' components';
   }
+
   function firmwareSelect(tag){
     var releases=fwData.releases||[];
     var rel=null;
@@ -426,13 +447,6 @@
       .then(function(d){
         fwData=d; fwLoaded=true;
         var releases=d.releases||[];
-        if(d.generated){
-          var age=Date.now()-Date.parse(d.generated);
-          if(age > 7*24*3600*1000){
-            fwStale.textContent='Firmware snapshot may be stale (last generated '+fmtDate(d.generated)+').';
-            fwStale.classList.remove('hide');
-          }
-        }
         releases.forEach(function(rel){
           var o=document.createElement('option'); o.value=rel.tag;
           o.textContent=rel.tag+(rel.prerelease?' (pre)':''); fwSel.appendChild(o);
@@ -445,10 +459,6 @@
   }
   fwSel.addEventListener('change',function(){firmwareSelect(fwSel.value);});
   fwFilter.addEventListener('input',firmwareRender);
-  fwContent.addEventListener('click',function(e){
-    var btn=e.target.closest('button[data-copy]'); if(!btn) return;
-    copy(btn.getAttribute('data-copy'), btn);
-  });
 
   // ==================================================================
   // Layers
@@ -460,7 +470,7 @@
       lyGenerated=document.getElementById('ly-generated');
   var lyData=null, lyLoaded=false, lyOpen={};
 
-  function layerHtml(layer){
+  function layerCard(layer){
     var tagsHtml='';
     (layer.tags||[]).forEach(function(t){
       tagsHtml+='<div class="tag-row">'+
@@ -469,18 +479,27 @@
       '</div>';
     });
     var openAttr=lyOpen[layer.name]?' open':'';
-    return '<article class="layer" data-name="'+esc(layer.name)+'">'+
-      '<div class="layer-head">'+
-        '<h3>'+esc(layer.title||layer.name)+'</h3>'+
-        (layer.latest?'<span>latest <span class="latest">'+esc(layer.latest)+'</span></span>':'')+
+    var name=layer.title||layer.name;
+    return '<section class="group" data-name="'+esc(layer.name)+'">'+
+      '<h2>'+esc(name)+
+        (layer.latest?'<span class="ver">'+esc(layer.latest)+'</span>':'<span class="cnt">no tags</span>')+
+      '</h2>'+
+      '<div class="layer-body">'+
+        (layer.description?'<p>'+esc(layer.description)+'</p>':'')+
+        (layer.image
+          ? '<div class="layer-image"><code>'+esc(layer.image)+'</code>'+
+              '<button class="btn" data-copy="'+esc(layer.image)+'">Copy</button>'+
+              (layer.latest?'<button class="btn" data-copy="'+esc(layer.image)+':'+esc(layer.latest)+'">Copy :'+esc(layer.latest)+'</button>':'')+
+            '</div>'
+          : '')+
       '</div>'+
-      (layer.description?'<p class="layer-desc">'+esc(layer.description)+'</p>':'')+
-      (layer.image?'<div class="layer-image"><code>'+esc(layer.image)+'</code></div>':'')+
-      '<details class="layer-tags" data-name="'+esc(layer.name)+'"'+openAttr+'>'+
-        '<summary>'+((layer.tags||[]).length)+' tags</summary>'+
-        '<div class="tag-list">'+tagsHtml+'</div>'+
-      '</details>'+
-    '</article>';
+      (tagsHtml
+        ? '<details class="layer-tags" data-name="'+esc(layer.name)+'"'+openAttr+'>'+
+            '<summary>'+((layer.tags||[]).length)+' tag'+((layer.tags||[]).length===1?'':'s')+'</summary>'+
+            '<div class="tag-list">'+tagsHtml+'</div>'+
+          '</details>'
+        : '')+
+    '</section>';
   }
   function layersRender(){
     if(!lyData){return;}
@@ -490,19 +509,19 @@
     layers.forEach(function(l){
       var hay=(l.name+' '+(l.title||'')+' '+(l.description||'')).toLowerCase();
       if(q && hay.indexOf(q)<0) return;
-      html+=layerHtml(l); shown++;
+      html+=layerCard(l); shown++;
     });
     lyContent.innerHTML=html;
     lyEmpty.classList.toggle('hide', shown>0);
     lyCount.textContent=shown+' / '+layers.length+' layers';
   }
-  function layersShow(wantName, wantTag){
+  function layersShow(wantName){
     var render=function(){
-      if(wantName){lyOpen[wantName]=true;}
+      if(wantName) lyOpen[wantName]=true;
       layersRender();
       if(wantName){
-        var el=document.querySelector('.layer[data-name="'+CSS.escape(wantName)+'"]');
-        if(el){ el.scrollIntoView({behavior:'smooth', block:'start'}); }
+        var el=document.querySelector('.group[data-name="'+CSS.escape(wantName)+'"]');
+        if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
       }
     };
     if(lyLoaded){render(); return;}
@@ -518,7 +537,7 @@
       });
   }
   lyFilter.addEventListener('input',layersRender);
-  document.getElementById('ly-content').addEventListener('toggle',function(e){
+  document.addEventListener('toggle',function(e){
     var d=e.target;
     if(d && d.tagName==='DETAILS' && d.classList.contains('layer-tags')){
       lyOpen[d.dataset.name]=d.open;
