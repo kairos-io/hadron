@@ -95,15 +95,60 @@
   .details .kv .k{color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.5px; min-width:56px}
   .details .kv code{background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:.15rem .4rem; color:var(--accent2); font-size:.8rem; word-break:break-all; flex:1}
 
-  /* Layer-specific extras */
-  .layer-body{padding:.55rem 1rem .1rem; color:var(--muted); font-size:.86rem}
-  .layer-body p{margin:.15rem 0 .55rem}
-  .layer-image{display:flex; align-items:center; gap:.5rem; margin:.15rem 0 .55rem}
-  .layer-image code{background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px; padding:.2rem .45rem; color:var(--accent2); font-size:.8rem; word-break:break-all; flex:1}
-  .layer-tags{border-top:1px dashed var(--border); margin-top:.4rem; padding:.5rem 1rem .55rem}
-  .layer-tags summary{cursor:pointer; color:var(--muted); font-size:.82rem}
+  /* Full-width list (firmware + layers) */
+  .list{display:flex; flex-direction:column; gap:.55rem}
+  .item{
+    background:var(--card); border:1px solid var(--border); border-radius:10px;
+    overflow:hidden;
+  }
+  .item-head{
+    display:flex; align-items:center; gap:.7rem;
+    padding:.65rem .9rem;
+  }
+  .item-head .name{
+    font-weight:600; color:var(--text); font-size:.98rem;
+    flex:1; min-width:0; word-break:break-word;
+  }
+  .item-head .desc{
+    color:var(--muted); font-size:.85rem; font-weight:400;
+    margin-left:.4rem;
+  }
+  .item-head .ver-chip{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.8rem; color:var(--accent);
+    background:rgba(27,170,255,.1); border:1px solid var(--border);
+    border-radius:999px; padding:.15rem .55rem; white-space:nowrap;
+  }
+  .item-actions{display:flex; align-items:center; gap:.35rem; flex-wrap:wrap}
+  .item-toggle{
+    background:transparent; border:none; color:var(--muted); cursor:pointer;
+    font:inherit; font-size:.9rem; padding:.3rem .4rem; border-radius:6px;
+    transition:transform .15s ease, color .12s ease;
+  }
+  .item-toggle:hover{color:var(--text)}
+  .item.open .item-toggle{transform:rotate(90deg); color:var(--accent2)}
+  .item-details{
+    padding:.55rem .9rem .75rem; background:rgba(0,0,0,.18);
+    border-top:1px dashed var(--border);
+    font-size:.82rem; color:var(--muted);
+    display:flex; flex-direction:column; gap:.5rem;
+  }
+  .item-details .kv{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+  .item-details .kv .k{color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; min-width:56px}
+  .item-details .kv code{
+    background:rgba(255,255,255,.04); border:1px solid var(--border); border-radius:6px;
+    padding:.2rem .45rem; color:var(--accent2); font-size:.8rem;
+    word-break:break-all; flex:1;
+  }
+
+  /* Layer tag history */
+  .layer-tags{border-top:1px dashed var(--border); padding:.5rem .9rem .6rem}
+  .layer-tags summary{cursor:pointer; color:var(--muted); font-size:.82rem; list-style:none; display:inline-flex; align-items:center; gap:.35rem}
+  .layer-tags summary::-webkit-details-marker{display:none}
   .layer-tags summary:hover{color:var(--text)}
-  .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:.4rem; margin-top:.5rem}
+  .layer-tags summary::before{content:'▶'; font-size:.65rem; color:var(--muted); transition:transform .15s ease}
+  .layer-tags[open] summary::before{transform:rotate(90deg)}
+  .tag-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:.4rem; margin-top:.5rem}
   .tag-row{
     display:flex; align-items:center; justify-content:space-between; gap:.5rem;
     padding:.3rem .55rem; border:1px solid var(--border); border-radius:6px;
@@ -175,7 +220,7 @@
         <span class="raw"><a id="fw-releaselink" href="#" target="_blank" rel="noopener">release notes ↗</a></span>
       </div>
     </div>
-    <div id="fw-content" class="grid"></div>
+    <div id="fw-content" class="list"></div>
     <div id="fw-empty" class="empty hide">No firmware components match your filter.</div>
   </section>
 
@@ -190,7 +235,7 @@
         <span class="chip" id="ly-generated"></span>
       </div>
     </div>
-    <div id="ly-content" class="grid"></div>
+    <div id="ly-content" class="list"></div>
     <div id="ly-empty" class="empty hide">No layers match your filter.</div>
   </section>
 
@@ -234,13 +279,15 @@
     e.preventDefault(); e.stopPropagation();
     copy(btn.getAttribute('data-copy'), btn);
   });
-  // Toggle an expandable row when its .name/.ver area is clicked.
+  // Toggle an .item's details block when its toggle button (or head empty
+  // area) is clicked. Buttons and links inside the head don't toggle.
   document.addEventListener('click',function(e){
-    var row=e.target.closest('.row.expandable'); if(!row) return;
-    if(e.target.closest('[data-copy]') || e.target.closest('a')) return;
-    var open=row.classList.toggle('open');
-    var d=row.nextElementSibling;
-    if(d && d.classList.contains('details')) d.classList.toggle('hide', !open);
+    var toggle=e.target.closest('.item-toggle');
+    if(!toggle) return;
+    var item=toggle.closest('.item'); if(!item) return;
+    var d=item.querySelector('.item-details');
+    var open=item.classList.toggle('open');
+    if(d) d.classList.toggle('hide', !open);
   });
 
   // ------------------------------------------------------------------
@@ -396,32 +443,37 @@
       if(!q) return true;
       return n.toLowerCase().indexOf(q)>=0 || displayFwName(n).toLowerCase().indexOf(q)>=0;
     });
-    var rowsHtml='';
+    var html='';
     visible.forEach(function(n){
       var e=byComp[n];
       var short=displayFwName(n);
+      var actions='';
+      if(e.image){
+        actions+='<button class="btn" data-copy="'+esc(e.image)+'">Copy image</button>';
+      }
+      if(e.sysextUrl){
+        actions+='<a class="btn" href="'+esc(e.sysextUrl)+'" target="_blank" rel="noopener">Download sysext</a>';
+      }
+      var hasDetails=!!(e.image || e.sysextUrl);
       var detailKvs='';
       if(e.image){
-        detailKvs+='<div class="kv"><span class="k">image</span><code>'+esc(e.image)+'</code>'+
-          '<button class="btn" data-copy="'+esc(e.image)+'">Copy</button></div>';
+        detailKvs+='<div class="kv"><span class="k">image</span><code>'+esc(e.image)+'</code></div>';
       }
       if(e.sysextUrl){
         detailKvs+='<div class="kv"><span class="k">sysext</span><code>'+esc(e.sysextName||'')+'</code>'+
-          '<a class="btn" href="'+esc(e.sysextUrl)+'" target="_blank" rel="noopener">Download</a>'+
           '<button class="btn" data-copy="'+esc(e.sysextUrl)+'">Copy URL</button></div>';
       }
-      rowsHtml+='<div class="row expandable" data-name="'+esc(n)+'">'+
-        '<span class="name">'+esc(short)+' <span class="caret">▶</span></span>'+
-        '<span class="ver">'+esc(tag)+'</span>'+
-      '</div>'+
-      '<div class="details hide">'+detailKvs+'</div>';
+      html+='<div class="item" data-name="'+esc(n)+'">'+
+        '<div class="item-head">'+
+          '<span class="name">'+esc(short)+'</span>'+
+          '<span class="ver-chip">'+esc(tag)+'</span>'+
+          '<div class="item-actions">'+actions+
+            (hasDetails?'<button class="item-toggle" aria-label="Show details">▶</button>':'')+
+          '</div>'+
+        '</div>'+
+        (hasDetails?'<div class="item-details hide">'+detailKvs+'</div>':'')+
+      '</div>';
     });
-    var html=visible.length?
-      ('<section class="group">'+
-        '<h2>Firmware components <span class="cnt">'+visible.length+' / '+names.length+'</span></h2>'+
-        rowsHtml+
-      '</section>'):
-      '';
     fwContent.innerHTML=html;
     fwEmpty.classList.toggle('hide', visible.length>0);
     fwCount.textContent=visible.length+' / '+names.length+' components';
@@ -480,18 +532,20 @@
     });
     var openAttr=lyOpen[layer.name]?' open':'';
     var name=layer.title||layer.name;
-    return '<section class="group" data-name="'+esc(layer.name)+'">'+
-      '<h2>'+esc(name)+
-        (layer.latest?'<span class="ver">'+esc(layer.latest)+'</span>':'<span class="cnt">no tags</span>')+
-      '</h2>'+
-      '<div class="layer-body">'+
-        (layer.description?'<p>'+esc(layer.description)+'</p>':'')+
-        (layer.image
-          ? '<div class="layer-image"><code>'+esc(layer.image)+'</code>'+
-              '<button class="btn" data-copy="'+esc(layer.image)+'">Copy</button>'+
-              (layer.latest?'<button class="btn" data-copy="'+esc(layer.image)+':'+esc(layer.latest)+'">Copy :'+esc(layer.latest)+'</button>':'')+
-            '</div>'
+    var copyRef=layer.image
+      ? (layer.latest?layer.image+':'+layer.latest:layer.image)
+      : '';
+    return '<div class="item" data-name="'+esc(layer.name)+'">'+
+      '<div class="item-head">'+
+        '<span class="name">'+esc(name)+
+          (layer.description?'<span class="desc">— '+esc(layer.description)+'</span>':'')+
+        '</span>'+
+        (layer.latest
+          ? '<span class="ver-chip">'+esc(layer.latest)+'</span>'
           : '')+
+        '<div class="item-actions">'+
+          (copyRef?'<button class="btn" data-copy="'+esc(copyRef)+'">Copy image</button>':'')+
+        '</div>'+
       '</div>'+
       (tagsHtml
         ? '<details class="layer-tags" data-name="'+esc(layer.name)+'"'+openAttr+'>'+
@@ -499,7 +553,7 @@
             '<div class="tag-list">'+tagsHtml+'</div>'+
           '</details>'
         : '')+
-    '</section>';
+    '</div>';
   }
   function layersRender(){
     if(!lyData){return;}
@@ -520,7 +574,7 @@
       if(wantName) lyOpen[wantName]=true;
       layersRender();
       if(wantName){
-        var el=document.querySelector('.group[data-name="'+CSS.escape(wantName)+'"]');
+        var el=document.querySelector('.item[data-name="'+CSS.escape(wantName)+'"]');
         if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
       }
     };
