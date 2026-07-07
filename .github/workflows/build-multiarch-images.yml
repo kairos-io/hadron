@@ -1364,8 +1364,37 @@ jobs:
             mkdir -p "$DATA_DIR"
             git -C "$DATA_DIR" init -q -b "$BRANCH"
           fi
+          # Build a "<merge-sha> <release-tag>" map so the rendered history table
+          # can annotate a merge with its release version (a release shares the
+          # merge's sha, so it never becomes a second row). We take the commit
+          # each tag points at (dereferencing annotated tags) and keep only tags
+          # that correspond to a published release, falling back to all tags if
+          # the releases API is unavailable. A missing map just means no
+          # annotations — never fail the history on it.
+          TAGS_FILE="${RUNNER_TEMP}/release-tags.txt"
+          : >"$TAGS_FILE"
+          RELEASES="$(gh api "repos/${REPO}/releases" --paginate \
+            --jq '.[].tag_name' 2>/dev/null || true)"
+          git ls-remote --tags "$REMOTE" 2>/dev/null | awk '
+            { sha=$1; ref=$2; d=0
+              if (ref ~ /\^\{\}$/) { d=1; sub(/\^\{\}$/, "", ref) }
+              sub(/^refs\/tags\//, "", ref)
+              if (d) commit[ref]=sha; else if (!(ref in light)) light[ref]=sha
+            }
+            END {
+              for (t in commit) print commit[t], t
+              for (t in light)  if (!(t in commit)) print light[t], t
+            }' >"${RUNNER_TEMP}/all-tags.txt" || true
+          if [ -n "$RELEASES" ]; then
+            awk 'NR==FNR{rel[$0]=1; next} ($2 in rel)' \
+              <(printf '%s\n' "$RELEASES") "${RUNNER_TEMP}/all-tags.txt" \
+              >"$TAGS_FILE" || true
+          else
+            cp "${RUNNER_TEMP}/all-tags.txt" "$TAGS_FILE" 2>/dev/null || true
+          fi
           "${GITHUB_WORKSPACE}/.github/scripts/size-history.sh" all \
             "${DATA_DIR}/size-history.csv" '${{ github.sha }}' "$REPO" "$DATA_DIR" \
+            "$TAGS_FILE" \
             | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Publish history branch
         # Never fail the build on a history hiccup; the step summary above is

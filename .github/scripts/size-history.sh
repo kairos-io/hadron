@@ -20,11 +20,15 @@
 #       (creating it with a header if needed) and print a one-merge summary
 #       (with deltas vs the previous row) to stdout.
 #
-#   size-history.sh render <csv> <out-dir>
+#   size-history.sh render <csv> <out-dir> [repo-slug] [tags-file]
 #       (Re)generate <out-dir>/SIZE_HISTORY.md and <out-dir>/size-history.svg
-#       from <csv>. Pure function of the CSV; needs no network.
+#       from <csv>. Pure function of the inputs; needs no network. When a
+#       <repo-slug> is given each sha is rendered as a link to its commit; when a
+#       <tags-file> (lines "<full-sha> <tag>") is also given, a merge whose sha
+#       is a release is annotated with that release's version, linked to the
+#       release page, to the right of the sha (never as a separate row).
 #
-#   size-history.sh all <csv> <sha> <repo-slug> <out-dir>
+#   size-history.sh all <csv> <sha> <repo-slug> <out-dir> [tags-file]
 #       record then render; prints the per-merge summary to stdout.
 set -euo pipefail
 
@@ -184,11 +188,47 @@ svg() {
   ' "$csv" >"$out"
 }
 
-# render <csv> <out-dir>: regenerate SIZE_HISTORY.md and size-history.svg.
+# sha_cell <sha> <repo> <tag>: render the "sha" table cell. The short sha is a
+# link to its commit (when <repo> is known); when the merge is a release, the
+# release version is appended to the right of the sha as a link to the release
+# page (a release shares the merge's sha, so it never becomes a separate row).
+sha_cell() {
+  local sha="$1" repo="$2" tag="$3" short="${1:0:12}" out
+  if [ -n "$repo" ]; then
+    out="[\`${short}\`](https://github.com/${repo}/commit/${sha})"
+  else
+    out="\`${short}\`"
+  fi
+  if [ -n "$tag" ]; then
+    if [ -n "$repo" ]; then
+      out+=" [\`${tag}\`](https://github.com/${repo}/releases/tag/${tag})"
+    else
+      out+=" \`${tag}\`"
+    fi
+  fi
+  printf '%s' "$out"
+}
+
+# render <csv> <out-dir> [repo] [tags-file]: regenerate SIZE_HISTORY.md and
+# size-history.svg. When <repo> is given, shas link to their commits; when a
+# <tags-file> (lines "<full-sha> <tag>") is also given, release merges are
+# annotated with their release version, linked to the release page.
 render() {
-  local csv="$1" out="$2"
+  local csv="$1" out="$2" repo="${3:-}" tags="${4:-}"
   mkdir -p "$out"
   svg "$csv" "$out/size-history.svg"
+
+  # Map merge sha -> release version, so a release annotates its own merge row
+  # rather than adding a second entry for the same sha.
+  declare -A REL_TAG
+  if [ -n "$tags" ] && [ -s "$tags" ]; then
+    local rsha rtag
+    while read -r rsha rtag; do
+      if [ -n "$rsha" ] && [ -n "$rtag" ]; then
+        REL_TAG["$rsha"]="$rtag"
+      fi
+    done <"$tags"
+  fi
 
   local md="$out/SIZE_HISTORY.md"
   {
@@ -221,7 +261,7 @@ render() {
       if [ -n "$prevline" ] && [ "$prevline" -gt 2 ]; then
         base_row="$(sed -n "$((prevline - 1))p" "$csv")"
       fi
-      printf '| %s | `%s` |' "${date%T*}" "${sha:0:12}"
+      printf '| %s | %s |' "${date%T*}" "$(sha_cell "$sha" "$repo" "${REL_TAG[$sha]:-}")"
       local i=2 c base delta sgn
       while [ "$i" -lt "$ncols" ]; do
         c="${cur[$i]:-}"
@@ -251,9 +291,9 @@ main() {
     record) record "$@" ;;
     render) render "$@" ;;
     all)
-      local csv="$1" sha="$2" repo="$3" out="$4"
+      local csv="$1" sha="$2" repo="$3" out="$4" tags="${5:-}"
       record "$csv" "$sha" "$repo"
-      render "$csv" "$out"
+      render "$csv" "$out" "$repo" "$tags"
       ;;
     *) echo "unknown command: $cmd" >&2; exit 2 ;;
   esac

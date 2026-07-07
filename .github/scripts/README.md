@@ -38,12 +38,18 @@ against the previous recorded merge — there is no need to rebuild `HEAD^1`.
 # Append one data point for the current merge and print a per-merge summary:
 size-history.sh record <csv> <sha> <repo-slug>
 
-# Regenerate SIZE_HISTORY.md + size-history.svg from the CSV (no network):
-size-history.sh render <csv> <out-dir>
+# Regenerate SIZE_HISTORY.md + size-history.svg from the CSV (no network).
+# With a repo-slug each sha links to its commit; with a tags file (lines
+# "<full-sha> <tag>") a release merge is annotated with its release version,
+# linked to the release page, to the right of the sha:
+size-history.sh render <csv> <out-dir> [repo-slug] [tags-file]
 
 # record then render in one go (what the workflow uses):
-size-history.sh all <csv> <sha> <repo-slug> <out-dir>
+size-history.sh all <csv> <sha> <repo-slug> <out-dir> [tags-file]
 ```
+
+Releases are shown alongside the sha of the merge they point at (never as a
+separate row), since a release and its merge share the same commit.
 
 Both tools measure amd64 sizes only, matching the existing PR report. A variant
 that is not yet published to `:main` is recorded as blank / `n/a` rather than
