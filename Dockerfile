@@ -750,7 +750,7 @@ RUN install -dv -m 0750 root
 RUN install -dv -m 1777 var/tmp
 RUN touch etc/hostname
 
-RUN ln -sfv usr/bin sbin  # sbin -> usr/bin
+RUN ln -sfv usr/sbin sbin # sbin -> usr/sbin
 RUN ln -sfv usr/bin bin   # bin -> usr/bin
 RUN ln -sfv usr/lib lib   # lib -> usr/lib
 RUN ln -sfv usr/lib lib64 # lib64 -> usr/lib
