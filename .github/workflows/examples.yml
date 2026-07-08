@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - '../../examples/add-packages/**'
+      - 'examples/add-packages/**'
+      - '.github/workflows/examples.yml'
+  pull_request:
+    paths:
+      - 'examples/add-packages/**'
       - '.github/workflows/examples.yml'
 
 jobs:
