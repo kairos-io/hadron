@@ -3276,6 +3276,8 @@ COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=flex /flex/ /
 COPY --from=m4 /m4/ /
 COPY --from=bison /bison/ /
+COPY --from=bash /bash /bash
+RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/drbd-utils.tar.gz /sources/
 RUN mkdir -p /drbd-utils
 WORKDIR /sources
