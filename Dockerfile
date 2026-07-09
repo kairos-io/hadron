@@ -2234,6 +2234,10 @@ ARG DRBD_VERSION=9.3.3
 # size/LTO host flags so they do not leak into DRBD's own build helpers.
 ENV CFLAGS=""
 ENV LDFLAGS=""
+# DRBD's Kbuild uses `ln -r` (relative symlinks) which BusyBox ln does not
+# support; overlay coreutils so GNU ln is used instead.
+COPY --from=coreutils /coreutils /coreutils
+RUN rsync -aHAX --keep-dirlinks /coreutils/. /
 COPY --from=sources-downloader /sources/downloads/drbd.tar.gz /sources/
 WORKDIR /sources
 RUN tar -xf drbd.tar.gz && mv drbd-*/ drbd
