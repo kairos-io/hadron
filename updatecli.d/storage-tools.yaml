@@ -119,6 +119,40 @@ sources:
       - semver:
           constraint: '*'
 
+  drbd:
+    # Out-of-tree DRBD 9 kernel module (LINBIT). Track the latest 9.x GA only,
+    # excluding pre-releases (e.g. drbd-10.0.0a1) and the 10.x series.
+    kind: gittag
+    spec:
+      url: https://github.com/LINBIT/drbd.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: '^drbd-9\.[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: drbd-
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
+  drbd-utils:
+    # DRBD userspace tools (LINBIT). Track the latest 9.x GA only, excluding
+    # release candidates (e.g. v9.34.0-rc.1).
+    kind: gittag
+    spec:
+      url: https://github.com/LINBIT/drbd-utils.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: '^v9\.[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: v
+      - sort:
+          method: semver
+      - semver:
+          constraint: '*'
+
 targets:
   lvm2:
     name: LVM2_VERSION in Dockerfile
@@ -199,3 +233,23 @@ targets:
         keyword: ARG
         matcher: NFS_UTILS_VERSION
     sourceid: nfs-utils
+
+  drbd:
+    name: DRBD_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DRBD_VERSION
+    sourceid: drbd
+
+  drbd-utils:
+    name: DRBD_UTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DRBD_UTILS_VERSION
+    sourceid: drbd-utils

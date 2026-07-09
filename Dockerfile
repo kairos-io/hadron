@@ -300,6 +300,20 @@ FROM sources-downloader-base AS multipath-tools-download
 ARG MULTIPATH_TOOLS_VERSION=0.14.3
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
+# Out-of-tree DRBD 9 kernel module (LINBIT). DRBD 9 is only shipped out-of-tree;
+# it adds multi-node replication and quorum required by LINSTOR/Piraeus.
+# Use the official LINBIT release tarball, which ships the pre-generated compat
+# sources; the GitHub archive would require coccinelle (spatch) at build time.
+FROM sources-downloader-base AS drbd-download
+ARG DRBD_VERSION=9.3.3
+RUN wget -q https://pkg.linbit.com/downloads/drbd/9/drbd-${DRBD_VERSION}.tar.gz -O drbd.tar.gz
+
+# DRBD userspace tools (drbdadm/drbdsetup/drbdmeta). Release tarball ships a
+# pre-generated ./configure, unlike the GitHub archive which needs autogen.sh.
+FROM sources-downloader-base AS drbd-utils-download
+ARG DRBD_UTILS_VERSION=9.34.0
+RUN wget -q https://pkg.linbit.com/downloads/drbd/utils/drbd-utils-${DRBD_UTILS_VERSION}.tar.gz -O drbd-utils.tar.gz
+
 FROM sources-downloader-base AS json-c-download
 ARG JSONC_VERSION=0.19
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
@@ -658,6 +672,8 @@ COPY --from=dracut-download /sources/downloads/dracut.tar.gz /sources/downloads/
 COPY --from=libaio-download /sources/downloads/libaio.tar.gz /sources/downloads/
 COPY --from=lvm2-download /sources/downloads/lvm2.tgz /sources/downloads/
 COPY --from=multipath-tools-download /sources/downloads/multipath-tools.tar.gz /sources/downloads/
+COPY --from=drbd-download /sources/downloads/drbd.tar.gz /sources/downloads/
+COPY --from=drbd-utils-download /sources/downloads/drbd-utils.tar.gz /sources/downloads/
 COPY --from=json-c-download /sources/downloads/json-c.tar.gz /sources/downloads/
 COPY --from=cmake-download /sources/downloads/cmake.tar.gz /sources/downloads/
 COPY --from=urcu-download /sources/downloads/urcu.tar.bz2 /sources/downloads/
@@ -2206,6 +2222,30 @@ RUN cp /sources/kernel/.config /output/kernel-config
 # This way we dont have to rebuild the kernel or the modules
 RUN cp /sources/kernel/Module.symvers /output/Module.symvers
 
+# Out-of-tree DRBD 9 kernel module. Built against the already-compiled kernel
+# tree from the kernel-modules stage (which has .config and Module.symvers), so
+# no kernel rebuild is needed. The resulting drbd*.ko modules are installed into
+# the same /modules tree used by the final image, and depmod is re-run so the
+# module dependency metadata includes them.
+FROM kernel-modules AS drbd-module
+ARG JOBS
+ARG DRBD_VERSION=9.3.3
+# kbuild sets its own flags for module compilation; clear the aggressive
+# size/LTO host flags so they do not leak into DRBD's own build helpers.
+ENV CFLAGS=""
+ENV LDFLAGS=""
+COPY --from=sources-downloader /sources/downloads/drbd.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf drbd.tar.gz && mv drbd-*/ drbd
+WORKDIR /sources/drbd
+RUN kver=$(cat /kernel/kernel-release) && \
+    if [ ${ARCH} = "aarch64" ]; then export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then export ARCH=riscv; \
+    else export ARCH=x86_64; fi && \
+    make -j${JOBS} -l${MAX_LOAD} KDIR=/sources/kernel KVER=${kver} && \
+    make install DESTDIR=/modules KDIR=/sources/kernel KVER=${kver} && \
+    depmod -b /modules ${kver}
+
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
 ARG JOBS
@@ -3226,6 +3266,34 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/m
 RUN make -s -j${JOBS} -l${MAX_LOAD} LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
+## drbd-utils: userspace tools (drbdadm/drbdsetup/drbdmeta) for the out-of-tree
+## DRBD 9 module. Baremetal-only, consumed by LINSTOR/Piraeus. Uses the LINBIT
+## release tarball which ships a pre-generated ./configure and parser sources.
+FROM rsync AS drbd-utils
+ARG JOBS
+ARG DRBD_UTILS_VERSION=9.34.0
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=flex /flex/ /
+COPY --from=m4 /m4/ /
+COPY --from=bison /bison/ /
+COPY --from=sources-downloader /sources/downloads/drbd-utils.tar.gz /sources/
+RUN mkdir -p /drbd-utils
+WORKDIR /sources
+RUN tar -xf drbd-utils.tar.gz && mv drbd-utils-* drbd-utils
+WORKDIR /sources/drbd-utils
+ENV CC="gcc"
+# Only the DRBD 9 tooling is needed; drop legacy 8.3/8.4 support and the various
+# cluster-manager integrations and docs to keep the build lean.
+RUN ./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc \
+    --without-manual \
+    --without-83support --without-84support \
+    --with-systemdsystemunitdir=/lib/systemd/system \
+    --with-tmpfilesdir=/lib/tmpfiles.d \
+    --without-heartbeat --without-pacemaker --without-rgmanager --without-bashcompletion
+RUN make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/drbd-utils
+RUN rm -Rf /drbd-utils/usr/share/man
+
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
 ARG JOBS
@@ -3872,7 +3940,14 @@ COPY --from=openssh /openssh/ /skeleton/
 
 # kernel and modules
 COPY --from=kernel /kernel/ /skeleton/boot/
-COPY --from=kernel-modules /modules/lib/modules/ /skeleton/lib/modules
+# The out-of-tree DRBD 9 module is installed into the same /modules tree by the
+# drbd-module stage (which re-runs depmod), so copy modules from there instead of
+# directly from kernel-modules.
+COPY --from=drbd-module /modules/lib/modules/ /skeleton/lib/modules
+
+## DRBD 9 userspace tools (drbdadm/drbdsetup/drbdmeta) for LINSTOR/Piraeus;
+## baremetal-only, not in the container base.
+COPY --from=drbd-utils /drbd-utils/ /skeleton/
 
 COPY --from=sudo-systemd /sudo/ /skeleton/
 
