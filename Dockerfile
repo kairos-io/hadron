@@ -3957,10 +3957,6 @@ COPY --from=kernel /kernel/ /skeleton/boot/
 # directly from kernel-modules.
 COPY --from=drbd-module /modules/lib/modules/ /skeleton/lib/modules
 
-## DRBD 9 userspace tools (drbdadm/drbdsetup/drbdmeta) for LINSTOR/Piraeus;
-## baremetal-only, not in the container base.
-COPY --from=drbd-utils /drbd-utils/ /skeleton/
-
 COPY --from=sudo-systemd /sudo/ /skeleton/
 
 # Iptables is needed to support k8s
