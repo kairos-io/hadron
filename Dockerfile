@@ -2240,7 +2240,9 @@ COPY --from=coreutils /coreutils /coreutils
 RUN rsync -aHAX --keep-dirlinks /coreutils/. /
 COPY --from=libcap /libcap /libcap
 RUN rsync -aHAX --keep-dirlinks  /libcap/. /
+COPY --from=ca-certificates /ca-certificates/ /
 COPY --from=curl /curl/ /
+COPY --from=patch /patch/ /
 COPY --from=sources-downloader /sources/downloads/drbd.tar.gz /sources/
 WORKDIR /sources
 RUN tar -xf drbd.tar.gz && mv drbd-*/ drbd
