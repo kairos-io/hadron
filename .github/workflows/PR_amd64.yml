@@ -40,6 +40,18 @@ jobs:
             fi
           done
           exit $FAILED
+      - name: Verify BTF is enabled in all x86_64 kernel configs
+        run: |
+          FAILED=0
+          for cfg in files/kernel/cloud.config files/kernel/default.config; do
+            if ! grep -q '^CONFIG_DEBUG_INFO_BTF=y' "$cfg"; then
+              echo "ERROR: $cfg is missing CONFIG_DEBUG_INFO_BTF=y"
+              FAILED=1
+            else
+              echo "OK: $cfg has CONFIG_DEBUG_INFO_BTF=y"
+            fi
+          done
+          exit $FAILED
 
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-x86-64

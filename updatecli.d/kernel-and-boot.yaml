@@ -57,6 +57,18 @@ sources:
       url: "https://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git/tree/"
       compare: "https://git.kernel.org/pub/scm/linux/kernel/git/legion/kbd.git/diff/?id={new_tag}&id2={old_tag}"
 
+  dwarves:
+    kind: gittag
+    spec:
+      url: https://github.com/acmel/dwarves.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+    changelog:
+      url: "https://github.com/acmel/dwarves/releases"
+
 
 targets:
   kernel:
@@ -108,3 +120,13 @@ targets:
         keyword: ARG
         matcher: KBD_VERSION
     sourceid: kbd
+
+  dwarves:
+    name: DWARVES_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: DWARVES_VERSION
+    sourceid: dwarves

@@ -308,6 +308,10 @@ FROM sources-downloader-base AS cmake-download
 ARG CMAKE_VERSION=4.4.0
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
+FROM sources-downloader-base AS dwarves-download
+ARG DWARVES_VERSION=1.28
+RUN wget -q https://github.com/acmel/dwarves/releases/download/v${DWARVES_VERSION}/dwarves-${DWARVES_VERSION}.tar.xz -O dwarves.tar.xz
+
 FROM sources-downloader-base AS urcu-download
 ARG URCU_VERSION=0.15.6
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
@@ -718,6 +722,7 @@ COPY --from=libnetfilter_cthelper-download /sources/downloads/libnetfilter_cthel
 COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.tar.bz2 /sources/downloads/
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
+COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
 
 ########################################################
 #
@@ -2028,6 +2033,29 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install LIBDIR=lib BINDIR=/bin DESTDIR=/libkcapi
 RUN ln -s kcapi-hasher /libkcapi/usr/bin/sha512hmac
 RUN rm -Rf /libkcapi/usr/share /libkcapi/usr/lib/pkgconfig /libkcapi/usr/include /libkcapi/usr/libexec /libkcapi/usr/lib/*.la
+
+## pahole (dwarves) — required by the kernel to generate BTF from DWARF debug info
+FROM rsync AS pahole
+ARG JOBS
+COPY --from=cmake /cmake/ /
+COPY --from=libelf /libelf/ /
+COPY --from=zlib /zlib/ /
+COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf dwarves.tar.xz && mv dwarves-* dwarves
+RUN mkdir -p /pahole /sources/dwarves-build
+WORKDIR /sources/dwarves-build
+RUN cmake ../dwarves \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_BUILD_TYPE=MinSizeRel \
+      -D__LIB=lib \
+      && \
+    make -j${JOBS} && \
+    make install DESTDIR=/pahole
+# Only pahole binary and its shared-library dependencies are needed at kernel build time.
+# Remove headers and static libs to keep the layer small.
+RUN rm -rf /pahole/usr/include
+
 ## kernel
 FROM rsync AS kernel-base
 ARG JOBS
@@ -2059,6 +2087,8 @@ COPY --from=kmod /kmod/ /
 COPY --from=xz /xz/ /
 
 COPY --from=grep /grep/ /
+
+COPY --from=pahole /pahole/ /
 
 COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
 
