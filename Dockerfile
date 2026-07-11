@@ -112,7 +112,7 @@ ARG ATTR_VERSION=2.6.0
 RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
 FROM sources-downloader-base AS gawk-download
-ARG GAWK_VERSION=5.4.0
+ARG GAWK_VERSION=5.4.1
 RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
         wget -q "${mirror}/gawk/gawk-${GAWK_VERSION}.tar.xz" -O gawk.tar.xz && break; \
         rm -f gawk.tar.xz; \
@@ -158,7 +158,7 @@ ARG OPENSSH_VERSION=10.3p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 FROM sources-downloader-base AS pkgconf-download
-ARG PKGCONFIG_VERSION=2.9.98
+ARG PKGCONFIG_VERSION=3.0.0
 RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
 FROM sources-downloader-base AS dbus-download
@@ -305,7 +305,7 @@ ARG JSONC_VERSION=0.19
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 FROM sources-downloader-base AS cmake-download
-ARG CMAKE_VERSION=4.3.4
+ARG CMAKE_VERSION=4.4.0
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 FROM sources-downloader-base AS urcu-download
