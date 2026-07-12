@@ -462,7 +462,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s coreutils.tar.xz
 
 FROM sources-downloader-base AS findutils-download
-ARG FINDUTILS_VERSION=4.10.0
+ARG FINDUTILS_VERSION=4.11.0
 RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
         wget -q "${mirror}/findutils/findutils-${FINDUTILS_VERSION}.tar.xz" -O findutils.tar.xz && break; \
         rm -f findutils.tar.xz; \
