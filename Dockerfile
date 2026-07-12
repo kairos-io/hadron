@@ -154,7 +154,7 @@ ARG OPENSSL_FIPS_VERSION=3.1.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz -O openssl-fips.tar.gz
 
 FROM sources-downloader-base AS openssh-download
-ARG OPENSSH_VERSION=10.3p1
+ARG OPENSSH_VERSION=10.4p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 FROM sources-downloader-base AS pkgconf-download
