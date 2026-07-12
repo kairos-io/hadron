@@ -2034,6 +2034,25 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install L
 RUN ln -s kcapi-hasher /libkcapi/usr/bin/sha512hmac
 RUN rm -Rf /libkcapi/usr/share /libkcapi/usr/lib/pkgconfig /libkcapi/usr/include /libkcapi/usr/libexec /libkcapi/usr/lib/*.la
 
+# TODO: Once a new jsonc version is released (0.19) they will have meson support
+# which means we can drop cmake buiilding which is very slow and heavy
+FROM rsync AS cmake
+ARG JOBS
+# Disable lto for cmake as it gives us nothing but issues
+ENV CFLAGS="${CFLAGS//-flto=auto/}"
+ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
+COPY --from=curl /curl/ /
+COPY --from=openssl /openssl/ /
+COPY --from=sources-downloader /sources/downloads/cmake.tar.gz /sources/
+
+RUN mkdir -p /cmake
+WORKDIR /sources
+RUN tar -xf cmake.tar.gz && mv cmake-* cmake
+WORKDIR /sources/cmake
+
+RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake
+
 ## pahole (dwarves) — required by the kernel to generate BTF from DWARF debug info
 FROM rsync AS pahole
 ARG JOBS
@@ -2420,25 +2439,6 @@ RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
 RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --with-optimisation=-Os
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install_device-mapper DESTDIR=/lvm2
 
-FROM rsync AS cmake
-ARG JOBS
-# Disable lto for cmake as it gives us nothing but issues
-ENV CFLAGS="${CFLAGS//-flto=auto/}"
-ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
-COPY --from=curl /curl/ /
-COPY --from=openssl /openssl/ /
-COPY --from=sources-downloader /sources/downloads/cmake.tar.gz /sources/
-
-RUN mkdir -p /cmake
-WORKDIR /sources
-RUN tar -xf cmake.tar.gz && mv cmake-* cmake
-WORKDIR /sources/cmake
-
-RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake
-
-# TODO: Once a new jsonc version is released (0.19) they will have meson support
-# which means we can drop cmake buiilding which is very slow and heavy
 FROM rsync AS jsonc
 ARG JOBS
 COPY --from=cmake /cmake/ /
