@@ -310,7 +310,7 @@ RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}
 
 FROM sources-downloader-base AS dwarves-download
 ARG DWARVES_VERSION=1.28
-RUN wget -q https://github.com/acmel/dwarves/releases/download/v${DWARVES_VERSION}/dwarves-${DWARVES_VERSION}.tar.xz -O dwarves.tar.xz
+RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.gz
 
 FROM sources-downloader-base AS urcu-download
 ARG URCU_VERSION=0.15.6
@@ -722,7 +722,7 @@ COPY --from=libnetfilter_cthelper-download /sources/downloads/libnetfilter_cthel
 COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.tar.bz2 /sources/downloads/
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
-COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
+COPY --from=dwarves-download /sources/downloads/dwarves.tar.gz /sources/downloads/
 
 ########################################################
 #
@@ -2059,9 +2059,9 @@ ARG JOBS
 COPY --from=cmake /cmake/ /
 COPY --from=libelf /libelf/ /
 COPY --from=zlib /zlib/ /
-COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/dwarves.tar.gz /sources/
 WORKDIR /sources
-RUN tar -xf dwarves.tar.xz && mv dwarves-* dwarves
+RUN tar -xf dwarves.tar.gz && mv dwarves-* dwarves
 RUN mkdir -p /pahole /sources/dwarves-build
 WORKDIR /sources/dwarves-build
 RUN cmake ../dwarves \
