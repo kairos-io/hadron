@@ -2057,6 +2057,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 FROM rsync AS pahole
 ARG JOBS
 COPY --from=cmake /cmake/ /
+COPY --from=openssl /openssl/ /
 COPY --from=libelf /libelf/ /
 COPY --from=zlib /zlib/ /
 COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
