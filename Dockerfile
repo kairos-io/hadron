@@ -2002,6 +2002,7 @@ RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
+RUN apk add --no-cache argp-standalone
 COPY --from=zlib /zlib/ /
 COPY --from=sources-downloader /sources/downloads/elfutils.tar.bz2 /sources/
 RUN mkdir -p /elfutils
