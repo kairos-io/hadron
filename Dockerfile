@@ -314,7 +314,7 @@ RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSIO
 
 FROM sources-downloader-base AS argp-standalone-download
 ARG ARGP_STANDALONE_VERSION=1.4.1
-RUN wget -q https://github.com/ericonr/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
+RUN wget -q https://github.com/argp-standalone/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
 FROM sources-downloader-base AS elfutils-download
 ARG ELFUTILS_VERSION=0.192
