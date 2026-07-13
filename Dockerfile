@@ -313,8 +313,8 @@ ARG DWARVES_VERSION=1.28
 RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
 
 FROM sources-downloader-base AS argp-standalone-download
-ARG ARGP_STANDALONE_VERSION=1.3
-RUN wget -q https://github.com/rurban/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
+ARG ARGP_STANDALONE_VERSION=1.4.1
+RUN wget -q https://github.com/ericonr/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
 FROM sources-downloader-base AS elfutils-download
 ARG ELFUTILS_VERSION=0.192
@@ -2011,7 +2011,9 @@ COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /source
 WORKDIR /sources
 RUN tar -xf argp-standalone.tar.gz && mv argp-standalone-* argp
 WORKDIR /sources/argp
-RUN make CFLAGS="${CFLAGS} -fPIC" && \
+RUN gcc ${CFLAGS} -fPIC -I. \
+      -c argp-ba.c argp-eexst.c argp-fmtstream.c argp-help.c argp-parse.c argp-pv.c argp-pvh.c && \
+    gcc-ar rcs libargp.a argp-ba.o argp-eexst.o argp-fmtstream.o argp-help.o argp-parse.o argp-pv.o argp-pvh.o && \
     mkdir -p /argp/usr/lib /argp/usr/include && \
     cp libargp.a /argp/usr/lib/libargp.a && \
     cp libargp.a /usr/lib/libargp.a && \
