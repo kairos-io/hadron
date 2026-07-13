@@ -312,6 +312,10 @@ FROM sources-downloader-base AS dwarves-download
 ARG DWARVES_VERSION=1.28
 RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
 
+FROM sources-downloader-base AS elfutils-download
+ARG ELFUTILS_VERSION=0.192
+RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
+
 FROM sources-downloader-base AS urcu-download
 ARG URCU_VERSION=0.15.6
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
@@ -723,6 +727,7 @@ COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.ta
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
 COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
+COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
 
 ########################################################
 #
@@ -1994,6 +1999,31 @@ RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf
 RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 
 
+## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
+FROM fts AS elfutils
+ARG JOBS
+COPY --from=zlib /zlib/ /
+COPY --from=sources-downloader /sources/downloads/elfutils.tar.bz2 /sources/
+RUN mkdir -p /elfutils
+WORKDIR /sources
+RUN tar -xf elfutils.tar.bz2 && mv elfutils-* elfutils
+WORKDIR /sources/elfutils
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+    --without-bzlib \
+    --without-lzma \
+    --disable-debuginfod \
+    --disable-libdebuginfod \
+    --disable-nls
+RUN make -j${JOBS} -C lib && \
+    make -j${JOBS} -C libelf && \
+    make -j${JOBS} -C backends && \
+    make -j${JOBS} -C libdw && \
+    make -C libelf install DESTDIR=/elfutils && \
+    make -C backends install DESTDIR=/elfutils && \
+    make -C libdw install DESTDIR=/elfutils
+RUN rm -rf /elfutils/usr/share
+
+
 FROM rsync AS diffutils
 ARG JOBS
 RUN mkdir -p /diffutils
@@ -2058,7 +2088,7 @@ FROM rsync AS pahole
 ARG JOBS
 COPY --from=cmake /cmake/ /
 COPY --from=openssl /openssl/ /
-COPY --from=libelf /libelf/ /
+COPY --from=elfutils /elfutils/ /
 COPY --from=zlib /zlib/ /
 COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
 WORKDIR /sources
@@ -2091,6 +2121,8 @@ COPY --from=m4 /m4/ /
 COPY --from=bison /bison/ /
 
 COPY --from=libelf /libelf/ /
+
+COPY --from=elfutils /elfutils/ /
 
 COPY --from=openssl /openssl/ /
 
