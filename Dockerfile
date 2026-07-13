@@ -310,7 +310,7 @@ RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}
 
 FROM sources-downloader-base AS dwarves-download
 ARG DWARVES_VERSION=1.28
-RUN wget -q https://github.com/acmel/dwarves/releases/download/v${DWARVES_VERSION}/dwarves-${DWARVES_VERSION}.tar.xz -O dwarves.tar.xz
+RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
 
 FROM sources-downloader-base AS urcu-download
 ARG URCU_VERSION=0.15.6
