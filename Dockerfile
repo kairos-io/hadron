@@ -312,6 +312,10 @@ FROM sources-downloader-base AS dwarves-download
 ARG DWARVES_VERSION=1.28
 RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
 
+FROM sources-downloader-base AS argp-standalone-download
+ARG ARGP_STANDALONE_VERSION=1.3
+RUN wget -q https://github.com/rurban/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
+
 FROM sources-downloader-base AS elfutils-download
 ARG ELFUTILS_VERSION=0.192
 RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
@@ -727,6 +731,7 @@ COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.ta
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
 COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
+COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
 COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
 
 ########################################################
@@ -1999,10 +2004,24 @@ RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf
 RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 
 
+## argp-standalone — provides argp_parse for musl (required by elfutils configure)
+FROM rsync AS argp
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf argp-standalone.tar.gz && mv argp-standalone-* argp
+WORKDIR /sources/argp
+RUN make CFLAGS="${CFLAGS} -fPIC" && \
+    mkdir -p /argp/usr/lib /argp/usr/include && \
+    cp libargp.a /argp/usr/lib/libargp.a && \
+    cp libargp.a /usr/lib/libargp.a && \
+    cp argp.h /argp/usr/include/argp.h && \
+    cp argp.h /usr/include/argp.h
+
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
-RUN apk add --no-cache argp-standalone
+COPY --from=argp /argp/ /
 COPY --from=zlib /zlib/ /
 COPY --from=sources-downloader /sources/downloads/elfutils.tar.bz2 /sources/
 RUN mkdir -p /elfutils
