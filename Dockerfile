@@ -154,11 +154,11 @@ ARG OPENSSL_FIPS_VERSION=3.1.2
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz -O openssl-fips.tar.gz
 
 FROM sources-downloader-base AS openssh-download
-ARG OPENSSH_VERSION=10.3p1
+ARG OPENSSH_VERSION=10.4p1
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 FROM sources-downloader-base AS pkgconf-download
-ARG PKGCONFIG_VERSION=3.0.0
+ARG PKGCONFIG_VERSION=3.0.2
 RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
 FROM sources-downloader-base AS dbus-download
@@ -476,7 +476,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s coreutils.tar.xz
 
 FROM sources-downloader-base AS findutils-download
-ARG FINDUTILS_VERSION=4.10.0
+ARG FINDUTILS_VERSION=4.11.0
 RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
         wget -q "${mirror}/findutils/findutils-${FINDUTILS_VERSION}.tar.xz" -O findutils.tar.xz && break; \
         rm -f findutils.tar.xz; \
