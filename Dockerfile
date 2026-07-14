@@ -316,6 +316,10 @@ FROM sources-downloader-base AS argp-standalone-download
 ARG ARGP_STANDALONE_VERSION=1.4.1
 RUN wget -q https://github.com/argp-standalone/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
+FROM sources-downloader-base AS musl-obstack-download
+ARG MUSL_OBSTACK_VERSION=1.2.3
+RUN wget -q https://github.com/void-linux/musl-obstack/archive/refs/tags/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack.tar.gz
+
 FROM sources-downloader-base AS elfutils-download
 ARG ELFUTILS_VERSION=0.192
 RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
@@ -732,6 +736,7 @@ COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
 COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
 COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
+COPY --from=musl-obstack-download /sources/downloads/musl-obstack.tar.gz /sources/downloads/
 COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
 
 ########################################################
@@ -2020,10 +2025,27 @@ RUN gcc ${CFLAGS} -fPIC -I. \
     cp argp.h /argp/usr/include/argp.h && \
     cp argp.h /usr/include/argp.h
 
+## musl-obstack — provides obstack functions for musl (required by elfutils configure)
+FROM rsync AS obstack
+ARG JOBS
+ENV CFLAGS="$CFLAGS -fPIC"
+COPY --from=autoconf /autoconf/ /
+COPY --from=automake /automake/ /
+COPY --from=m4 /m4/ /
+COPY --from=perl /perl/ /
+COPY --from=libtool /libtool/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/musl-obstack.tar.gz /sources/
+RUN mkdir -p /sources && cd /sources && tar -xf musl-obstack.tar.gz && mv musl-obstack-* obstack && \
+    cd obstack && ./bootstrap.sh && \
+    ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --localstatedir=/var --sysconfdir=/etc && \
+    make -j${JOBS} DESTDIR=/obstack install && make -j${JOBS} install
+
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
 COPY --from=argp /argp/ /
+COPY --from=obstack /obstack/ /
 COPY --from=zlib /zlib/ /
 COPY --from=sources-downloader /sources/downloads/elfutils.tar.bz2 /sources/
 RUN mkdir -p /elfutils
