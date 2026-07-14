@@ -2044,6 +2044,11 @@ RUN mkdir -p /sources && cd /sources && tar -xf musl-obstack.tar.gz && mv musl-o
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
+# Disable LTO for elfutils: lto-wrapper calls make internally during libdw.so linking,
+# which fails with the global -flto=auto flag. LTO is not required for correctness here.
+ENV COMMON_CONFIGURE_ARGS="${COMMON_CONFIGURE_ARGS//--enable-lto/}"
+ENV CFLAGS="${CFLAGS//-flto=auto/}"
+ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
 COPY --from=argp /argp/ /
 COPY --from=obstack /obstack/ /
 COPY --from=zlib /zlib/ /
