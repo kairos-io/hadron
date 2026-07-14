@@ -2060,7 +2060,11 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --disable-nls
 RUN make -j${JOBS} -C lib && \
     make -j${JOBS} -C libelf && \
+    make -j${JOBS} -C libcpu && \
+    make -j${JOBS} -C libebl && \
     make -j${JOBS} -C backends && \
+    make -j${JOBS} -C libdwelf && \
+    make -j${JOBS} -C libdwfl && \
     make -j${JOBS} -C libdw && \
     make -C libelf install DESTDIR=/elfutils && \
     make -C backends install DESTDIR=/elfutils && \
