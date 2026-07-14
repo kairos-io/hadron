@@ -2044,11 +2044,11 @@ RUN mkdir -p /sources && cd /sources && tar -xf musl-obstack.tar.gz && mv musl-o
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
-# Disable LTO for elfutils: lto-wrapper calls make internally during libdw.so linking,
-# which fails with the global -flto=auto flag. LTO is not required for correctness here.
-ENV COMMON_CONFIGURE_ARGS="${COMMON_CONFIGURE_ARGS//--enable-lto/}"
-ENV CFLAGS="${CFLAGS//-flto=auto/}"
-ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
+# elfutils must NOT use LTO: lto-wrapper re-invokes make with elfutils' own -Werror=stack-usage=
+# which causes argp-help.c to fail with "stack usage might be unbounded".
+# Docker ENV does not support bash ${VAR//pat/sub} substitution, so set flags directly.
+ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections"
+ENV LDFLAGS="-Wl,--gc-sections -Wl,--as-needed"
 COPY --from=argp /argp/ /
 COPY --from=obstack /obstack/ /
 COPY --from=zlib /zlib/ /
@@ -2058,6 +2058,7 @@ WORKDIR /sources
 RUN tar -xf elfutils.tar.bz2 && mv elfutils-* elfutils
 WORKDIR /sources/elfutils
 RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+    --disable-lto \
     --without-bzlib \
     --without-lzma \
     --disable-debuginfod \
