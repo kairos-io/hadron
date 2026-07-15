@@ -1,0 +1,82 @@
+From: Itxaka <itxaka@kairos.io>
+Subject: tools/resolve_btfids: copy BTF names before mutating BTF
+
+process_kfunc_with_implicit_args() passes tag_name/param_name pointers
+obtained via btf__name_by_offset() straight into btf__add_decl_tag(),
+btf__add_decl_attr() and btf__add_func_param(). Those pointers alias the
+BTF strings section, and strset__add_str() unconditionally appends the
+incoming string before deduplicating, which can realloc that section.
+When the buffer moves, the source pointer dangles and the memcpy inside
+strset__add_str() reads freed memory.
+
+glibc's mremap usually extends the multi-MB strings buffer in place, so
+this stays hidden upstream. musl's mallocng always moves and unmaps the
+old block, making resolve_btfids segfault deterministically during
+vmlinux BTF generation (SEGV_MAPERR in memcpy <- btf__add_str <-
+btf__add_func_param).
+
+Copy the names into a stack buffer before calling the btf__add_* APIs,
+the same way tmp_name already does for the _impl function name.
+
+--- a/tools/bpf/resolve_btfids/main.c
++++ b/tools/bpf/resolve_btfids/main.c
+@@ -1116,6 +1116,7 @@
+ 	const struct btf_param *params;
+ 	enum btf_func_linkage linkage;
+ 	char tmp_name[KSYM_NAME_LEN];
++	char name_buf[KSYM_NAME_LEN];
+ 	struct btf *btf = ctx->btf;
+ 	int err, len, nr_params;
+ 	struct btf_type *t;
+@@ -1163,16 +1164,26 @@
+ 		if (strcmp(tag_name, "bpf_kfunc") == 0)
+ 			continue;
+ 
++		/* tag_name points into the BTF strings section, which
++		 * btf__add_decl_attr/btf__add_decl_tag below may reallocate;
++		 * pass a stable copy instead.
++		 */
++		len = snprintf(name_buf, sizeof(name_buf), "%s", tag_name);
++		if (len < 0 || len >= sizeof(name_buf)) {
++			pr_err("ERROR: decl tag name is too long: %s\n", tag_name);
++			return -E2BIG;
++		}
++
+ 		idx = btf_decl_tag(t)->component_idx;
+ 
+ 		if (btf_kflag(t))
+-			err = btf__add_decl_attr(btf, tag_name, new_func_id, idx);
++			err = btf__add_decl_attr(btf, name_buf, new_func_id, idx);
+ 		else
+-			err = btf__add_decl_tag(btf, tag_name, new_func_id, idx);
++			err = btf__add_decl_tag(btf, name_buf, new_func_id, idx);
+ 
+ 		if (err < 0) {
+ 			pr_err("ERROR: resolve_btfids: failed to add decl tag %s for %s\n",
+-			       tag_name, tmp_name);
++			       name_buf, tmp_name);
+ 			return -EINVAL;
+ 		}
+ 	}
+@@ -1193,10 +1204,19 @@
+ 		if (is_kf_implicit_arg(btf, &params[i]))
+ 			break;
+ 		param_name = btf__name_by_offset(btf, params[i].name_off);
+-		err = btf__add_func_param(btf, param_name, params[i].type);
++		/* param_name points into the BTF strings section, which
++		 * btf__add_func_param below may reallocate; pass a stable
++		 * copy instead.
++		 */
++		len = snprintf(name_buf, sizeof(name_buf), "%s", param_name);
++		if (len < 0 || len >= sizeof(name_buf)) {
++			pr_err("ERROR: param name is too long: %s\n", param_name);
++			return -E2BIG;
++		}
++		err = btf__add_func_param(btf, name_buf, params[i].type);
+ 		if (err < 0) {
+ 			pr_err("ERROR: resolve_btfids: failed to add param %s for %s\n",
+-			       param_name, kfunc->name);
++			       name_buf, kfunc->name);
+ 			return err;
+ 		}
+ 		t = (struct btf_type *)btf__type_by_id(btf, proto_id);

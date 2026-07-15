@@ -309,8 +309,12 @@ ARG CMAKE_VERSION=4.4.0
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 FROM sources-downloader-base AS dwarves-download
-ARG DWARVES_VERSION=1.28
+ARG DWARVES_VERSION=1.31
 RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
+
+FROM sources-downloader-base AS libbpf-download
+ARG LIBBPF_VERSION=1.5.0
+RUN wget -q https://github.com/libbpf/libbpf/archive/refs/tags/v${LIBBPF_VERSION}.tar.gz -O libbpf.tar.gz
 
 FROM sources-downloader-base AS argp-standalone-download
 ARG ARGP_STANDALONE_VERSION=1.4.1
@@ -321,7 +325,7 @@ ARG MUSL_OBSTACK_VERSION=1.2.3
 RUN wget -q https://github.com/void-linux/musl-obstack/archive/refs/tags/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack.tar.gz
 
 FROM sources-downloader-base AS elfutils-download
-ARG ELFUTILS_VERSION=0.192
+ARG ELFUTILS_VERSION=0.195
 RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
 
 FROM sources-downloader-base AS urcu-download
@@ -735,6 +739,7 @@ COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.ta
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
 COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
+COPY --from=libbpf-download /sources/downloads/libbpf.tar.gz /sources/downloads/
 COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
 COPY --from=musl-obstack-download /sources/downloads/musl-obstack.tar.gz /sources/downloads/
 COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
@@ -2071,10 +2076,18 @@ RUN make -j${JOBS} -C lib && \
     make -j${JOBS} -C backends && \
     make -j${JOBS} -C libdwelf && \
     make -j${JOBS} -C libdwfl && \
+    make -j${JOBS} -C libdwfl_stacktrace && \
     make -j${JOBS} -C libdw && \
     make -C libelf install DESTDIR=/elfutils && \
     make -C backends install DESTDIR=/elfutils && \
-    make -C libdw install DESTDIR=/elfutils
+    make -C libdw install DESTDIR=/elfutils && \
+    make -C libdwfl install DESTDIR=/elfutils && \
+    make -C libdwelf install DESTDIR=/elfutils && \
+    install -Dm644 version.h /elfutils/usr/include/elfutils/version.h
+# libbpf's pkg-config file lists libelf as a dependency; ship libelf.pc / libdw.pc so
+# pkg_check_modules(libbpf) succeeds in downstream stages (pahole).
+RUN install -Dm644 config/libelf.pc /elfutils/usr/lib/pkgconfig/libelf.pc && \
+    install -Dm644 config/libdw.pc  /elfutils/usr/lib/pkgconfig/libdw.pc
 RUN rm -rf /elfutils/usr/share
 
 
@@ -2137,13 +2150,35 @@ WORKDIR /sources/cmake
 RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake
 
+## libbpf — required by pahole; dwarves upstream ships it as a git submodule which the
+## GitHub tarball omits, so we build the standalone release and enable LIBBPF_EMBEDDED=OFF.
+FROM rsync AS libbpf
+ARG JOBS
+COPY --from=elfutils /elfutils/ /
+COPY --from=zlib /zlib/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/libbpf.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf libbpf.tar.gz && mv libbpf-* libbpf
+WORKDIR /sources/libbpf/src
+RUN mkdir -p /libbpf
+RUN make -j${JOBS} PREFIX=/usr LIBDIR=/usr/lib && \
+    make PREFIX=/usr LIBDIR=/usr/lib DESTDIR=/libbpf install && \
+    make PREFIX=/usr LIBDIR=/usr/lib DESTDIR=/libbpf install_uapi_headers
+# Install into the build root too so pkg-config from the pahole stage finds it.
+RUN cp -a /libbpf/usr/. /usr/
+
 ## pahole (dwarves) — required by the kernel to generate BTF from DWARF debug info
-FROM rsync AS pahole
+FROM fts AS pahole
 ARG JOBS
 COPY --from=cmake /cmake/ /
 COPY --from=openssl /openssl/ /
 COPY --from=elfutils /elfutils/ /
+COPY --from=libbpf /libbpf/ /
+COPY --from=obstack /obstack/ /
+COPY --from=argp /argp/ /
 COPY --from=zlib /zlib/ /
+COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf dwarves.tar.xz && mv dwarves-* dwarves
@@ -2151,7 +2186,9 @@ RUN mkdir -p /pahole /sources/dwarves-build
 WORKDIR /sources/dwarves-build
 RUN cmake ../dwarves \
       -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_LIBDIR=lib \
       -DCMAKE_BUILD_TYPE=MinSizeRel \
+      -DLIBBPF_EMBEDDED=OFF \
       -D__LIB=lib \
       && \
     make -j${JOBS} && \
@@ -2194,6 +2231,15 @@ COPY --from=xz /xz/ /
 
 COPY --from=grep /grep/ /
 
+# pahole and its runtime dependencies (libbpf, musl-obstack, argp-standalone, musl-fts).
+# Kernel Kconfig probes pahole --version at build time; missing libs would leave
+# CONFIG_PAHOLE_VERSION empty and silently disable DEBUG_INFO_BTF.
+# python3 is needed by kernel's tools/bpf/resolve_btfids build (bpf_helper_defs.h generation).
+COPY --from=libbpf /libbpf/ /
+COPY --from=obstack /obstack/ /
+COPY --from=argp /argp/ /
+COPY --from=fts /fts/ /
+COPY --from=python-build /python /
 COPY --from=pahole /pahole/ /
 
 COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
@@ -2208,6 +2254,8 @@ RUN tar -xf linux.tar.gz && mv linux-* kernel
 
 # Apply kernel patches (sorted; ignore if none).
 # LP: #2137714 — virt: vmgenid: remap memory as decrypted (fixes SEV-SNP boot on AWS).
+# 0002 — resolve_btfids: copy BTF names before mutating BTF; fixes deterministic
+# segfault during vmlinux BTF generation on musl (glibc mremap hides the bug).
 COPY ./files/kernel-patches /sources/kernel-patches
 RUN cd /sources/kernel && \
     for p in $(ls /sources/kernel-patches/*.patch 2>/dev/null | sort); do \
