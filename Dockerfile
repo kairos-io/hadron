@@ -2017,6 +2017,9 @@ RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 ## argp-standalone — provides argp_parse for musl (required by elfutils configure)
 FROM rsync AS argp
 ARG JOBS
+# LTO stripped: libargp.a is linked into elfutils libdw.so, and its bundled -Werror=stack-usage=
+# fires during ltrans re-compile of argp-help.c. Build argp without LTO so consumers can link cleanly.
+ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections"
 COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /sources/
 WORKDIR /sources
 RUN tar -xf argp-standalone.tar.gz && mv argp-standalone-* argp
