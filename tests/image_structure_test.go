@@ -191,7 +191,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("rsync", "rsync", "--version"),
 		Entry("grep", "grep", "--version"),
 		Entry("find", "find", "--version"),
+		Entry("getent", "getent", "passwd", "root"),
 	)
+
+	// Third-party provisioning scripts (k3s installers and friends) assume
+	// these classic utilities exist. The crash table above cannot detect a
+	// missing binary (the runtime's "not found" exit code is not a crash
+	// signal), so pin their presence explicitly.
+	It("ships utilities third-party scripts expect", func() {
+		for _, bin := range []string{"getent", "flock", "hostname", "nslookup"} {
+			out, code := shInImage("command -v " + bin)
+			Expect(code).To(Equal(0), "%s missing from image: %s", bin, out)
+		}
+	})
 
 	It("resolves /bin/sh to bash", func() {
 		out, code := shInImage("readlink -f /bin/sh")

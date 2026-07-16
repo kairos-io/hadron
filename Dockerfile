@@ -1085,6 +1085,16 @@ RUN ./configure --disable-warnings \
       make -s -j${JOBS} && \
       DESTDIR=/sysroot make -s -j${JOBS} -l${MAX_LOAD} install
 
+# getent is not part of musl itself; Alpine ships it in musl-utils, built from
+# a small standalone getent.c kept in aports (same source we already use for
+# ldconfig). Third-party scripts (k3s installers etc.) expect it, so compile
+# it here and install it into the sysroot alongside musl.
+COPY --from=sources-downloader /sources/downloads/aports.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf aports.tar.gz && mv aports-* aports && \
+    gcc ${CFLAGS} ${LDFLAGS} aports/main/musl/getent.c -o getent && \
+    install -Dm755 getent /sysroot/usr/bin/getent
+
 ## pkgconfig
 FROM stage1 AS pkgconfig
 ARG JOBS
