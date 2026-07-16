@@ -514,11 +514,11 @@ ARG LIBFFI_VERSION=3.7.1
 RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
 FROM sources-downloader-base AS tpm2-tss-download
-ARG TPM2_TSS_VERSION=4.1.3
+ARG TPM2_TSS_VERSION=4.2.0
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
 FROM sources-downloader-base AS libucontext-download
-ARG LIBUCONTEXT_VERSION=1.5.1
+ARG LIBUCONTEXT_VERSION=1.5.2
 RUN wget -q https://github.com/kaniini/libucontext/archive/refs/tags/libucontext-${LIBUCONTEXT_VERSION}.tar.gz -O libucontext.tar.gz
 
 FROM sources-downloader-base AS libxml2-download
