@@ -159,7 +159,7 @@ jobs:
             ARCH=aarch64
             BUILD_ARCH=aarch64
       - name: Install Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         timeout-minutes: 5
         with:
           go-version-file: tests/go.mod
