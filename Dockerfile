@@ -502,7 +502,7 @@ ARG PAX_UTILS_VERSION=1.3.10
 RUN wget -q https://github.com/gentoo/pax-utils/archive/refs/tags/v${PAX_UTILS_VERSION}.tar.gz -O pax-utils.tar.gz
 
 FROM sources-downloader-base AS openscsi-download
-ARG OPEN_SCSI_VERSION=2.1.11
+ARG OPEN_SCSI_VERSION=2.1.12
 RUN wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz -O openscsi.tar.gz
 
 FROM sources-downloader-base AS gdb-download
