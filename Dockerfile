@@ -450,7 +450,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s readline.tar.gz
 
 FROM sources-downloader-base AS perl-download
-ARG PERL_VERSION=5.42.2
+ARG PERL_VERSION=5.44.0
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 FROM sources-downloader-base AS coreutils-download
