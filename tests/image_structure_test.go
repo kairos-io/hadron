@@ -192,6 +192,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("grep", "grep", "--version"),
 		Entry("find", "find", "--version"),
 		Entry("getent", "getent", "passwd", "root"),
+		Entry("nslookup", "nslookup", "localhost"),
 	)
 
 	// Third-party provisioning scripts (k3s installers and friends) assume
