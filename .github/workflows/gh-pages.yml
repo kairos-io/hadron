@@ -26,11 +26,6 @@ on:
   # repo changes. Every 2 hours keeps data at most ~2h stale.
   schedule:
     - cron: '0 */2 * * *'
-  # Allow sibling repos (hadron-layers, hadron-firmware) to trigger a rebuild
-  # immediately after they publish new data, via a repository_dispatch POST to
-  # this repo's API with this event type.
-  repository_dispatch:
-    types: [external-data-updated]
   workflow_dispatch:
 
 permissions:
