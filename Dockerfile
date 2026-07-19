@@ -229,7 +229,7 @@ ARG PROCPS_NG_VERSION=4.0.6
 RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-${PROCPS_NG_VERSION}.tar.xz -O procps-ng.tar.xz
 
 FROM sources-downloader-base AS linux-download
-ARG KERNEL_VERSION=7.1.3
+ARG KERNEL_VERSION=7.1.4
 RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-${KERNEL_VERSION}.tar.gz -O linux.tar.gz
 
 FROM sources-downloader-base AS flex-download
