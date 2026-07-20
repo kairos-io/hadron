@@ -3,6 +3,7 @@ package hadron_test
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,27 @@ func assertBpfMounted(vm VM) {
 			Or(
 				ContainSubstring("bpf"),
 			))
+	})
+}
+
+// assertBTFAvailable verifies the kernel exposes vmlinux BTF at
+// /sys/kernel/btf/vmlinux (CONFIG_DEBUG_INFO_BTF=y). CO-RE eBPF consumers
+// (Datadog system-probe, Tetragon, Inspektor Gadget, Parca, bpftrace, BCC
+// CO-RE tools) require this to relocate their pre-compiled programs at load
+// time. Without it they fail with "no BTF data".
+func assertBTFAvailable(vm VM) {
+	By("checking kernel BTF is exposed for CO-RE eBPF", func() {
+		out, err := vm.Sudo("stat -c %s /sys/kernel/btf/vmlinux 2>/dev/null || echo missing")
+		Expect(err).ToNot(HaveOccurred(), out)
+		s := strings.TrimSpace(out)
+		Expect(s).ToNot(Equal("missing"),
+			"/sys/kernel/btf/vmlinux is absent; CONFIG_DEBUG_INFO_BTF likely not enabled")
+		// vmlinux BTF is typically 3-8MB. Assert a conservative lower bound
+		// so a truncated or empty file trips the test.
+		n, perr := strconv.Atoi(s)
+		Expect(perr).ToNot(HaveOccurred(), "unparseable size %q", s)
+		Expect(n).To(BeNumerically(">", 1_000_000),
+			"vmlinux BTF suspiciously small: %d bytes", n)
 	})
 }
 
