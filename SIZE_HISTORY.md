@@ -11,6 +11,7 @@ source of truth; this page and the chart are regenerated from it by
 
 | date | sha | hadron | hadron-cloud | hadron-trusted | hadron-cloud-trusted |
 |---|---|--:|--:|--:|--:|
+| 2026-07-20 | [`2dc527eec060`](https://github.com/kairos-io/hadron/commit/2dc527eec060daa073c76186559ab9de3142054d) | 213MB (+1.8MB) | 110MB (+1.2MB) | 186MB (+1.8MB) | 83MB (+1.2MB) |
 | 2026-07-19 | [`f6e9abe31308`](https://github.com/kairos-io/hadron/commit/f6e9abe31308ca6fd08efcfa0888d80abb6d6f08) | 211MB (-3.3KB) | 109MB (+425B) | 184MB (+5.0KB) | 82MB (+318B) |
 | 2026-07-16 | [`4373dab25414`](https://github.com/kairos-io/hadron/commit/4373dab25414d176bfc477f7f1c79af7e2a5aa2b) | 211MB (+49KB) | 109MB (+44KB) | 184MB (+46KB) | 82MB (+44KB) |
 | 2026-07-14 | [`2f4b50c49302`](https://github.com/kairos-io/hadron/commit/2f4b50c493029ab79825e84373dca7b0776a581d) | 211MB (+349KB) | 109MB (+350KB) | 184MB (+347KB) | 82MB (+350KB) |
@@ -30,5 +31,4 @@ source of truth; this page and the chart are regenerated from it by
 | 2026-06-25 | [`239f9887abc3`](https://github.com/kairos-io/hadron/commit/239f9887abc303a34d01192368928c8511a0b2c9) | 210MB (+0B) | 108MB (+0B) | 183MB (+0B) | 81MB (+0B) |
 | 2026-06-25 | [`5d2e300cfb47`](https://github.com/kairos-io/hadron/commit/5d2e300cfb47247f7bcfbf50d7907458e61bd6b5) | 210MB (+0B) | 108MB (+1B) | 183MB (-2.0KB) | 81MB (+1B) |
 | 2026-06-24 | [`ba5a4a5d6c73`](https://github.com/kairos-io/hadron/commit/ba5a4a5d6c737979723f52718168d4dea43fe1af) | 210MB (+0B) | 108MB (-323B) | 183MB (+622B) | 81MB (+343B) |
-| 2026-06-22 | [`ce3ccbbb354a`](https://github.com/kairos-io/hadron/commit/ce3ccbbb354aeee4f2c153038a58a21f8e6e8192) | 210MB | 108MB | 183MB | 81MB |
 

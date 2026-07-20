@@ -4,57 +4,57 @@
 <line x1="90" y1="26" x2="90" y2="146" stroke="#888"/>
 <line x1="90" y1="146" x2="740" y2="146" stroke="#888"/>
 <line x1="90" y1="146.0" x2="740" y2="146.0" stroke="#eee"/>
-<text x="84" y="149.0" text-anchor="end" fill="#555">209.8 MiB</text>
+<text x="84" y="149.0" text-anchor="end" fill="#555">209.5 MiB</text>
 <line x1="90" y1="116.0" x2="740" y2="116.0" stroke="#eee"/>
-<text x="84" y="119.0" text-anchor="end" fill="#555">209.9 MiB</text>
+<text x="84" y="119.0" text-anchor="end" fill="#555">210.2 MiB</text>
 <line x1="90" y1="86.0" x2="740" y2="86.0" stroke="#eee"/>
-<text x="84" y="89.0" text-anchor="end" fill="#555">210.1 MiB</text>
+<text x="84" y="89.0" text-anchor="end" fill="#555">210.9 MiB</text>
 <line x1="90" y1="56.0" x2="740" y2="56.0" stroke="#eee"/>
-<text x="84" y="59.0" text-anchor="end" fill="#555">210.2 MiB</text>
+<text x="84" y="59.0" text-anchor="end" fill="#555">211.6 MiB</text>
 <line x1="90" y1="26.0" x2="740" y2="26.0" stroke="#eee"/>
-<text x="84" y="29.0" text-anchor="end" fill="#555">210.4 MiB</text>
-<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="90.0,132.2 124.2,132.2 158.4,132.2 192.6,132.2 226.8,130.0 261.1,125.5 295.3,121.8 329.5,121.8 363.7,122.4 397.9,119.9 432.1,119.9 466.3,118.8 500.5,118.8 534.7,118.8 568.9,118.8 603.2,118.8 637.4,120.7 671.6,49.8 705.8,39.8 740.0,40.5 "/>
+<text x="84" y="29.0" text-anchor="end" fill="#555">212.3 MiB</text>
+<polyline fill="none" stroke="#1f77b4" stroke-width="2" points="90.0,132.2 122.5,132.2 155.0,132.2 187.5,132.2 220.0,131.7 252.5,130.8 285.0,130.0 317.5,130.0 350.0,130.2 382.5,129.6 415.0,129.6 447.5,129.4 480.0,129.4 512.5,129.4 545.0,129.4 577.5,129.4 610.0,129.8 642.5,115.3 675.0,113.2 707.5,113.4 740.0,39.8 "/>
 <text x="90" y="222" fill="#ff7f0e" font-weight="bold">hadron-cloud</text>
 <line x1="90" y1="230" x2="90" y2="350" stroke="#888"/>
 <line x1="90" y1="350" x2="740" y2="350" stroke="#888"/>
 <line x1="90" y1="350.0" x2="740" y2="350.0" stroke="#eee"/>
-<text x="84" y="353.0" text-anchor="end" fill="#555">107.0 MiB</text>
+<text x="84" y="353.0" text-anchor="end" fill="#555">106.8 MiB</text>
 <line x1="90" y1="320.0" x2="740" y2="320.0" stroke="#eee"/>
-<text x="84" y="323.0" text-anchor="end" fill="#555">107.4 MiB</text>
+<text x="84" y="323.0" text-anchor="end" fill="#555">107.6 MiB</text>
 <line x1="90" y1="290.0" x2="740" y2="290.0" stroke="#eee"/>
-<text x="84" y="293.0" text-anchor="end" fill="#555">107.9 MiB</text>
+<text x="84" y="293.0" text-anchor="end" fill="#555">108.5 MiB</text>
 <line x1="90" y1="260.0" x2="740" y2="260.0" stroke="#eee"/>
-<text x="84" y="263.0" text-anchor="end" fill="#555">108.3 MiB</text>
+<text x="84" y="263.0" text-anchor="end" fill="#555">109.3 MiB</text>
 <line x1="90" y1="230.0" x2="740" y2="230.0" stroke="#eee"/>
-<text x="84" y="233.0" text-anchor="end" fill="#555">108.8 MiB</text>
-<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="90.0,336.1 124.2,336.2 158.4,336.2 192.6,336.2 226.8,335.4 261.1,333.8 295.3,332.6 329.5,332.6 363.7,332.6 397.9,331.3 432.1,331.3 466.3,268.6 500.5,268.6 534.7,268.6 568.9,268.6 603.2,268.6 637.4,269.1 671.6,246.7 705.8,243.9 740.0,243.8 "/>
+<text x="84" y="233.0" text-anchor="end" fill="#555">110.1 MiB</text>
+<polyline fill="none" stroke="#ff7f0e" stroke-width="2" points="90.0,336.1 122.5,336.2 155.0,336.2 187.5,336.2 220.0,335.7 252.5,334.8 285.0,334.2 317.5,334.2 350.0,334.2 382.5,333.5 415.0,333.5 447.5,299.0 480.0,299.0 512.5,299.0 545.0,299.0 577.5,299.0 610.0,299.3 642.5,286.9 675.0,285.4 707.5,285.4 740.0,243.8 "/>
 <text x="90" y="426" fill="#2ca02c" font-weight="bold">hadron-trusted</text>
 <line x1="90" y1="434" x2="90" y2="554" stroke="#888"/>
 <line x1="90" y1="554" x2="740" y2="554" stroke="#888"/>
 <line x1="90" y1="554.0" x2="740" y2="554.0" stroke="#eee"/>
-<text x="84" y="557.0" text-anchor="end" fill="#555">182.8 MiB</text>
+<text x="84" y="557.0" text-anchor="end" fill="#555">182.5 MiB</text>
 <line x1="90" y1="524.0" x2="740" y2="524.0" stroke="#eee"/>
-<text x="84" y="527.0" text-anchor="end" fill="#555">182.9 MiB</text>
+<text x="84" y="527.0" text-anchor="end" fill="#555">183.2 MiB</text>
 <line x1="90" y1="494.0" x2="740" y2="494.0" stroke="#eee"/>
-<text x="84" y="497.0" text-anchor="end" fill="#555">183.1 MiB</text>
+<text x="84" y="497.0" text-anchor="end" fill="#555">183.9 MiB</text>
 <line x1="90" y1="464.0" x2="740" y2="464.0" stroke="#eee"/>
-<text x="84" y="467.0" text-anchor="end" fill="#555">183.2 MiB</text>
+<text x="84" y="467.0" text-anchor="end" fill="#555">184.6 MiB</text>
 <line x1="90" y1="434.0" x2="740" y2="434.0" stroke="#eee"/>
-<text x="84" y="437.0" text-anchor="end" fill="#555">183.4 MiB</text>
-<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="90.0,539.9 124.2,539.8 158.4,540.2 192.6,540.2 226.8,537.9 261.1,533.8 295.3,529.8 329.5,529.5 363.7,530.8 397.9,528.5 432.1,528.5 466.3,527.6 500.5,527.6 534.7,527.6 568.9,527.6 603.2,527.6 637.4,527.3 671.6,457.9 705.8,448.8 740.0,447.8 "/>
+<text x="84" y="437.0" text-anchor="end" fill="#555">185.4 MiB</text>
+<polyline fill="none" stroke="#2ca02c" stroke-width="2" points="90.0,540.1 122.5,540.1 155.0,540.2 187.5,540.2 220.0,539.7 252.5,538.8 285.0,538.0 317.5,537.9 350.0,538.2 382.5,537.7 415.0,537.7 447.5,537.5 480.0,537.5 512.5,537.5 545.0,537.5 577.5,537.5 610.0,537.5 642.5,523.1 675.0,521.2 707.5,521.0 740.0,447.8 "/>
 <text x="90" y="630" fill="#d62728" font-weight="bold">hadron-cloud-trusted</text>
 <line x1="90" y1="638" x2="90" y2="758" stroke="#888"/>
 <line x1="90" y1="758" x2="740" y2="758" stroke="#888"/>
 <line x1="90" y1="758.0" x2="740" y2="758.0" stroke="#eee"/>
-<text x="84" y="761.0" text-anchor="end" fill="#555">80.0 MiB</text>
+<text x="84" y="761.0" text-anchor="end" fill="#555">79.8 MiB</text>
 <line x1="90" y1="728.0" x2="740" y2="728.0" stroke="#eee"/>
-<text x="84" y="731.0" text-anchor="end" fill="#555">80.4 MiB</text>
+<text x="84" y="731.0" text-anchor="end" fill="#555">80.6 MiB</text>
 <line x1="90" y1="698.0" x2="740" y2="698.0" stroke="#eee"/>
-<text x="84" y="701.0" text-anchor="end" fill="#555">80.9 MiB</text>
+<text x="84" y="701.0" text-anchor="end" fill="#555">81.5 MiB</text>
 <line x1="90" y1="668.0" x2="740" y2="668.0" stroke="#eee"/>
-<text x="84" y="671.0" text-anchor="end" fill="#555">81.3 MiB</text>
+<text x="84" y="671.0" text-anchor="end" fill="#555">82.3 MiB</text>
 <line x1="90" y1="638.0" x2="740" y2="638.0" stroke="#eee"/>
-<text x="84" y="641.0" text-anchor="end" fill="#555">81.8 MiB</text>
-<polyline fill="none" stroke="#d62728" stroke-width="2" points="90.0,744.2 124.2,744.1 158.4,744.1 192.6,744.1 226.8,743.4 261.1,741.8 295.3,740.6 329.5,740.6 363.7,740.5 397.9,739.3 432.1,739.3 466.3,677.0 500.5,677.0 534.7,677.0 568.9,677.0 603.2,677.0 637.4,677.0 671.6,654.7 705.8,651.9 740.0,651.8 "/>
+<text x="84" y="641.0" text-anchor="end" fill="#555">83.1 MiB</text>
+<polyline fill="none" stroke="#d62728" stroke-width="2" points="90.0,744.2 122.5,744.1 155.0,744.1 187.5,744.1 220.0,743.7 252.5,742.8 285.0,742.2 317.5,742.2 350.0,742.2 382.5,741.5 415.0,741.5 447.5,707.1 480.0,707.1 512.5,707.1 545.0,707.1 577.5,707.1 610.0,707.1 642.5,694.8 675.0,693.3 707.5,693.3 740.0,651.8 "/>
 <text x="415" y="802" text-anchor="middle" fill="#555">merges over time (oldest → newest)</text>
 </svg>
