@@ -233,7 +233,7 @@ update-kernel-configs:
 	@docker run --rm \
 		-v $(PWD)/files/kernel:/configs \
 		alpine:3 sh -c ' \
-			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
+			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev dwarves 2>/dev/null && \
 			wget https://cdn.kernel.org/pub/linux/kernel/v$$(echo $(KERNEL_VERSION) | cut -d. -f1).x/linux-$(KERNEL_VERSION).tar.xz && \
 			tar xf linux-$(KERNEL_VERSION).tar.xz && \
 			cd linux-$(KERNEL_VERSION) && \
