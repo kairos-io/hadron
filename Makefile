@@ -15,6 +15,7 @@ KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
 KERNEL_VERSION ?= $(shell grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
+DWARVES_VERSION ?= $(shell grep 'ARG DWARVES_VERSION=' Dockerfile | cut -d= -f2)
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -234,6 +235,7 @@ update-kernel-configs:
 		-v $(PWD)/files/kernel:/configs \
 		alpine:3 sh -c ' \
 			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
+			printf '"'"'#!/bin/sh\necho "v$(DWARVES_VERSION)"\n'"'"' > /usr/local/bin/pahole && chmod +x /usr/local/bin/pahole && \
 			wget https://cdn.kernel.org/pub/linux/kernel/v$$(echo $(KERNEL_VERSION) | cut -d. -f1).x/linux-$(KERNEL_VERSION).tar.xz && \
 			tar xf linux-$(KERNEL_VERSION).tar.xz && \
 			cd linux-$(KERNEL_VERSION) && \
