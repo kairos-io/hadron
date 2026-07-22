@@ -373,7 +373,7 @@ ARG NFS_UTILS_VERSION=2.9.1
 RUN wget -q https://www.kernel.org/pub/linux/utils/nfs-utils/${NFS_UTILS_VERSION}/nfs-utils-${NFS_UTILS_VERSION}.tar.xz -O nfs-utils.tar.xz
 
 FROM sources-downloader-base AS cryptsetup-download
-ARG CRYPTSETUP_VERSION=2.8.6
+ARG CRYPTSETUP_VERSION=2.8.7
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 FROM sources-downloader-base AS grub-download
