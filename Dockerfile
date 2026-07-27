@@ -446,7 +446,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s make.tar.gz
 
 FROM sources-downloader-base AS binutils-download
-ARG BINUTILS_VERSION=2.46.1
+ARG BINUTILS_VERSION=2.47
 RUN wget -q https://sourceware.org/pub/binutils/releases/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
 FROM sources-downloader-base AS popt-download
