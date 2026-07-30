@@ -109,7 +109,7 @@ RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.ta
 
 FROM sources-downloader-base AS attr-download
 ARG ATTR_VERSION=2.6.0
-RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
+RUN wget -q https://mirrors.kernel.org/pub/linux/utils/fs/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
 FROM sources-downloader-base AS gawk-download
 ARG GAWK_VERSION=5.4.1
