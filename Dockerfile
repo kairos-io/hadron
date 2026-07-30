@@ -297,7 +297,7 @@ ARG LVM2_VERSION=2.03.41
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 FROM sources-downloader-base AS multipath-tools-download
-ARG MULTIPATH_TOOLS_VERSION=0.14.3
+ARG MULTIPATH_TOOLS_VERSION=0.15.0
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 FROM sources-downloader-base AS json-c-download
