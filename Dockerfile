@@ -369,7 +369,7 @@ ARG KEYUTILS_VERSION=1.6.3
 RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${KEYUTILS_VERSION}.tar.gz -O keyutils.tar.gz
 
 FROM sources-downloader-base AS nfs-utils-download
-ARG NFS_UTILS_VERSION=2.9.1
+ARG NFS_UTILS_VERSION=2.9.2
 RUN wget -q https://www.kernel.org/pub/linux/utils/nfs-utils/${NFS_UTILS_VERSION}/nfs-utils-${NFS_UTILS_VERSION}.tar.xz -O nfs-utils.tar.xz
 
 FROM sources-downloader-base AS cryptsetup-download
@@ -1825,6 +1825,10 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
+# Backport of upstream ba4419c5 (missing <stdint.h> for uintmax_t, breaks musl builds).
+# Drop this patch when bumping shadow past 4.20.0.
+COPY patches/0001-shadow-subid-stdint-musl.patch .
+RUN patch -p1 < 0001-shadow-subid-stdint-musl.patch
 # --disable-logind disables building with systemd logind support. This is for the base shadow build without systemd
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls --disable-logind
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
@@ -2889,18 +2893,15 @@ RUN LIBS="-ltirpc" \
 RUN sed -i 's/\bstruct stat64\b/struct stat/g; s/\bstat64 (/stat (/g; s/\bstat64(/stat(/g' \
       tools/rpcgen/rpc_main.c
 
-# nfs-utils 2.9.1 bug: support/nfs/fh_key_file.c calls strerror() but is
-# missing <string.h>. GCC infers `int` return type and the format check
-# (-Werror=format) rejects it. Upstream issue, not musl-specific; the
-# file was added in 2025 and the omission slipped through.
-# Fixed upstream in commit 0097ceb (post-2.9.1, not yet in a tagged release):
-# https://git.linux-nfs.org/?p=steved/nfs-utils.git;a=commit;h=0097ceb136a7db15c535a78fca01e2814e82d2a7
+# nfs-utils 2.9.2 bug: support/nfs/getport.c uses offsetof() but is missing
+# <stddef.h>. GCC 15 errors on the implicit declaration with
+# -Werror=implicit-function-declaration (enabled by nfs-utils' own configure).
+# Not musl-specific; regressed in 2.9.2. Not yet fixed upstream.
 # Drop this whole block once we bump to a release that contains the fix.
-# The grep guard makes it a no-op if the file already has the include
-# (e.g. after a version bump that pulls in the upstream patch); the sed
-# anchors on <errno.h> rather than a line number so it survives reorders.
-RUN if ! grep -q '^#include <string\.h>' support/nfs/fh_key_file.c; then \
-        sed -i '/^#include <errno\.h>/a #include <string.h>' support/nfs/fh_key_file.c; \
+# The grep guard makes it a no-op if the file already has the include;
+# the sed anchors on <errno.h> rather than a line number so it survives reorders.
+RUN if ! grep -q '^#include <stddef\.h>' support/nfs/getport.c; then \
+        sed -i '/^#include <errno\.h>/a #include <stddef.h>' support/nfs/getport.c; \
     fi
 
 RUN make -s -j${JOBS} -l${MAX_LOAD} \
@@ -3460,6 +3461,10 @@ RUN mkdir -p /shadow
 WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
+# Backport of upstream ba4419c5 (missing <stdint.h> for uintmax_t, breaks musl builds).
+# Drop this patch when bumping shadow past 4.20.0.
+COPY patches/0001-shadow-subid-stdint-musl.patch .
+RUN patch -p1 < 0001-shadow-subid-stdint-musl.patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
 
