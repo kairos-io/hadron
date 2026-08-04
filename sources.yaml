@@ -30,8 +30,38 @@
 #                the Dockerfile expects downstream via COPY --from.
 
 packages:
+  attr:
+    version_arg: ATTR_VERSION
+    sha256: d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612
+    url: https://download.savannah.nongnu.org/releases/attr/attr-${version}.tar.gz
+    filename: attr.tar.gz
+
+  keyutils:
+    version_arg: KEYUTILS_VERSION
+    sha256: a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${version}.tar.gz
+    filename: keyutils.tar.gz
+
   libcap:
     version_arg: LIBCAP_VERSION
     sha256: 0d621e562fd932ccf67b9660fb018e468a683d7b827541df27813228c996bb11
     url: https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${version}.tar.xz
     filename: libcap.tar.xz
+
+  systemd:
+    version_arg: SYSTEMD_VERSION
+    sha256: ed1059ff964f5df35b6056434cc17cc83f86dc913f10489948a0b19b6081c5ec
+    url: https://github.com/systemd/systemd/archive/refs/tags/v${version}.tar.gz
+    filename: systemd.tar.gz
+
+  zlib:
+    version_arg: ZLIB_VERSION
+    sha256: bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+    url: https://zlib.net/fossils/zlib-${version}.tar.gz
+    filename: zlib.tar.gz
+
+  zstd:
+    version_arg: ZSTD_VERSION
+    sha256: 37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3
+    url: https://github.com/facebook/zstd/archive/v${version}.tar.gz
+    filename: zstd.tar.gz
