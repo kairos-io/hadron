@@ -228,9 +228,18 @@ FROM sources-downloader-base AS procps-ng-download
 ARG PROCPS_NG_VERSION=4.0.6
 RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-${PROCPS_NG_VERSION}.tar.xz -O procps-ng.tar.xz
 
+# Fetch the kernel from cdn.kernel.org (static release tarball, globally
+# mirrored, immutable) rather than git.kernel.org's cgit /snapshot endpoint.
+# cgit regenerates the tarball on the fly via `git archive` for every
+# request and kernel.org rate-limits that endpoint aggressively; sustained
+# CI hits get 403s. The CDN copy is the same source tree, just repackaged
+# with xz. ${KERNEL_VERSION%%.*} extracts the major (e.g. 7 from 7.1.5) so
+# the version stays a single-source ARG the autobumper can update.
+# If we ever pin to a mainline/RC that is not on the CDN yet, this will 404
+# and we will need to add git.kernel.org back as a fallback.
 FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=7.1.5
-RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-${KERNEL_VERSION}.tar.gz -O linux.tar.gz
+RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 FROM sources-downloader-base AS flex-download
 ARG FLEX_VERSION=2.6.4
@@ -664,7 +673,7 @@ COPY --from=kbd-download /sources/downloads/kbd.tar.gz /sources/downloads/
 COPY --from=iptables-download /sources/downloads/iptables.tar.xz /sources/downloads/
 COPY --from=libmnl-download /sources/downloads/libmnl.tar.bz2 /sources/downloads/
 COPY --from=libnftnl-download /sources/downloads/libnftnl.tar.xz /sources/downloads/
-COPY --from=linux-download /sources/downloads/linux.tar.gz /sources/downloads/
+COPY --from=linux-download /sources/downloads/linux.tar.xz /sources/downloads/
 COPY --from=flex-download /sources/downloads/flex.tar.gz /sources/downloads/
 COPY --from=bison-download /sources/downloads/bison.tar.xz /sources/downloads/
 COPY --from=autoconf-download /sources/downloads/autoconf.tar.xz /sources/downloads/
@@ -989,10 +998,10 @@ EOT
 FROM make-stage0 AS kernel-headers-stage0
 ARG JOBS
 
-COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
 
 WORKDIR /sources
-RUN tar -xf linux.tar.gz && mv linux-* kernel
+RUN tar -xf linux.tar.xz && mv linux-* kernel
 WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
@@ -2259,7 +2268,7 @@ COPY --from=fts /fts/ /
 COPY --from=python-build /python /
 COPY --from=pahole /pahole/ /
 
-COPY --from=sources-downloader /sources/downloads/linux.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
 
 RUN mkdir -p /sources/kernel-configs
 COPY ./files/kernel/* /sources/kernel-configs/
@@ -2267,7 +2276,7 @@ COPY ./files/kernel/* /sources/kernel-configs/
 RUN mkdir -p /kernel && mkdir -p /modules
 
 WORKDIR /sources
-RUN tar -xf linux.tar.gz && mv linux-* kernel
+RUN tar -xf linux.tar.xz && mv linux-* kernel
 
 # Apply kernel patches (sorted; ignore if none).
 # LP: #2137714 — virt: vmgenid: remap memory as decrypted (fixes SEV-SNP boot on AWS).
