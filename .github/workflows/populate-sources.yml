@@ -20,15 +20,16 @@ name: Populate source caches
 # `FROM ghcr.io/kairos-io/hadron-sources/<pkg>:${<version_arg>}`.
 
 on:
-  pull_request:
-    paths:
-      - 'sources.yaml'
-      - '.github/workflows/populate-sources.yml'
-  push:
-    branches: [main]
-    paths:
-      - 'sources.yaml'
-      - '.github/workflows/populate-sources.yml'
+  # PR workflows and build-multiarch-images call this via
+  # workflow_call, then depend on it via `needs: populate-sources`.
+  # That gates every docker/build-push-action until each ghcr
+  # source image the Dockerfile references has been published (or
+  # short-circuited as "already published"). Without this gating,
+  # toolchain runs in parallel with populate-sources and its
+  # `FROM ghcr.io/.../pkg:VER` can fail with "not found" on a cold
+  # cache push where populate-sources hasn't finished yet.
+  workflow_call: {}
+  # Manual button on the Actions page for one-off publishes.
   workflow_dispatch: {}
 
 permissions:

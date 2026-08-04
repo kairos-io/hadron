@@ -17,8 +17,19 @@ concurrency:
   group: ci-image-${{ github.ref_name }}-${{ github.repository }}
   cancel-in-progress: ${{ github.ref_name == 'main' }} # Only cancel in-progress for branch builds, never for tags
 jobs:
+  # See populate-sources.yml for details. Gates every downstream
+  # docker/build-push-action so ghcr source images are populated
+  # before FROM lines try to resolve.
+  populate-sources:
+    uses: ./.github/workflows/populate-sources.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
   toolchain-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
+    needs: populate-sources
     permissions:
       packages: write
       contents: read
@@ -72,6 +83,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
   toolchain-arm64:
     runs-on: oracle-vm-32cpu-128gb-arm64
+    needs: populate-sources
     permissions:
       packages: write
       contents: read

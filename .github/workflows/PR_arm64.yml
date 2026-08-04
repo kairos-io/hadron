@@ -18,6 +18,20 @@ env:
   PR_NUM: ${{ github.event.pull_request.number }}
 
 jobs:
+  # Ensure every ghcr source image the Dockerfile references is
+  # published before any docker/build-push-action starts. On a warm
+  # cache this is a quick matrix of manifest inspects; on a cold
+  # cache (fresh version bump) it actually fetches and publishes,
+  # which can take a couple of minutes. Either way, toolchain must
+  # wait, otherwise its FROM ghcr.io/.../pkg:VER can fail with
+  # "not found" while populate-sources is still catching up.
+  populate-sources:
+    uses: ./.github/workflows/populate-sources.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+
   check-kernel-configs:
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +69,7 @@ jobs:
 
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-arm64
+    needs: populate-sources
     permissions:
       packages: write
       contents: read
