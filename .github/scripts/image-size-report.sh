@@ -2,7 +2,7 @@
 # Compare the full Hadron images built for this PR against the published
 # ":main" baseline and emit a Markdown size report to stdout.
 #
-# Used by the "image-size-report" job in PR_amd64.yml so reviewers can see how
+# Used by the "image-size-report" job in PR_multiarch.yml so reviewers can see how
 # much a change (e.g. adding a new dependency) grows the shipped images.
 #
 # Usage: image-size-report.sh <pr-sha> <repo-slug>
@@ -44,7 +44,7 @@ FILE_MIN_DELTA="${FILE_MIN_DELTA:-4096}"        # 4 KiB
 
 # Build the per-variant comparison table from the shared SIZE_VARIANTS list:
 #   name | PR image (this build, pushed to ttl.sh) | main baseline (ghcr.io)
-# PR bios tags carry a -amd64 suffix; trusted tags do not (see PR_amd64.yml).
+# PR bios tags carry a -amd64 suffix; trusted tags do not (see PR_multiarch.yml).
 VARIANTS=()
 for _v in "${SIZE_VARIANTS[@]}"; do
   _name="${_v%%|*}"

@@ -1,11 +1,12 @@
 ---
-name: 'PR build and test images (amd64)'
+name: 'PR build and test images (multiarch)'
 
 on:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: ci-image-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: ci-image-multiarch-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
 env:
@@ -32,6 +33,10 @@ jobs:
       packages: write
     secrets: inherit
 
+  # Kernel config version + BTF checks are arch-independent (they read the
+  # single linux version from sources.yaml), so run them once for all four
+  # config files: x86_64 (cloud.config, default.config) and arm64
+  # (cloud-arm64.config, default-arm64.config).
   check-kernel-configs:
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +47,7 @@ jobs:
           KERNEL_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
           [[ "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
           FAILED=0
-          for cfg in files/kernel/cloud.config files/kernel/default.config; do
+          for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
             CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+(\.\d+)?' || true)
             [[ "$CONFIG_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && CONFIG_VERSION="${CONFIG_VERSION}.0"
             if [ "$CONFIG_VERSION" != "$KERNEL_VERSION" ]; then
@@ -54,10 +59,10 @@ jobs:
             fi
           done
           exit $FAILED
-      - name: Verify BTF is enabled in all x86_64 kernel configs
+      - name: Verify BTF is enabled in all kernel configs
         run: |
           FAILED=0
-          for cfg in files/kernel/cloud.config files/kernel/default.config; do
+          for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
             if ! grep -q '^CONFIG_DEBUG_INFO_BTF=y' "$cfg"; then
               echo "ERROR: $cfg is missing CONFIG_DEBUG_INFO_BTF=y"
               FAILED=1
@@ -67,7 +72,7 @@ jobs:
           done
           exit $FAILED
 
-  toolchain:
+  toolchain-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: populate-sources
     permissions:
@@ -115,10 +120,62 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           target: toolchain
-  container:
+
+  toolchain-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs: populate-sources
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          tags: ttl.sh/hadron-toolchain-arm64:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: toolchain
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  container-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
-      - toolchain
+      - toolchain-amd64
     permissions:
       packages: write
       contents: read
@@ -196,10 +253,98 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
-  hadron-bios:
+
+  container-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs:
+      - toolchain-arm64
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          # load into the local docker image store so the structure tests below
+          # can `docker run` it without a registry round-trip.
+          load: true
+          tags: ttl.sh/hadron-container-arm64:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: container
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+      - name: Test container image (build-time smoke)
+        uses: docker/build-push-action@v7
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          target: container-test
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+      - name: Install Go
+        uses: actions/setup-go@v7
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Run image-structure tests
+        env:
+          # Image was loaded locally by the build step above (no push needed).
+          CONTAINER_IMAGE: ttl.sh/hadron-container-arm64:${{ github.sha }}
+        run: |
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
+
+  hadron-bios-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-amd64  # Take advantage of cached layers from the container build
     strategy:
       matrix:
         kernel: ["cloud", "default"]
@@ -244,8 +389,8 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          # Keep ephemeral ttl.sh indexes simple; parallel PR_arm64.yml uses separate *-arm64 tags
-          # so this tag is not clobbered by the arm64 pipeline (same github.sha).
+          # Keep ephemeral ttl.sh indexes simple; the arm64 pipeline in this workflow uses separate *-arm64 tags
+          # so this tag is not clobbered by the arm64 jobs (same github.sha).
           provenance: false
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -262,10 +407,11 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
-  hadron-trusted:
+
+  hadron-trusted-amd64:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-amd64  # Take advantage of cached layers from the container build
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
@@ -321,15 +467,16 @@ jobs:
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
-  component-versions-report:
+
+  component-versions-report-amd64:
     # Informational only: posts a single sticky PR comment with a collapsed
     # section per image showing the full component/version table.
     # Runs on ubuntu-latest (no Docker needed; script reads from the worktree).
     # Never fails the pipeline.
     runs-on: ubuntu-latest
     needs:
-      - hadron-bios
-      - hadron-trusted
+      - hadron-bios-amd64
+      - hadron-trusted-amd64
     permissions:
       contents: read
       pull-requests: write
@@ -385,10 +532,11 @@ jobs:
         with:
           header: component-versions-report
           path: /tmp/component-comment.md
-  build-kairos-bios:
+
+  build-kairos-bios-amd64:
     runs-on: ubuntu-latest
     needs:
-      - hadron-bios
+      - hadron-bios-amd64
     strategy:
       matrix:
         fips: [ "no-fips", "fips" ]
@@ -421,10 +569,11 @@ jobs:
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
             FIPS=${{ matrix.fips }}
-  build-kairos-trusted:
+
+  build-kairos-trusted-amd64:
     runs-on: ubuntu-latest
     needs:
-      - hadron-trusted
+      - hadron-trusted-amd64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -453,10 +602,11 @@ jobs:
             BASE_IMAGE=ttl.sh/hadron-cloud-trusted-${{ github.sha }}:24h
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=true
-  build-bios-iso:
+
+  build-bios-iso-amd64:
     runs-on: ubuntu-latest
     needs:
-      - build-kairos-bios
+      - build-kairos-bios-amd64
     strategy:
       matrix:
         fips: [ "no-fips", "fips" ]
@@ -479,10 +629,11 @@ jobs:
         with:
           name: kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }}.iso.zip
           path: build/*.iso
-  build-trusted-iso:
+
+  build-trusted-iso-amd64:
     runs-on: ubuntu-latest
     needs:
-      - build-kairos-trusted
+      - build-kairos-trusted-amd64
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -509,11 +660,12 @@ jobs:
         with:
           name: kairos-hadron-trusted-${{ github.sha }}.iso.zip
           path: build/*.iso
-  tests-bios:
+
+  tests-bios-amd64:
     runs-on: fast # Custom runner, more memory and CPU
     name: ${{ matrix.test }} tests
     needs:
-      - build-bios-iso
+      - build-bios-iso-amd64
     strategy:
       matrix:
         test:
@@ -560,11 +712,12 @@ jobs:
           name: acceptance-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
-  tests-trusted:
+
+  tests-trusted-amd64:
     runs-on: fast # Custom runner, more memory and CPU
     name: ${{ matrix.test }} tests
     needs:
-      - build-trusted-iso
+      - build-trusted-iso-amd64
     strategy:
       matrix:
         test:
@@ -612,11 +765,12 @@ jobs:
           name: acceptance-trusted-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
-  tests-bios-fips:
+
+  tests-bios-fips-amd64:
     runs-on: fast # Custom runner, more memory and CPU
     name: ${{ matrix.test }} tests (FIPS)
     needs:
-      - build-bios-iso
+      - build-bios-iso-amd64
     strategy:
       matrix:
         test:
@@ -663,13 +817,14 @@ jobs:
           name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
-  image-size-report:
+
+  image-size-report-amd64:
     # Informational only: compares the full images built for this PR against
     # the published :main baseline and posts a sticky PR comment. Never fails.
     runs-on: ubuntu-latest
     needs:
-      - hadron-bios
-      - hadron-trusted
+      - hadron-bios-amd64
+      - hadron-trusted-amd64
     permissions:
       contents: read
       packages: read
@@ -694,3 +849,177 @@ jobs:
         with:
           header: image-size-report
           path: report.md
+
+  hadron-grub-arm64:
+    runs-on: oracle-vm-32cpu-128gb-arm64
+    needs:
+      - container-arm64  # Take advantage of cached layers from the container build
+    strategy:
+      matrix:
+        kernel: [ "cloud" ]
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      # ttl.sh tags must not match the amd64 jobs in this workflow: both trigger on the same
+      # github.sha, so last-writer wins would cause amd64 BIOS jobs to silently pull linux/arm64.
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build PR
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64:${{ github.sha }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-grub-${{ matrix.kernel }}-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-grub-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
+          build-args: |
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  build-kairos-grub-arm64:
+    runs-on: ubuntu-24.04-arm
+    needs:
+      - hadron-grub-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Download Dockerfile from kairos repository
+        run: |
+          mkdir -p build
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./build/Dockerfile.kairos
+          push: true
+          platforms: linux/arm64
+          tags: ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
+          build-args: |
+            BASE_IMAGE=ttl.sh/hadron-cloud-arm64:${{ github.sha }}
+            VERSION=v0.0.1-${{ github.sha }}
+            TRUSTED_BOOT=false
+
+  build-grub-iso-arm64:
+    runs-on: ubuntu-24.04-arm
+    needs:
+      - build-kairos-grub-arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+      - name: Build ISO
+        run: |
+          mkdir build
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=arm64 \
+          -v $PWD/build/:/output \
+          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
+          --override-name kairos-hadron-bios-${{ github.sha }} \
+          docker:ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+          path: build/*.iso
+
+# This test requires changes onto PEG to support ARM architecture properly.
+#  Uncomment when PEG supports ARM testing
+#  tests-bios-arm64:
+#    runs-on: ubuntu-24.04-arm
+#    name: ${{ matrix.test }} tests
+#    needs:
+#      - build-grub-iso-arm64
+#    if: github.event_name == 'pull_request'
+#    strategy:
+#      matrix:
+#        test:
+#          - "acceptance"
+#          - "reset"
+#          - "custom-partitioning"
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v6
+#        with:
+#          fetch-depth: 0
+#      - name: Install Go
+#        uses: actions/setup-go@v6
+#        timeout-minutes: 5
+#        with:
+#          go-version-file: tests/go.mod
+#          cache-dependency-path: tests/go.sum
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v7
+#        with:
+#          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+#      - name: Enable KVM group perms
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-aarch64 qemu-utils qemu-kvm acl udev mkisofs swtpm
+#      - name: Run tests
+#        env:
+#          USE_QEMU: true
+#          KVM: true
+#          MEMORY: 5000
+#          DRIVE_SIZE: 50000
+#          CREATE_VM: true
+#          CPUS: 4
+#        run: |
+#          export ISO=$PWD/$(ls *.iso|grep -v ipxe | head -1 )
+#          echo "ISO is: $ISO"
+#          cp tests/go.* .
+#          go mod download
+#          go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
+#      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+#        if: failure()
+#        with:
+#          name: acceptance-${{github.sha}}.logs.zip
+#          path: tests/**/logs/*
+#          if-no-files-found: warn

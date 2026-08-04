@@ -1,8 +1,8 @@
 ---
 name: 'PR cache cleanup'
 
-# Reclaim the per-PR BuildKit cache tags (pr-<number>-*) that PR_amd64.yml /
-# PR_arm64.yml push to the shared cache repo. Quay (public quay.io) has no
+# Reclaim the per-PR BuildKit cache tags (pr-<number>-*) that
+# PR_multiarch.yml pushes to the shared cache repo. Quay (public quay.io) has no
 # auto-expire / auto-prune for these, so we delete them ourselves:
 #   - purge-pr-cache:       on PR close, delete that PR's tags (normal path).
 #   - sweep-stale-pr-cache: weekly, delete pr-<n>-* tags whose PR is no longer

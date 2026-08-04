@@ -11,7 +11,7 @@ of images only lives in one place.
 
 ### `image-size-report.sh` — per-PR report
 
-Used by the `image-size-report` job in `PR_amd64.yml`. Compares the images built
+Used by the `image-size-report` job in `PR_multiarch.yml`. Compares the images built
 for a PR against the published `:main` baseline and emits a Markdown report
 (top-line per-variant delta plus a per-directory / per-file breakdown) to
 stdout. The job writes it to the step summary and posts a sticky PR comment.
