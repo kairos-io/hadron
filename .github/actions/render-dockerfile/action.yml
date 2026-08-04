@@ -1,0 +1,28 @@
+name: Render Dockerfile
+description: |
+  Regenerate Dockerfile from Dockerfile.tmpl and sources.yaml.
+  Every job that runs docker/build-push-action must call this first
+  because Dockerfile is a generated artifact and not in git.
+
+runs:
+  using: composite
+  steps:
+    - name: Ensure render dependencies
+      shell: bash
+      run: |
+        set -e
+        # gettext-base gives us envsubst; python3-yaml gives PyYAML.
+        # Both are usually preinstalled on ubuntu runners; the check
+        # keeps this step a fast no-op when they are already present.
+        if ! command -v envsubst >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y gettext-base
+        fi
+        if ! python3 -c "import yaml" >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y python3-yaml
+        fi
+
+    - name: Render Dockerfile from Dockerfile.tmpl + sources.yaml
+      shell: bash
+      run: make render

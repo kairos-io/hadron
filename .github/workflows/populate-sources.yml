@@ -22,13 +22,11 @@ name: Populate source caches
 on:
   pull_request:
     paths:
-      - 'Dockerfile'
       - 'sources.yaml'
       - '.github/workflows/populate-sources.yml'
   push:
     branches: [main]
     paths:
-      - 'Dockerfile'
       - 'sources.yaml'
       - '.github/workflows/populate-sources.yml'
   workflow_dispatch: {}
@@ -93,16 +91,15 @@ jobs:
         id: meta
         env:
           PKG: ${{ matrix.pkg }}
-        # Reads sources.yaml + Dockerfile, resolves the URL template
-        # against the ARG value in Dockerfile, and writes the computed
-        # (version, url, filename, sha256, tag) to step outputs. Fails
-        # loudly if the ARG is absent from Dockerfile or if the entry
-        # is missing required fields, so the failure surfaces here
-        # rather than deep inside a wget or docker call later.
+        # Reads sources.yaml for this package and writes the computed
+        # (version, url, filename, sha256, tag) to step outputs. sources.yaml
+        # is the single source of truth for versions, so we no longer parse
+        # the Dockerfile here. Fails loudly if the entry is missing or has
+        # required fields blank.
         run: |
           set -euo pipefail
           python3 <<'PY' >> "$GITHUB_OUTPUT"
-          import os, re, sys
+          import os, sys
           try:
               import yaml
           except ImportError:
@@ -114,16 +111,12 @@ jobs:
           spec = (data.get('packages') or {}).get(pkg)
           if spec is None:
               sys.exit(f'package {pkg!r} missing from sources.yaml')
-          for field in ('version_arg', 'sha256', 'filename'):
+          for field in ('version', 'sha256', 'filename'):
               if not spec.get(field):
                   sys.exit(f'package {pkg!r} missing field {field!r}')
           if bool(spec.get('url')) == bool(spec.get('urls')):
               sys.exit(f'package {pkg!r} must set exactly one of url or urls')
-          arg = spec['version_arg']
-          m = re.search(rf'^ARG\s+{re.escape(arg)}=(\S+)', open('Dockerfile').read(), re.M)
-          if not m:
-              sys.exit(f'ARG {arg} not found in Dockerfile')
-          version = m.group(1)
+          version = str(spec['version'])
           urls = spec['urls'] if spec.get('urls') else [spec['url']]
           urls = [u.replace('${version}', version) for u in urls]
           if any(' ' in u or '\t' in u or '\n' in u for u in urls):

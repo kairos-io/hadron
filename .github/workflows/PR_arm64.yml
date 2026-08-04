@@ -63,6 +63,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -112,6 +114,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -199,6 +203,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -252,6 +258,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master

@@ -28,10 +28,10 @@ ARG GNU_MIRROR_3=https://mirror.netcologne.de/gnu
 ## (ghcr.io/kairos-io/hadron-sources/*). These ARGs are declared here
 ## rather than inside their download stages because Docker requires
 ## ARGs used in a FROM to live above the first FROM in the file.
-## Bumping any of these requires updating the corresponding entry in
-## sources.sha256 in the same commit; populate-sources.yml enforces
-## that consistency before republishing the source image.
-ARG LIBCAP_VERSION=2.78
+## The default values are templated from sources.yaml at render time;
+## do not edit the values here directly, edit sources.yaml and run
+## `make render` (or just `make build`).
+ARG LIBCAP_VERSION=${LIBCAP_VERSION}
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
@@ -89,27 +89,27 @@ WORKDIR /sources/downloads
 
 ### This stages below are used to download the sources for the packages
 FROM sources-downloader-base AS curl-download
-ARG CURL_VERSION=8.21.0
+ARG CURL_VERSION=${CURL_VERSION}
 RUN wget -q https://curl.se/download/curl-${CURL_VERSION}.tar.gz -O curl.tar.gz
 
 FROM sources-downloader-base AS rsync-download
-ARG RSYNC_VERSION=3.4.4
+ARG RSYNC_VERSION=${RSYNC_VERSION}
 RUN wget -q https://github.com/RsyncProject/rsync/releases/download/v${RSYNC_VERSION}/rsync-${RSYNC_VERSION}.tar.gz -O rsync.tar.gz
 
 FROM sources-downloader-base AS xxhash-download
-ARG XXHASH_VERSION=0.8.3
+ARG XXHASH_VERSION=${XXHASH_VERSION}
 RUN wget -q https://github.com/Cyan4973/xxHash/archive/refs/tags/v${XXHASH_VERSION}.tar.gz -O xxhash.tar.gz
 
 FROM sources-downloader-base AS zstd-download
-ARG ZSTD_VERSION=1.5.7
+ARG ZSTD_VERSION=${ZSTD_VERSION}
 RUN wget -q https://github.com/facebook/zstd/archive/v${ZSTD_VERSION}.tar.gz -O zstd.tar.gz
 
 FROM sources-downloader-base AS lz4-download
-ARG LZ4_VERSION=1.10.0
+ARG LZ4_VERSION=${LZ4_VERSION}
 RUN wget -q https://github.com/lz4/lz4/archive/v${LZ4_VERSION}.tar.gz -O lz4.tar.gz
 
 FROM sources-downloader-base AS zlib-download
-ARG ZLIB_VERSION=1.3.2
+ARG ZLIB_VERSION=${ZLIB_VERSION}
 RUN wget -q https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz -O zlib.tar.gz
 
 FROM sources-downloader-base AS acl-download
@@ -117,7 +117,7 @@ ARG ACL_VERSION=2.4.0
 RUN wget -q https://download.savannah.gnu.org/releases/acl/acl-${ACL_VERSION}.tar.gz -O acl.tar.gz
 
 FROM sources-downloader-base AS attr-download
-ARG ATTR_VERSION=2.6.0
+ARG ATTR_VERSION=${ATTR_VERSION}
 RUN wget -q https://download.savannah.nongnu.org/releases/attr/attr-${ATTR_VERSION}.tar.gz -O attr.tar.gz
 
 FROM sources-downloader-base AS gawk-download
@@ -129,11 +129,11 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s gawk.tar.xz
 
 FROM sources-downloader-base AS ca-certificates-download
-ARG CA_CERTIFICATES_VERSION=20260611
+ARG CA_CERTIFICATES_VERSION=${CA_CERTIFICATES_VERSION}
 RUN wget -q https://gitlab.alpinelinux.org/alpine/ca-certificates/-/archive/${CA_CERTIFICATES_VERSION}/ca-certificates-${CA_CERTIFICATES_VERSION}.tar.bz2 -O ca-certificates.tar.bz2
 
 FROM sources-downloader-base AS systemd-download
-ARG SYSTEMD_VERSION=261.2
+ARG SYSTEMD_VERSION=${SYSTEMD_VERSION}
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
 # libcap: proof of concept for the per-package source cache pattern.
@@ -153,27 +153,27 @@ RUN UTIL_LINUX_VERSION_MAJOR="${UTIL_LINUX_VERSION%%.*}" \
     && wget -q https://www.kernel.org/pub/linux/utils/util-linux/v${UTIL_LINUX_VERSION_MAJOR}.${UTIL_LINUX_VERSION_MINOR}/util-linux-${UTIL_LINUX_VERSION}.tar.xz -O util-linux.tar.xz
 
 FROM sources-downloader-base AS python-download
-ARG PYTHON_VERSION=3.14.6
+ARG PYTHON_VERSION=${PYTHON_VERSION}
 RUN wget -q https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz -O Python.tar.xz
 
 FROM sources-downloader-base AS sqlite3-download
-ARG SQLITE3_VERSION=3.53.4
+ARG SQLITE3_VERSION=${SQLITE3_VERSION}
 RUN wget -q https://github.com/sqlite/sqlite/archive/refs/tags/version-${SQLITE3_VERSION}.tar.gz -O sqlite3.tar.gz
 
 FROM sources-downloader-base AS openssl-download
-ARG OPENSSL_VERSION=3.6.3
+ARG OPENSSL_VERSION=${OPENSSL_VERSION}
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz -O openssl.tar.gz
 
 FROM sources-downloader-base AS openssl-fips-download
-ARG OPENSSL_FIPS_VERSION=3.1.2
+ARG OPENSSL_FIPS_VERSION=${OPENSSL_FIPS_VERSION}
 RUN wget -q https://www.openssl.org/source/openssl-${OPENSSL_FIPS_VERSION}.tar.gz -O openssl-fips.tar.gz
 
 FROM sources-downloader-base AS openssh-download
-ARG OPENSSH_VERSION=10.4p1
+ARG OPENSSH_VERSION=${OPENSSH_VERSION}
 RUN wget -q https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${OPENSSH_VERSION}.tar.gz -O openssh.tar.gz
 
 FROM sources-downloader-base AS pkgconf-download
-ARG PKGCONFIG_VERSION=3.0.5
+ARG PKGCONFIG_VERSION=${PKGCONFIG_VERSION}
 RUN wget -q https://distfiles.dereferenced.org/pkgconf/pkgconf-${PKGCONFIG_VERSION}.tar.xz -O pkgconf.tar.xz
 
 FROM sources-downloader-base AS dbus-download
@@ -192,55 +192,55 @@ RUN EXPAT_VERSION_MAJOR="${EXPAT_VERSION%%.*}" \
  -O expat.tar.gz
 
 FROM sources-downloader-base AS libseccomp-download
-ARG SECCOMP_VERSION=2.6.1
+ARG SECCOMP_VERSION=${SECCOMP_VERSION}
 RUN wget -q https://github.com/seccomp/libseccomp/releases/download/v${SECCOMP_VERSION}/libseccomp-${SECCOMP_VERSION}.tar.gz -O libseccomp.tar.gz
 
 FROM sources-downloader-base AS strace-download
-ARG STRACE_VERSION=7.1
+ARG STRACE_VERSION=${STRACE_VERSION}
 RUN wget -q https://strace.io/files/${STRACE_VERSION}/strace-${STRACE_VERSION}.tar.xz -O strace.tar.xz
 
 FROM sources-downloader-base AS kbd-download
-ARG KBD_VERSION=2.10.0
+ARG KBD_VERSION=${KBD_VERSION}
 RUN wget -q https://www.kernel.org/pub/linux/utils/kbd/kbd-${KBD_VERSION}.tar.gz -O kbd.tar.gz
 
 FROM sources-downloader-base AS iptables-download
-ARG IPTABLES_VERSION=1.8.13
+ARG IPTABLES_VERSION=${IPTABLES_VERSION}
 RUN wget -q https://www.netfilter.org/projects/iptables/files/iptables-${IPTABLES_VERSION}.tar.xz -O iptables.tar.xz
 
 FROM sources-downloader-base AS libmnl-download
-ARG LIBMNL_VERSION=1.0.5
+ARG LIBMNL_VERSION=${LIBMNL_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libmnl/files/libmnl-${LIBMNL_VERSION}.tar.bz2 -O libmnl.tar.bz2
 
 FROM sources-downloader-base AS libnftnl-download
-ARG LIBNFTNL_VERSION=1.3.1
+ARG LIBNFTNL_VERSION=${LIBNFTNL_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnftnl/files/libnftnl-${LIBNFTNL_VERSION}.tar.xz -O libnftnl.tar.xz
 
 FROM sources-downloader-base AS libnfnetlink-download
-ARG LIBNFNETLINK_VERSION=1.0.2
+ARG LIBNFNETLINK_VERSION=${LIBNFNETLINK_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnfnetlink/files/libnfnetlink-${LIBNFNETLINK_VERSION}.tar.bz2 -O libnfnetlink.tar.bz2
 
 FROM sources-downloader-base AS libnetfilter_conntrack-download
-ARG LIBNETFILTER_CONNTRACK_VERSION=1.1.1
+ARG LIBNETFILTER_CONNTRACK_VERSION=${LIBNETFILTER_CONNTRACK_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnetfilter_conntrack/files/libnetfilter_conntrack-${LIBNETFILTER_CONNTRACK_VERSION}.tar.xz -O libnetfilter_conntrack.tar.xz
 
 FROM sources-downloader-base AS libnetfilter_cttimeout-download
-ARG LIBNETFILTER_CTTIMEOUT_VERSION=1.0.1
+ARG LIBNETFILTER_CTTIMEOUT_VERSION=${LIBNETFILTER_CTTIMEOUT_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnetfilter_cttimeout/files/libnetfilter_cttimeout-${LIBNETFILTER_CTTIMEOUT_VERSION}.tar.bz2 -O libnetfilter_cttimeout.tar.bz2
 
 FROM sources-downloader-base AS libnetfilter_cthelper-download
-ARG LIBNETFILTER_CTHELPER_VERSION=1.0.1
+ARG LIBNETFILTER_CTHELPER_VERSION=${LIBNETFILTER_CTHELPER_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnetfilter_cthelper/files/libnetfilter_cthelper-${LIBNETFILTER_CTHELPER_VERSION}.tar.bz2 -O libnetfilter_cthelper.tar.bz2
 
 FROM sources-downloader-base AS libnetfilter_queue-download
-ARG LIBNETFILTER_QUEUE_VERSION=1.0.5
+ARG LIBNETFILTER_QUEUE_VERSION=${LIBNETFILTER_QUEUE_VERSION}
 RUN wget -q https://www.netfilter.org/projects/libnetfilter_queue/files/libnetfilter_queue-${LIBNETFILTER_QUEUE_VERSION}.tar.bz2 -O libnetfilter_queue.tar.bz2
 
 FROM sources-downloader-base AS conntrack-tools-download
-ARG CONNTRACK_TOOLS_VERSION=1.4.9
+ARG CONNTRACK_TOOLS_VERSION=${CONNTRACK_TOOLS_VERSION}
 RUN wget -q https://www.netfilter.org/projects/conntrack-tools/files/conntrack-tools-${CONNTRACK_TOOLS_VERSION}.tar.xz -O conntrack-tools.tar.xz
 
 FROM sources-downloader-base AS procps-ng-download
-ARG PROCPS_NG_VERSION=4.0.6
+ARG PROCPS_NG_VERSION=${PROCPS_NG_VERSION}
 RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-${PROCPS_NG_VERSION}.tar.xz -O procps-ng.tar.xz
 
 # Fetch the kernel from cdn.kernel.org (static release tarball, globally
@@ -253,11 +253,11 @@ RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procp
 # If we ever pin to a mainline/RC that isn't on the CDN yet, this will 404
 # and we'll need to add git.kernel.org back as a fallback.
 FROM sources-downloader-base AS linux-download
-ARG KERNEL_VERSION=7.1.5
+ARG KERNEL_VERSION=${KERNEL_VERSION}
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
 
 FROM sources-downloader-base AS flex-download
-ARG FLEX_VERSION=2.6.4
+ARG FLEX_VERSION=${FLEX_VERSION}
 RUN wget -q https://github.com/westes/flex/releases/download/v${FLEX_VERSION}/flex-${FLEX_VERSION}.tar.gz -O flex.tar.gz
 
 FROM sources-downloader-base AS bison-download
@@ -285,7 +285,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s automake.tar.xz
 
 FROM sources-downloader-base AS musl-fts-download
-ARG FTS_VERSION=1.2.7
+ARG FTS_VERSION=${FTS_VERSION}
 RUN wget -q https://github.com/pullmoll/musl-fts/archive/v${FTS_VERSION}.tar.gz -O musl-fts.tar.gz
 
 FROM sources-downloader-base AS libtool-download
@@ -297,63 +297,63 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s libtool.tar.xz
 
 FROM sources-downloader-base AS libelf-download
-ARG LIBELF_VERSION=0.195
+ARG LIBELF_VERSION=${LIBELF_VERSION}
 RUN wget -q https://github.com/arachsys/libelf/archive/refs/tags/v${LIBELF_VERSION}.tar.gz -O libelf.tar.gz
 
 FROM sources-downloader-base AS xz-download
-ARG XZUTILS_VERSION=5.8.3
+ARG XZUTILS_VERSION=${XZUTILS_VERSION}
 RUN wget -q https://tukaani.org/xz/xz-${XZUTILS_VERSION}.tar.gz -O xz.tar.gz
 
 FROM sources-downloader-base AS kmod-download
-ARG KMOD_VERSION=34.2
+ARG KMOD_VERSION=${KMOD_VERSION}
 RUN wget -q https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${KMOD_VERSION}.tar.gz -O kmod.tar.gz
 
 FROM sources-downloader-base AS dracut-download
-ARG DRACUT_VERSION=112
+ARG DRACUT_VERSION=${DRACUT_VERSION}
 RUN wget -q https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${DRACUT_VERSION}.tar.gz -O dracut.tar.gz
 
 FROM sources-downloader-base AS libaio-download
-ARG LIBAIO_VERSION=0.3.113
+ARG LIBAIO_VERSION=${LIBAIO_VERSION}
 RUN wget -q https://releases.pagure.org/libaio/libaio-${LIBAIO_VERSION}.tar.gz -O libaio.tar.gz
 
 FROM sources-downloader-base AS lvm2-download
-ARG LVM2_VERSION=2.03.41
+ARG LVM2_VERSION=${LVM2_VERSION}
 RUN wget -q http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${LVM2_VERSION}.tgz -O lvm2.tgz
 
 FROM sources-downloader-base AS multipath-tools-download
-ARG MULTIPATH_TOOLS_VERSION=0.15.0
+ARG MULTIPATH_TOOLS_VERSION=${MULTIPATH_TOOLS_VERSION}
 RUN wget -q https://github.com/opensvc/multipath-tools/archive/refs/tags/${MULTIPATH_TOOLS_VERSION}.tar.gz -O multipath-tools.tar.gz
 
 FROM sources-downloader-base AS json-c-download
-ARG JSONC_VERSION=0.19
+ARG JSONC_VERSION=${JSONC_VERSION}
 RUN wget -q https://s3.amazonaws.com/json-c_releases/releases/json-c-${JSONC_VERSION}.tar.gz -O json-c.tar.gz
 
 FROM sources-downloader-base AS cmake-download
-ARG CMAKE_VERSION=4.4.2
+ARG CMAKE_VERSION=${CMAKE_VERSION}
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -O cmake.tar.gz
 
 FROM sources-downloader-base AS dwarves-download
-ARG DWARVES_VERSION=1.31
+ARG DWARVES_VERSION=${DWARVES_VERSION}
 RUN wget -q https://github.com/acmel/dwarves/archive/refs/tags/v${DWARVES_VERSION}.tar.gz -O dwarves.tar.xz
 
 FROM sources-downloader-base AS libbpf-download
-ARG LIBBPF_VERSION=1.5.0
+ARG LIBBPF_VERSION=${LIBBPF_VERSION}
 RUN wget -q https://github.com/libbpf/libbpf/archive/refs/tags/v${LIBBPF_VERSION}.tar.gz -O libbpf.tar.gz
 
 FROM sources-downloader-base AS argp-standalone-download
-ARG ARGP_STANDALONE_VERSION=1.4.1
+ARG ARGP_STANDALONE_VERSION=${ARGP_STANDALONE_VERSION}
 RUN wget -q https://github.com/argp-standalone/argp-standalone/archive/refs/tags/${ARGP_STANDALONE_VERSION}.tar.gz -O argp-standalone.tar.gz
 
 FROM sources-downloader-base AS musl-obstack-download
-ARG MUSL_OBSTACK_VERSION=1.2.3
+ARG MUSL_OBSTACK_VERSION=${MUSL_OBSTACK_VERSION}
 RUN wget -q https://github.com/void-linux/musl-obstack/archive/refs/tags/v${MUSL_OBSTACK_VERSION}.tar.gz -O musl-obstack.tar.gz
 
 FROM sources-downloader-base AS elfutils-download
-ARG ELFUTILS_VERSION=0.195
+ARG ELFUTILS_VERSION=${ELFUTILS_VERSION}
 RUN wget -q https://sourceware.org/elfutils/ftp/${ELFUTILS_VERSION}/elfutils-${ELFUTILS_VERSION}.tar.bz2 -O elfutils.tar.bz2
 
 FROM sources-downloader-base AS urcu-download
-ARG URCU_VERSION=0.15.6
+ARG URCU_VERSION=${URCU_VERSION}
 RUN wget -q https://lttng.org/files/urcu/userspace-rcu-${URCU_VERSION}.tar.bz2 -O urcu.tar.bz2
 
 FROM sources-downloader-base AS parted-download
@@ -365,15 +365,15 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s parted.tar.xz
 
 FROM sources-downloader-base AS e2fsprogs-download
-ARG E2FSPROGS_VERSION=1.47.4
+ARG E2FSPROGS_VERSION=${E2FSPROGS_VERSION}
 RUN wget -q https://mirrors.edge.kernel.org/pub/linux/kernel/people/tytso/e2fsprogs/v${E2FSPROGS_VERSION}/e2fsprogs-${E2FSPROGS_VERSION}.tar.xz -O e2fsprogs.tar.xz
 
 FROM sources-downloader-base AS dosfstools-download
-ARG DOSFSTOOLS_VERSION=4.2
+ARG DOSFSTOOLS_VERSION=${DOSFSTOOLS_VERSION}
 RUN wget -q https://github.com/dosfstools/dosfstools/releases/download/v${DOSFSTOOLS_VERSION}/dosfstools-${DOSFSTOOLS_VERSION}.tar.gz -O dosfstools.tar.gz
 
 FROM sources-downloader-base AS libtirpc-download
-ARG LIBTIRPC_VERSION=1.3.7
+ARG LIBTIRPC_VERSION=${LIBTIRPC_VERSION}
 RUN wget -q https://downloads.sourceforge.net/project/libtirpc/libtirpc/${LIBTIRPC_VERSION}/libtirpc-${LIBTIRPC_VERSION}.tar.bz2 -O libtirpc.tar.bz2
 
 FROM sources-downloader-base AS libnl-download
@@ -383,21 +383,21 @@ RUN LIBNL_TAG="libnl${LIBNL_VERSION//./_}" \
  && wget -q https://github.com/thom311/libnl/releases/download/${LIBNL_TAG}/libnl-${LIBNL_VERSION}.tar.gz -O libnl.tar.gz
 
 FROM sources-downloader-base AS libevent-download
-ARG LIBEVENT_VERSION=2.1.13
+ARG LIBEVENT_VERSION=${LIBEVENT_VERSION}
 # Upstream release-tag convention is release-X.Y.Z-stable, and the tarball
 # is named libevent-X.Y.Z-stable.tar.gz.
 RUN wget -q https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}-stable/libevent-${LIBEVENT_VERSION}-stable.tar.gz -O libevent.tar.gz
 
 FROM sources-downloader-base AS keyutils-download
-ARG KEYUTILS_VERSION=1.6.3
+ARG KEYUTILS_VERSION=${KEYUTILS_VERSION}
 RUN wget -q https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/snapshot/keyutils-${KEYUTILS_VERSION}.tar.gz -O keyutils.tar.gz
 
 FROM sources-downloader-base AS nfs-utils-download
-ARG NFS_UTILS_VERSION=2.9.2
+ARG NFS_UTILS_VERSION=${NFS_UTILS_VERSION}
 RUN wget -q https://www.kernel.org/pub/linux/utils/nfs-utils/${NFS_UTILS_VERSION}/nfs-utils-${NFS_UTILS_VERSION}.tar.xz -O nfs-utils.tar.xz
 
 FROM sources-downloader-base AS cryptsetup-download
-ARG CRYPTSETUP_VERSION=2.8.7
+ARG CRYPTSETUP_VERSION=${CRYPTSETUP_VERSION}
 RUN wget -q https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${CRYPTSETUP_VERSION%.*}/cryptsetup-${CRYPTSETUP_VERSION}.tar.xz -O cryptsetup.tar.xz
 
 FROM sources-downloader-base AS grub-download
@@ -409,19 +409,19 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s grub.tar.xz
 
 FROM sources-downloader-base AS pam-download
-ARG PAM_VERSION=1.7.2
+ARG PAM_VERSION=${PAM_VERSION}
 RUN wget -q https://github.com/linux-pam/linux-pam/releases/download/v${PAM_VERSION}/Linux-PAM-${PAM_VERSION}.tar.xz -O pam.tar.xz
 
 FROM sources-downloader-base AS shadow-download
-ARG SHADOW_VERSION=4.20.0
+ARG SHADOW_VERSION=${SHADOW_VERSION}
 RUN wget -q https://github.com/shadow-maint/shadow/releases/download/${SHADOW_VERSION}/shadow-${SHADOW_VERSION}.tar.xz -O shadow.tar.xz
 
 FROM sources-downloader-base AS aports-download
-ARG APORTS_VERSION=3.24.1
+ARG APORTS_VERSION=${APORTS_VERSION}
 RUN wget -q https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${APORTS_VERSION}/aports-v${APORTS_VERSION}.tar.gz -O aports.tar.gz
 
 FROM sources-downloader-base AS busybox-download
-ARG BUSYBOX_VERSION=1.37.0
+ARG BUSYBOX_VERSION=${BUSYBOX_VERSION}
 # XXX: Temporary workaround as busybox currently have expired certificates
 RUN wget -q --no-check-certificate https://busybox.net/downloads/busybox-${BUSYBOX_VERSION}.tar.bz2 -O busybox.tar.bz2
 
@@ -470,11 +470,11 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s make.tar.gz
 
 FROM sources-downloader-base AS binutils-download
-ARG BINUTILS_VERSION=2.47
+ARG BINUTILS_VERSION=${BINUTILS_VERSION}
 RUN wget -q https://sourceware.org/pub/binutils/releases/binutils-${BINUTILS_VERSION}.tar.xz -O binutils.tar.xz
 
 FROM sources-downloader-base AS popt-download
-ARG POPT_VERSION=1.19
+ARG POPT_VERSION=${POPT_VERSION}
 RUN wget -q http://ftp.rpm.org/popt/releases/popt-1.x/popt-${POPT_VERSION}.tar.gz -O popt.tar.gz
 
 FROM sources-downloader-base AS m4-download
@@ -494,7 +494,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s readline.tar.gz
 
 FROM sources-downloader-base AS perl-download
-ARG PERL_VERSION=5.44.0
+ARG PERL_VERSION=${PERL_VERSION}
 RUN wget -q https://github.com/Perl/perl5/archive/refs/tags/v${PERL_VERSION}.tar.gz -O perl.tar.gz
 
 FROM sources-downloader-base AS coreutils-download
@@ -538,31 +538,31 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s diffutils.tar.xz
 
 FROM sources-downloader-base AS sudo-download
-ARG SUDO_VERSION=1.9.17p2
+ARG SUDO_VERSION=${SUDO_VERSION}
 RUN wget -q https://www.sudo.ws/dist/sudo-${SUDO_VERSION}.tar.gz -O sudo.tar.gz
 
 FROM sources-downloader-base AS pax-utils-download
-ARG PAX_UTILS_VERSION=1.3.11
+ARG PAX_UTILS_VERSION=${PAX_UTILS_VERSION}
 RUN wget -q https://github.com/gentoo/pax-utils/archive/refs/tags/v${PAX_UTILS_VERSION}.tar.gz -O pax-utils.tar.gz
 
 FROM sources-downloader-base AS openscsi-download
-ARG OPEN_SCSI_VERSION=2.1.12
+ARG OPEN_SCSI_VERSION=${OPEN_SCSI_VERSION}
 RUN wget -q https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${OPEN_SCSI_VERSION}.tar.gz -O openscsi.tar.gz
 
 FROM sources-downloader-base AS gdb-download
-ARG GDB_VERSION=17.2
+ARG GDB_VERSION=${GDB_VERSION}
 RUN wget -q https://sourceware.org/pub/gdb/releases/gdb-${GDB_VERSION}.tar.gz -O gdb.tar.gz
 
 FROM sources-downloader-base AS libffi-download
-ARG LIBFFI_VERSION=3.7.1
+ARG LIBFFI_VERSION=${LIBFFI_VERSION}
 RUN wget -q https://github.com/libffi/libffi/releases/download/v${LIBFFI_VERSION}/libffi-${LIBFFI_VERSION}.tar.gz -O libffi.tar.gz
 
 FROM sources-downloader-base AS tpm2-tss-download
-ARG TPM2_TSS_VERSION=4.2.0
+ARG TPM2_TSS_VERSION=${TPM2_TSS_VERSION}
 RUN wget -q https://github.com/tpm2-software/tpm2-tss/releases/download/${TPM2_TSS_VERSION}/tpm2-tss-${TPM2_TSS_VERSION}.tar.gz -O tpm2-tss.tar.gz
 
 FROM sources-downloader-base AS libucontext-download
-ARG LIBUCONTEXT_VERSION=1.5.2
+ARG LIBUCONTEXT_VERSION=${LIBUCONTEXT_VERSION}
 RUN wget -q https://github.com/kaniini/libucontext/archive/refs/tags/libucontext-${LIBUCONTEXT_VERSION}.tar.gz -O libucontext.tar.gz
 
 FROM sources-downloader-base AS libxml2-download
@@ -608,11 +608,11 @@ RUN for i in $(seq 1 ${PATCH_LEVEL}); do \
 WORKDIR /sources/downloads
 
 FROM sources-downloader-base AS libkcapi-download
-ARG LIBKCAPI_VERSION=1.5.0
+ARG LIBKCAPI_VERSION=${LIBKCAPI_VERSION}
 RUN wget -q https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${LIBKCAPI_VERSION}.tar.gz -O libkcapi.tar.gz
 
 FROM sources-downloader-base AS shim-download
-ARG SHIM_VERSION=16.1
+ARG SHIM_VERSION=${SHIM_VERSION}
 RUN wget -q https://github.com/rhboot/shim/releases/download/${SHIM_VERSION}/shim-${SHIM_VERSION}.tar.bz2 -O shim.tar.bz2
 
 FROM sources-downloader-base AS libiconv-download
@@ -624,7 +624,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
     test -s libiconv.tar.gz
 
 FROM sources-downloader-base AS bc-download
-ARG BC_VERSION=7.1.0
+ARG BC_VERSION=${BC_VERSION}
 RUN wget -q https://github.com/gavinhoward/bc/releases/download/${BC_VERSION}/bc-${BC_VERSION}.tar.xz -O bc.tar.xz
 
 FROM sources-downloader-base AS patch-download
@@ -637,7 +637,7 @@ RUN for mirror in ${GNU_MIRROR_1} ${GNU_MIRROR_2} ${GNU_MIRROR_3}; do \
 
 
 FROM sources-downloader-base AS pcre2-download
-ARG PCRE2_VERSION=10.47
+ARG PCRE2_VERSION=${PCRE2_VERSION}
 RUN wget -q https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${PCRE2_VERSION}/pcre2-${PCRE2_VERSION}.tar.gz -O pcre2.tar.gz
 
 FROM sources-downloader-base AS glib-download
@@ -645,16 +645,16 @@ ARG GLIB_VERSION=2.86.2
 RUN GLIB_MAJOR="${GLIB_VERSION%.*}" && wget -q https://download.gnome.org/sources/glib/${GLIB_MAJOR}/glib-${GLIB_VERSION}.tar.xz -O glib.tar.xz
 
 FROM sources-downloader-base AS qemu-download
-ARG QEMU_AGENT_VERSION="10.1.5"
+ARG QEMU_AGENT_VERSION=${QEMU_AGENT_VERSION}
 RUN wget https://download.qemu.org/qemu-${QEMU_AGENT_VERSION}.tar.xz -O qemu.tar.xz
 
 
 FROM sources-downloader-base AS mspack-download
-ARG MSPACK_VERSION=1.11
+ARG MSPACK_VERSION=${MSPACK_VERSION}
 RUN wget -q https://github.com/kyz/libmspack/archive/refs/tags/v${MSPACK_VERSION}.tar.gz -O mspack.tar.gz
 
 FROM sources-downloader-base AS open-vm-tools-download
-ARG OPENVM_TOOLS_VERSION=13.1.0
+ARG OPENVM_TOOLS_VERSION=${OPENVM_TOOLS_VERSION}
 RUN wget -q https://github.com/vmware/open-vm-tools/archive/stable-${OPENVM_TOOLS_VERSION}.tar.gz -O open-vm-tools.tar.gz
 
 # Merge all the downloads into a single target

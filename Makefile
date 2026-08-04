@@ -14,8 +14,12 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
-KERNEL_VERSION ?= $(shell grep 'ARG KERNEL_VERSION=' Dockerfile | cut -d= -f2)
-DWARVES_VERSION ?= $(shell grep 'ARG DWARVES_VERSION=' Dockerfile | cut -d= -f2)
+# Versions live in sources.yaml (single source of truth). Dockerfile is
+# generated from Dockerfile.tmpl by `make render`; both KERNEL_VERSION and
+# DWARVES_VERSION are read from sources.yaml so this Makefile does not
+# depend on the rendered Dockerfile existing yet.
+KERNEL_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
+DWARVES_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['dwarves']['version'])")
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -112,8 +116,16 @@ pull-image:
 	@echo "Pulling base Hadron image from ${IMAGE_NAME}..."
 	@docker pull --platform=${ARCH} ${IMAGE_NAME}
 
+# Dockerfile is generated from Dockerfile.tmpl + sources.yaml. Anyone
+# who edits either file (or hack/render.sh) triggers a regeneration.
+Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
+	@./hack/render.sh
+
+.PHONY: render
+render: Dockerfile
+
 ## This builds the Hadron image from scratch
-build-hadron:
+build-hadron: Dockerfile
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
@@ -161,6 +173,7 @@ run:
 
 clean:
 	@docker rmi ${IMAGE_NAME}
+	@rm -f Dockerfile
 
 grub-iso:
 	@echo "Building BIOS ISO image..."

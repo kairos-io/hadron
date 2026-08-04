@@ -25,3 +25,6 @@ files/hadron-splash/hadron
 /components.json
 /components.md
 /docs/static/components/
+
+# Rendered artifact - generated from Dockerfile.tmpl + sources.yaml by hack/render.sh
+/Dockerfile
