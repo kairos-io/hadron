@@ -111,14 +111,13 @@ jobs:
           spec = (data.get('packages') or {}).get(pkg)
           if spec is None:
               sys.exit(f'package {pkg!r} missing from sources.yaml')
-          for field in ('version', 'sha256', 'filename'):
+          for field in ('version', 'sha256', 'filename', 'urls'):
               if not spec.get(field):
                   sys.exit(f'package {pkg!r} missing field {field!r}')
-          if bool(spec.get('url')) == bool(spec.get('urls')):
-              sys.exit(f'package {pkg!r} must set exactly one of url or urls')
+          if not isinstance(spec['urls'], list) or not spec['urls']:
+              sys.exit(f'package {pkg!r}: urls must be a non-empty list')
           version = str(spec['version'])
-          urls = spec['urls'] if spec.get('urls') else [spec['url']]
-          urls = [u.replace('${version}', version) for u in urls]
+          urls = [u.replace('${version}', version) for u in spec['urls']]
           if any(' ' in u or '\t' in u or '\n' in u for u in urls):
               sys.exit(f'package {pkg!r} URL contains whitespace, would break the fetch loop')
           filename = spec['filename']
