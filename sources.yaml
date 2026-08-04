@@ -43,6 +43,7 @@ packages:
     sha256: 73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a
     urls:
       - https://download.savannah.gnu.org/releases/acl/acl-${version}.tar.gz
+      - http://download-mirror.savannah.gnu.org/releases/acl/acl-${version}.tar.gz
     filename: acl.tar.gz
 
   aports:
@@ -67,6 +68,7 @@ packages:
     sha256: d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612
     urls:
       - https://download.savannah.nongnu.org/releases/attr/attr-${version}.tar.gz
+      - http://download-mirror.savannah.nongnu.org/releases/attr/attr-${version}.tar.gz
     filename: attr.tar.gz
 
   autoconf:
