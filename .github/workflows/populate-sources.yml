@@ -1,0 +1,193 @@
+name: Populate source caches
+
+# Publishes upstream source tarballs to
+# ghcr.io/kairos-io/hadron-sources/<pkg>:<version> so the main build never
+# fetches from upstream mirrors. Each package is cached as its own OCI
+# image, tagged by version; bumping one package's version invalidates only
+# that image's cache, never the others.
+#
+# Runs whenever the Dockerfile ARG or the pinned checksum changes.
+# Idempotent: if the target tag already exists on ghcr, the job is a
+# cheap no-op (a single manifest inspect). Only missing tags trigger a
+# fetch-verify-publish. sha256 mismatch fails the job; only the
+# populate job is allowed to talk to upstream from CI.
+#
+# This file currently handles only libcap as a proof of concept. Once
+# validated, the same pattern will cover every ARG *_VERSION= in the
+# Dockerfile.
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'sources.sha256'
+      - '.github/workflows/populate-sources.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'sources.sha256'
+      - '.github/workflows/populate-sources.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REPO_PREFIX: ghcr.io/kairos-io/hadron-sources
+
+jobs:
+  libcap:
+    runs-on: ubuntu-latest
+    # Fork PRs don't have secrets.GITHUB_TOKEN with packages:write; skip
+    # them here. When a fork bumps a version, the maintainer runs this
+    # workflow via workflow_dispatch on a maintainer-owned branch first.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Extract libcap version and expected sha
+        id: meta
+        run: |
+          set -euo pipefail
+          version=$(grep -E '^ARG LIBCAP_VERSION=' Dockerfile | head -1 | sed -E 's/^ARG LIBCAP_VERSION=([^ ]+).*/\1/')
+          test -n "$version" || { echo "LIBCAP_VERSION not found in Dockerfile"; exit 1; }
+          entry=$(grep -E '^libcap ' sources.sha256 || true)
+          test -n "$entry" || { echo "libcap entry missing from sources.sha256"; exit 1; }
+          entry_ver=$(echo "$entry" | awk '{print $2}')
+          entry_sha=$(echo "$entry" | awk '{print $3}')
+          if [ "$version" != "$entry_ver" ]; then
+              echo "Dockerfile ARG LIBCAP_VERSION=$version disagrees with sources.sha256 entry ($entry_ver)"
+              echo "Bump both in the same commit."
+              exit 1
+          fi
+          {
+              echo "version=$version"
+              echo "sha=$entry_sha"
+              echo "tag=${REPO_PREFIX}/libcap:$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ghcr
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check whether tag has all required platforms on ghcr
+        id: check
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          REQUIRED_PLATFORMS: linux/amd64 linux/arm64 linux/riscv64
+        # docker buildx build --push always wraps output in an OCI
+        # image-index, even for a single --platform. So the wrapper's
+        # media type does not tell us whether the tag covers all the
+        # architectures toolchain builds need; we have to walk the
+        # manifests[] list and check each platform is present.
+        # Attestation sub-manifests (platform.architecture == "unknown")
+        # are ignored.
+        run: |
+          set -uo pipefail
+          if ! docker manifest inspect "$TAG" >/dev/null 2>&1; then
+              echo "Missing: $TAG, will fetch and publish"
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
+          present=$(docker manifest inspect "$TAG" | python3 -c '
+          import sys, json
+          m = json.load(sys.stdin)
+          if m.get("mediaType") not in (
+              "application/vnd.oci.image.index.v1+json",
+              "application/vnd.docker.distribution.manifest.list.v2+json",
+          ):
+              sys.exit(0)
+          for sub in m.get("manifests", []):
+              p = sub.get("platform", {})
+              arch = p.get("architecture", "")
+              os_ = p.get("os", "")
+              if arch and os_ and arch != "unknown":
+                  print(f"{os_}/{arch}")
+          ' | sort -u)
+          missing=""
+          for p in $REQUIRED_PLATFORMS; do
+              if ! echo "$present" | grep -qxF "$p"; then
+                  missing="$missing $p"
+              fi
+          done
+          if [ -n "$missing" ]; then
+              echo "Existing $TAG is missing platforms:$missing"
+              echo "Present: $(echo "$present" | tr '\n' ' ')"
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+              echo "All required platforms present in $TAG"
+              echo "Present: $(echo "$present" | tr '\n' ' ')"
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up QEMU
+        if: steps.check.outputs.exists == 'false'
+        # Needed by buildx for multi-arch builds even though our source
+        # image is FROM scratch + one COPY (no code execution per arch).
+        # buildx still asks the kernel to advertise the target platforms
+        # via binfmt_misc, and QEMU registers those handlers.
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up buildx
+        if: steps.check.outputs.exists == 'false'
+        uses: docker/setup-buildx-action@master
+
+      - name: Fetch, verify, publish
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          EXPECTED_SHA: ${{ steps.meta.outputs.sha }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p ctx/sources/downloads
+
+          # Canonical upstream. If cdn.kernel.org is down at bump time,
+          # the workflow fails loudly; the maintainer retries. This is
+          # the only place in CI that talks to an upstream mirror, so a
+          # transient outage here does not affect regular builds - once
+          # a version has been published to ghcr, no upstream is touched.
+          url="https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${VERSION}.tar.xz"
+          echo "Fetching from $url"
+          wget -q --timeout=60 --tries=2 "$url" -O ctx/sources/downloads/libcap.tar.xz
+          test -s ctx/sources/downloads/libcap.tar.xz || {
+              echo "Upstream fetch failed for libcap-${VERSION}"
+              exit 1
+          }
+
+          actual=$(sha256sum ctx/sources/downloads/libcap.tar.xz | awk '{print $1}')
+          if [ "$actual" != "$EXPECTED_SHA" ]; then
+              echo "SHA256 mismatch for libcap-${VERSION}"
+              echo "  expected: $EXPECTED_SHA"
+              echo "  observed: $actual"
+              echo "Upstream may have retagged; investigate before continuing."
+              exit 1
+          fi
+          echo "SHA256 verified: $actual"
+
+          # Minimal scratch image with just the tarball at a fixed path.
+          # Consumers COPY --from=<tag> /sources/downloads/libcap.tar.xz.
+          #
+          # Built for all architectures the toolchain targets. The tarball
+          # itself is arch-independent source code, so each per-arch
+          # sub-manifest ends up pointing to the same content-addressed
+          # layer - the registry deduplicates on push and only the
+          # manifest metadata differs per architecture.
+          cat > ctx/Dockerfile <<'EOF'
+          FROM scratch
+          COPY sources/downloads/libcap.tar.xz /sources/downloads/libcap.tar.xz
+          EOF
+
+          docker buildx build \
+              --push \
+              --platform linux/amd64,linux/arm64,linux/riscv64 \
+              --tag "$TAG" \
+              ctx/
+          echo "Published $TAG"

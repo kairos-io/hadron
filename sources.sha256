@@ -1,0 +1,14 @@
+# Source tarball checksums for the per-dependency cache
+# (see .github/workflows/populate-sources.yml).
+#
+# Format: <name> <version> <sha256>
+#   name    matches the OCI repo path under ghcr.io/kairos-io/hadron-sources/
+#   version matches the corresponding *_VERSION ARG in Dockerfile
+#   sha256  is the expected SHA256 of the upstream tarball; populate-sources
+#           refuses to publish if the fetched tarball does not match
+#
+# Bumping a version requires updating the sha256 in the same commit; the
+# populate-sources workflow fails the build if this file drifts out of sync
+# with the Dockerfile ARG.
+
+libcap 2.78 0d621e562fd932ccf67b9660fb018e468a683d7b827541df27813228c996bb11

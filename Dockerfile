@@ -24,6 +24,15 @@ ARG GNU_MIRROR_1=https://ftpmirror.gnu.org
 ARG GNU_MIRROR_2=https://ftp.gnu.org/gnu
 ARG GNU_MIRROR_3=https://mirror.netcologne.de/gnu
 
+## Version pins for packages served from the per-package source cache
+## (ghcr.io/kairos-io/hadron-sources/*). These ARGs are declared here
+## rather than inside their download stages because Docker requires
+## ARGs used in a FROM to live above the first FROM in the file.
+## Bumping any of these requires updating the corresponding entry in
+## sources.sha256 in the same commit; populate-sources.yml enforces
+## that consistency before republishing the source image.
+ARG LIBCAP_VERSION=2.78
+
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
 FROM alpine:3.24.1@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS alpine-base
@@ -127,15 +136,15 @@ FROM sources-downloader-base AS systemd-download
 ARG SYSTEMD_VERSION=261.2
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
-# libcap was fetched from the bare kernel.org hostname (the redirect
-# front-end, not the CDN). That host goes flaky periodically, TCP-timing
-# out even when the rest of kernel.org's edge nodes are healthy. Every
-# other kernel.org fetch in this Dockerfile already uses www., mirrors.edge.
-# or git., so this URL was the outlier. Move to cdn.kernel.org, the same
-# static release CDN the linux tarball now uses.
-FROM sources-downloader-base AS libcap-download
-ARG LIBCAP_VERSION=2.78
-RUN wget -q https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
+# libcap: proof of concept for the per-package source cache pattern.
+# The tarball comes from ghcr.io/kairos-io/hadron-sources/libcap:X,
+# a scratch image containing only /sources/downloads/libcap.tar.xz.
+# Published by .github/workflows/populate-sources.yml on version bump.
+# LIBCAP_VERSION is declared with the other cached-package ARGs at the
+# top of the file (Docker requires ARGs used in FROM to live above the
+# first FROM). No wget, no fallback, no upstream mirror in the critical
+# path: ghcr is the only host we contact for libcap during a build.
+FROM ghcr.io/kairos-io/hadron-sources/libcap:${LIBCAP_VERSION} AS libcap-download
 
 FROM sources-downloader-base AS util-linux-download
 ARG UTIL_LINUX_VERSION=2.42.2
@@ -241,8 +250,8 @@ RUN wget -q https://downloads.sourceforge.net/project/procps-ng/Production/procp
 # CI hits get 403s. The CDN copy is the same source tree, just repackaged
 # with xz. ${KERNEL_VERSION%%.*} extracts the major (e.g. 7 from 7.1.5) so
 # the version stays a single-source ARG the autobumper can update.
-# If we ever pin to a mainline/RC that is not on the CDN yet, this will 404
-# and we will need to add git.kernel.org back as a fallback.
+# If we ever pin to a mainline/RC that isn't on the CDN yet, this will 404
+# and we'll need to add git.kernel.org back as a fallback.
 FROM sources-downloader-base AS linux-download
 ARG KERNEL_VERSION=7.1.5
 RUN wget -q https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz -O linux.tar.xz
