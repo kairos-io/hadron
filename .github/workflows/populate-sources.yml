@@ -1,32 +1,35 @@
 name: Populate source caches
 
 # Publishes upstream source tarballs to
-# ghcr.io/kairos-io/hadron-sources/<pkg>:<version> so the main build never
-# fetches from upstream mirrors. Each package is cached as its own OCI
-# image, tagged by version; bumping one package's version invalidates only
-# that image's cache, never the others.
+# ghcr.io/kairos-io/hadron-sources/<pkg>:<version> so the main build
+# never fetches from upstream mirrors. Each package is cached as its
+# own OCI image, tagged by version; bumping one package's version
+# invalidates only that image's tag, never the others.
 #
-# Runs whenever the Dockerfile ARG or the pinned checksum changes.
-# Idempotent: if the target tag already exists on ghcr, the job is a
-# cheap no-op (a single manifest inspect). Only missing tags trigger a
-# fetch-verify-publish. sha256 mismatch fails the job; only the
-# populate job is allowed to talk to upstream from CI.
+# Runs whenever sources.yaml, Dockerfile, or this workflow changes.
+# Idempotent per-package: if the target tag already exists on ghcr AND
+# covers every required platform, the matrix cell short-circuits after
+# one manifest inspect. Only missing tags (or tags missing platforms)
+# trigger a fetch-verify-publish. SHA256 mismatch fails the cell; only
+# this workflow is allowed to talk to upstream mirrors from CI.
 #
-# This file currently handles only libcap as a proof of concept. Once
-# validated, the same pattern will cover every ARG *_VERSION= in the
-# Dockerfile.
+# The set of cached packages is driven by sources.yaml. Adding a
+# package is: append an entry to sources.yaml with its version_arg,
+# sha256, url template, and filename; flip the corresponding
+# Dockerfile downloader stage to
+# `FROM ghcr.io/kairos-io/hadron-sources/<pkg>:${<version_arg>}`.
 
 on:
   pull_request:
     paths:
       - 'Dockerfile'
-      - 'sources.sha256'
+      - 'sources.yaml'
       - '.github/workflows/populate-sources.yml'
   push:
     branches: [main]
     paths:
       - 'Dockerfile'
-      - 'sources.sha256'
+      - 'sources.yaml'
       - '.github/workflows/populate-sources.yml'
   workflow_dispatch: {}
 
@@ -36,39 +39,99 @@ permissions:
 
 env:
   REPO_PREFIX: ghcr.io/kairos-io/hadron-sources
+  REQUIRED_PLATFORMS: linux/amd64 linux/arm64 linux/riscv64
 
 jobs:
-  libcap:
+  # Read sources.yaml, emit a JSON array of package names so the
+  # populate job can matrix-fan-out over them. If the file is missing
+  # or empty, the matrix will be empty and populate becomes a no-op.
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      pkgs: ${{ steps.list.outputs.pkgs }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: list
+        run: |
+          set -euo pipefail
+          pkgs=$(python3 <<'PY'
+          import json, sys
+          try:
+              import yaml
+          except ImportError:
+              import subprocess
+              subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--quiet', 'PyYAML'])
+              import yaml
+          data = yaml.safe_load(open('sources.yaml')) or {}
+          names = sorted((data.get('packages') or {}).keys())
+          print(json.dumps(names))
+          PY
+          )
+          echo "pkgs=$pkgs" >> "$GITHUB_OUTPUT"
+          echo "Discovered packages: $pkgs"
+
+  populate:
+    needs: discover
     runs-on: ubuntu-latest
     # Fork PRs don't have secrets.GITHUB_TOKEN with packages:write; skip
     # them here. When a fork bumps a version, the maintainer runs this
     # workflow via workflow_dispatch on a maintainer-owned branch first.
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+      needs.discover.outputs.pkgs != '[]' && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        pkg: ${{ fromJSON(needs.discover.outputs.pkgs) }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Extract libcap version and expected sha
+      - name: Extract metadata for ${{ matrix.pkg }}
         id: meta
+        env:
+          PKG: ${{ matrix.pkg }}
+        # Reads sources.yaml + Dockerfile, resolves the URL template
+        # against the ARG value in Dockerfile, and writes the computed
+        # (version, url, filename, sha256, tag) to step outputs. Fails
+        # loudly if the ARG is absent from Dockerfile or if the entry
+        # is missing required fields, so the failure surfaces here
+        # rather than deep inside a wget or docker call later.
         run: |
           set -euo pipefail
-          version=$(grep -E '^ARG LIBCAP_VERSION=' Dockerfile | head -1 | sed -E 's/^ARG LIBCAP_VERSION=([^ ]+).*/\1/')
-          test -n "$version" || { echo "LIBCAP_VERSION not found in Dockerfile"; exit 1; }
-          entry=$(grep -E '^libcap ' sources.sha256 || true)
-          test -n "$entry" || { echo "libcap entry missing from sources.sha256"; exit 1; }
-          entry_ver=$(echo "$entry" | awk '{print $2}')
-          entry_sha=$(echo "$entry" | awk '{print $3}')
-          if [ "$version" != "$entry_ver" ]; then
-              echo "Dockerfile ARG LIBCAP_VERSION=$version disagrees with sources.sha256 entry ($entry_ver)"
-              echo "Bump both in the same commit."
-              exit 1
-          fi
-          {
-              echo "version=$version"
-              echo "sha=$entry_sha"
-              echo "tag=${REPO_PREFIX}/libcap:$version"
-          } >> "$GITHUB_OUTPUT"
+          python3 <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re, sys
+          try:
+              import yaml
+          except ImportError:
+              import subprocess
+              subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--quiet', 'PyYAML'])
+              import yaml
+          pkg = os.environ['PKG']
+          data = yaml.safe_load(open('sources.yaml')) or {}
+          spec = (data.get('packages') or {}).get(pkg)
+          if spec is None:
+              sys.exit(f'package {pkg!r} missing from sources.yaml')
+          for field in ('version_arg', 'sha256', 'url', 'filename'):
+              if not spec.get(field):
+                  sys.exit(f'package {pkg!r} missing field {field!r}')
+          arg = spec['version_arg']
+          m = re.search(rf'^ARG\s+{re.escape(arg)}=(\S+)', open('Dockerfile').read(), re.M)
+          if not m:
+              sys.exit(f'ARG {arg} not found in Dockerfile')
+          version = m.group(1)
+          url = spec['url'].replace('${version}', version)
+          filename = spec['filename']
+          sha256 = spec['sha256']
+          tag = f"{os.environ['REPO_PREFIX']}/{pkg}:{version}"
+          print(f'version={version}')
+          print(f'url={url}')
+          print(f'filename={filename}')
+          print(f'sha256={sha256}')
+          print(f'tag={tag}')
+          PY
 
       - name: Log in to ghcr
         uses: docker/login-action@v4
@@ -81,7 +144,6 @@ jobs:
         id: check
         env:
           TAG: ${{ steps.meta.outputs.tag }}
-          REQUIRED_PLATFORMS: linux/amd64 linux/arm64 linux/riscv64
         # docker buildx build --push always wraps output in an OCI
         # image-index, even for a single --platform. So the wrapper's
         # media type does not tell us whether the tag covers all the
@@ -129,10 +191,6 @@ jobs:
 
       - name: Set up QEMU
         if: steps.check.outputs.exists == 'false'
-        # Needed by buildx for multi-arch builds even though our source
-        # image is FROM scratch + one COPY (no code execution per arch).
-        # buildx still asks the kernel to advertise the target platforms
-        # via binfmt_misc, and QEMU registers those handlers.
         uses: docker/setup-qemu-action@v3
 
       - name: Set up buildx
@@ -142,29 +200,30 @@ jobs:
       - name: Fetch, verify, publish
         if: steps.check.outputs.exists == 'false'
         env:
+          PKG: ${{ matrix.pkg }}
           VERSION: ${{ steps.meta.outputs.version }}
-          EXPECTED_SHA: ${{ steps.meta.outputs.sha }}
+          URL: ${{ steps.meta.outputs.url }}
+          FILENAME: ${{ steps.meta.outputs.filename }}
+          EXPECTED_SHA: ${{ steps.meta.outputs.sha256 }}
           TAG: ${{ steps.meta.outputs.tag }}
+        # Canonical upstream fetch. Runs only in this workflow (which
+        # gates on Dockerfile / sources.yaml changes) so a transient
+        # upstream outage here does not affect regular builds - once a
+        # version has been published to ghcr, no upstream is touched.
         run: |
           set -euo pipefail
           mkdir -p ctx/sources/downloads
 
-          # Canonical upstream. If cdn.kernel.org is down at bump time,
-          # the workflow fails loudly; the maintainer retries. This is
-          # the only place in CI that talks to an upstream mirror, so a
-          # transient outage here does not affect regular builds - once
-          # a version has been published to ghcr, no upstream is touched.
-          url="https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${VERSION}.tar.xz"
-          echo "Fetching from $url"
-          wget -q --timeout=60 --tries=2 "$url" -O ctx/sources/downloads/libcap.tar.xz
-          test -s ctx/sources/downloads/libcap.tar.xz || {
-              echo "Upstream fetch failed for libcap-${VERSION}"
+          echo "Fetching $URL"
+          wget -q --timeout=60 --tries=2 "$URL" -O "ctx/sources/downloads/$FILENAME"
+          test -s "ctx/sources/downloads/$FILENAME" || {
+              echo "Upstream fetch failed for $PKG-$VERSION"
               exit 1
           }
 
-          actual=$(sha256sum ctx/sources/downloads/libcap.tar.xz | awk '{print $1}')
+          actual=$(sha256sum "ctx/sources/downloads/$FILENAME" | awk '{print $1}')
           if [ "$actual" != "$EXPECTED_SHA" ]; then
-              echo "SHA256 mismatch for libcap-${VERSION}"
+              echo "SHA256 mismatch for $PKG-$VERSION"
               echo "  expected: $EXPECTED_SHA"
               echo "  observed: $actual"
               echo "Upstream may have retagged; investigate before continuing."
@@ -172,17 +231,14 @@ jobs:
           fi
           echo "SHA256 verified: $actual"
 
-          # Minimal scratch image with just the tarball at a fixed path.
-          # Consumers COPY --from=<tag> /sources/downloads/libcap.tar.xz.
-          #
-          # Built for all architectures the toolchain targets. The tarball
-          # itself is arch-independent source code, so each per-arch
-          # sub-manifest ends up pointing to the same content-addressed
-          # layer - the registry deduplicates on push and only the
-          # manifest metadata differs per architecture.
-          cat > ctx/Dockerfile <<'EOF'
+          # Minimal scratch image with just the tarball at the exact
+          # path the Dockerfile expects downstream via COPY --from.
+          # Built for every arch the toolchain targets; since the
+          # tarball is arch-independent, all sub-manifests share the
+          # same content-addressed layer.
+          cat > ctx/Dockerfile <<EOF
           FROM scratch
-          COPY sources/downloads/libcap.tar.xz /sources/downloads/libcap.tar.xz
+          COPY sources/downloads/$FILENAME /sources/downloads/$FILENAME
           EOF
 
           docker buildx build \

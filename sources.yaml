@@ -1,0 +1,31 @@
+# Metadata for the per-package source cache.
+#
+# Each top-level key under `packages` becomes an OCI image at
+# ghcr.io/kairos-io/hadron-sources/<name> tagged with the version pulled
+# from the corresponding Dockerfile ARG. The populate-sources workflow
+# fetches the tarball from `url`, verifies its `sha256`, and publishes
+# a scratch image containing /sources/downloads/<filename>. Consumers in
+# the Dockerfile do
+#
+#   FROM ghcr.io/kairos-io/hadron-sources/<name>:${<version_arg>} AS <name>-download
+#
+# so bumping any single package's version invalidates only that image's
+# tag; every other cache entry stays warm.
+#
+# Fields per package:
+#   version_arg  Dockerfile ARG whose value the workflow reads to pick
+#                the image tag. Bumping the ARG and the sha256 in the
+#                same commit is enforced by the workflow.
+#   sha256       Expected SHA256 of the fetched tarball. Publish fails
+#                loudly on mismatch (upstream retagged, or wrong pin).
+#   url          Upstream URL. ${version} is substituted from the ARG.
+#   filename     Path the tarball lands at inside the source image
+#                (/sources/downloads/<filename>). Must match the name
+#                the Dockerfile expects downstream via COPY --from.
+
+packages:
+  libcap:
+    version_arg: LIBCAP_VERSION
+    sha256: 0d621e562fd932ccf67b9660fb018e468a683d7b827541df27813228c996bb11
+    url: https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${version}.tar.xz
+    filename: libcap.tar.xz
