@@ -209,32 +209,39 @@ jobs:
         # version has been published to ghcr, no upstream is touched.
         # URLS is a whitespace-separated list of candidate URLs, tried
         # in order. Single-url packages just have one entry.
+        #
+        # SHA verification happens INSIDE the loop so a URL that returns
+        # non-empty-but-wrong content (a 502 HTML error page, a redirect
+        # to a directory listing, an entirely different tarball) is
+        # rejected and the next URL is tried. Otherwise the first URL
+        # that responds with any bytes wins even if those bytes are
+        # bogus, and every fallback URL becomes useless.
         run: |
-          set -euo pipefail
+          set -uo pipefail
           mkdir -p ctx/sources/downloads
           out="ctx/sources/downloads/$FILENAME"
-
+          matched=0
           for url in $URLS; do
               echo "Fetching $url"
-              if wget -q --timeout=60 --tries=2 "$url" -O "$out"; then
-                  test -s "$out" && break
-              fi
               rm -f "$out"
+              if ! wget -q --timeout=60 --tries=2 "$url" -O "$out"; then
+                  echo "  fetch failed, trying next URL"
+                  continue
+              fi
+              actual=$(sha256sum "$out" | awk '{print $1}')
+              if [ "$actual" = "$EXPECTED_SHA" ]; then
+                  echo "  SHA256 verified: $actual"
+                  matched=1
+                  break
+              fi
+              echo "  SHA256 mismatch (expected $EXPECTED_SHA, got $actual), trying next URL"
           done
-          test -s "$out" || {
-              echo "All upstream URLs failed for $PKG-$VERSION"
-              exit 1
-          }
-
-          actual=$(sha256sum "ctx/sources/downloads/$FILENAME" | awk '{print $1}')
-          if [ "$actual" != "$EXPECTED_SHA" ]; then
-              echo "SHA256 mismatch for $PKG-$VERSION"
-              echo "  expected: $EXPECTED_SHA"
-              echo "  observed: $actual"
-              echo "Upstream may have retagged; investigate before continuing."
+          if [ "$matched" -eq 0 ]; then
+              echo "No URL served the expected bytes for $PKG-$VERSION."
+              echo "Either every upstream is down, or the pinned sha in sources.yaml"
+              echo "no longer matches what upstream serves (retagged / repacked)."
               exit 1
           fi
-          echo "SHA256 verified: $actual"
 
           # Minimal scratch image with just the tarball at the exact
           # path the Dockerfile expects downstream via COPY --from.
