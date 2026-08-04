@@ -41,9 +41,15 @@ env:
   REQUIRED_PLATFORMS: linux/amd64 linux/arm64 linux/riscv64
 
 jobs:
-  # Read sources.yaml, emit a JSON array of package names so the
-  # populate job can matrix-fan-out over them. If the file is missing
-  # or empty, the matrix will be empty and populate becomes a no-op.
+  # Read sources.yaml and, for each package, check whether ghcr already
+  # has a multi-arch tag with every required platform present. Emit a
+  # JSON array containing ONLY the packages that need publishing.
+  #
+  # Doing this filter in one job saves ~30s of runner-provisioning
+  # overhead per matrix cell we would otherwise fan out to. On warm
+  # cache (every ghcr tag already complete) the populate matrix ends
+  # up empty and the entire workflow finishes in ~1 min. Only genuine
+  # version bumps trigger the matrix fanout.
   discover:
     runs-on: ubuntu-latest
     outputs:
@@ -51,23 +57,96 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - id: list
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_PREFIX: ${{ env.REPO_PREFIX }}
+          REQUIRED_PLATFORMS: ${{ env.REQUIRED_PLATFORMS }}
         run: |
           set -euo pipefail
           pkgs=$(python3 <<'PY'
-          import json, sys
+          import json, os, sys, urllib.request, urllib.error
+          from concurrent.futures import ThreadPoolExecutor
           try:
               import yaml
           except ImportError:
               import subprocess
               subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--quiet', 'PyYAML'])
               import yaml
+
           data = yaml.safe_load(open('sources.yaml')) or {}
-          names = sorted((data.get('packages') or {}).keys())
-          print(json.dumps(names))
+          packages = data.get('packages') or {}
+          repo_prefix = os.environ['REPO_PREFIX']
+          required = set(os.environ['REQUIRED_PLATFORMS'].split())
+          token = os.environ.get('GHCR_TOKEN', '')
+
+          INDEX_TYPES = {
+              'application/vnd.oci.image.index.v1+json',
+              'application/vnd.docker.distribution.manifest.list.v2+json',
+          }
+
+          def needs_publish(pkg):
+              spec = packages[pkg]
+              version = str(spec.get('version', ''))
+              # ghcr's registry API: get a token, GET the manifest.
+              # 404 => tag missing; wrong-shape => needs republish;
+              # missing platforms => needs republish.
+              path = repo_prefix.replace('ghcr.io/', '', 1)
+              scope = f'repository:{path}/{pkg}:pull'
+              try:
+                  req = urllib.request.Request(
+                      f'https://ghcr.io/token?service=ghcr.io&scope={scope}'
+                  )
+                  if token:
+                      # Basic auth with the workflow token as password unlocks
+                      # private packages if any; public ones work anonymously.
+                      import base64
+                      basic = base64.b64encode(f'x:{token}'.encode()).decode()
+                      req.add_header('Authorization', f'Basic {basic}')
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      pull_token = json.loads(r.read()).get('token', '')
+              except urllib.error.URLError:
+                  return pkg  # can't even negotiate; safer to try publishing
+              try:
+                  req = urllib.request.Request(
+                      f'https://ghcr.io/v2/{path}/{pkg}/manifests/{version}',
+                      headers={
+                          'Authorization': f'Bearer {pull_token}',
+                          'Accept': ','.join([
+                              'application/vnd.oci.image.index.v1+json',
+                              'application/vnd.oci.image.manifest.v1+json',
+                              'application/vnd.docker.distribution.manifest.list.v2+json',
+                              'application/vnd.docker.distribution.manifest.v2+json',
+                          ]),
+                      },
+                  )
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      m = json.loads(r.read())
+              except urllib.error.HTTPError as e:
+                  if e.code == 404:
+                      return pkg
+                  return pkg
+              if m.get('mediaType') not in INDEX_TYPES:
+                  return pkg
+              present = set()
+              for sub in m.get('manifests', []):
+                  p = sub.get('platform', {})
+                  arch = p.get('architecture', '')
+                  os_ = p.get('os', '')
+                  if arch and os_ and arch != 'unknown':
+                      present.add(f'{os_}/{arch}')
+              if not required.issubset(present):
+                  return pkg
+              return None
+
+          names = sorted(packages.keys())
+          with ThreadPoolExecutor(max_workers=20) as ex:
+              to_publish = sorted(x for x in ex.map(needs_publish, names) if x)
+          print(f'checked {len(names)} packages, {len(to_publish)} need publish', file=sys.stderr)
+          print(json.dumps(to_publish))
           PY
           )
           echo "pkgs=$pkgs" >> "$GITHUB_OUTPUT"
-          echo "Discovered packages: $pkgs"
+          echo "Packages needing publish: $pkgs"
 
   populate:
     needs: discover
@@ -138,65 +217,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check whether tag has all required platforms on ghcr
-        id: check
-        env:
-          TAG: ${{ steps.meta.outputs.tag }}
-        # docker buildx build --push always wraps output in an OCI
-        # image-index, even for a single --platform. So the wrapper's
-        # media type does not tell us whether the tag covers all the
-        # architectures toolchain builds need; we have to walk the
-        # manifests[] list and check each platform is present.
-        # Attestation sub-manifests (platform.architecture == "unknown")
-        # are ignored.
-        run: |
-          set -uo pipefail
-          if ! docker manifest inspect "$TAG" >/dev/null 2>&1; then
-              echo "Missing: $TAG, will fetch and publish"
-              echo "exists=false" >> "$GITHUB_OUTPUT"
-              exit 0
-          fi
-          present=$(docker manifest inspect "$TAG" | python3 -c '
-          import sys, json
-          m = json.load(sys.stdin)
-          if m.get("mediaType") not in (
-              "application/vnd.oci.image.index.v1+json",
-              "application/vnd.docker.distribution.manifest.list.v2+json",
-          ):
-              sys.exit(0)
-          for sub in m.get("manifests", []):
-              p = sub.get("platform", {})
-              arch = p.get("architecture", "")
-              os_ = p.get("os", "")
-              if arch and os_ and arch != "unknown":
-                  print(f"{os_}/{arch}")
-          ' | sort -u)
-          missing=""
-          for p in $REQUIRED_PLATFORMS; do
-              if ! echo "$present" | grep -qxF "$p"; then
-                  missing="$missing $p"
-              fi
-          done
-          if [ -n "$missing" ]; then
-              echo "Existing $TAG is missing platforms:$missing"
-              echo "Present: $(echo "$present" | tr '\n' ' ')"
-              echo "exists=false" >> "$GITHUB_OUTPUT"
-          else
-              echo "All required platforms present in $TAG"
-              echo "Present: $(echo "$present" | tr '\n' ' ')"
-              echo "exists=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Set up QEMU
-        if: steps.check.outputs.exists == 'false'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up buildx
-        if: steps.check.outputs.exists == 'false'
         uses: docker/setup-buildx-action@master
 
       - name: Fetch, verify, publish
-        if: steps.check.outputs.exists == 'false'
         env:
           PKG: ${{ matrix.pkg }}
           VERSION: ${{ steps.meta.outputs.version }}
