@@ -114,20 +114,25 @@ jobs:
           spec = (data.get('packages') or {}).get(pkg)
           if spec is None:
               sys.exit(f'package {pkg!r} missing from sources.yaml')
-          for field in ('version_arg', 'sha256', 'url', 'filename'):
+          for field in ('version_arg', 'sha256', 'filename'):
               if not spec.get(field):
                   sys.exit(f'package {pkg!r} missing field {field!r}')
+          if bool(spec.get('url')) == bool(spec.get('urls')):
+              sys.exit(f'package {pkg!r} must set exactly one of url or urls')
           arg = spec['version_arg']
           m = re.search(rf'^ARG\s+{re.escape(arg)}=(\S+)', open('Dockerfile').read(), re.M)
           if not m:
               sys.exit(f'ARG {arg} not found in Dockerfile')
           version = m.group(1)
-          url = spec['url'].replace('${version}', version)
+          urls = spec['urls'] if spec.get('urls') else [spec['url']]
+          urls = [u.replace('${version}', version) for u in urls]
+          if any(' ' in u or '\t' in u or '\n' in u for u in urls):
+              sys.exit(f'package {pkg!r} URL contains whitespace, would break the fetch loop')
           filename = spec['filename']
           sha256 = spec['sha256']
           tag = f"{os.environ['REPO_PREFIX']}/{pkg}:{version}"
           print(f'version={version}')
-          print(f'url={url}')
+          print(f'urls={" ".join(urls)}')
           print(f'filename={filename}')
           print(f'sha256={sha256}')
           print(f'tag={tag}')
@@ -202,7 +207,7 @@ jobs:
         env:
           PKG: ${{ matrix.pkg }}
           VERSION: ${{ steps.meta.outputs.version }}
-          URL: ${{ steps.meta.outputs.url }}
+          URLS: ${{ steps.meta.outputs.urls }}
           FILENAME: ${{ steps.meta.outputs.filename }}
           EXPECTED_SHA: ${{ steps.meta.outputs.sha256 }}
           TAG: ${{ steps.meta.outputs.tag }}
@@ -210,14 +215,22 @@ jobs:
         # gates on Dockerfile / sources.yaml changes) so a transient
         # upstream outage here does not affect regular builds - once a
         # version has been published to ghcr, no upstream is touched.
+        # URLS is a whitespace-separated list of candidate URLs, tried
+        # in order. Single-url packages just have one entry.
         run: |
           set -euo pipefail
           mkdir -p ctx/sources/downloads
+          out="ctx/sources/downloads/$FILENAME"
 
-          echo "Fetching $URL"
-          wget -q --timeout=60 --tries=2 "$URL" -O "ctx/sources/downloads/$FILENAME"
-          test -s "ctx/sources/downloads/$FILENAME" || {
-              echo "Upstream fetch failed for $PKG-$VERSION"
+          for url in $URLS; do
+              echo "Fetching $url"
+              if wget -q --timeout=60 --tries=2 "$url" -O "$out"; then
+                  test -s "$out" && break
+              fi
+              rm -f "$out"
+          done
+          test -s "$out" || {
+              echo "All upstream URLs failed for $PKG-$VERSION"
               exit 1
           }
 

@@ -19,6 +19,12 @@
 #   sha256       Expected SHA256 of the fetched tarball. Publish fails
 #                loudly on mismatch (upstream retagged, or wrong pin).
 #   url          Upstream URL. ${version} is substituted from the ARG.
+#                Mutually exclusive with `urls`.
+#   urls         List of upstream URLs tried in order until one returns
+#                a non-empty body. Use this for projects that publish
+#                to multiple mirror hosts (for example the GNU mirror
+#                ring at ftpmirror.gnu.org, ftp.gnu.org/gnu, and the
+#                Cologne mirror). Mutually exclusive with `url`.
 #   filename     Path the tarball lands at inside the source image
 #                (/sources/downloads/<filename>). Must match the name
 #                the Dockerfile expects downstream via COPY --from.
