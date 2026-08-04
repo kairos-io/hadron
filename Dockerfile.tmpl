@@ -57,6 +57,18 @@ RUN if [ "${ARCH}" = "aarch64" ] && [ "${BUILD_ARCH}" != "aarch64" ]; then echo 
 RUN if [ "${ARCH}" = "riscv64" ] && [ "${BUILD_ARCH}" != "riscv64" ]; then echo "For ARCH riscv64, BUILD_ARCH must be riscv64"; exit 1; fi
 
 RUN git clone https://github.com/firasuke/mussel.git && cd mussel && git checkout ${MUSSEL_VERSION} -b build
+# mussel's script fetches binutils/gcc/gmp/mpc/mpfr from
+# ftpmirror.gnu.org, which is GNU's mirror-selecting rotator. That
+# rotator has been intermittently redirecting to mirror nodes that
+# serve a 166-byte HTML error page instead of the tarball, tripping
+# mussel's sha256 check and failing the whole toolchain build. The
+# pinned checksums in mussel are the canonical GNU release hashes,
+# so any healthy mirror carrying the same file passes. Redirect to
+# a specific stable mirror (mirror.netcologne.de/gnu) that has been
+# consistently serving the correct bytes. URL layouts happen to
+# match: ftpmirror.gnu.org/binutils/... maps to
+# mirror.netcologne.de/gnu/binutils/... at the same paths.
+RUN sed -i 's|https://ftpmirror\.gnu\.org|https://mirror.netcologne.de/gnu|g' mussel/mussel
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
