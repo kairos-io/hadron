@@ -127,9 +127,15 @@ FROM sources-downloader-base AS systemd-download
 ARG SYSTEMD_VERSION=261.2
 RUN wget -q https://github.com/systemd/systemd/archive/refs/tags/v${SYSTEMD_VERSION}.tar.gz -O systemd.tar.gz
 
+# libcap was fetched from the bare kernel.org hostname (the redirect
+# front-end, not the CDN). That host goes flaky periodically, TCP-timing
+# out even when the rest of kernel.org's edge nodes are healthy. Every
+# other kernel.org fetch in this Dockerfile already uses www., mirrors.edge.
+# or git., so this URL was the outlier. Move to cdn.kernel.org, the same
+# static release CDN the linux tarball now uses.
 FROM sources-downloader-base AS libcap-download
 ARG LIBCAP_VERSION=2.78
-RUN wget -q https://kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
+RUN wget -q https://cdn.kernel.org/pub/linux/libs/security/linux-privs/libcap2/libcap-${LIBCAP_VERSION}.tar.xz -O libcap.tar.xz
 
 FROM sources-downloader-base AS util-linux-download
 ARG UTIL_LINUX_VERSION=2.42.2
