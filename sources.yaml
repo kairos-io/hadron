@@ -37,6 +37,15 @@
 #                the Dockerfile expects downstream via COPY --from.
 
 packages:
+  acl:
+    version: "2.4.0"
+    version_arg: ACL_VERSION
+    sha256: 73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a
+    urls:
+      - https://download.savannah.gnu.org/releases/acl/acl-${version}.tar.gz
+      - https://savannah.gnu.org/download/acl/acl-${version}.tar.gz
+    filename: acl.tar.gz
+
   aports:
     version: "3.24.1"
     version_arg: APORTS_VERSION
@@ -58,6 +67,26 @@ packages:
     url: https://download.savannah.nongnu.org/releases/attr/attr-${version}.tar.gz
     filename: attr.tar.gz
 
+  autoconf:
+    version: "2.73"
+    version_arg: AUTOCONF_VERSION
+    sha256: 9fd672b1c8425fac2fa67fa0477b990987268b90ff36d5f016dae57be0d6b52e
+    urls:
+      - https://ftpmirror.gnu.org/autoconf/autoconf-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/autoconf/autoconf-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/autoconf/autoconf-${version}.tar.xz
+    filename: autoconf.tar.xz
+
+  automake:
+    version: "1.18.1"
+    version_arg: AUTOMAKE_VERSION
+    sha256: 168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887
+    urls:
+      - https://ftpmirror.gnu.org/automake/automake-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/automake/automake-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/automake/automake-${version}.tar.xz
+    filename: automake.tar.xz
+
   bc:
     version: "7.1.0"
     version_arg: BC_VERSION
@@ -71,6 +100,16 @@ packages:
     sha256: 154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff
     url: https://sourceware.org/pub/binutils/releases/binutils-${version}.tar.xz
     filename: binutils.tar.xz
+
+  bison:
+    version: "3.8.2"
+    version_arg: BISON_VERSION
+    sha256: 9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2
+    urls:
+      - https://ftpmirror.gnu.org/bison/bison-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/bison/bison-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/bison/bison-${version}.tar.xz
+    filename: bison.tar.xz
 
   busybox:
     version: "1.37.0"
@@ -100,6 +139,16 @@ packages:
     url: https://www.netfilter.org/projects/conntrack-tools/files/conntrack-tools-${version}.tar.xz
     filename: conntrack-tools.tar.xz
 
+  coreutils:
+    version: "9.11"
+    version_arg: COREUTILS_VERSION
+    sha256: 394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
+    urls:
+      - https://ftpmirror.gnu.org/coreutils/coreutils-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/coreutils/coreutils-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/coreutils/coreutils-${version}.tar.xz
+    filename: coreutils.tar.xz
+
   cryptsetup:
     version: "2.8.7"
     version_arg: CRYPTSETUP_VERSION
@@ -113,6 +162,23 @@ packages:
     sha256: d9b327997999045a24cda50f3983e69e51c516bd8be6ef9842fc7f99135e33bb
     url: https://curl.se/download/curl-${version}.tar.gz
     filename: curl.tar.gz
+
+  dbus:
+    version: "1.16.2"
+    version_arg: DBUS_VERSION
+    sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
+    url: https://dbus.freedesktop.org/releases/dbus/dbus-${version}.tar.xz
+    filename: dbus.tar.xz
+
+  diffutils:
+    version: "3.12"
+    version_arg: DIFFUTILS_VERSION
+    sha256: 7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd
+    urls:
+      - https://ftpmirror.gnu.org/diffutils/diffutils-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/diffutils/diffutils-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/diffutils/diffutils-${version}.tar.xz
+    filename: diffutils.tar.xz
 
   dosfstools:
     version: "4.2"
@@ -149,6 +215,23 @@ packages:
     url: https://sourceware.org/elfutils/ftp/${version}/elfutils-${version}.tar.bz2
     filename: elfutils.tar.bz2
 
+  expat:
+    version: "2.8.2"
+    version_arg: EXPAT_VERSION
+    sha256: ef7d1994f533c9e7343d6c19f31064fc8ebbcbcaa144be3812b4f43052a05f4c
+    url: https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${version}.tar.gz
+    filename: expat.tar.gz
+
+  findutils:
+    version: "4.11.0"
+    version_arg: FINDUTILS_VERSION
+    sha256: bfd19cb06cc71f3352d567e90284d8cdac02ac89774bbeadf0b533b0c11432fd
+    urls:
+      - https://ftpmirror.gnu.org/findutils/findutils-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/findutils/findutils-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/findutils/findutils-${version}.tar.xz
+    filename: findutils.tar.xz
+
   flex:
     version: "2.6.4"
     version_arg: FLEX_VERSION
@@ -156,12 +239,89 @@ packages:
     url: https://github.com/westes/flex/releases/download/v${version}/flex-${version}.tar.gz
     filename: flex.tar.gz
 
+  gawk:
+    version: "5.4.1"
+    version_arg: GAWK_VERSION
+    sha256: 07f6f7342b7febe4313fc2c2542ad93d64fe20ad8717200109f105a826f5fd37
+    urls:
+      - https://ftpmirror.gnu.org/gawk/gawk-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/gawk/gawk-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/gawk/gawk-${version}.tar.xz
+    filename: gawk.tar.xz
+
+  gcc:
+    version: "15.3.0"
+    version_arg: GCC_VERSION
+    sha256: fa59c1beef8995f27c4d71c1df227587189315d3e6faff1bb4306e61b0c530eb
+    urls:
+      - https://ftpmirror.gnu.org/gcc/gcc-${version}/gcc-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/gcc/gcc-${version}/gcc-${version}.tar.xz
+    filename: gcc.tar.xz
+
   gdb:
     version: "17.2"
     version_arg: GDB_VERSION
     sha256: cb891b9a9f554cac972eea5368176b240640ae90b681aae84bf873a9501f0063
     url: https://sourceware.org/pub/gdb/releases/gdb-${version}.tar.gz
     filename: gdb.tar.gz
+
+  glib:
+    version: "2.86.2"
+    version_arg: GLIB_VERSION
+    sha256: 8a724e970855357ea8101e27727202392a0ffd5410a98336aed54ec59113e611
+    url: https://download.gnome.org/sources/glib/2.86/glib-${version}.tar.xz
+    filename: glib.tar.xz
+
+  gmp:
+    version: "6.3.0"
+    version_arg: GMP_VERSION
+    sha256: ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb
+    urls:
+      - https://ftpmirror.gnu.org/gmp/gmp-${version}.tar.bz2
+      - https://ftp.gnu.org/gnu/gmp/gmp-${version}.tar.bz2
+      - https://mirror.netcologne.de/gnu/gmp/gmp-${version}.tar.bz2
+    filename: gmp.tar.bz2
+
+  gperf:
+    version: "3.3"
+    version_arg: GPERF_VERSION
+    sha256: fd87e0aba7e43ae054837afd6cd4db03a3f2693deb3619085e6ed9d8d9604ad8
+    urls:
+      - https://ftpmirror.gnu.org/gperf/gperf-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/gperf/gperf-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/gperf/gperf-${version}.tar.gz
+    filename: gperf.tar.gz
+
+  grep:
+    version: "3.12"
+    version_arg: GREP_VERSION
+    sha256: 2649b27c0e90e632eadcd757be06c6e9a4f48d941de51e7c0f83ff76408a07b9
+    urls:
+      - https://ftpmirror.gnu.org/grep/grep-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/grep/grep-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/grep/grep-${version}.tar.xz
+    filename: grep.tar.xz
+
+  grub:
+    version: "2.14"
+    version_arg: GRUB_VERSION
+    sha256: bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43
+    urls:
+      - https://ftpmirror.gnu.org/grub/grub-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/grub/grub-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/grub/grub-${version}.tar.xz
+    filename: grub.tar.xz
+
+  gzip:
+    version: "1.14"
+    version_arg: GZIP_VERSION
+    sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+    urls:
+      - https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/gzip/gzip-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/gzip/gzip-${version}.tar.xz
+    filename: gzip.tar.xz
 
   iptables:
     version: "1.8.13"
@@ -240,6 +400,16 @@ packages:
     url: https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
     filename: libffi.tar.gz
 
+  libiconv:
+    version: "1.19"
+    version_arg: ICONV_VERSION
+    sha256: 88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6
+    urls:
+      - https://ftpmirror.gnu.org/libiconv/libiconv-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/libiconv/libiconv-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/libiconv/libiconv-${version}.tar.gz
+    filename: libiconv.tar.gz
+
   libkcapi:
     version: "1.5.0"
     version_arg: LIBKCAPI_VERSION
@@ -296,6 +466,13 @@ packages:
     url: https://www.netfilter.org/projects/libnftnl/files/libnftnl-${version}.tar.xz
     filename: libnftnl.tar.xz
 
+  libnl:
+    version: "3.12.0"
+    version_arg: LIBNL_VERSION
+    sha256: fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18
+    url: https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-${version}.tar.gz
+    filename: libnl.tar.gz
+
   libseccomp:
     version: "2.6.1"
     version_arg: SECCOMP_VERSION
@@ -310,12 +487,29 @@ packages:
     url: https://downloads.sourceforge.net/project/libtirpc/libtirpc/${version}/libtirpc-${version}.tar.bz2
     filename: libtirpc.tar.bz2
 
+  libtool:
+    version: "2.5.4"
+    version_arg: LIBTOOL_VERSION
+    sha256: f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675
+    urls:
+      - https://ftpmirror.gnu.org/libtool/libtool-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/libtool/libtool-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/libtool/libtool-${version}.tar.xz
+    filename: libtool.tar.xz
+
   libucontext:
     version: "1.5.2"
     version_arg: LIBUCONTEXT_VERSION
     sha256: 9230397327bbf580e04c9456d1509e9af19599c7f6deca7f75969ece6e9d598e
     url: https://github.com/kaniini/libucontext/archive/refs/tags/libucontext-${version}.tar.gz
     filename: libucontext.tar.gz
+
+  libxml2:
+    version: "2.15.3"
+    version_arg: LIBXML2_VERSION
+    sha256: 78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07
+    url: https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
+    filename: libxml2.tar.xz
 
   linux:
     version: "7.1.5"
@@ -338,6 +532,46 @@ packages:
     url: https://github.com/lz4/lz4/archive/v${version}.tar.gz
     filename: lz4.tar.gz
 
+  m4:
+    version: "1.4.21"
+    version_arg: M4_VERSION
+    sha256: f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66
+    urls:
+      - https://ftpmirror.gnu.org/m4/m4-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/m4/m4-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/m4/m4-${version}.tar.xz
+    filename: m4.tar.xz
+
+  make:
+    version: "4.4.1"
+    version_arg: MAKE_VERSION
+    sha256: dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3
+    urls:
+      - https://ftpmirror.gnu.org/make/make-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/make/make-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/make/make-${version}.tar.gz
+    filename: make.tar.gz
+
+  mpc:
+    version: "1.4.1"
+    version_arg: MPC_VERSION
+    sha256: 91204cd32f164bd3b7c992d4a6a8ce6519511aadab30f78b6982d0bf8d73e931
+    urls:
+      - https://ftpmirror.gnu.org/mpc/mpc-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/mpc/mpc-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/mpc/mpc-${version}.tar.xz
+    filename: mpc.tar.xz
+
+  mpfr:
+    version: "4.2.2"
+    version_arg: MPFR_VERSION
+    sha256: 9ad62c7dc910303cd384ff8f1f4767a655124980bb6d8650fe62c815a231bb7b
+    urls:
+      - https://ftpmirror.gnu.org/mpfr/mpfr-${version}.tar.bz2
+      - https://ftp.gnu.org/gnu/mpfr/mpfr-${version}.tar.bz2
+      - https://mirror.netcologne.de/gnu/mpfr/mpfr-${version}.tar.bz2
+    filename: mpfr.tar.bz2
+
   mspack:
     version: "1.11"
     version_arg: MSPACK_VERSION
@@ -351,6 +585,13 @@ packages:
     sha256: 23e8500f7d12f1fbc571aafbcdaa4a07e9a1ec46920078ce92882ca6d71d45c7
     url: https://github.com/opensvc/multipath-tools/archive/refs/tags/${version}.tar.gz
     filename: multipath-tools.tar.gz
+
+  musl:
+    version: "1.2.6"
+    version_arg: MUSL_VERSION
+    sha256: d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
+    url: https://musl.libc.org/releases/musl-${version}.tar.gz
+    filename: musl.tar.gz
 
   musl-fts:
     version: "1.2.7"
@@ -415,6 +656,26 @@ packages:
     url: https://github.com/linux-pam/linux-pam/releases/download/v${version}/Linux-PAM-${version}.tar.xz
     filename: pam.tar.xz
 
+  parted:
+    version: "3.7"
+    version_arg: PARTED_VERSION
+    sha256: 008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b
+    urls:
+      - https://ftpmirror.gnu.org/parted/parted-${version}.tar.xz
+      - https://ftp.gnu.org/gnu/parted/parted-${version}.tar.xz
+      - https://mirror.netcologne.de/gnu/parted/parted-${version}.tar.xz
+    filename: parted.tar.xz
+
+  patch:
+    version: "2.8"
+    version_arg: PATCH_VERSION
+    sha256: 308a4983ff324521b9b21310bfc2398ca861798f02307c79eb99bb0e0d2bf980
+    urls:
+      - https://ftpmirror.gnu.org/patch/patch-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/patch/patch-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/patch/patch-${version}.tar.gz
+    filename: patch.tar.gz
+
   pax-utils:
     version: "1.3.11"
     version_arg: PAX_UTILS_VERSION
@@ -470,6 +731,16 @@ packages:
     sha256: 1f1209b4db82e6c4417eaf6e7e0b073563572a042d9fb7492b084ba65a9c0693
     url: https://download.qemu.org/qemu-${version}.tar.xz
     filename: qemu.tar.xz
+
+  readline:
+    version: "8.3"
+    version_arg: READLINE_VERSION
+    sha256: fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
+    urls:
+      - https://ftpmirror.gnu.org/readline/readline-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/readline/readline-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/readline/readline-${version}.tar.gz
+    filename: readline.tar.gz
 
   rsync:
     version: "3.4.4"
@@ -533,6 +804,13 @@ packages:
     sha256: 850b192096eb11ebf2c70e8f97bc7da7479ee41da1bebeb44e3986908bac414f
     url: https://lttng.org/files/urcu/userspace-rcu-${version}.tar.bz2
     filename: urcu.tar.bz2
+
+  util-linux:
+    version: "2.42.2"
+    version_arg: UTIL_LINUX_VERSION
+    sha256: 03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a
+    url: https://www.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-${version}.tar.xz
+    filename: util-linux.tar.xz
 
   xxhash:
     version: "0.8.3"
