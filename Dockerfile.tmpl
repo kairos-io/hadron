@@ -2429,14 +2429,9 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ##   --disable-nfsv4server  : kernel server is not in scope here
 ##   --disable-nfsdcld /
 ##   --disable-nfsdcltrack  : server-side state DB, not needed for client
-##   nfsdctl               : kernel-server admin tool. nfs-utils 2.9.2 has
-##                            an unconditional reference to nfsd_nl_cmd_str
-##                            from exportfs.c that only gets defined when
-##                            nfsdctl is enabled, so we can no longer
-##                            --disable-nfsdctl. Compiled and installed,
-##                            then removed in the trim step below since we
-##                            don't ship the server side. Requires readline
-##                            at link time.
+##   --disable-nfsdctl      : kernel-server admin tool; pulls in readline
+##                            which on this image links to libtermcap symbols
+##                            that aren't shipped (no ncurses).
 ##   --disable-junction     : drops nfsref (NFS junction admin tool, server-side)
 ##   --without-tcp-wrappers : tcp_wrappers is dead, not shipped
 ##   --enable-tirpc         : use libtirpc (built above) instead of glibc sunrpc
@@ -2456,10 +2451,6 @@ COPY --from=libxml /libxml/ /
 COPY --from=libevent /libevent/ /
 COPY --from=keyutils /keyutils /keyutils
 RUN rsync -aHAX --keep-dirlinks  /keyutils/. /
-## readline is only needed to satisfy the link step of the nfsdctl binary,
-## which we install and then rm in the trim step below. Kept here so the
-## build succeeds; nothing from readline ends up in the final image.
-COPY --from=readline /readline/ /
 
 ## BSD compat headers (queue.h, cdefs.h, tree.h) - musl does not ship these
 ## and nfs-utils uses them in several places.
@@ -2484,6 +2475,7 @@ RUN LIBS="-ltirpc" \
       --disable-nfsv4server \
       --disable-nfsdcld \
       --disable-nfsdcltrack \
+      --disable-nfsdctl \
       --disable-junction \
       --without-tcp-wrappers \
       --with-statedir=/var/lib/nfs \
@@ -2495,6 +2487,20 @@ RUN LIBS="-ltirpc" \
 # pure rename, no semantic change.
 RUN sed -i 's/\bstruct stat64\b/struct stat/g; s/\bstat64 (/stat (/g; s/\bstat64(/stat(/g' \
       tools/rpcgen/rpc_main.c
+
+# nfs-utils 2.9.2 bug: configure.ac AC_DEFINEs HAVE_NFSD_NETLINK
+# unconditionally (line 259, outside AC_CHECK_HEADERS' action-if-found),
+# so support/include/nfsdnl.h always emits the real declaration for
+# nfsd_nl_cmd_str. But the implementation in support/nfs/nfsdnl.c is
+# gated behind `if CONFIG_NFSDCTL` in support/nfs/Makefile.am, so with
+# --disable-nfsdctl the symbol is declared, referenced by exportfs.c,
+# and never defined - the link fails with:
+#   undefined reference to `nfsd_nl_cmd_str'
+# Force the inline stub branch of the header. Everything using it (only
+# exportfs.c does, one call site) gets the "return -ENOSYS" stub, which
+# is fine since we throw exportfs away in the trim step below.
+RUN sed -i 's|^#ifdef HAVE_NFSD_NETLINK$|#if 0 /* patched: force stub, see Dockerfile */|' \
+      support/include/nfsdnl.h
 
 # nfs-utils 2.9.2 bug: support/nfs/getport.c uses offsetof() but is missing
 # <stddef.h>. GCC 15 errors on the implicit declaration with
@@ -2523,11 +2529,6 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} \
 #        showmount, nfsstat, nfsiostat, mountstats, nfsconf  (client diag)
 #        rpcdebug                                            (kernel debug toggle)
 # Dropped: rpc.mountd, rpc.nfsd, exportfs, fsidd, nfsdclnts  (server)
-#          nfsdctl                                           (server admin,
-#                                                            re-enabled at
-#                                                            configure to
-#                                                            satisfy exportfs
-#                                                            link, then dropped)
 #          rpc.statd, sm-notify, start-statd                 (NFSv3 NSM)
 #          rpc.idmapd                                        (superseded by nfsidmap)
 #          rpcctl, rpcgen                                    (server/build-only)
@@ -2537,7 +2538,6 @@ RUN rm -f \
       /nfs-utils/sbin/exportfs \
       /nfs-utils/sbin/fsidd \
       /nfs-utils/sbin/nfsdclnts \
-      /nfs-utils/sbin/nfsdctl \
       /nfs-utils/sbin/rpc.statd \
       /nfs-utils/sbin/sm-notify \
       /nfs-utils/sbin/start-statd \
