@@ -73,3 +73,31 @@ if remaining=$(grep -oE '\$\{[A-Z0-9_]+_VERSION\}' Dockerfile | sort -u); then
 fi
 
 echo "rendered Dockerfile ($(wc -l <Dockerfile) lines) from Dockerfile.tmpl"
+
+# --- Component manifests (per-variant) ----------------------------------------
+# The final container / full-image stages COPY one of these into
+# /usr/lib/hadron/components.json. Generating them here (on the host, once
+# per render) avoids adding a container stage with its own toolchain just to
+# produce a JSON file.
+#
+# Variants:
+#   container.json                         no variants (always the same)
+#   full-image-<FIPS>-<BOOTLOADER>.json    2 x 2 = 4 files
+mkdir -p gen/components
+sh hack/gen-components.sh --shipped "stage2-merge" \
+    --format flat --name container --out-dir gen/components >/dev/null 2>&1
+
+for fips in no-fips fips; do
+    override=""
+    [ "$fips" = "fips" ] && override="--override openssl=OPENSSL_FIPS_VERSION"
+    for bootloader in grub systemd; do
+        sh hack/gen-components.sh \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-${fips} full-image-pre-${bootloader} full-image-pre-preset full-image-final" \
+            ${override} \
+            --format flat \
+            --name "full-image-${fips}-${bootloader}" \
+            --out-dir gen/components >/dev/null 2>&1
+    done
+done
+
+echo "generated component manifests: $(ls gen/components | wc -l) files in gen/components/"

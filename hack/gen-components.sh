@@ -53,11 +53,53 @@ for f in "$ROOT"/updatecli.d/*.yaml; do
       done
 done
 
-# --- Parse ARG *_VERSION= lines into GROUP<TAB>NAME<TAB>VERSION rows ---
+# --- Emit rows from sources.yaml (cached packages) ---
+# Cached packages have their version pinned in sources.yaml, not in a
+# Dockerfile ARG. Non-cached packages like bash, mussel, and sbat still
+# keep their ARG in the Dockerfile and get picked up by the ARG loop
+# below.
+COVERED_TMP="$(mktemp)"
+trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP"' EXIT
+
+if [ -f "$ROOT/sources.yaml" ]; then
+  python3 - "$ROOT/sources.yaml" "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP" <<'PY'
+import sys, yaml
+sources, groups_file, rows_file, covered_file = sys.argv[1:5]
+
+# Load ARG_NAME -> group map produced from updatecli.d/*
+grp = {}
+with open(groups_file) as f:
+    for line in f:
+        parts = line.rstrip('\n').split('\t')
+        if len(parts) == 2:
+            grp[parts[0]] = parts[1]
+
+data = yaml.safe_load(open(sources)) or {}
+with open(rows_file, 'a') as rows, open(covered_file, 'a') as cov:
+    for pkg, spec in sorted((data.get('packages') or {}).items()):
+        arg = spec.get('version_arg', '')
+        ver = spec.get('version', '')
+        if not arg or ver == '':
+            continue
+        group = grp.get(arg, 'Other')
+        # Component name is the package name from sources.yaml (already
+        # lowercase-dashed by convention), NOT derived from the ARG name.
+        # This handles cases like ICONV_VERSION -> package "libiconv" and
+        # KERNEL_VERSION -> "linux" where the ARG diverges from the name.
+        rows.write(f'{group}\t{pkg}\t{ver}\n')
+        cov.write(f'{arg}\n')
+PY
+fi
+
+# --- Parse Dockerfile ARG *_VERSION= lines, skipping ARGs already covered
+# by sources.yaml above ---
 printf '%s\n' "$DOCKERFILE_CONTENT" \
   | grep -E '^ARG [A-Z0-9_]+_VERSION=' \
   | while IFS= read -r line; do
       arg="$(printf '%s' "$line" | sed -E 's/^ARG ([A-Z0-9_]+_VERSION)=.*/\1/')"
+      if grep -qxF "$arg" "$COVERED_TMP" 2>/dev/null; then
+        continue
+      fi
       val="$(printf '%s' "$line" | sed -E 's/^ARG [A-Z0-9_]+_VERSION=//; s/^"//; s/"$//; s/[[:space:]].*$//')"
       group="$(awk -F'\t' -v a="$arg" '$1==a{print $2; exit}' "$GROUPS_TMP")"
       [ -n "$group" ] || group="Other"
@@ -111,8 +153,22 @@ if [ -n "$OVERRIDE" ]; then
   for ov in $OVERRIDE; do
     cname="${ov%%=*}"
     argn="${ov#*=}"
+    # Look up the value in Dockerfile ARG first; if not found there
+    # (cached packages have no Dockerfile ARG anymore), fall back to
+    # sources.yaml where the version_arg lives.
     val="$(printf '%s\n' "$DOCKERFILE_CONTENT" | grep -E "^ARG ${argn}=" | head -1 \
       | sed -E "s/^ARG ${argn}=//; s/^\"//; s/\"\$//; s/[[:space:]].*\$//")"
+    if [ -z "$val" ] && [ -f "$ROOT/sources.yaml" ]; then
+      val="$(python3 - "$ROOT/sources.yaml" "$argn" <<'PY'
+import sys, yaml
+data = yaml.safe_load(open(sys.argv[1])) or {}
+for pkg, spec in (data.get('packages') or {}).items():
+    if spec.get('version_arg') == sys.argv[2]:
+        print(spec.get('version', ''))
+        break
+PY
+      )"
+    fi
     if [ -z "$val" ]; then
       echo "note: --override '$ov': ARG $argn not found, skipping" >&2
       continue

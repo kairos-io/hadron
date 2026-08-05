@@ -28,3 +28,4 @@ files/hadron-splash/hadron
 
 # Rendered artifact - generated from Dockerfile.tmpl + sources.yaml by hack/render.sh
 /Dockerfile
+/gen/
