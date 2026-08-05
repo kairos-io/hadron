@@ -2177,7 +2177,14 @@ RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
 # Note: lvm2 ignores opt flags like -Os so we have to set it directly during configure
 # This is the diff between a 4Mb lvm2 vs a 600Kb!!
 RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --with-optimisation=-Os
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install_device-mapper DESTDIR=/lvm2
+# Build parallel, install serial. lvm2's install_device-mapper target
+# installs dmsetup and then creates dmstats/dmsetup.static as symlinks in
+# separate sub-rules that race on the same destination path under -j > 1:
+#   [INSTALL] dmsetup
+#   [INSTALL] dmsetup
+#   ln: /lvm2/usr/sbin/dmstats: File exists
+# `-j1` on install only costs a second or two.
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j1 install_device-mapper DESTDIR=/lvm2
 
 FROM rsync AS jsonc
 ARG JOBS
