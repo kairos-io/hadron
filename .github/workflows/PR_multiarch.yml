@@ -42,6 +42,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Install PyYAML
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")

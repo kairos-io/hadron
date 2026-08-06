@@ -215,7 +215,7 @@ packages:
     sha256: 2b6511691bda2b3ae328987092902d30fd073ef7c8754894f4a69271a66686f2
     urls:
       - https://github.com/acmel/dwarves/archive/refs/tags/v${version}.tar.gz
-    filename: dwarves.tar.xz
+    filename: dwarves.tar.gz
 
   e2fsprogs:
     version: "1.47.4"

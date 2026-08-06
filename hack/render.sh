@@ -85,7 +85,7 @@ echo "rendered Dockerfile ($(wc -l <Dockerfile) lines) from Dockerfile.tmpl"
 #   full-image-<FIPS>-<BOOTLOADER>.json    2 x 2 = 4 files
 mkdir -p gen/components
 sh hack/gen-components.sh --shipped "stage2-merge" \
-    --format flat --name container --out-dir gen/components >/dev/null 2>&1
+    --format flat --name container --out-dir gen/components >/dev/null
 
 for fips in no-fips fips; do
     override=""
@@ -96,7 +96,7 @@ for fips in no-fips fips; do
             ${override} \
             --format flat \
             --name "full-image-${fips}-${bootloader}" \
-            --out-dir gen/components >/dev/null 2>&1
+            --out-dir gen/components >/dev/null
     done
 done
 

@@ -326,7 +326,7 @@ COPY --from=libnetfilter_cthelper-download /sources/downloads/libnetfilter_cthel
 COPY --from=libnetfilter_queue-download /sources/downloads/libnetfilter_queue.tar.bz2 /sources/downloads/
 COPY --from=conntrack-tools-download /sources/downloads/conntrack-tools.tar.xz /sources/downloads/
 COPY --from=procps-ng-download /sources/downloads/procps-ng.tar.xz /sources/downloads/
-COPY --from=dwarves-download /sources/downloads/dwarves.tar.xz /sources/downloads/
+COPY --from=dwarves-download /sources/downloads/dwarves.tar.gz /sources/downloads/
 COPY --from=libbpf-download /sources/downloads/libbpf.tar.gz /sources/downloads/
 COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
 COPY --from=musl-obstack-download /sources/downloads/musl-obstack.tar.gz /sources/downloads/
@@ -1784,9 +1784,9 @@ COPY --from=obstack /obstack/ /
 COPY --from=argp /argp/ /
 COPY --from=zlib /zlib/ /
 COPY --from=pkgconfig /pkgconfig/ /
-COPY --from=sources-downloader /sources/downloads/dwarves.tar.xz /sources/
+COPY --from=sources-downloader /sources/downloads/dwarves.tar.gz /sources/
 WORKDIR /sources
-RUN tar -xf dwarves.tar.xz && mv dwarves-* dwarves
+RUN tar -xf dwarves.tar.gz && mv dwarves-* dwarves
 RUN mkdir -p /pahole /sources/dwarves-build
 WORKDIR /sources/dwarves-build
 RUN cmake ../dwarves \

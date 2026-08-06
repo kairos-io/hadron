@@ -82,7 +82,11 @@ trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP"' EXIT
 
 if [ -f "$ROOT/sources.yaml" ]; then
   python3 - "$ROOT/sources.yaml" "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP" <<'PY'
-import sys, yaml
+import sys
+try:
+    import yaml
+except ImportError:
+    sys.exit("PyYAML required to read sources.yaml (install: pip3 install pyyaml)")
 sources, groups_file, rows_file, covered_file = sys.argv[1:5]
 
 # Load ARG_NAME -> group map produced from updatecli.d/*
@@ -179,7 +183,11 @@ if [ -n "$OVERRIDE" ]; then
       | sed -E "s/^ARG ${argn}=//; s/^\"//; s/\"\$//; s/[[:space:]].*\$//")"
     if [ -z "$val" ] && [ -f "$ROOT/sources.yaml" ]; then
       val="$(python3 - "$ROOT/sources.yaml" "$argn" <<'PY'
-import sys, yaml
+import sys
+try:
+    import yaml
+except ImportError:
+    sys.exit("PyYAML required to read sources.yaml (install: pip3 install pyyaml)")
 data = yaml.safe_load(open(sys.argv[1])) or {}
 for pkg, spec in (data.get('packages') or {}).items():
     if spec.get('version_arg') == sys.argv[2]:
