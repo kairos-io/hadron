@@ -27,12 +27,31 @@ done
 ROOT="${HADRON_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
 
 # --- Resolve Dockerfile content + commit + display ref ---
+# gen-components reads Dockerfile as-is. When only Dockerfile.tmpl is
+# available (this repo generates Dockerfile on demand from the template
+# via hack/render.sh), render it first so the parser sees a normal
+# Dockerfile.
+#   worktree mode: render into $ROOT.
+#   git-ref mode:  extract Dockerfile.tmpl + sources.yaml + hack/ from
+#                  the ref into a tmpdir and render there.
 if [ "$REF" = "worktree" ] || [ -z "$REF" ]; then
+  if [ ! -f "$ROOT/Dockerfile" ] && [ -f "$ROOT/Dockerfile.tmpl" ]; then
+    sh "$ROOT/hack/render.sh" >/dev/null
+  fi
   DOCKERFILE_CONTENT="$(cat "$ROOT/Dockerfile")"
   COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   REF_NAME="worktree"
 else
-  DOCKERFILE_CONTENT="$(git -C "$ROOT" show "${REF}:Dockerfile")"
+  if git -C "$ROOT" show "${REF}:Dockerfile" >/dev/null 2>&1; then
+    DOCKERFILE_CONTENT="$(git -C "$ROOT" show "${REF}:Dockerfile")"
+  else
+    REF_TMPDIR="$(mktemp -d)"
+    git -C "$ROOT" archive "${REF}" Dockerfile.tmpl sources.yaml hack \
+      | tar -x -C "$REF_TMPDIR"
+    sh "$REF_TMPDIR/hack/render.sh" >/dev/null
+    DOCKERFILE_CONTENT="$(cat "$REF_TMPDIR/Dockerfile")"
+    rm -rf "$REF_TMPDIR"
+  fi
   COMMIT="$(git -C "$ROOT" rev-parse --short "$REF" 2>/dev/null || echo unknown)"
   REF_NAME="$REF"
 fi
