@@ -483,6 +483,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
       - name: Generate combined component versions report
         run: |
           SHA="${{ github.sha }}"
