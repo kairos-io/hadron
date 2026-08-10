@@ -566,9 +566,9 @@ packages:
     filename: linux.tar.xz
 
   lvm2:
-    version: "2.03.41"
+    version: "2.03.42"
     version_arg: LVM2_VERSION
-    sha256: d58011b845df8ec13816ca13ea6c39d4cb3d038cd2d7d387acdf5681ad7d6637
+    sha256: 352703ef5b72ebb22d4f250284a29b89fe64d4049c6bf64c693f9af486c8081e
     urls:
       - http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${version}.tgz
     filename: lvm2.tgz
