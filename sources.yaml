@@ -426,9 +426,9 @@ packages:
     filename: libevent.tar.gz
 
   libffi:
-    version: "3.7.1"
+    version: "3.8.0"
     version_arg: LIBFFI_VERSION
-    sha256: d5e9a6638ddbd2513ddb54518eb67e4bbe6fa707bcc01c10f6212f0a088d819d
+    sha256: 7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4
     urls:
       - https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
     filename: libffi.tar.gz
@@ -444,9 +444,9 @@ packages:
     filename: libiconv.tar.gz
 
   libkcapi:
-    version: "1.5.0"
+    version: "1.5.1"
     version_arg: LIBKCAPI_VERSION
-    sha256: f1d827738bda03065afd03315479b058f43493ab6e896821b947f391aa566ba0
+    sha256: 8d24a355509d500a520a76c7f919772279e6961073a01f2ef2bdaf8edce32fce
     urls:
       - https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${version}.tar.gz
     filename: libkcapi.tar.gz
