@@ -3811,9 +3811,14 @@ FROM scratch AS full-image-systemd
 COPY --from=full-image-pre-systemd /skeleton /
 
 ## Final image depending on the bootloader
-# Split before systemctl preset-all: QEMU cannot run that step reliably (SIGSEGV).
-# CI builds full-image-pre-preset on x86, pushes OCI, then native riscv64 imports it
+# Split before systemctl preset-all: it was unreliable under QEMU (SIGSEGV), so CI
+# builds full-image-pre-preset on x86, pushes OCI, then native riscv64 imports it
 # via buildx --build-context full-image-pre-preset=docker-image://… for full-image-final.
+#
+# Retested 2026-08-13 with qemu-user 10.2.2: preset-all completed on 21/21 emulated
+# riscv64 runs (~0.9s each) and the whole `default` target built green under emulation.
+# The split is kept until CI is re-timed on stock runners, but the QEMU failure that
+# motivated it (8855153, ca32df5) no longer reproduces on a current QEMU.
 FROM full-image-${BOOTLOADER} AS full-image-pre-preset
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
@@ -3875,7 +3880,8 @@ FROM full-image-pre-preset AS full-image-final
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
 ARG BUILD_ARCH
-# preset all systemd services (native riscv64 in CI; crashes under QEMU)
+# preset all systemd services (runs natively on riscv64 in CI; see the note on
+# full-image-pre-preset — the QEMU crash no longer reproduces on qemu-user 10.2.2)
 RUN systemctl preset-all
 # Disable systemd-make-policy as we don't use it and it conflicts with
 # measurements with PCR policies
