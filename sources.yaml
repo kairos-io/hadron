@@ -558,9 +558,9 @@ packages:
     filename: libxml2.tar.xz
 
   linux:
-    version: "7.1.5"
+    version: "7.1.8"
     version_arg: KERNEL_VERSION
-    sha256: 22a0196b3cbcdf34dc27b77561f4d040585fd3447edc9ab3531a1ac79e3041e7
+    sha256: ff01dcb449279d5b4cfccdb01fee639cf5ff1803f1749a77844dd33915422c49
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
