@@ -162,7 +162,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/arm64
-          tags: ttl.sh/hadron-toolchain-arm64:${{ github.sha }}
+          tags: hadron-toolchain-arm64:${{ github.sha }}
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: toolchain
@@ -299,7 +299,7 @@ jobs:
           # load into the local docker image store so the structure tests below
           # can `docker run` it without a registry round-trip.
           load: true
-          tags: ttl.sh/hadron-container-arm64:${{ github.sha }}
+          tags: hadron-container-arm64:${{ github.sha }}
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: container
@@ -337,7 +337,7 @@ jobs:
       - name: Run image-structure tests
         env:
           # Image was loaded locally by the build step above (no push needed).
-          CONTAINER_IMAGE: ttl.sh/hadron-container-arm64:${{ github.sha }}
+          CONTAINER_IMAGE: hadron-container-arm64:${{ github.sha }}
         run: |
           cp tests/go.* .
           go mod download
@@ -899,8 +899,11 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/arm64
-          push: true
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64:${{ github.sha }}
+          # Loaded into the local image store and handed to the next job as a
+          # tarball artifact. No registry is involved, so this works on a pull
+          # request from a fork, which has no secrets.
+          load: true
+          tags: hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64:${{ github.sha }}
           labels: |
             ${{ steps.meta.outputs.labels }}
           target: default
@@ -918,6 +921,19 @@ jobs:
             ARCH=aarch64
             BUILD_ARCH=aarch64
 
+      - name: Save the image as a tarball
+        run: |
+          docker save hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64:${{ github.sha }} | gzip > hadron-arm64.tar.gz
+      - name: Upload the image
+        uses: actions/upload-artifact@v7
+        with:
+          name: hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-arm64-image
+          path: hadron-arm64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          # already gzipped
+          compression-level: 0
+
   build-kairos-grub-arm64:
     runs-on: ubuntu-24.04-arm
     needs:
@@ -927,28 +943,43 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
+      - name: Download the image
+        uses: actions/download-artifact@v8
+        with:
+          name: hadron-cloud-arm64-image
+      - name: Load the image
+        run: |
+          gunzip -c hadron-arm64.tar.gz | docker load
       - name: Download Dockerfile from kairos repository
         run: |
           mkdir -p build
           curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
-      - name: Build and push
-        uses: docker/build-push-action@v7
+      # Plain docker build, not buildx. The buildx docker-container driver
+      # cannot resolve a FROM against the local image store, and the base image
+      # arrives here as a tarball rather than from a registry. This job is a
+      # native arm64 build with no cache export, so it needs nothing buildx adds.
+      - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
+        run: |
+          docker build ./ \
+            --file ./build/Dockerfile.kairos \
+            --tag hadron-init-bios-arm64:${{ github.sha }} \
+            --build-arg BASE_IMAGE=hadron-cloud-arm64:${{ github.sha }} \
+            --build-arg VERSION=v0.0.1-${{ github.sha }} \
+            --build-arg TRUSTED_BOOT=false
+      - name: Save the image as a tarball
+        run: |
+          docker save hadron-init-bios-arm64:${{ github.sha }} | gzip > hadron-init-bios-arm64.tar.gz
+      - name: Upload the image
+        uses: actions/upload-artifact@v7
         with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./build/Dockerfile.kairos
-          push: true
-          platforms: linux/arm64
-          tags: ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
-          build-args: |
-            BASE_IMAGE=ttl.sh/hadron-cloud-arm64:${{ github.sha }}
-            VERSION=v0.0.1-${{ github.sha }}
-            TRUSTED_BOOT=false
+          name: hadron-init-bios-arm64-image
+          path: hadron-init-bios-arm64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          # already gzipped
+          compression-level: 0
 
   build-grub-iso-arm64:
     runs-on: ubuntu-24.04-arm
@@ -957,9 +988,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
+      - name: Download the image
+        uses: actions/download-artifact@v8
+        with:
+          name: hadron-init-bios-arm64-image
+      - name: Load the image
+        run: |
+          gunzip -c hadron-init-bios-arm64.tar.gz | docker load
+      # AuroraBoot mounts the docker socket, so it resolves docker:<name> from
+      # the local image store that the load step above populated.
       - name: Build ISO
         run: |
           mkdir build
@@ -967,7 +1004,7 @@ jobs:
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios-${{ github.sha }} \
-          docker:ttl.sh/hadron-init-bios-arm64:${{ github.sha }}
+          docker:hadron-init-bios-arm64:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
