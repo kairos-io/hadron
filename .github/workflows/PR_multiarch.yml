@@ -573,6 +573,28 @@ jobs:
             VERSION=v0.0.1-${{ github.sha }}
             TRUSTED_BOOT=false
             FIPS=${{ matrix.fips }}
+      # The recovery test needs an extension inside the image. /var/lib/kairos
+      # is an ephemeral overlay, not persistent, so a file written at runtime
+      # does not survive a reboot and is not visible to another boot mode. The
+      # UKI path uses --overlay-iso for this; the BIOS path has no equivalent,
+      # so the fixture goes in as a layer here.
+      - name: Add the recovery extension fixture
+        run: |
+          cat > build/Dockerfile.sysext <<'DOCKERFILE'
+          ARG SOURCE_IMAGE
+          FROM ${SOURCE_IMAGE}
+          COPY tests/assets/sysext/work.sysext.raw /var/lib/kairos/extensions/recovery/work.sysext.raw
+          DOCKERFILE
+          IMAGE=ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
+          docker buildx build \
+            --builder ${{ steps.buildx.outputs.name }} \
+            --build-arg SOURCE_IMAGE="${IMAGE}" \
+            --file build/Dockerfile.sysext \
+            --platform linux/amd64 \
+            --provenance false \
+            --push \
+            --tag "${IMAGE}" \
+            .
 
   build-kairos-trusted-amd64:
     runs-on: ubuntu-latest
@@ -676,6 +698,7 @@ jobs:
           - "acceptance"
           - "reset"
           - "custom-partitioning"
+          - "recovery"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

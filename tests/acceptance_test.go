@@ -293,4 +293,37 @@ openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 				ContainSubstring("ok"),
 			))
 	})
+	// immucore picks the extension source directory from the boot state. Until
+	// kairos-io/immucore#613 that switch had no AutoReset arm, so a state reset
+	// installed no extensions and only logged it at debug level. Nothing caught
+	// it, because the only extension test is the UKI one and this path is not
+	// UKI. This covers the recovery arm, which AutoReset shares.
+	//
+	// The fixture lives at /var/lib/kairos/extensions/recovery/ inside the
+	// image. The workflow puts it there, because /var/lib/kairos is an
+	// ephemeral overlay and a file written from the active boot would not
+	// survive the reboot.
+	It("installs the recovery extensions", Label("recovery"), func() {
+		installAndBootToActive()
+
+		By("Setting the next entry to recovery")
+		_, err := vm.Sudo("grub2-editenv /oem/grubenv set next_entry=recovery")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Rebooting")
+		vm.Reboot()
+
+		By("Checking that vm has rebooted to 'recovery'")
+		Eventually(func() string {
+			out, _ := vm.Sudo("kairos-agent state boot")
+			return out
+		}, 40*time.Minute, 10*time.Second).Should(
+			ContainSubstring("recovery_boot"))
+
+		By("Checking the extension was copied during the recovery boot", func() {
+			out, err := vm.Sudo("ls /run/extensions")
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("work.sysext.raw"))
+		})
+	})
 })
