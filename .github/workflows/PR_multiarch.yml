@@ -580,21 +580,25 @@ jobs:
       # so the fixture goes in as a layer here.
       - name: Add the recovery extension fixture
         run: |
-          cat > build/Dockerfile.sysext <<'DOCKERFILE'
+          # The repository .dockerignore excludes tests/, so the fixture cannot
+          # be COPYed from a build context rooted at the repository. It is
+          # staged into its own small context instead. Relaxing .dockerignore
+          # would pull test files into every hadron image build.
+          mkdir -p build/sysext-ctx
+          cp tests/assets/sysext/work.sysext.raw build/sysext-ctx/
+          cat > build/sysext-ctx/Dockerfile <<'DOCKERFILE'
           ARG SOURCE_IMAGE
           FROM ${SOURCE_IMAGE}
-          COPY tests/assets/sysext/work.sysext.raw /var/lib/kairos/extensions/recovery/work.sysext.raw
+          COPY work.sysext.raw /var/lib/kairos/extensions/recovery/work.sysext.raw
           DOCKERFILE
           IMAGE=ttl.sh/hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
-          docker buildx build \
+          docker buildx build build/sysext-ctx \
             --builder ${{ steps.buildx.outputs.name }} \
             --build-arg SOURCE_IMAGE="${IMAGE}" \
-            --file build/Dockerfile.sysext \
             --platform linux/amd64 \
             --provenance false \
             --push \
-            --tag "${IMAGE}" \
-            .
+            --tag "${IMAGE}"
 
   build-kairos-trusted-amd64:
     runs-on: ubuntu-latest
