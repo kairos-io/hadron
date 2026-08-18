@@ -43,14 +43,16 @@ NEGLIGIBLE_PCT="${NEGLIGIBLE_PCT:-0.1}"         # 0.10%
 FILE_MIN_DELTA="${FILE_MIN_DELTA:-4096}"        # 4 KiB
 
 # Build the per-variant comparison table from the shared SIZE_VARIANTS list:
-#   name | PR image (this build, pushed to ttl.sh) | main baseline (ghcr.io)
+#   name | PR image (this build, already docker-loaded locally by the workflow
+#         from a tarball artifact — see the image-size-report-amd64 job) |
+#         main baseline (ghcr.io)
 # PR bios tags carry a -amd64 suffix; trusted tags do not (see PR_multiarch.yml).
 VARIANTS=()
 for _v in "${SIZE_VARIANTS[@]}"; do
   _name="${_v%%|*}"
   case "$_name" in
-  *-trusted) _pr="ttl.sh/${_name}-${SHA}:24h" ;;    # trusted tags: SHA in name, TTL as tag
-    *)         _pr="ttl.sh/${_name}-amd64:${SHA}" ;;  # bios tags: -amd64 suffix
+  *-trusted) _pr="${_name}-${SHA}:24h" ;;    # trusted tags: SHA in name, TTL as tag
+    *)         _pr="${_name}-amd64:${SHA}" ;;  # bios tags: -amd64 suffix
   esac
   _main="$(size_variant_ghcr "$REPO" "$_name")"
   VARIANTS+=("${_name}|${_pr}|${_main}")
@@ -109,10 +111,11 @@ for v in "${VARIANTS[@]}"; do
   fi
   main_sz=$(docker image inspect "$main_img" --format '{{.Size}}')
 
-  # PR image must exist since this job runs after the build jobs succeed. If it
-  # is somehow missing (e.g. push silently failed or tag expired), skip rather
-  # than aborting the whole report with no output.
-  if ! docker pull -q "$pr_img" >/dev/null 2>&1; then
+  # PR image was docker-loaded locally by the workflow before this script
+  # runs (see image-size-report-amd64 in PR_multiarch.yml), so this checks
+  # local presence rather than pulling. Skip rather than aborting the whole
+  # report with no output if it is somehow missing (e.g. a build job failed).
+  if ! docker image inspect "$pr_img" >/dev/null 2>&1; then
     summary_rows+="| \`${name}\` | $(human "$main_sz") | _PR image not found_ | — |"$'\n'
     continue
   fi
