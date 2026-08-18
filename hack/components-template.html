@@ -536,10 +536,17 @@
     var img=layer.image||'';
     (layer.tags||[]).forEach(function(t){
       var ref=img?(img+':'+t.tag):t.tag;
+      var sysextHtml='';
+      Object.keys(t.sysext||{}).sort().forEach(function(arch){
+        var sysextRef=(t.sysext[arch]||{}).oci||'';
+        if(!sysextRef) return;
+        sysextHtml+='<button class="tag-copy" data-copy="'+esc(sysextRef)+'" title="Copy '+esc(sysextRef)+'" aria-label="Copy '+esc(arch)+' sysext reference">'+esc(arch)+' sysext</button>';
+      });
       tagsHtml+='<div class="tag-row">'+
         '<span class="tag-name" title="'+esc(ref)+'">'+esc(t.tag)+'</span>'+
         '<span class="tag-date">'+esc(fmtDate(t.created))+'</span>'+
         '<button class="tag-copy" data-copy="'+esc(ref)+'" title="Copy '+esc(ref)+'" aria-label="Copy image reference">Copy</button>'+
+        sysextHtml+
       '</div>';
     });
     var openAttr=lyOpen[layer.name]?' open':'';
