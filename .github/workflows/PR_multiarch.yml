@@ -17,6 +17,9 @@ env:
   # pr-cache-cleanup.yml when the PR closes.
   PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
   PR_NUM: ${{ github.event.pull_request.number }}
+  # Pinned commit, not a branch: see the matching comment on
+  # KAIROS_DOCKERFILE_REF in the Makefile. Keep the two in sync.
+  KAIROS_DOCKERFILE_REF: c2426c11c34198fcb50bfe4d43e827619292e26f
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
@@ -555,7 +558,7 @@ jobs:
       - name: Download Dockerfile from kairos repository
         run: |
           mkdir -p build
-          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/${{ env.KAIROS_DOCKERFILE_REF }}/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
         uses: docker/build-push-action@v7
         env:
@@ -615,7 +618,7 @@ jobs:
       - name: Download Dockerfile from kairos repository
         run: |
           mkdir -p build
-          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/${{ env.KAIROS_DOCKERFILE_REF }}/images/Dockerfile -o build/Dockerfile.kairos
       - name: Build and push
         uses: docker/build-push-action@v7
         env:
@@ -980,7 +983,7 @@ jobs:
       - name: Download Dockerfile from kairos repository
         run: |
           mkdir -p build
-          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos
+          curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/${{ env.KAIROS_DOCKERFILE_REF }}/images/Dockerfile -o build/Dockerfile.kairos
       # Plain docker build, not buildx. The buildx docker-container driver
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry. This job is a
