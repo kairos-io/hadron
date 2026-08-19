@@ -14,6 +14,19 @@ PROGRESS_FLAG = --progress=${PROGRESS}
 KUBERNETES_DISTRO ?=
 KUBERNETES_VERSION ?= latest
 FIPS ?= "no-fips"
+# Pinned commit, not a branch: build-kairos fetches this file live at build
+# time, so leaving it on `master` means every hadron CI run depends on
+# whatever kairos/master happens to be at the moment it runs, not on
+# hadron's own diff. PR #564's CI went red on `reset tests` on 2026-08-13
+# from exactly this: kairos/master's ARG KAIROS_INIT moved between two
+# otherwise-identical PR runs on this repo, with zero hadron code change
+# in between. Bump deliberately, and only to a commit where kairos's own
+# CI (github.com/kairos-io/kairos/actions) is green — this SHA is the
+# commit before kairos merged 'feat/monorepo-kairos-init', whose Unit
+# tests job is currently red on a broken //go:embed pattern. Override
+# with `make build-kairos KAIROS_DOCKERFILE_REF=master` to test against
+# tip.
+KAIROS_DOCKERFILE_REF ?= c2426c11c34198fcb50bfe4d43e827619292e26f
 # Versions live in sources.yaml (single source of truth). Dockerfile is
 # generated from Dockerfile.tmpl by `make render`; both KERNEL_VERSION and
 # DWARVES_VERSION are read from sources.yaml so this Makefile does not
@@ -144,7 +157,7 @@ build-kairos:
 	@echo "Building Kairos image..."
 	@echo "Fetching Dockerfile from kairos repository..."
 	@mkdir -p build
-	@curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/master/images/Dockerfile -o build/Dockerfile.kairos || (echo "Error: Failed to fetch Dockerfile from kairos repository" && exit 1)
+	@curl -sSL https://raw.githubusercontent.com/kairos-io/kairos/${KAIROS_DOCKERFILE_REF}/images/Dockerfile -o build/Dockerfile.kairos || (echo "Error: Failed to fetch Dockerfile from kairos repository" && exit 1)
 	@if [ "${BOOTLOADER}" = "systemd" ]; then \
   		TRUSTED_BOOT="true"; \
 	else \
