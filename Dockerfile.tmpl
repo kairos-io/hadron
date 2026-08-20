@@ -3825,15 +3825,17 @@ FROM scratch AS full-image-systemd
 COPY --from=full-image-pre-systemd /skeleton /
 
 ## Final image depending on the bootloader
-# Split before systemctl preset-all: it was unreliable under QEMU (SIGSEGV), so CI
-# builds full-image-pre-preset on x86, pushes OCI, then native riscv64 imports it
-# via buildx --build-context full-image-pre-preset=docker-image://… for full-image-final.
-#
-# Retested 2026-08-13 with qemu-user 10.2.2: preset-all completed on 21/21 emulated
-# riscv64 runs (~0.9s each) and the whole `default` target built green under emulation.
-# The split is kept until CI is re-timed on stock runners, but the QEMU failure that
-# motivated it (8855153, ca32df5) no longer reproduces on a current QEMU.
-FROM full-image-${BOOTLOADER} AS full-image-pre-preset
+# Used to split here, before systemctl preset-all: that step was unreliable
+# under QEMU (SIGSEGV), so CI built this stage on x86, pushed it as an OCI
+# image, and a native riscv64 runner imported it via buildx --build-context
+# to run preset-all onward. Retested 2026-08-13 with qemu-user 10.2.2:
+# preset-all completed on 21/21 emulated riscv64 runs (~0.9s each) and the
+# whole `default` target built green under emulation — the QEMU failure that
+# motivated the split (8855153, ca32df5) no longer reproduces on a current
+# QEMU, so the split (and the native-runner dependency it existed for) is
+# gone. Everything through preset-all now runs in one stage, on x86 like the
+# rest of the pipeline.
+FROM full-image-${BOOTLOADER} AS full-image-final
 SHELL ["/bin/bash", "-c"]
 ARG VERSION
 ARG BUILD_ARCH
@@ -3890,12 +3892,8 @@ RUN busybox --install
 # mkfs.fat is a script that calls mkfs.vfat busybox applet with the proper name and pass all args for compatibility
 RUN echo -e '#!/bin/sh\nexec /bin/mkfs.vfat "$@"\n' > /bin/mkfs.fat && chmod +x /bin/mkfs.fat
 
-FROM full-image-pre-preset AS full-image-final
-SHELL ["/bin/bash", "-c"]
-ARG VERSION
-ARG BUILD_ARCH
-# preset all systemd services (runs natively on riscv64 in CI; see the note on
-# full-image-pre-preset — the QEMU crash no longer reproduces on qemu-user 10.2.2)
+# preset all systemd services (the QEMU crash that used to require running this
+# natively no longer reproduces on qemu-user 10.2.2 — see the note above)
 RUN systemctl preset-all
 # Disable systemd-make-policy as we don't use it and it conflicts with
 # measurements with PCR policies

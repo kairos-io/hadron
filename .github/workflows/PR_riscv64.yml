@@ -9,18 +9,22 @@ concurrency:
   group: ci-image-riscv64-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
-# PR-only pipeline: split RISC-V build (x86+QEMU pre-preset, native finalize). No GHCR releases, no ISO.
+# PR-only pipeline: RISC-V build, entirely on x86+QEMU. No GHCR releases, no ISO.
 #
 # Dependency graph:
 #   stage0 → stage1 → rsync ─┬→ cmake ────────────────┐
-#                             ├→ kernel (cloud+default) ┤→ toolchain → container
-#                             ├→ systemd ─────────────┤       ↓
-#                             └→ python ────────────────┘  hadron-bios-warm (x86+QEMU, full-image-pre-preset)
-#                                                              ↓
-#                                                         hadron-bios (native riscv64, systemctl + default)
+#                             ├→ kernel (cloud+default) ┤→ toolchain → container → hadron-bios (x86+QEMU, default)
+#                             ├→ systemd ─────────────┤
+#                             └→ python ────────────────┘
 #
-# x86+QEMU builds full-image-pre-preset (~30–40 min with cache), pushes OCI to ttl.sh.
-# Native imports that image as build-context and only runs full-image-final onward.
+# Used to be split into hadron-bios-warm (x86+QEMU, stops before systemctl
+# preset-all) pushing an OCI image, then a native riscv64 runner importing it
+# to run preset-all onward — preset-all used to SIGSEGV under QEMU. Retested
+# 2026-08-13 with qemu-user 10.2.2: 21/21 clean runs, the failure this split
+# existed for no longer reproduces (see Dockerfile.tmpl's full-image-final
+# comment). hadron-bios now builds the whole `default` target in one job, on
+# the same x86+QEMU runners as everything else in this pipeline — no OCI
+# hand-off, no native riscv64 runner.
 
 env:
   CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
@@ -541,8 +545,9 @@ jobs:
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
-  # x86+QEMU through full-image-pre-preset (stops before systemctl). Push OCI for native handoff.
-  hadron-bios-warm:
+  # x86+QEMU, whole way through: builds default (which now includes what used
+  # to be the native-only preset-all step) in one job, no OCI hand-off.
+  hadron-bios:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
     timeout-minutes: 360
@@ -572,65 +577,6 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      - name: Build and push pre-preset image (${{ matrix.kernel }})
-        uses: docker/build-push-action@v7
-        env:
-          SOURCE_DATE_EPOCH: 0
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./Dockerfile
-          platforms: linux/riscv64
-          push: true
-          tags: ttl.sh/hadron-pre-preset-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
-          target: full-image-pre-preset
-          cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-pre-final-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
-          build-args: |
-            BOOTLOADER=grub
-            KERNEL_TYPE=${{ matrix.kernel }}
-            ARCH=riscv64
-            BUILD_ARCH=riscv64
-
-  # Native riscv64: import pre-preset OCI, run systemctl + remainder, push default image.
-  hadron-bios:
-    runs-on: ubuntu-24.04-riscv
-    needs: [hadron-bios-warm]
-    timeout-minutes: 60
-    strategy:
-      max-parallel: 1
-      matrix:
-        kernel: [cloud, default]
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Render Dockerfile
-        uses: ./.github/actions/render-dockerfile
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-        with:
-          buildkitd-config-inline: |
-            [worker.oci]
-              max-parallelism = 4
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v6
       - name: Build and push default image (${{ matrix.kernel }})
         uses: docker/build-push-action@v7
         env:
@@ -645,8 +591,19 @@ jobs:
           tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-riscv64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
-          build-contexts: |
-            full-image-pre-preset=docker-image://ttl.sh/hadron-pre-preset-riscv64${{ matrix.kernel == 'cloud' && '-cloud' || '' }}:${{ github.sha }}
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
+          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}

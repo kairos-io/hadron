@@ -502,18 +502,18 @@ jobs:
 
           # full-image bios / no-fips
           sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-grub full-image-pre-preset full-image-final" \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-grub full-image-final" \
             --format md --name full-image-bios-no-fips --out-dir /tmp/components
 
           # full-image bios / fips (openssl version swapped)
           sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-fips full-image-pre-grub full-image-pre-preset full-image-final" \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-fips full-image-pre-grub full-image-final" \
             --override openssl=OPENSSL_FIPS_VERSION \
             --format md --name full-image-bios-fips --out-dir /tmp/components
 
           # full-image trusted / no-fips
           sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-systemd full-image-pre-preset full-image-final" \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-systemd full-image-final" \
             --format md --name full-image-trusted --out-dir /tmp/components
 
           {
