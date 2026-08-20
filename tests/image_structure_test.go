@@ -260,10 +260,10 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 
 	It("STIG sshd drop-in carries no crypto keywords (FIPS-safety invariant)", func() {
 		skipUnlessFullImage()
-		// The STIG drop-in sorts before the 100-* crypto file and sshd is
+		// The STIG drop-in sorts before the 02-* crypto file and sshd is
 		// first-value-wins for these keywords, so crypto here would silently
 		// override FIPS crypto in FIPS images. Guard against a regression.
-		out, code := shInImage("cat /etc/ssh/sshd_config.d/99-hadron-stig.conf")
+		out, code := shInImage("cat /etc/ssh/sshd_config.d/01-hadron-stig.conf")
 		Expect(code).To(Equal(0), out)
 		lc := strings.ToLower(out)
 		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
