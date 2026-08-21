@@ -32,11 +32,8 @@ env:
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
-  # published before any docker/build-push-action starts. Skipped
-  # while the riscv64 pipeline is gated off; the amd64 and arm64 PR
-  # workflows populate ghcr anyway, so nothing regresses.
+  # published before any docker/build-push-action starts.
   populate-sources:
-    if: ${{ false }}
     uses: ./.github/workflows/populate-sources.yml
     permissions:
       contents: read
@@ -80,7 +77,6 @@ jobs:
           exit $FAILED
 
   stage0:
-    if: ${{ false }}
     needs: populate-sources
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
