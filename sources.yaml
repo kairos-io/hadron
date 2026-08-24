@@ -645,6 +645,24 @@ packages:
       - https://musl.libc.org/releases/musl-${version}.tar.gz
     filename: musl.tar.gz
 
+  # A second, separately-versioned entry, not a duplicate of `musl` above.
+  # This is what mussel (the vendored cross-toolchain builder in stage0,
+  # not the final rootfs) pins internally -- 1.2.5, not 1.2.6 -- and
+  # mussel's own musl_sum checksum, already the value every prior
+  # successful build has verified against. mussel fetches this straight
+  # from musl.libc.org itself with no fallback, which is what's actually
+  # failing (stage0 timing out on musl.libc.org, not on riscv64 at all).
+  # Cached here the same way as every other source in this file, then
+  # pre-staged into mussel's own source directory before it runs, so it
+  # never touches musl.libc.org directly. See stage0 in Dockerfile.tmpl.
+  musl-toolchain:
+    version: "1.2.5"
+    version_arg: MUSL_TOOLCHAIN_VERSION
+    sha256: a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4
+    urls:
+      - https://musl.libc.org/releases/musl-${version}.tar.gz
+    filename: musl-toolchain.tar.gz
+
   musl-fts:
     version: "1.2.7"
     version_arg: FTS_VERSION
