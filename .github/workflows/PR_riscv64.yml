@@ -35,6 +35,14 @@ concurrency:
 # progressively deeper `target:` — matches PR_multiarch.yml's toolchain-amd64
 # job, which builds the same range in a single call with no CI-job boundary.
 
+# `oracle-vm-32cpu-128gb-x86-64` is a self-hosted runner (CNCF-donated, per its
+# own job logs), not a GitHub-hosted one — GitHub's hard, unraisable 6-hour
+# job cap only applies to GitHub-hosted runners. Every job below still fell
+# back to the GitHub Actions *default* `timeout-minutes` of 360 (6 hours),
+# which is just a workflow-level default and is free to raise on our own
+# hardware. Measured live on #573: cmake/kernel/systemd/python all got killed
+# at exactly 6h00m22s mid-build, not from any real runner limit.
+
 env:
   # Per-PR BuildKit cache. Each build job reads its own pr-<number>-* tag first
   # (warm from a prior push or an earlier job in this same run) and falls back
@@ -239,6 +247,7 @@ jobs:
   cmake:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -292,6 +301,7 @@ jobs:
   kernel:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -350,6 +360,7 @@ jobs:
   systemd:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -402,6 +413,7 @@ jobs:
   python:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -454,6 +466,7 @@ jobs:
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [cmake, kernel, systemd, python]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -521,6 +534,7 @@ jobs:
   container:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [toolchain]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -626,7 +640,7 @@ jobs:
   hadron-bios:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
-    timeout-minutes: 360
+    timeout-minutes: 720
     strategy:
       matrix:
         kernel: [cloud, default]
