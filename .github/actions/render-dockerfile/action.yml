@@ -25,4 +25,6 @@ runs:
 
     - name: Render Dockerfile from Dockerfile.tmpl + sources.yaml
       shell: bash
+      env:
+        HADRON_SOURCE_MODE: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'upstream' || 'cache' }}
       run: make render

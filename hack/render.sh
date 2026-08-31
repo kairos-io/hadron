@@ -54,6 +54,77 @@ format=$(cut -d= -f1 <"$envfile" | sed 's/^/$/' | tr '\n' ' ')
 
 envsubst "$format" <Dockerfile.tmpl >Dockerfile
 
+# Fork pull requests cannot publish missing source-cache images. In upstream
+# mode, replace each cache image with a downloader stage that uses the same
+# pinned URL and checksum from sources.yaml. Regular builds keep using cache
+# images and do not contact upstream mirrors.
+case "${HADRON_SOURCE_MODE:-cache}" in
+    cache)
+        ;;
+    upstream)
+        python3 - <<'PY'
+from pathlib import Path
+import re
+import yaml
+
+path = Path('Dockerfile')
+dockerfile = path.read_text()
+packages = (yaml.safe_load(open('sources.yaml')) or {}).get('packages') or {}
+pattern = re.compile(
+    r'^FROM ghcr\.io/kairos-io/hadron-sources/'
+    r'(?P<pkg>[a-z0-9-]+):[^ ]+ AS (?P<stage>[a-z0-9-]+)$',
+    re.MULTILINE,
+)
+
+def downloader(match):
+    pkg = match.group('pkg')
+    stage = match.group('stage')
+    spec = packages.get(pkg)
+    if spec is None:
+        raise SystemExit(f'package {pkg!r} missing from sources.yaml')
+    for field in ('version', 'sha256', 'filename', 'urls'):
+        if not spec.get(field):
+            raise SystemExit(f'package {pkg!r} missing field {field!r}')
+    if not isinstance(spec['urls'], list) or not spec['urls']:
+        raise SystemExit(f'package {pkg!r}: urls must be a non-empty list')
+
+    version = str(spec['version'])
+    urls = [url.replace('${version}', version) for url in spec['urls']]
+    if any(any(char.isspace() for char in url) for url in urls):
+        raise SystemExit(f'package {pkg!r} URL contains whitespace')
+    variable = pkg.upper().replace('-', '_')
+    url_list = ' '.join(urls)
+    filename = spec['filename']
+    sha256 = spec['sha256']
+    return f'''FROM sources-downloader-base AS {stage}
+ARG {variable}_SOURCE_URLS="{url_list}"
+ARG {variable}_SOURCE_SHA256="{sha256}"
+RUN set -eu; \\
+    out=/sources/downloads/{filename}; \\
+    matched=0; \\
+    for url in ${variable}_SOURCE_URLS; do \\
+        rm -f "$out"; \\
+        if wget -q --timeout=60 --tries=2 "$url" -O "$out"; then \\
+            actual=$(sha256sum "$out" | awk '{{print $1}}'); \\
+            if [ "$actual" = "${variable}_SOURCE_SHA256" ]; then matched=1; break; fi; \\
+        fi; \\
+    done; \\
+    test "$matched" -eq 1 || {{ echo "No URL served the expected bytes for {pkg}-{version}"; exit 1; }}
+'''
+
+dockerfile, replaced = pattern.subn(downloader, dockerfile)
+if replaced == 0:
+    raise SystemExit('upstream mode found no source-cache stages to replace')
+path.write_text(dockerfile)
+print(f'rendered {replaced} verified upstream source stages')
+PY
+        ;;
+    *)
+        echo "error: HADRON_SOURCE_MODE must be 'cache' or 'upstream'" >&2
+        exit 1
+        ;;
+esac
+
 # Safety: any unresolved ${..._VERSION} placeholder means a missing
 # version_arg in sources.yaml (or a typo in Dockerfile.tmpl).
 if remaining=$(grep -oE '\$\{[A-Z0-9_]+_VERSION\}' Dockerfile | sort -u); then

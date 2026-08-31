@@ -137,6 +137,10 @@ Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
 .PHONY: render
 render: Dockerfile
 
+.PHONY: test-render
+test-render: ## Verify cache and fork source rendering
+	@./tests/render-fork-sources.sh
+
 ## This builds the Hadron image from scratch
 build-hadron: Dockerfile
 	@echo "Building Hadron image..."
