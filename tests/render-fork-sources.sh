@@ -54,6 +54,17 @@ python3 - <<'PY'
 from pathlib import Path
 
 dockerfile = Path('Dockerfile').read_text()
+declared = set()
+for line in dockerfile.splitlines():
+    if not line.startswith('FROM '):
+        continue
+    parts = line.split()
+    source = parts[1]
+    if source.endswith('-base') and source not in declared:
+        raise SystemExit(f'fork render references stage {source!r} before it is declared')
+    if len(parts) >= 4 and parts[-2] == 'AS':
+        declared.add(parts[-1])
+
 expected = '''FROM sources-downloader-base AS libkcapi-download
 ARG LIBKCAPI_SOURCE_URLS="https://github.com/smuellerDD/libkcapi/archive/refs/tags/v1.5.0.tar.gz"
 ARG LIBKCAPI_SOURCE_SHA256="f1d827738bda03065afd03315479b058f43493ab6e896821b947f391aa566ba0"
