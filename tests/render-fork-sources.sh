@@ -85,12 +85,22 @@ if 'test "$matched" -eq 0 || break' not in dockerfile:
 if 'sleep $((attempt * 5))' not in dockerfile:
     raise SystemExit('fork render download stages retry without backoff')
 
-# musl publishes from a single host that times out often. Keep a second mirror.
-musl = [line for line in dockerfile.splitlines() if line.startswith('ARG MUSL_SOURCE_URLS=')]
-if len(musl) != 1:
-    raise SystemExit('fork render did not generate exactly one musl URL list')
-if len(musl[0].split('=', 1)[1].strip('"').split()) < 2:
-    raise SystemExit('musl needs at least one fallback mirror in sources.yaml')
+# Some upstreams time out or refuse CI runners outright. A package served
+# only from one of those hosts fails the whole fork build, so require a
+# second URL for every one of them. The checksum test still gates the bytes.
+unreliable = ('musl.libc.org', 'zlib.net')
+for line in dockerfile.splitlines():
+    if not line.startswith('ARG ') or '_SOURCE_URLS=' not in line:
+        continue
+    name, _, value = line[len('ARG '):].partition('=')
+    urls = value.strip().strip('"').split()
+    if len(urls) > 1:
+        continue
+    for host in unreliable:
+        if host in urls[0]:
+            raise SystemExit(
+                f'{name} lists {host} only; add a fallback mirror in sources.yaml'
+            )
 PY
 
 PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" HADRON_SOURCE_MODE=cache ./hack/render.sh >/dev/null

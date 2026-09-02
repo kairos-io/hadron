@@ -662,6 +662,9 @@ packages:
     sha256: a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4
     urls:
       - https://musl.libc.org/releases/musl-${version}.tar.gz
+      # Alpine keeps 1.2.5 on its 3.20 branch, not on edge. A version bump
+      # here must move this path to the branch that carries the new tarball.
+      - https://distfiles.alpinelinux.org/distfiles/v3.20/musl-${version}.tar.gz
     filename: musl-toolchain.tar.gz
 
   musl-fts:
@@ -926,11 +929,14 @@ packages:
       - https://tukaani.org/xz/xz-${version}.tar.gz
     filename: xz.tar.gz
 
+  # zlib.net refuses or drops connections from the CI runners, so the
+  # author's GitHub release comes first and zlib.net stays as a fallback.
   zlib:
     version: "1.3.2"
     version_arg: ZLIB_VERSION
     sha256: bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
     urls:
+      - https://github.com/madler/zlib/releases/download/v${version}/zlib-${version}.tar.gz
       - https://zlib.net/fossils/zlib-${version}.tar.gz
     filename: zlib.tar.gz
 
