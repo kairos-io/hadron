@@ -643,6 +643,7 @@ packages:
     sha256: d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
     urls:
       - https://musl.libc.org/releases/musl-${version}.tar.gz
+      - https://distfiles.alpinelinux.org/distfiles/edge/musl-${version}.tar.gz
     filename: musl.tar.gz
 
   # A second, separately-versioned entry, not a duplicate of `musl` above.

@@ -102,12 +102,16 @@ ARG {variable}_SOURCE_SHA256="{sha256}"
 RUN set -eu; \\
     out=/sources/downloads/{filename}; \\
     matched=0; \\
-    for url in ${variable}_SOURCE_URLS; do \\
-        rm -f "$out"; \\
-        if wget -q --timeout=60 --tries=2 "$url" -O "$out"; then \\
-            actual=$(sha256sum "$out" | awk '{{print $1}}'); \\
-            if [ "$actual" = "${variable}_SOURCE_SHA256" ]; then matched=1; break; fi; \\
-        fi; \\
+    for attempt in 1 2 3; do \\
+        for url in ${variable}_SOURCE_URLS; do \\
+            rm -f "$out"; \\
+            if wget -q --timeout=30 --tries=1 "$url" -O "$out"; then \\
+                actual=$(sha256sum "$out" | awk '{{print $1}}'); \\
+                if [ "$actual" = "${variable}_SOURCE_SHA256" ]; then matched=1; break; fi; \\
+            fi; \\
+        done; \\
+        test "$matched" -eq 0 || break; \\
+        sleep $((attempt * 5)); \\
     done; \\
     test "$matched" -eq 1 || {{ echo "No URL served the expected bytes for {pkg}-{version}"; exit 1; }}
 '''

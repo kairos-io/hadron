@@ -71,12 +71,26 @@ ARG LIBKCAPI_SOURCE_SHA256="f1d827738bda03065afd03315479b058f43493ab6e896821b947
 RUN set -eu; \\
     out=/sources/downloads/libkcapi.tar.gz; \\
     matched=0; \\
-    for url in $LIBKCAPI_SOURCE_URLS; do \\
+    for attempt in 1 2 3; do \\
+        for url in $LIBKCAPI_SOURCE_URLS; do \\
 '''
 if expected not in dockerfile:
     raise SystemExit('fork render did not generate the verified libkcapi download stage')
 if 'FROM ghcr.io/kairos-io/hadron-sources/libkcapi:' in dockerfile:
     raise SystemExit('fork render still requires the libkcapi cache image')
+
+# A single unreachable host must not fail the build on the first miss.
+if 'test "$matched" -eq 0 || break' not in dockerfile:
+    raise SystemExit('fork render download stages do not retry a failed round')
+if 'sleep $((attempt * 5))' not in dockerfile:
+    raise SystemExit('fork render download stages retry without backoff')
+
+# musl publishes from a single host that times out often. Keep a second mirror.
+musl = [line for line in dockerfile.splitlines() if line.startswith('ARG MUSL_SOURCE_URLS=')]
+if len(musl) != 1:
+    raise SystemExit('fork render did not generate exactly one musl URL list')
+if len(musl[0].split('=', 1)[1].strip('"').split()) < 2:
+    raise SystemExit('musl needs at least one fallback mirror in sources.yaml')
 PY
 
 PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" HADRON_SOURCE_MODE=cache ./hack/render.sh >/dev/null
