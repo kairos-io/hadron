@@ -76,8 +76,19 @@ RUN set -eu; \\
 '''
 if expected not in dockerfile:
     raise SystemExit('fork render did not generate the verified libkcapi download stage')
-if 'FROM ghcr.io/kairos-io/hadron-sources/libkcapi:' in dockerfile:
-    raise SystemExit('fork render still requires the libkcapi cache image')
+# Every cache stage has to be gone, not merely most of them. Package and
+# stage names are not all plain lowercase-and-dashes (libnetfilter_conntrack
+# and friends carry underscores), and a name the rewrite does not recognise
+# leaves behind a cache tag an offline rebuild cannot pull.
+leftover = sorted(
+    line for line in dockerfile.splitlines()
+    if line.startswith('FROM ghcr.io/kairos-io/hadron-sources/')
+)
+if leftover:
+    raise SystemExit(
+        'upstream mode left %d source-cache stage(s) in place:\n  %s'
+        % (len(leftover), '\n  '.join(leftover))
+    )
 
 # A single unreachable host must not fail the build on the first miss.
 if 'test "$matched" -eq 0 || break' not in dockerfile:

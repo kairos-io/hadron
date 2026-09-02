@@ -72,7 +72,9 @@ dockerfile = path.read_text()
 packages = (yaml.safe_load(open('sources.yaml')) or {}).get('packages') or {}
 pattern = re.compile(
     r'^FROM ghcr\.io/kairos-io/hadron-sources/'
-    r'(?P<pkg>[a-z0-9-]+):[^ ]+ AS (?P<stage>[a-z0-9-]+)$',
+    # The libnetfilter_* packages carry underscores, in the package name
+    # and in the stage name both.
+    r'(?P<pkg>[a-z0-9_-]+):[^ ]+ AS (?P<stage>[a-z0-9_-]+)$',
     re.MULTILINE,
 )
 
