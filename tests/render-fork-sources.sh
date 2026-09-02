@@ -48,7 +48,25 @@ PY
 chmod +x "$tmp/bin/envsubst"
 
 cd "$repo_root"
-PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" HADRON_SOURCE_MODE=upstream ./hack/render.sh >/dev/null
+
+# render <mode> [package-list]
+# Omitting the list leaves HADRON_UPSTREAM_PACKAGES unset, which is a
+# different instruction to render.sh than passing an empty list.
+render() {
+    if [ "$#" -ge 2 ]; then
+        PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" \
+            HADRON_SOURCE_MODE="$1" HADRON_UPSTREAM_PACKAGES="$2" \
+            ./hack/render.sh >/dev/null
+    else
+        PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" \
+            HADRON_SOURCE_MODE="$1" ./hack/render.sh >/dev/null
+    fi
+}
+
+# --- Whole-file upstream mode -------------------------------------------------
+# The offline/forked-distro rebuild path: sources.yaml alone is enough, so
+# nothing may be left pointing at the cache.
+render upstream
 
 python3 - <<'PY'
 from pathlib import Path
@@ -76,6 +94,7 @@ RUN set -eu; \\
 '''
 if expected not in dockerfile:
     raise SystemExit('fork render did not generate the verified libkcapi download stage')
+
 # Every cache stage has to be gone, not merely most of them. Package and
 # stage names are not all plain lowercase-and-dashes (libnetfilter_conntrack
 # and friends carry underscores), and a name the rewrite does not recognise
@@ -114,5 +133,54 @@ for line in dockerfile.splitlines():
             )
 PY
 
-PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" HADRON_SOURCE_MODE=cache ./hack/render.sh >/dev/null
+# --- Restricted upstream mode -------------------------------------------------
+# What a fork pull request actually renders. Only the packages whose cache tag
+# does not exist yet come from upstream; the cache is public, so every other
+# package is pulled from it and the build does not depend on that upstream
+# host answering at all.
+render upstream libkcapi
+
+python3 - <<'PY'
+from pathlib import Path
+
+dockerfile = Path('Dockerfile').read_text()
+
+if 'FROM sources-downloader-base AS libkcapi-download\n' not in dockerfile:
+    raise SystemExit('restricted render did not fetch the selected package from upstream')
+if 'FROM ghcr.io/kairos-io/hadron-sources/libkcapi:' in dockerfile:
+    raise SystemExit('restricted render still requires the libkcapi cache image')
+
+# Everything not selected keeps its cache image.
+if 'FROM ghcr.io/kairos-io/hadron-sources/zlib:1.3.2 AS zlib-download' not in dockerfile:
+    raise SystemExit('restricted render dropped the cache image of an unselected package')
+
+upstream = [
+    line for line in dockerfile.splitlines()
+    if line.startswith('ARG ') and '_SOURCE_URLS=' in line
+]
+if len(upstream) != 1:
+    raise SystemExit(
+        'restricted render produced %d upstream download stages, expected 1: %s'
+        % (len(upstream), upstream)
+    )
+PY
+
+# An empty list is a valid instruction and means every source is cached
+# already, which is the common case for a fork pull request that bumps no
+# version at all.
+render upstream ''
+if grep -q '^FROM sources-downloader-base AS libkcapi-download$' Dockerfile; then
+    echo 'empty package list still fetched a package from upstream' >&2
+    exit 1
+fi
+grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.0 AS libkcapi-download$' Dockerfile
+
+# A name that is not in sources.yaml is a typo, not a package to skip.
+if render upstream 'libkcapi no-such-package' 2>/dev/null; then
+    echo 'restricted render accepted a package missing from sources.yaml' >&2
+    exit 1
+fi
+
+# --- Cache mode ---------------------------------------------------------------
+render cache
 grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.0 AS libkcapi-download$' Dockerfile
