@@ -54,6 +54,137 @@ format=$(cut -d= -f1 <"$envfile" | sed 's/^/$/' | tr '\n' ' ')
 
 envsubst "$format" <Dockerfile.tmpl >Dockerfile
 
+# Fork pull requests cannot publish missing source-cache images. In upstream
+# mode, replace a cache image with a downloader stage that uses the same
+# pinned URL and checksum from sources.yaml. Regular builds keep using cache
+# images and do not contact upstream mirrors.
+#
+# HADRON_UPSTREAM_PACKAGES restricts which packages are replaced:
+#
+#   unset            every package is fetched from upstream. This is the
+#                    offline/forked-distro rebuild path documented in
+#                    sources.yaml: sources.yaml alone is enough to rebuild.
+#   set to a list    only the named packages are fetched from upstream and
+#                    every other package keeps its cache image. Set to the
+#                    empty string to keep all of them cached.
+#
+# Fork pull requests use the list form. The source cache is public, so a fork
+# can pull every already-published tag and only has to reach upstream for the
+# versions it bumps itself. Fetching all of them instead makes the build
+# depend on ~100 upstream hosts staying reachable, and any single one of them
+# refusing a runner fails the whole build.
+case "${HADRON_SOURCE_MODE:-cache}" in
+    cache)
+        ;;
+    upstream)
+        # Distinguish "unset" (replace everything) from "set but empty"
+        # (replace nothing); both are meaningful and only the shell can
+        # tell them apart.
+        if [ "${HADRON_UPSTREAM_PACKAGES+set}" = set ]; then
+            HADRON_UPSTREAM_FILTER=1
+        else
+            HADRON_UPSTREAM_FILTER=0
+        fi
+        export HADRON_UPSTREAM_FILTER
+        python3 - <<'PY'
+from pathlib import Path
+import os
+import re
+import yaml
+
+path = Path('Dockerfile')
+dockerfile = path.read_text()
+packages = (yaml.safe_load(open('sources.yaml')) or {}).get('packages') or {}
+pattern = re.compile(
+    r'^FROM ghcr\.io/kairos-io/hadron-sources/'
+    # The libnetfilter_* packages carry underscores, in the package name
+    # and in the stage name both.
+    r'(?P<pkg>[a-z0-9_-]+):[^ ]+ AS (?P<stage>[a-z0-9_-]+)$',
+    re.MULTILINE,
+)
+
+# See the HADRON_UPSTREAM_PACKAGES contract above the case statement.
+restricted = os.environ.get('HADRON_UPSTREAM_FILTER') == '1'
+selected = set(os.environ.get('HADRON_UPSTREAM_PACKAGES', '').split())
+if restricted:
+    unknown = sorted(selected - set(packages))
+    if unknown:
+        raise SystemExit(
+            'HADRON_UPSTREAM_PACKAGES names packages missing from '
+            f'sources.yaml: {" ".join(unknown)}'
+        )
+replaced_packages = set()
+
+def downloader(match):
+    pkg = match.group('pkg')
+    stage = match.group('stage')
+    if restricted and pkg not in selected:
+        # Already published, and the cache is public: keep pulling it.
+        return match.group(0)
+    replaced_packages.add(pkg)
+    spec = packages.get(pkg)
+    if spec is None:
+        raise SystemExit(f'package {pkg!r} missing from sources.yaml')
+    for field in ('version', 'sha256', 'filename', 'urls'):
+        if not spec.get(field):
+            raise SystemExit(f'package {pkg!r} missing field {field!r}')
+    if not isinstance(spec['urls'], list) or not spec['urls']:
+        raise SystemExit(f'package {pkg!r}: urls must be a non-empty list')
+
+    version = str(spec['version'])
+    urls = [url.replace('${version}', version) for url in spec['urls']]
+    if any(any(char.isspace() for char in url) for url in urls):
+        raise SystemExit(f'package {pkg!r} URL contains whitespace')
+    variable = pkg.upper().replace('-', '_')
+    url_list = ' '.join(urls)
+    filename = spec['filename']
+    sha256 = spec['sha256']
+    return f'''FROM sources-downloader-base AS {stage}
+ARG {variable}_SOURCE_URLS="{url_list}"
+ARG {variable}_SOURCE_SHA256="{sha256}"
+RUN set -eu; \\
+    out=/sources/downloads/{filename}; \\
+    matched=0; \\
+    for attempt in 1 2 3; do \\
+        for url in ${variable}_SOURCE_URLS; do \\
+            rm -f "$out"; \\
+            if wget -q --timeout=30 --tries=1 "$url" -O "$out"; then \\
+                actual=$(sha256sum "$out" | awk '{{print $1}}'); \\
+                if [ "$actual" = "${variable}_SOURCE_SHA256" ]; then matched=1; break; fi; \\
+            fi; \\
+        done; \\
+        test "$matched" -eq 0 || break; \\
+        sleep $((attempt * 5)); \\
+    done; \\
+    test "$matched" -eq 1 || {{ echo "No URL served the expected bytes for {pkg}-{version}"; exit 1; }}
+'''
+
+dockerfile, matched = pattern.subn(downloader, dockerfile)
+if matched == 0:
+    raise SystemExit('upstream mode found no source-cache stages at all')
+if restricted:
+    # A selected package that never matched means sources.yaml and
+    # Dockerfile.tmpl disagree, so the build would silently keep the stale
+    # cache tag it cannot pull.
+    unmatched = sorted(selected - replaced_packages)
+    if unmatched:
+        raise SystemExit(
+            'no source-cache stage in Dockerfile.tmpl for selected '
+            f'packages: {" ".join(unmatched)}'
+        )
+path.write_text(dockerfile)
+print(
+    f'rendered {len(replaced_packages)} verified upstream source stages, '
+    f'{matched - len(replaced_packages)} kept on the source cache'
+)
+PY
+        ;;
+    *)
+        echo "error: HADRON_SOURCE_MODE must be 'cache' or 'upstream'" >&2
+        exit 1
+        ;;
+esac
+
 # Safety: any unresolved ${..._VERSION} placeholder means a missing
 # version_arg in sources.yaml (or a typo in Dockerfile.tmpl).
 if remaining=$(grep -oE '\$\{[A-Z0-9_]+_VERSION\}' Dockerfile | sort -u); then
