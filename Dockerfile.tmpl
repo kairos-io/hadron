@@ -133,6 +133,7 @@ FROM ghcr.io/kairos-io/hadron-sources/dbus:${DBUS_VERSION} AS dbus-download
 FROM ghcr.io/kairos-io/hadron-sources/expat:${EXPAT_VERSION} AS expat-download
 FROM ghcr.io/kairos-io/hadron-sources/libseccomp:${SECCOMP_VERSION} AS libseccomp-download
 FROM ghcr.io/kairos-io/hadron-sources/strace:${STRACE_VERSION} AS strace-download
+FROM ghcr.io/kairos-io/hadron-sources/less:${LESS_VERSION} AS less-download
 FROM ghcr.io/kairos-io/hadron-sources/kbd:${KBD_VERSION} AS kbd-download
 FROM ghcr.io/kairos-io/hadron-sources/iptables:${IPTABLES_VERSION} AS iptables-download
 FROM ghcr.io/kairos-io/hadron-sources/libmnl:${LIBMNL_VERSION} AS libmnl-download
@@ -266,6 +267,7 @@ COPY --from=dbus-download /sources/downloads/dbus.tar.xz /sources/downloads/
 COPY --from=expat-download /sources/downloads/expat.tar.gz /sources/downloads/
 COPY --from=libseccomp-download /sources/downloads/libseccomp.tar.gz /sources/downloads/
 COPY --from=strace-download /sources/downloads/strace.tar.xz /sources/downloads/
+COPY --from=less-download /sources/downloads/less.tar.gz /sources/downloads/
 COPY --from=kbd-download /sources/downloads/kbd.tar.gz /sources/downloads/
 COPY --from=iptables-download /sources/downloads/iptables.tar.xz /sources/downloads/
 COPY --from=libmnl-download /sources/downloads/libmnl.tar.bz2 /sources/downloads/
@@ -2053,6 +2055,20 @@ WORKDIR /sources/strace
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-mpers=check
 RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/strace
 
+## less — real upstream `less`, replacing the busybox applet.
+## The busybox `less` mishandles systemd's pagination and color codes
+## (see kairos-io/kairos#3815); shipping the real thing lets us drop
+## the SYSTEMD_COLORS=0 fallback in /etc/profile.d.
+FROM rsync AS less
+ARG JOBS
+COPY --from=sources-downloader /sources/downloads/less.tar.gz /sources/
+RUN mkdir -p /less
+WORKDIR /sources
+RUN tar -xf less.tar.gz && mv less-* less
+WORKDIR /sources/less
+RUN ./configure ${COMMON_CONFIGURE_ARGS}
+RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/less
+
 ## libmnl
 FROM rsync AS libmnl
 ARG JOBS
@@ -3352,7 +3368,6 @@ FROM ${KERNEL_TYPE}-tools AS extra-tools
 # cool utils to have for easy management and utility:
 # free
 # clear
-# less
 # lsof
 # more
 # ps
@@ -3745,6 +3760,9 @@ COPY --from=tpm2-tss /tpm2-tss/ /skeleton/
 
 COPY --from=libcap /libcap/ /skeleton/
 
+## Real `less`, replacing the busybox applet — see kairos-io/kairos#3815.
+COPY --from=less /less/ /skeleton/
+
 COPY --from=extra-tools /tools/ /skeleton/
 
 # Clean m4 leftover files if any, they are not used in runtime
@@ -3901,9 +3919,6 @@ RUN rm -Rf /usr/share/pkgconfig
 # set a default locale
 RUN echo "export LANG=en_US.UTF-8" >> /etc/profile.d/locale.sh
 RUN echo "en_US.UTF-8" > /etc/locale.conf
-# Export no colors for systemd
-# Make it a check so if we move to the proper less it will not hit this
-RUN echo "if ! less -V > /dev/null 2>&1 ; then export SYSTEMD_COLORS=0; fi" >> /etc/profile.d/systemd-no-colors.sh
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
 RUN busybox --install
