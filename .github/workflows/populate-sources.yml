@@ -14,10 +14,14 @@ name: Populate source caches
 # this workflow is allowed to talk to upstream mirrors from CI.
 #
 # The set of cached packages is driven by sources.yaml. Adding a
-# package is: append an entry to sources.yaml with its version_arg,
-# sha256, url template, and filename; flip the corresponding
-# Dockerfile downloader stage to
+# package is: declare `ARG <VERSION_ARG>=<version>` in the global
+# ARG block of the Dockerfile, append an entry to sources.yaml with
+# its version_arg, sha256, url template, and filename; flip the
+# corresponding Dockerfile downloader stage to
 # `FROM ghcr.io/kairos-io/hadron-sources/<pkg>:${<version_arg>}`.
+# The version this workflow publishes is the ARG default in the
+# Dockerfile (single source of truth); sources.yaml only carries the
+# fetch metadata keyed by version_arg.
 
 on:
   # PR workflows and build-multiarch-images call this via
@@ -79,6 +83,24 @@ jobs:
           required = set(os.environ['REQUIRED_PLATFORMS'].split())
           token = os.environ.get('GHCR_TOKEN', '')
 
+          # Dockerfile is the single source of truth for pinned versions:
+          # each sources.yaml entry names a `version_arg`, and the matching
+          # `ARG <version_arg>=<version>` default lives in the Dockerfile's
+          # global ARG block. Parse those defaults once here and index by
+          # ARG name.
+          import re
+          arg_defaults = {}
+          arg_re = re.compile(r'^ARG ([A-Z0-9_]+)=(.*)$')
+          with open('Dockerfile') as f:
+              for line in f:
+                  m = arg_re.match(line.rstrip('\n'))
+                  if not m:
+                      continue
+                  name, value = m.group(1), m.group(2).strip()
+                  if value.startswith('"') and value.endswith('"'):
+                      value = value[1:-1]
+                  arg_defaults[name] = value
+
           INDEX_TYPES = {
               'application/vnd.oci.image.index.v1+json',
               'application/vnd.docker.distribution.manifest.list.v2+json',
@@ -86,7 +108,10 @@ jobs:
 
           def needs_publish(pkg):
               spec = packages[pkg]
-              version = str(spec.get('version', ''))
+              version_arg = spec.get('version_arg', '')
+              version = arg_defaults.get(version_arg, '')
+              if not version_arg or not version:
+                  sys.exit(f'package {pkg!r}: missing ARG {version_arg!r} default in Dockerfile')
               # ghcr's registry API: get a token, GET the manifest.
               # 404 => tag missing; wrong-shape => needs republish;
               # missing platforms => needs republish.
@@ -171,15 +196,15 @@ jobs:
         id: meta
         env:
           PKG: ${{ matrix.pkg }}
-        # Reads sources.yaml for this package and writes the computed
-        # (version, url, filename, sha256, tag) to step outputs. sources.yaml
-        # is the single source of truth for versions, so we no longer parse
-        # the Dockerfile here. Fails loudly if the entry is missing or has
-        # required fields blank.
+        # Reads the version_arg / sha256 / urls / filename from sources.yaml
+        # and looks up the pinned version from the matching
+        # `ARG <version_arg>=<version>` default in the Dockerfile (the
+        # single source of truth). Writes the computed
+        # (version, url, filename, sha256, tag) to step outputs.
         run: |
           set -euo pipefail
           python3 <<'PY' >> "$GITHUB_OUTPUT"
-          import os, sys
+          import os, re, sys
           try:
               import yaml
           except ImportError:
@@ -191,12 +216,25 @@ jobs:
           spec = (data.get('packages') or {}).get(pkg)
           if spec is None:
               sys.exit(f'package {pkg!r} missing from sources.yaml')
-          for field in ('version', 'sha256', 'filename', 'urls'):
+          for field in ('version_arg', 'sha256', 'filename', 'urls'):
               if not spec.get(field):
                   sys.exit(f'package {pkg!r} missing field {field!r}')
           if not isinstance(spec['urls'], list) or not spec['urls']:
               sys.exit(f'package {pkg!r}: urls must be a non-empty list')
-          version = str(spec['version'])
+          version_arg = spec['version_arg']
+          arg_re = re.compile(rf'^ARG {re.escape(version_arg)}=(.*)$')
+          version = ''
+          with open('Dockerfile') as f:
+              for line in f:
+                  m = arg_re.match(line.rstrip('\n'))
+                  if m:
+                      value = m.group(1).strip()
+                      if value.startswith('"') and value.endswith('"'):
+                          value = value[1:-1]
+                      version = value
+                      break
+          if not version:
+              sys.exit(f'package {pkg!r}: no ARG {version_arg}= default in Dockerfile')
           urls = [u.replace('${version}', version) for u in spec['urls']]
           if any(' ' in u or '\t' in u or '\n' in u for u in urls):
               sys.exit(f'package {pkg!r} URL contains whitespace, would break the fetch loop')

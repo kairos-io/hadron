@@ -37,9 +37,9 @@ jobs:
     secrets: inherit
 
   # Kernel config version + BTF checks are arch-independent (they read the
-  # single linux version from sources.yaml), so run them once for all four
-  # config files: x86_64 (cloud.config, default.config) and arm64
-  # (cloud-arm64.config, default-arm64.config).
+  # single linux version pinned in the Dockerfile), so run them once for
+  # all four config files: x86_64 (cloud.config, default.config) and
+  # arm64 (cloud-arm64.config, default-arm64.config).
   check-kernel-configs:
     runs-on: ubuntu-latest
     steps:
@@ -47,11 +47,11 @@ jobs:
         uses: actions/checkout@v7
       - name: Install PyYAML
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
-      - name: Verify Dockerfile source rendering
+      - name: Verify fork-PR upstream source rewrite
         run: make test-render
       - name: Verify kernel configs are resolved against current kernel version
         run: |
-          KERNEL_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
+          KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)
           [[ "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
           FAILED=0
           for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do

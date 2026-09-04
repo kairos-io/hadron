@@ -27,12 +27,11 @@ FIPS ?= "no-fips"
 # with `make build-kairos KAIROS_DOCKERFILE_REF=master` to test against
 # tip.
 KAIROS_DOCKERFILE_REF ?= c2426c11c34198fcb50bfe4d43e827619292e26f
-# Versions live in sources.yaml (single source of truth). Dockerfile is
-# generated from Dockerfile.tmpl by `make render`; both KERNEL_VERSION and
-# DWARVES_VERSION are read from sources.yaml so this Makefile does not
-# depend on the rendered Dockerfile existing yet.
-KERNEL_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
-DWARVES_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['dwarves']['version'])")
+# Versions live in the committed Dockerfile as `ARG <NAME>_VERSION=<v>`
+# defaults (single source of truth); grep them out here so the Makefile
+# does not carry a duplicate value.
+KERNEL_VERSION ?= $(shell awk -F= '/^ARG KERNEL_VERSION=/{print $$2; exit}' Dockerfile)
+DWARVES_VERSION ?= $(shell awk -F= '/^ARG DWARVES_VERSION=/{print $$2; exit}' Dockerfile)
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -129,20 +128,12 @@ pull-image:
 	@echo "Pulling base Hadron image from ${IMAGE_NAME}..."
 	@docker pull --platform=${ARCH} ${IMAGE_NAME}
 
-# Dockerfile is generated from Dockerfile.tmpl + sources.yaml. Anyone
-# who edits either file (or hack/render.sh) triggers a regeneration.
-Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
-	@./hack/render.sh
-
-.PHONY: render
-render: Dockerfile
-
 .PHONY: test-render
-test-render: ## Verify cache and fork source rendering
+test-render: ## Verify fork-PR upstream source rewrite
 	@./tests/render-fork-sources.sh
 
 ## This builds the Hadron image from scratch
-build-hadron: Dockerfile
+build-hadron:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
@@ -190,7 +181,6 @@ run:
 
 clean:
 	@docker rmi ${IMAGE_NAME}
-	@rm -f Dockerfile
 
 grub-iso:
 	@echo "Building BIOS ISO image..."

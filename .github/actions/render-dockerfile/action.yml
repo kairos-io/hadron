@@ -1,34 +1,24 @@
-name: Render Dockerfile
+name: Prepare build context
 description: |
-  Regenerate Dockerfile from Dockerfile.tmpl and sources.yaml.
-  Every job that runs docker/build-push-action must call this first
-  because Dockerfile is a generated artifact and not in git.
+  Two things every docker/build-push-action call needs:
+
+  - fork-PR only: rewrite `FROM ghcr.io/kairos-io/hadron-sources/...`
+    lines in the committed Dockerfile with checksum-verifying upstream
+    download stages. A fork PR cannot publish source-cache images, so
+    any version it bumps has no cache tag to pull. The cache is public,
+    though, so the fork only has to reach upstream for the versions it
+    bumps itself.
+
+  - always: generate the per-variant component manifests the final
+    stages COPY into `/usr/lib/hadron/components.json` (container.json
+    and full-image-<fips>-<bootloader>.json). Trusted builds and fork
+    builds both need these; the committed Dockerfile has no other way
+    to produce them.
 
 runs:
   using: composite
   steps:
-    - name: Ensure render dependencies
-      shell: bash
-      run: |
-        set -e
-        # gettext-base gives us envsubst; python3-yaml gives PyYAML.
-        # Both are usually preinstalled on ubuntu runners; the check
-        # keeps this step a fast no-op when they are already present.
-        if ! command -v envsubst >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y gettext-base
-        fi
-        if ! python3 -c "import yaml" >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y python3-yaml
-        fi
-
-    # A fork pull request cannot publish source-cache images, so a version it
-    # bumps has no cache tag to pull and the build fails before compiling.
-    # The cache is public, though, so the fork only has to reach upstream for
-    # the versions it bumps itself: ask the registry which those are and pull
-    # everything else from the cache exactly like a trusted build does.
-    - name: Select source mode
+    - name: Detect fork PR and select packages to fetch
       id: source-mode
       shell: bash
       env:
@@ -38,7 +28,7 @@ runs:
         if [ "$IS_FORK_PR" != "true" ]; then
             echo "mode=cache" >> "$GITHUB_OUTPUT"
             echo "packages=" >> "$GITHUB_OUTPUT"
-            echo "Trusted build: every source comes from the cache."
+            echo "Trusted build: every source comes from the cache; Dockerfile is untouched."
             exit 0
         fi
         missing=$(./hack/list-missing-sources.sh | tr '\n' ' ')
@@ -47,11 +37,49 @@ runs:
         echo "packages=${missing}" >> "$GITHUB_OUTPUT"
         echo "Fork pull request: fetching from upstream: ${missing:-<nothing, all sources are cached>}"
 
-    - name: Render Dockerfile from Dockerfile.tmpl + sources.yaml
+    - name: Ensure upstream-mode dependencies
+      if: steps.source-mode.outputs.mode == 'upstream'
+      shell: bash
+      run: |
+        set -e
+        # PyYAML is only needed for the fork-PR upstream-mode rewrite in
+        # hack/render.sh; trusted builds skip this step entirely.
+        if ! python3 -c "import yaml" >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y python3-yaml
+        fi
+
+    - name: Rewrite FROM lines for fork PR
+      if: steps.source-mode.outputs.mode == 'upstream'
       shell: bash
       env:
-        HADRON_SOURCE_MODE: ${{ steps.source-mode.outputs.mode }}
-        # Set, possibly to the empty string, so render.sh restricts upstream
-        # downloads to this list instead of fetching every package.
+        # Set, possibly to the empty string, so hack/render.sh restricts
+        # upstream downloads to this list instead of fetching every package.
         HADRON_UPSTREAM_PACKAGES: ${{ steps.source-mode.outputs.packages }}
-      run: make render
+      run: ./hack/render.sh
+
+    - name: Generate component manifests
+      shell: bash
+      run: |
+        set -euo pipefail
+        # container/full-image stages COPY these into /usr/lib/hadron/components.json.
+        # Generated once on the host (pure sh + awk, no toolchain) so docker
+        # build finds them in the context. Names must match the Dockerfile:
+        #   gen/components/container.json
+        #   gen/components/full-image-<FIPS>-<BOOTLOADER>.json  (2 x 2 = 4)
+        mkdir -p gen/components
+        sh hack/gen-components.sh --shipped "stage2-merge" \
+            --format flat --name container --out-dir gen/components >/dev/null
+        for fips in no-fips fips; do
+            override=""
+            [ "$fips" = "fips" ] && override="--override openssl=OPENSSL_FIPS_VERSION"
+            for bootloader in grub systemd; do
+                sh hack/gen-components.sh \
+                    --shipped "stage2-merge full-image-merge-base full-image-merge-${fips} full-image-pre-${bootloader} full-image-pre-preset full-image-final" \
+                    ${override} \
+                    --format flat \
+                    --name "full-image-${fips}-${bootloader}" \
+                    --out-dir gen/components >/dev/null
+            done
+        done
+        echo "generated component manifests: $(ls gen/components | wc -l) files in gen/components/"

@@ -1,92 +1,53 @@
 #!/bin/sh
-# Render Dockerfile from Dockerfile.tmpl by substituting every
-# ${<version_arg>} placeholder with the corresponding package version
-# from sources.yaml.
+# Fork-PR helper: rewrite `FROM ghcr.io/kairos-io/hadron-sources/...`
+# lines in the Dockerfile in place, replacing them with checksum-verifying
+# upstream download stages. Only fork pull requests need this because they
+# cannot publish to the source cache, so any version they bump has no
+# published tag to pull. Trusted builds skip this script entirely and
+# `docker build .` off the committed Dockerfile.
 #
-# Uses envsubst (from gettext) so only variables in the format string
-# are substituted; unrelated ${...} shell parameter expansions and
-# Docker ARGs inside RUN commands are left untouched.
+# HADRON_UPSTREAM_PACKAGES restricts which packages are rewritten:
 #
-# Exits non-zero if any expected version placeholder remains
-# unresolved in the output (safety net against a missing version_arg
-# in sources.yaml).
+#   unset            every package is fetched from upstream. This is the
+#                    offline / forked-distro rebuild path documented in
+#                    sources.yaml: the Dockerfile ARG defaults plus
+#                    sources.yaml alone are enough to rebuild.
+#   set to a list    only the named packages are fetched from upstream and
+#                    every other package keeps its cache image. Set to the
+#                    empty string to keep all of them cached.
+#
+# Fork PR workflows call this with the list form. The source cache is
+# public, so a fork can pull every already-published tag and only has to
+# reach upstream for the versions the PR itself bumps. Fetching all of
+# them instead makes the build depend on ~100 upstream hosts staying
+# reachable, and any single one of them refusing a runner fails the whole
+# build.
+#
+# Reads the pinned version for each package from the matching
+# `ARG <version_arg>=<version>` default in the committed Dockerfile
+# (single source of truth); sources.yaml supplies the urls / sha256 /
+# filename keyed by version_arg.
 
 set -eu
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
 
-if [ ! -f sources.yaml ] || [ ! -f Dockerfile.tmpl ]; then
-    echo "error: sources.yaml or Dockerfile.tmpl not found in $repo_root" >&2
+if [ ! -f Dockerfile ] || [ ! -f sources.yaml ]; then
+    echo "error: Dockerfile or sources.yaml not found in $repo_root" >&2
     exit 1
 fi
 
-if ! command -v envsubst >/dev/null 2>&1; then
-    echo "error: envsubst not found (install the 'gettext' package)" >&2
-    exit 1
+# Distinguish "unset" (rewrite every FROM) from "set but empty" (rewrite
+# nothing); both are meaningful and only the shell can tell them apart.
+if [ "${HADRON_UPSTREAM_PACKAGES+set}" = set ]; then
+    HADRON_UPSTREAM_FILTER=1
+else
+    HADRON_UPSTREAM_FILTER=0
 fi
+export HADRON_UPSTREAM_FILTER
 
-envfile=$(mktemp)
-trap 'rm -f "$envfile"' EXIT
-
-python3 - <<'PY' > "$envfile"
-import sys
-try:
-    import yaml
-except ImportError:
-    sys.exit("PyYAML is required to render Dockerfile (pip install pyyaml)")
-data = yaml.safe_load(open('sources.yaml')) or {}
-for name, spec in (data.get('packages') or {}).items():
-    var = spec.get('version_arg')
-    version = spec.get('version')
-    if not var or version is None:
-        sys.exit(f"sources.yaml entry {name!r} missing version_arg or version")
-    print(f'{var}={version}')
-PY
-
-# Load the env vars, build the shell-format list for envsubst
-set -a
-# shellcheck disable=SC1090
-. "$envfile"
-set +a
-
-format=$(cut -d= -f1 <"$envfile" | sed 's/^/$/' | tr '\n' ' ')
-
-envsubst "$format" <Dockerfile.tmpl >Dockerfile
-
-# Fork pull requests cannot publish missing source-cache images. In upstream
-# mode, replace a cache image with a downloader stage that uses the same
-# pinned URL and checksum from sources.yaml. Regular builds keep using cache
-# images and do not contact upstream mirrors.
-#
-# HADRON_UPSTREAM_PACKAGES restricts which packages are replaced:
-#
-#   unset            every package is fetched from upstream. This is the
-#                    offline/forked-distro rebuild path documented in
-#                    sources.yaml: sources.yaml alone is enough to rebuild.
-#   set to a list    only the named packages are fetched from upstream and
-#                    every other package keeps its cache image. Set to the
-#                    empty string to keep all of them cached.
-#
-# Fork pull requests use the list form. The source cache is public, so a fork
-# can pull every already-published tag and only has to reach upstream for the
-# versions it bumps itself. Fetching all of them instead makes the build
-# depend on ~100 upstream hosts staying reachable, and any single one of them
-# refusing a runner fails the whole build.
-case "${HADRON_SOURCE_MODE:-cache}" in
-    cache)
-        ;;
-    upstream)
-        # Distinguish "unset" (replace everything) from "set but empty"
-        # (replace nothing); both are meaningful and only the shell can
-        # tell them apart.
-        if [ "${HADRON_UPSTREAM_PACKAGES+set}" = set ]; then
-            HADRON_UPSTREAM_FILTER=1
-        else
-            HADRON_UPSTREAM_FILTER=0
-        fi
-        export HADRON_UPSTREAM_FILTER
-        python3 - <<'PY'
+python3 - <<'PY'
 from pathlib import Path
 import os
 import re
@@ -95,6 +56,19 @@ import yaml
 path = Path('Dockerfile')
 dockerfile = path.read_text()
 packages = (yaml.safe_load(open('sources.yaml')) or {}).get('packages') or {}
+
+# Parse the ARG defaults in the committed Dockerfile so we can resolve
+# the pinned version of each package by its version_arg. Same rule the
+# populate-sources workflow uses.
+arg_re = re.compile(r'^ARG ([A-Z0-9_]+)=(.*)$', re.MULTILINE)
+arg_defaults = {}
+for name, value in arg_re.findall(dockerfile):
+    value = value.strip()
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    value = value.split()[0] if value else ''
+    arg_defaults[name] = value
+
 pattern = re.compile(
     r'^FROM ghcr\.io/kairos-io/hadron-sources/'
     # The libnetfilter_* packages carry underscores, in the package name
@@ -103,7 +77,7 @@ pattern = re.compile(
     re.MULTILINE,
 )
 
-# See the HADRON_UPSTREAM_PACKAGES contract above the case statement.
+# See the HADRON_UPSTREAM_PACKAGES contract above.
 restricted = os.environ.get('HADRON_UPSTREAM_FILTER') == '1'
 selected = set(os.environ.get('HADRON_UPSTREAM_PACKAGES', '').split())
 if restricted:
@@ -125,13 +99,18 @@ def downloader(match):
     spec = packages.get(pkg)
     if spec is None:
         raise SystemExit(f'package {pkg!r} missing from sources.yaml')
-    for field in ('version', 'sha256', 'filename', 'urls'):
+    for field in ('version_arg', 'sha256', 'filename', 'urls'):
         if not spec.get(field):
             raise SystemExit(f'package {pkg!r} missing field {field!r}')
     if not isinstance(spec['urls'], list) or not spec['urls']:
         raise SystemExit(f'package {pkg!r}: urls must be a non-empty list')
 
-    version = str(spec['version'])
+    version_arg = spec['version_arg']
+    version = arg_defaults.get(version_arg, '')
+    if not version:
+        raise SystemExit(
+            f'package {pkg!r}: no ARG {version_arg}= default in Dockerfile'
+        )
     urls = [url.replace('${version}', version) for url in spec['urls']]
     if any(any(char.isspace() for char in url) for url in urls):
         raise SystemExit(f'package {pkg!r} URL contains whitespace')
@@ -163,72 +142,18 @@ dockerfile, matched = pattern.subn(downloader, dockerfile)
 if matched == 0:
     raise SystemExit('upstream mode found no source-cache stages at all')
 if restricted:
-    # A selected package that never matched means sources.yaml and
-    # Dockerfile.tmpl disagree, so the build would silently keep the stale
+    # A selected package that never matched means sources.yaml and the
+    # Dockerfile disagree, so the build would silently keep the stale
     # cache tag it cannot pull.
     unmatched = sorted(selected - replaced_packages)
     if unmatched:
         raise SystemExit(
-            'no source-cache stage in Dockerfile.tmpl for selected '
+            'no source-cache stage in Dockerfile for selected '
             f'packages: {" ".join(unmatched)}'
         )
 path.write_text(dockerfile)
 print(
-    f'rendered {len(replaced_packages)} verified upstream source stages, '
+    f'rewrote {len(replaced_packages)} verified upstream source stages, '
     f'{matched - len(replaced_packages)} kept on the source cache'
 )
 PY
-        ;;
-    *)
-        echo "error: HADRON_SOURCE_MODE must be 'cache' or 'upstream'" >&2
-        exit 1
-        ;;
-esac
-
-# Safety: any unresolved ${..._VERSION} placeholder means a missing
-# version_arg in sources.yaml (or a typo in Dockerfile.tmpl).
-if remaining=$(grep -oE '\$\{[A-Z0-9_]+_VERSION\}' Dockerfile | sort -u); then
-    if [ -n "$remaining" ]; then
-        # Filter out placeholders whose ARG name is NOT declared in sources.yaml.
-        # Those are legitimately not templated (e.g., GNU-mirror packages we
-        # have not onboarded yet). Only alert if we see a placeholder that
-        # SHOULD have been substituted but was not.
-        declared=$(cut -d= -f1 <"$envfile" | tr '\n' '|' | sed 's/|$//')
-        stragglers=$(echo "$remaining" | grep -E "\$\{($declared)\}" || true)
-        if [ -n "$stragglers" ]; then
-            echo "error: expected placeholders were not substituted:" >&2
-            echo "$stragglers" >&2
-            exit 1
-        fi
-    fi
-fi
-
-echo "rendered Dockerfile ($(wc -l <Dockerfile) lines) from Dockerfile.tmpl"
-
-# --- Component manifests (per-variant) ----------------------------------------
-# The final container / full-image stages COPY one of these into
-# /usr/lib/hadron/components.json. Generating them here (on the host, once
-# per render) avoids adding a container stage with its own toolchain just to
-# produce a JSON file.
-#
-# Variants:
-#   container.json                         no variants (always the same)
-#   full-image-<FIPS>-<BOOTLOADER>.json    2 x 2 = 4 files
-mkdir -p gen/components
-sh hack/gen-components.sh --shipped "stage2-merge" \
-    --format flat --name container --out-dir gen/components >/dev/null
-
-for fips in no-fips fips; do
-    override=""
-    [ "$fips" = "fips" ] && override="--override openssl=OPENSSL_FIPS_VERSION"
-    for bootloader in grub systemd; do
-        sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-${fips} full-image-pre-${bootloader} full-image-pre-preset full-image-final" \
-            ${override} \
-            --format flat \
-            --name "full-image-${fips}-${bootloader}" \
-            --out-dir gen/components >/dev/null
-    done
-done
-
-echo "generated component manifests: $(ls gen/components | wc -l) files in gen/components/"

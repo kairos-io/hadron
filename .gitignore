@@ -26,6 +26,5 @@ files/hadron-splash/hadron
 /components.md
 /docs/static/components/
 
-# Rendered artifact - generated from Dockerfile.tmpl + sources.yaml by hack/render.sh
-/Dockerfile
+# Ephemeral gen tree used by fork-PR upstream mode and legacy component generation.
 /gen/

@@ -696,7 +696,7 @@ jobs:
   # RISC-V 64-bit pipeline
   # ============================================================================
   # Entirely on x86+QEMU — see the un-split note on the hadron-bios-riscv64
-  # job below and Dockerfile.tmpl's full-image-final for why no native riscv64
+  # job below and Dockerfile's full-image-final for why no native riscv64
   # runner is needed any more.
   #
   # Dependency graph:
@@ -1239,7 +1239,7 @@ jobs:
 
   # x86+QEMU, whole way through: builds default (which now includes what used
   # to be the native-only preset-all step) in one job, no OCI hand-off. See
-  # the equivalent comment in PR_riscv64.yml and Dockerfile.tmpl's
+  # the equivalent comment in PR_riscv64.yml and Dockerfile's
   # full-image-final for why the split (and the native riscv64 runner it
   # needed) is gone.
   hadron-bios-riscv64:

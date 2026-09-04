@@ -4,9 +4,15 @@ set -eu
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d)
-trap 'rm -rf "$tmp"; rm -f "$repo_root/Dockerfile"' EXIT
+# Keep the snapshot outside $tmp so the EXIT trap can restore Dockerfile
+# even after $tmp is gone.
+snapshot=$(mktemp)
+cp "$repo_root/Dockerfile" "$snapshot"
+trap 'cp "$snapshot" "$repo_root/Dockerfile"; rm -rf "$tmp" "$snapshot"' EXIT
 
 mkdir -p "$tmp/bin"
+# hack/render.sh needs a `yaml` module. On a runner without PyYAML installed,
+# fall back to a minimal loader that understands just the shape of sources.yaml.
 cat > "$tmp/yaml.py" <<'PY'
 def safe_load(stream):
     packages = {}
@@ -33,49 +39,43 @@ def safe_load(stream):
             packages[current][list_key].append(text[2:])
     return {'packages': packages}
 PY
-cat > "$tmp/bin/envsubst" <<'PY'
-#!/usr/bin/env python3
-import os
-import re
-import sys
-
-variables = set(re.findall(r'\$([A-Za-z_][A-Za-z0-9_]*)', sys.argv[1]))
-source = sys.stdin.read()
-for variable in variables:
-    source = source.replace('${' + variable + '}', os.environ.get(variable, ''))
-sys.stdout.write(source)
-PY
-chmod +x "$tmp/bin/envsubst"
 
 cd "$repo_root"
-libkcapi_version=$(PYTHONPATH="$tmp" python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['libkcapi']['version'])")
 
-# render <mode> [package-list]
-# Omitting the list leaves HADRON_UPSTREAM_PACKAGES unset, which is a
-# different instruction to render.sh than passing an empty list.
+# libkcapi is the fixture package used throughout. Its ARG default is the
+# single source of truth for its pinned version; the tests below read it once.
+libkcapi_version=$(awk -F= '/^ARG LIBKCAPI_VERSION=/{print $2; exit}' Dockerfile)
+
+# render [package-list]
+# Restores the committed Dockerfile first so the test is idempotent across
+# invocations. Omitting the list leaves HADRON_UPSTREAM_PACKAGES unset,
+# which is a different instruction to render.sh than passing an empty list.
 render() {
-    if [ "$#" -ge 2 ]; then
-        PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" \
-            HADRON_SOURCE_MODE="$1" HADRON_UPSTREAM_PACKAGES="$2" \
+    cp "$snapshot" Dockerfile
+    if [ "$#" -ge 1 ]; then
+        PYTHONPATH="$tmp" HADRON_UPSTREAM_PACKAGES="$1" \
             ./hack/render.sh >/dev/null
     else
-        PATH="$tmp/bin:$PATH" PYTHONPATH="$tmp" \
-            HADRON_SOURCE_MODE="$1" ./hack/render.sh >/dev/null
+        PYTHONPATH="$tmp" ./hack/render.sh >/dev/null
     fi
 }
 
 # --- Whole-file upstream mode -------------------------------------------------
-# The offline/forked-distro rebuild path: sources.yaml alone is enough, so
-# nothing may be left pointing at the cache.
-render upstream
+# The offline/forked-distro rebuild path: sources.yaml + the Dockerfile ARG
+# defaults alone are enough, so nothing may be left pointing at the cache.
+render
 
 PYTHONPATH="$tmp" python3 - <<'PY'
 from pathlib import Path
-import yaml
+import re, yaml
 
 dockerfile = Path('Dockerfile').read_text()
 libkcapi = yaml.safe_load(open('sources.yaml'))['packages']['libkcapi']
-version = str(libkcapi['version'])
+arg_re = re.compile(r'^ARG LIBKCAPI_VERSION=(.*)$', re.MULTILINE)
+match = arg_re.search(dockerfile)
+if not match:
+    raise SystemExit('LIBKCAPI_VERSION ARG default missing from Dockerfile')
+version = match.group(1).strip().strip('"').split()[0]
 url = libkcapi['urls'][0].replace('${version}', version)
 declared = set()
 for line in dockerfile.splitlines():
@@ -143,9 +143,9 @@ PY
 # does not exist yet come from upstream; the cache is public, so every other
 # package is pulled from it and the build does not depend on that upstream
 # host answering at all.
-render upstream libkcapi
+render libkcapi
 
-python3 - <<'PY'
+PYTHONPATH="$tmp" python3 - <<'PY'
 from pathlib import Path
 
 dockerfile = Path('Dockerfile').read_text()
@@ -155,8 +155,10 @@ if 'FROM sources-downloader-base AS libkcapi-download\n' not in dockerfile:
 if 'FROM ghcr.io/kairos-io/hadron-sources/libkcapi:' in dockerfile:
     raise SystemExit('restricted render still requires the libkcapi cache image')
 
-# Everything not selected keeps its cache image.
-if 'FROM ghcr.io/kairos-io/hadron-sources/zlib:1.3.2 AS zlib-download' not in dockerfile:
+# Everything not selected keeps its cache image (the FROM line still uses
+# the ${ZLIB_VERSION} placeholder; Docker resolves it from the ARG default
+# at build time).
+if 'FROM ghcr.io/kairos-io/hadron-sources/zlib:${ZLIB_VERSION} AS zlib-download' not in dockerfile:
     raise SystemExit('restricted render dropped the cache image of an unselected package')
 
 upstream = [
@@ -172,20 +174,24 @@ PY
 
 # An empty list is a valid instruction and means every source is cached
 # already, which is the common case for a fork pull request that bumps no
-# version at all.
-render upstream ''
+# version at all. The committed Dockerfile is left untouched, so its
+# ${LIBKCAPI_VERSION} placeholder must still be there.
+render ''
 if grep -q '^FROM sources-downloader-base AS libkcapi-download$' Dockerfile; then
     echo 'empty package list still fetched a package from upstream' >&2
     exit 1
 fi
-grep -q "^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:$libkcapi_version AS libkcapi-download$" Dockerfile
+grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:\${LIBKCAPI_VERSION} AS libkcapi-download$' Dockerfile
 
 # A name that is not in sources.yaml is a typo, not a package to skip.
-if render upstream 'libkcapi no-such-package' 2>/dev/null; then
+if render 'libkcapi no-such-package' 2>/dev/null; then
     echo 'restricted render accepted a package missing from sources.yaml' >&2
     exit 1
 fi
 
-# --- Cache mode ---------------------------------------------------------------
-render cache
-grep -q "^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:$libkcapi_version AS libkcapi-download$" Dockerfile
+# --- Trusted-build no-op ------------------------------------------------------
+# Trusted builds skip hack/render.sh entirely and `docker build .` off the
+# committed Dockerfile. Verify the file we ship still has the cache FROM
+# line intact.
+cp "$snapshot" Dockerfile
+grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:\${LIBKCAPI_VERSION} AS libkcapi-download$' Dockerfile
