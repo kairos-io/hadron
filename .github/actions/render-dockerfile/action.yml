@@ -23,6 +23,35 @@ runs:
             sudo apt-get install -y python3-yaml
         fi
 
+    # A fork pull request cannot publish source-cache images, so a version it
+    # bumps has no cache tag to pull and the build fails before compiling.
+    # The cache is public, though, so the fork only has to reach upstream for
+    # the versions it bumps itself: ask the registry which those are and pull
+    # everything else from the cache exactly like a trusted build does.
+    - name: Select source mode
+      id: source-mode
+      shell: bash
+      env:
+        IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      run: |
+        set -euo pipefail
+        if [ "$IS_FORK_PR" != "true" ]; then
+            echo "mode=cache" >> "$GITHUB_OUTPUT"
+            echo "packages=" >> "$GITHUB_OUTPUT"
+            echo "Trusted build: every source comes from the cache."
+            exit 0
+        fi
+        missing=$(./hack/list-missing-sources.sh | tr '\n' ' ')
+        missing=${missing% }
+        echo "mode=upstream" >> "$GITHUB_OUTPUT"
+        echo "packages=${missing}" >> "$GITHUB_OUTPUT"
+        echo "Fork pull request: fetching from upstream: ${missing:-<nothing, all sources are cached>}"
+
     - name: Render Dockerfile from Dockerfile.tmpl + sources.yaml
       shell: bash
+      env:
+        HADRON_SOURCE_MODE: ${{ steps.source-mode.outputs.mode }}
+        # Set, possibly to the empty string, so render.sh restricts upstream
+        # downloads to this list instead of fetching every package.
+        HADRON_UPSTREAM_PACKAGES: ${{ steps.source-mode.outputs.packages }}
       run: make render
