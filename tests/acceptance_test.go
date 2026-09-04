@@ -116,6 +116,8 @@ var _ = Describe("kairos basic test", func() {
 
 		assertBTFAvailable(vm)
 
+		assertFirmwareLayout(vm)
+
 		By("checking correct permissions", func() {
 			out, err := vm.Sudo(`stat -c "%a" /oem`)
 			Expect(err).ToNot(HaveOccurred())
