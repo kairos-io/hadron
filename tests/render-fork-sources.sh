@@ -48,6 +48,7 @@ PY
 chmod +x "$tmp/bin/envsubst"
 
 cd "$repo_root"
+libkcapi_version=$(PYTHONPATH="$tmp" python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['libkcapi']['version'])")
 
 # render <mode> [package-list]
 # Omitting the list leaves HADRON_UPSTREAM_PACKAGES unset, which is a
@@ -68,10 +69,14 @@ render() {
 # nothing may be left pointing at the cache.
 render upstream
 
-python3 - <<'PY'
+PYTHONPATH="$tmp" python3 - <<'PY'
 from pathlib import Path
+import yaml
 
 dockerfile = Path('Dockerfile').read_text()
+libkcapi = yaml.safe_load(open('sources.yaml'))['packages']['libkcapi']
+version = str(libkcapi['version'])
+url = libkcapi['urls'][0].replace('${version}', version)
 declared = set()
 for line in dockerfile.splitlines():
     if not line.startswith('FROM '):
@@ -83,9 +88,9 @@ for line in dockerfile.splitlines():
     if len(parts) >= 4 and parts[-2] == 'AS':
         declared.add(parts[-1])
 
-expected = '''FROM sources-downloader-base AS libkcapi-download
-ARG LIBKCAPI_SOURCE_URLS="https://github.com/smuellerDD/libkcapi/archive/refs/tags/v1.5.1.tar.gz"
-ARG LIBKCAPI_SOURCE_SHA256="8d24a355509d500a520a76c7f919772279e6961073a01f2ef2bdaf8edce32fce"
+expected = f'''FROM sources-downloader-base AS libkcapi-download
+ARG LIBKCAPI_SOURCE_URLS="{url}"
+ARG LIBKCAPI_SOURCE_SHA256="{libkcapi['sha256']}"
 RUN set -eu; \\
     out=/sources/downloads/libkcapi.tar.gz; \\
     matched=0; \\
@@ -173,7 +178,7 @@ if grep -q '^FROM sources-downloader-base AS libkcapi-download$' Dockerfile; the
     echo 'empty package list still fetched a package from upstream' >&2
     exit 1
 fi
-grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.1 AS libkcapi-download$' Dockerfile
+grep -q "^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:$libkcapi_version AS libkcapi-download$" Dockerfile
 
 # A name that is not in sources.yaml is a typo, not a package to skip.
 if render upstream 'libkcapi no-such-package' 2>/dev/null; then
@@ -183,4 +188,4 @@ fi
 
 # --- Cache mode ---------------------------------------------------------------
 render cache
-grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.1 AS libkcapi-download$' Dockerfile
+grep -q "^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:$libkcapi_version AS libkcapi-download$" Dockerfile
