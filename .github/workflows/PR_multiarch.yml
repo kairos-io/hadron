@@ -4,6 +4,15 @@ name: 'PR build and test images (multiarch)'
 on:
   pull_request:
   workflow_dispatch:
+  # Give the reset/acceptance suite a signal on `main` independent of any
+  # pull request. Without this, a regression that lands via an unpinned
+  # upstream reference (see mission-control#121) or via a change that
+  # merges clean but breaks a run only intermittently has nowhere to show
+  # as "main is red" -- it can only ever show as "your unrelated PR is
+  # red", which teaches a contributor to distrust the check. Cadence is a
+  # starting point, not a fixed choice: adjust it to match runner capacity.
+  schedule:
+    - cron: '0 6 * * *'
 
 concurrency:
   group: ci-image-multiarch-${{ github.head_ref || github.ref }}-${{ github.repository }}
