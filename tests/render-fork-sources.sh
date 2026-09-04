@@ -84,8 +84,8 @@ for line in dockerfile.splitlines():
         declared.add(parts[-1])
 
 expected = '''FROM sources-downloader-base AS libkcapi-download
-ARG LIBKCAPI_SOURCE_URLS="https://github.com/smuellerDD/libkcapi/archive/refs/tags/v1.5.0.tar.gz"
-ARG LIBKCAPI_SOURCE_SHA256="f1d827738bda03065afd03315479b058f43493ab6e896821b947f391aa566ba0"
+ARG LIBKCAPI_SOURCE_URLS="https://github.com/smuellerDD/libkcapi/archive/refs/tags/v1.5.1.tar.gz"
+ARG LIBKCAPI_SOURCE_SHA256="8d24a355509d500a520a76c7f919772279e6961073a01f2ef2bdaf8edce32fce"
 RUN set -eu; \\
     out=/sources/downloads/libkcapi.tar.gz; \\
     matched=0; \\
@@ -173,7 +173,7 @@ if grep -q '^FROM sources-downloader-base AS libkcapi-download$' Dockerfile; the
     echo 'empty package list still fetched a package from upstream' >&2
     exit 1
 fi
-grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.0 AS libkcapi-download$' Dockerfile
+grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.1 AS libkcapi-download$' Dockerfile
 
 # A name that is not in sources.yaml is a typo, not a package to skip.
 if render upstream 'libkcapi no-such-package' 2>/dev/null; then
@@ -183,4 +183,4 @@ fi
 
 # --- Cache mode ---------------------------------------------------------------
 render cache
-grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.0 AS libkcapi-download$' Dockerfile
+grep -q '^FROM ghcr.io/kairos-io/hadron-sources/libkcapi:1.5.1 AS libkcapi-download$' Dockerfile
