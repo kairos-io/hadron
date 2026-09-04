@@ -32,6 +32,19 @@ RUN apk update && \
     curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync \
     git coreutils findutils pax-utils binutils
 
+# Base download target with some preparation common to all downloads.
+FROM alpine-base AS sources-downloader-base
+## Re-declare global GNU mirror ARGs and export as ENV so all child download
+## stages inherit them without needing to redeclare ARG in each stage.
+ARG GNU_MIRROR_1
+ARG GNU_MIRROR_2
+ARG GNU_MIRROR_3
+ENV GNU_MIRROR_1=${GNU_MIRROR_1} \
+    GNU_MIRROR_2=${GNU_MIRROR_2} \
+    GNU_MIRROR_3=${GNU_MIRROR_3}
+RUN mkdir -p /sources/downloads
+WORKDIR /sources/downloads
+
 # The tarball mussel itself needs for its cross-toolchain build (see
 # stage0 below), cached the same way every other source in this
 # Dockerfile is -- so mussel never has to fetch musl.libc.org directly.
@@ -94,19 +107,6 @@ ENV LC_ALL=POSIX
 ENV TARGET=${BUILD_ARCH}-${VENDOR}-linux-musl
 ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
-
-# Base dowload target with some preparation common to all downloads.
-FROM alpine-base AS sources-downloader-base
-## Re-declare global GNU mirror ARGs and export as ENV so all child download
-## stages inherit them without needing to redeclare ARG in each stage.
-ARG GNU_MIRROR_1
-ARG GNU_MIRROR_2
-ARG GNU_MIRROR_3
-ENV GNU_MIRROR_1=${GNU_MIRROR_1} \
-    GNU_MIRROR_2=${GNU_MIRROR_2} \
-    GNU_MIRROR_3=${GNU_MIRROR_3}
-RUN mkdir -p /sources/downloads
-WORKDIR /sources/downloads
 
 ### This stages below are used to download the sources for the packages
 FROM ghcr.io/kairos-io/hadron-sources/curl:${CURL_VERSION} AS curl-download

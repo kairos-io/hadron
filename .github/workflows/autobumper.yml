@@ -34,7 +34,7 @@ jobs:
               - system-libraries
     steps:
       - name: Install Updatecli in the runner
-        uses: updatecli/updatecli-action@v3.4.0
+        uses: updatecli/updatecli-action@v3.6.0
       - name: commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
