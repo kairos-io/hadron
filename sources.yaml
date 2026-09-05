@@ -118,9 +118,9 @@ packages:
     filename: bison.tar.xz
 
   busybox:
-    version: "1.37.0"
+    version: "1.38.0"
     version_arg: BUSYBOX_VERSION
-    sha256: 3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4
+    sha256: 34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
     urls:
       - https://busybox.net/downloads/busybox-${version}.tar.bz2
     filename: busybox.tar.bz2
