@@ -842,9 +842,9 @@ packages:
     filename: rsync.tar.gz
 
   shadow:
-    version: "4.20.0"
+    version: "4.20.2"
     version_arg: SHADOW_VERSION
-    sha256: 239781632846db3b01901028147fb4b57e6f2d5330ca63ce104b21d9b3e6031f
+    sha256: b89f432b75ae55a2d852b446d0365484795fdf533ab97d550e325fa15594a224
     urls:
       - https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
     filename: shadow.tar.xz
