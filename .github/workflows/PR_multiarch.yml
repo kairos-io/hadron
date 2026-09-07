@@ -49,6 +49,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
       - name: Verify Dockerfile source rendering
         run: make test-render
+      - name: Verify the local base image tag invariant
+        run: make test-image-tags
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")

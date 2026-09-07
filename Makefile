@@ -1,11 +1,19 @@
 # The tag `build-hadron` writes and `build-kairos` reads. It is deliberately a
-# local-only tag: when this named a published registry reference, a `docker
-# pull` of that same reference (from `make build`, or from an earlier run, or
-# from any other checkout on the box) silently replaced the base that
-# `build-hadron` had just produced, and `build-kairos` then layered kairos-init
-# onto the published image instead of the local one. That reads as "the local
-# change was reverted during the kairos build" and costs an hour of rebuild to
-# not diagnose. CI never hit it because it tags per commit SHA.
+# local-only tag: when this named a published registry reference, an
+# out-of-band `docker pull ghcr.io/kairos-io/hadron:main` -- by any other
+# script, tool or human on the box -- silently replaced the base that
+# `build-hadron` had just produced, and the next `build-kairos` layered
+# kairos-init onto the published image instead of the local one. That reads as
+# "my change was reverted during the kairos build" and costs an hour of rebuild
+# to not diagnose. CI never hit it because it tags per commit SHA.
+#
+# What this does NOT close, so nobody rules it out when the symptom comes back:
+#   - `pull-image` retags PULL_IMAGE_NAME onto IMAGE_NAME on purpose, so `make
+#     build` after `make build-hadron` still replaces the local base. Use `make
+#     build-scratch` to keep it.
+#   - This is one tag in one docker daemon, so a second checkout on the same
+#     box overwrites the first one's base. Pass IMAGE_NAME per checkout if you
+#     need them isolated.
 IMAGE_NAME ?= hadron:local
 # The published base `pull-image` fetches, retagged to IMAGE_NAME so that
 # `make build` and `make build-scratch` feed build-kairos the same way.
@@ -157,6 +165,10 @@ render: Dockerfile
 .PHONY: test-render
 test-render: ## Verify cache and fork source rendering
 	@./tests/render-fork-sources.sh
+
+.PHONY: test-image-tags
+test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
+	@./tests/make-image-tags.sh
 
 ## This builds the Hadron image from scratch
 build-hadron: Dockerfile

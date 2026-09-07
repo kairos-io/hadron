@@ -11,18 +11,20 @@ package hadron_test
 // overridden with CONTAINER_RUNTIME (defaults to "docker").
 //
 // Prerequisites:
-//   - A built (or pulled) Hadron container image, e.g. via `make build-hadron`
-//     or `docker pull ghcr.io/kairos-io/hadron:main`.
+//   - A Hadron container image. Either build one with `make build-hadron`,
+//     which tags it `hadron:local` (`hadron-trusted:local` with
+//     BOOTLOADER=systemd), or pull the published one with
+//     `docker pull ghcr.io/kairos-io/hadron:main`.
 //   - A working `docker` (or other CONTAINER_RUNTIME) on the host.
 //
-// Run locally with:
+// Run locally against an image you just built:
 //
-//	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main \
+//	CONTAINER_IMAGE=hadron:local \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 //
-// Or with a custom runtime:
+// Or against the published image, with a custom runtime:
 //
-//	CONTAINER_IMAGE=hadron:dev CONTAINER_RUNTIME=podman \
+//	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main CONTAINER_RUNTIME=podman \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 
 import (
