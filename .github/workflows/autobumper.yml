@@ -20,6 +20,9 @@ jobs:
   updatecli:
     runs-on: "ubuntu-latest"
     strategy:
+        # Each config is an independent bump group. Letting one failure cancel
+        # the rest hides which of the other nine groups had updates to offer.
+        fail-fast: false
         matrix:
             config:
               - build-tools
@@ -60,8 +63,29 @@ jobs:
           git fetch upstream
           git checkout main
           git reset --hard upstream/main
-          git push origin main --force
-          
+
+          # Every matrix job shares this one fork, so all of them push the same
+          # ref at the same time and the losers are rejected with
+          # "cannot lock ref 'refs/heads/main'". They all want main at the same
+          # commit, so a rejection is only a problem if the ref is not there
+          # afterwards. Re-read it and retry until it is.
+          target="$(git rev-parse upstream/main)"
+          for attempt in 1 2 3; do
+            if git push origin "${target}:refs/heads/main" --force; then
+              break
+            fi
+            git fetch origin main
+            if [ "$(git rev-parse FETCH_HEAD)" = "$target" ]; then
+              echo "fork main is already at ${target}, pushed by a concurrent matrix job"
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "could not sync the fork's main to ${target}" >&2
+              exit 1
+            fi
+            sleep "$((attempt * 3))"
+          done
+
           # Fetch all branches
           git fetch origin
           
