@@ -24,6 +24,9 @@ package hadron_test
 //
 //	CONTAINER_IMAGE=hadron:dev CONTAINER_RUNTIME=podman \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
+//
+// Specs that only apply to the full image carry a second label so CI can run
+// them against the full image alone (see "firmware-layout").
 
 import (
 	"encoding/json"
@@ -242,6 +245,48 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("/lib -> usr/lib", "/lib", "usr"),
 		Entry("/bin -> usr/bin", "/bin", "usr"),
 	)
+
+	// The firmware layout lands in the full image only (the last RUN in the
+	// full-image-final stage), so these specs skip on the minimal container
+	// base. The full image is what downstream consumers pull, so a regression
+	// here is worth catching without booting anything.
+	Describe("firmware layout", Label("firmware-layout"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		It("keeps /usr/lib/firmware a real directory", func() {
+			// As a symlink onto the persistent mount it hid the image's own
+			// blobs on a fresh install, and it made a firmware sysext
+			// unmergeable: overlayfs merges a directory but an upper directory
+			// replaces a lower symlink outright.
+			out, code := shInImage(
+				"test -d /usr/lib/firmware && ! test -L /usr/lib/firmware && echo OK")
+			Expect(code).To(Equal(0),
+				"/usr/lib/firmware must be a real directory, got: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("points /usr/lib/firmware/updates at the persistent mount", func() {
+			// The kernel searches /lib/firmware/updates before /lib/firmware,
+			// so this symlink is the operator override slot and needs no
+			// firmware_class.path on the cmdline.
+			out, code := shInImage(
+				"test -L /usr/lib/firmware/updates && readlink /usr/lib/firmware/updates")
+			Expect(code).To(Equal(0),
+				"expected /usr/lib/firmware/updates to be a symlink, got: %s", out)
+			Expect(out).To(Equal("/usr/local/lib/firmware"))
+		})
+
+		It("ships the override target as a real directory", func() {
+			// /usr/local is where COS_PERSISTENT gets mounted. The directory
+			// has to exist in the image or the updates symlink dangles before
+			// the mount happens.
+			out, code := shInImage(
+				"test -d /usr/local/lib/firmware && ! test -L /usr/local/lib/firmware && echo OK")
+			Expect(code).To(Equal(0),
+				"/usr/local/lib/firmware must be a real directory, got: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+	})
 
 	It("ships a valid, STIG-hardened sshd config (sshd -G parses cleanly)", func() {
 		skipUnlessFullImage()

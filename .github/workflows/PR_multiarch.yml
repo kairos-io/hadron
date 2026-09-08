@@ -414,6 +414,22 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      - name: Install Go
+        uses: actions/setup-go@v7
+        timeout-minutes: 5
+        with:
+          go-version-file: tests/go.mod
+          cache-dependency-path: tests/go.sum
+      - name: Run full-image structure tests
+        env:
+          # container-amd64 structure-tests the minimal base. The firmware
+          # layout exists only in the full image, which is also what
+          # downstream consumers pull, so assert it here.
+          CONTAINER_IMAGE: hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
+        run: |
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "firmware-layout" ./tests/
       - name: Save the image as a tarball
         # The file name carries the variant: this artifact and its siblings
         # (other kernel/fips combos) are all downloaded into one workspace by
