@@ -86,11 +86,32 @@ check_bootloader() {
 check_bootloader grub hadron:local ghcr.io/kairos-io/hadron:main
 check_bootloader systemd hadron-trusted:local ghcr.io/kairos-io/hadron-trusted:main
 
-# An explicit IMAGE_NAME must still reach both targets, and must not be
-# rewritten by the BOOTLOADER=systemd branch.
-custom=$(make -n build-kairos BOOTLOADER=systemd IMAGE_NAME=hadron:mine ARCH=amd64 2>/dev/null | tr '\n\t' '  ' | tr -s ' ')
+# The systemd branch rewrites IMAGE_NAME/PULL_IMAGE_NAME only when they still
+# hold the grub defaults, so an explicit value has to survive it.
+#
+# These have to come from the environment, not from the make command line. A
+# command-line assignment overrides every ordinary assignment in the makefile,
+# so `IMAGE_NAME := hadron-trusted:local` inside the branch could never win and
+# the assertion would pass just the same with the `ifeq` guard deleted. From
+# the environment the makefile assignment does win, so deleting the guard
+# fails these four checks.
+custom_recipe() {
+	IMAGE_NAME=hadron:mine PULL_IMAGE_NAME=ghcr.io/me/hadron:mine \
+		make -n "$1" BOOTLOADER=systemd ARCH=amd64 2>/dev/null |
+		tr '\n\t' '  ' | tr -s ' '
+}
+
+custom_kairos=$(custom_recipe build-kairos)
+custom_pull=$(custom_recipe pull-image)
+
 contains "an explicit IMAGE_NAME survives the systemd branch" \
-	"$custom" " --build-arg BASE_IMAGE=hadron:mine "
+	"$custom_kairos" " --build-arg BASE_IMAGE=hadron:mine "
+lacks "the systemd branch does not rewrite an explicit IMAGE_NAME" \
+	"$custom_kairos" "hadron-trusted:local"
+contains "an explicit PULL_IMAGE_NAME survives the systemd branch" \
+	"$custom_pull" "docker pull --platform=amd64 ghcr.io/me/hadron:mine"
+lacks "the systemd branch does not rewrite an explicit PULL_IMAGE_NAME" \
+	"$custom_pull" "ghcr.io/kairos-io/hadron-trusted:main"
 
 if [ "$failures" -ne 0 ]; then
 	echo "$failures check(s) failed" >&2
