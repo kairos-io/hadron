@@ -27,17 +27,16 @@ done
 ROOT="${HADRON_ROOT:-$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)}"
 
 # --- Resolve Dockerfile content + commit + display ref ---
-# gen-components reads Dockerfile as-is. When only Dockerfile.tmpl is
-# available (this repo generates Dockerfile on demand from the template
-# via hack/render.sh), render it first so the parser sees a normal
-# Dockerfile.
-#   worktree mode: render into $ROOT.
-#   git-ref mode:  extract Dockerfile.tmpl + sources.yaml + hack/ from
-#                  the ref into a tmpdir and render there.
+# The committed Dockerfile carries every pinned version as an
+# `ARG <VERSION_ARG>=<version>` default, and that is the only row source
+# below. Every v* tag in this repo ships a tracked Dockerfile with the full
+# set (94 ARGs at v0.3.5 through 103 at v0.5.1), so tags resolve on the
+# first branch. The second branch is for a ref that predates the tracked
+# Dockerfile and only shipped Dockerfile.tmpl: extract that plus sources.yaml
+# and hack/ from the ref and render with the ref's own render.sh. Such a ref
+# renders with the versions substituted into the FROM lines and only three
+# ARG *_VERSION defaults left, which is what MIN_VERSION_ARGS below catches.
 if [ "$REF" = "worktree" ] || [ -z "$REF" ]; then
-  if [ ! -f "$ROOT/Dockerfile" ] && [ -f "$ROOT/Dockerfile.tmpl" ]; then
-    sh "$ROOT/hack/render.sh" >/dev/null
-  fi
   DOCKERFILE_CONTENT="$(cat "$ROOT/Dockerfile")"
   COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   REF_NAME="worktree"
@@ -56,9 +55,30 @@ else
   REF_NAME="$REF"
 fi
 
+# Refuse to emit a manifest from a Dockerfile that carries almost no version
+# ARGs. Without this the failure is silent and worse than an error: the row
+# loop below emits the three rows it found, exits 0, and hack/gen-snapshot.sh
+# (which only skips a ref on non-zero exit) publishes that three-row table for
+# the ref as if it were the whole component list. Any real Hadron Dockerfile
+# has more than 90; the floor is set well under that so it only fires on a
+# ref whose versions never reached the ARG defaults.
+# HADRON_MIN_VERSION_ARGS lowers it for the small fixtures in
+# hack/gen-components_test.sh. Nothing in the build or CI sets it.
+MIN_VERSION_ARGS="${HADRON_MIN_VERSION_ARGS:-20}"
+VERSION_ARG_COUNT="$(printf '%s\n' "$DOCKERFILE_CONTENT" \
+  | grep -cE '^ARG [A-Z0-9_]+_VERSION=' || true)"
+if [ "$VERSION_ARG_COUNT" -lt "$MIN_VERSION_ARGS" ]; then
+  echo "error: ref '$REF_NAME' ($COMMIT) yields only $VERSION_ARG_COUNT" \
+       "ARG *_VERSION defaults, need at least $MIN_VERSION_ARGS." \
+       "Its versions are not in the Dockerfile ARG defaults, so a manifest" \
+       "built from it would be near-empty. Refusing to write one." >&2
+  exit 1
+fi
+
 GROUPS_TMP="$(mktemp)"
 ROWS_TMP="$(mktemp)"
-trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP"' EXIT
+ARG2NAME_TMP="$(mktemp)"
+trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP"' EXIT
 
 # --- ARG -> group map from updatecli.d ---
 for f in "$ROOT"/updatecli.d/*.yaml; do
@@ -72,61 +92,34 @@ for f in "$ROOT"/updatecli.d/*.yaml; do
       done
 done
 
-# --- Emit rows from sources.yaml (cached packages) ---
-# Cached packages have their version pinned in sources.yaml, not in a
-# Dockerfile ARG. Non-cached packages like bash, mussel, and sbat still
-# keep their ARG in the Dockerfile and get picked up by the ARG loop
-# below.
-COVERED_TMP="$(mktemp)"
-trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP"' EXIT
-
+# --- version_arg -> component name map from sources.yaml ---
+# The component name in the emitted manifest is the package name
+# (e.g. libiconv), which can diverge from the naïve
+# lowercase(ARG_NAME[:-len("_VERSION")]) mapping (ICONV_VERSION -> iconv
+# vs libiconv, KERNEL_VERSION -> kernel vs linux, JSONC_VERSION ->
+# jsonc vs json-c). sources.yaml carries the pkg -> version_arg mapping
+# for the 106 cached packages; build the reverse index for use below.
+# Packages not in sources.yaml (bash, mussel, sbat) fall through to the
+# naïve mapping.
 if [ -f "$ROOT/sources.yaml" ]; then
-  python3 - "$ROOT/sources.yaml" "$GROUPS_TMP" "$ROWS_TMP" "$COVERED_TMP" <<'PY'
-import sys
-try:
-    import yaml
-except ImportError:
-    sys.exit("PyYAML required to read sources.yaml (install: pip3 install pyyaml)")
-sources, groups_file, rows_file, covered_file = sys.argv[1:5]
-
-# Load ARG_NAME -> group map produced from updatecli.d/*
-grp = {}
-with open(groups_file) as f:
-    for line in f:
-        parts = line.rstrip('\n').split('\t')
-        if len(parts) == 2:
-            grp[parts[0]] = parts[1]
-
-data = yaml.safe_load(open(sources)) or {}
-with open(rows_file, 'a') as rows, open(covered_file, 'a') as cov:
-    for pkg, spec in sorted((data.get('packages') or {}).items()):
-        arg = spec.get('version_arg', '')
-        ver = spec.get('version', '')
-        if not arg or ver == '':
-            continue
-        group = grp.get(arg, 'Other')
-        # Component name is the package name from sources.yaml (already
-        # lowercase-dashed by convention), NOT derived from the ARG name.
-        # This handles cases like ICONV_VERSION -> package "libiconv" and
-        # KERNEL_VERSION -> "linux" where the ARG diverges from the name.
-        rows.write(f'{group}\t{pkg}\t{ver}\n')
-        cov.write(f'{arg}\n')
-PY
+  awk '
+    /^  [a-z0-9._-]+:$/ { pkg = $1; sub(/:$/, "", pkg); next }
+    /^    version_arg: [A-Z0-9_]+$/ { print $2 "\t" pkg }
+  ' "$ROOT/sources.yaml" > "$ARG2NAME_TMP"
 fi
 
-# --- Parse Dockerfile ARG *_VERSION= lines, skipping ARGs already covered
-# by sources.yaml above ---
+# --- Emit rows from every ARG *_VERSION= in the Dockerfile ---
 printf '%s\n' "$DOCKERFILE_CONTENT" \
   | grep -E '^ARG [A-Z0-9_]+_VERSION=' \
   | while IFS= read -r line; do
       arg="$(printf '%s' "$line" | sed -E 's/^ARG ([A-Z0-9_]+_VERSION)=.*/\1/')"
-      if grep -qxF "$arg" "$COVERED_TMP" 2>/dev/null; then
-        continue
-      fi
       val="$(printf '%s' "$line" | sed -E 's/^ARG [A-Z0-9_]+_VERSION=//; s/^"//; s/"$//; s/[[:space:]].*$//')"
       group="$(awk -F'\t' -v a="$arg" '$1==a{print $2; exit}' "$GROUPS_TMP")"
       [ -n "$group" ] || group="Other"
-      name="$(printf '%s' "$arg" | sed -E 's/_VERSION$//' | tr 'A-Z_' 'a-z-')"
+      name="$(awk -F'\t' -v a="$arg" '$1==a{print $2; exit}' "$ARG2NAME_TMP")"
+      if [ -z "$name" ]; then
+        name="$(printf '%s' "$arg" | sed -E 's/_VERSION$//' | tr 'A-Z_' 'a-z-')"
+      fi
       printf '%s\t%s\t%s\n' "$group" "$name" "$val" >> "$ROWS_TMP"
     done
 
@@ -141,7 +134,7 @@ sort -t"$TAB" -k1,1 -k2,2 "$ROWS_TMP" -o "$ROWS_TMP"
 # stages (`pam-systemd`->`pam`, `grub-efi`->`grub`, `kernel-modules`->`kernel`).
 if [ -n "$SHIPPED" ]; then
   ALLOWED_TMP="$(mktemp)"
-  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ALLOWED_TMP"' EXIT
+  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP" "$ALLOWED_TMP"' EXIT
   for st in $SHIPPED; do
     printf '%s\n' "$DOCKERFILE_CONTENT" | awk -v st="$st" '
       $0 ~ "^FROM .* AS "st"$" { inb=1; next }
@@ -176,26 +169,8 @@ if [ -n "$OVERRIDE" ]; then
   for ov in $OVERRIDE; do
     cname="${ov%%=*}"
     argn="${ov#*=}"
-    # Look up the value in Dockerfile ARG first; if not found there
-    # (cached packages have no Dockerfile ARG anymore), fall back to
-    # sources.yaml where the version_arg lives.
     val="$(printf '%s\n' "$DOCKERFILE_CONTENT" | grep -E "^ARG ${argn}=" | head -1 \
       | sed -E "s/^ARG ${argn}=//; s/^\"//; s/\"\$//; s/[[:space:]].*\$//")"
-    if [ -z "$val" ] && [ -f "$ROOT/sources.yaml" ]; then
-      val="$(python3 - "$ROOT/sources.yaml" "$argn" <<'PY'
-import sys
-try:
-    import yaml
-except ImportError:
-    sys.exit("PyYAML required to read sources.yaml (install: pip3 install pyyaml)")
-data = yaml.safe_load(open(sys.argv[1])) or {}
-for pkg, spec in (data.get('packages') or {}).items():
-    if spec.get('version_arg') == sys.argv[2]:
-        print(spec.get('version', ''))
-        break
-PY
-      )"
-    fi
     if [ -z "$val" ]; then
       echo "note: --override '$ov': ARG $argn not found, skipping" >&2
       continue

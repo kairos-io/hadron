@@ -46,12 +46,11 @@ FIPS ?= "no-fips"
 # with `make build-kairos KAIROS_DOCKERFILE_REF=master` to test against
 # tip.
 KAIROS_DOCKERFILE_REF ?= c2426c11c34198fcb50bfe4d43e827619292e26f
-# Versions live in sources.yaml (single source of truth). Dockerfile is
-# generated from Dockerfile.tmpl by `make render`; both KERNEL_VERSION and
-# DWARVES_VERSION are read from sources.yaml so this Makefile does not
-# depend on the rendered Dockerfile existing yet.
-KERNEL_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
-DWARVES_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['dwarves']['version'])")
+# Versions live in the committed Dockerfile as `ARG <NAME>_VERSION=<v>`
+# defaults (single source of truth); grep them out here so the Makefile
+# does not carry a duplicate value.
+KERNEL_VERSION ?= $(shell awk -F= '/^ARG KERNEL_VERSION=/{print $$2; exit}' Dockerfile)
+DWARVES_VERSION ?= $(shell awk -F= '/^ARG DWARVES_VERSION=/{print $$2; exit}' Dockerfile)
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -154,24 +153,29 @@ pull-image:
 	@docker pull --platform=${ARCH} ${PULL_IMAGE_NAME}
 	@docker tag ${PULL_IMAGE_NAME} ${IMAGE_NAME}
 
-# Dockerfile is generated from Dockerfile.tmpl + sources.yaml. Anyone
-# who edits either file (or hack/render.sh) triggers a regeneration.
-Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
-	@./hack/render.sh
-
-.PHONY: render
-render: Dockerfile
-
 .PHONY: test-render
-test-render: ## Verify cache and fork source rendering
+test-render: ## Verify fork-PR upstream source rewrite
 	@./tests/render-fork-sources.sh
 
 .PHONY: test-image-tags
 test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
 	@./tests/make-image-tags.sh
 
+## Component manifests copied into the container / full-image stages
+## (gen/components/container.json and gen/components/full-image-<fips>-<bootloader>.json).
+## Regenerated on every build: `make build-hadron` depends on this target, so a
+## clean clone builds. A hand-rolled `docker build .` needs `make gen-components`
+## first, since nothing under gen/ is committed.
+## The stage lists live in hack/gen-manifests.sh, which runs with `set -eu`
+## so a failure part-way through the five manifests stops the build instead of
+## surfacing later as a BuildKit "failed to compute cache key" on the one file
+## that did not get written.
+.PHONY: gen-components
+gen-components:
+	@sh hack/gen-manifests.sh --format flat --out-dir gen/components --quiet
+
 ## This builds the Hadron image from scratch
-build-hadron: Dockerfile
+build-hadron: gen-components
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
@@ -219,7 +223,6 @@ run:
 
 clean:
 	@docker rmi ${IMAGE_NAME}
-	@rm -f Dockerfile
 
 grub-iso:
 	@echo "Building BIOS ISO image..."
