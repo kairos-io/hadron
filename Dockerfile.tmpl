@@ -2827,6 +2827,11 @@ RUN mkdir -p /shim/usr/share/efi/
 # When a new shim version is released, this will be fixed (current shim version is 16.1)
 # https://github.com/rhboot/shim/commit/c4665d282072df2ed8ab6ae1d5fa0de41e5db02f
 RUN sed -i 's/--target efi-app-$(ARCH)/--output-target efi-app-$(ARCH)/' Make.defaults
+# libgnuefi.a and libefi.a share one recipe but are written as two plain
+# targets, so under -j make runs the gnu-efi sub-make twice at once and the
+# two ar processes corrupt the archives. Make it a grouped target.
+COPY patches/0001-shim-gnu-efi-grouped-target.patch .
+RUN patch -p1 < 0001-shim-gnu-efi-grouped-target.patch
 # Install it to a temp folder as the dir struct is terrible
 # and we want it to be available at /usr/share/efi/shimXX.efi
 # TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
