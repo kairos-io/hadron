@@ -250,7 +250,13 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
@@ -337,7 +343,13 @@ jobs:
             BUILD_ARCH=aarch64
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
@@ -420,7 +432,13 @@ jobs:
             FIPS=${{ matrix.fips }}
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
@@ -809,7 +827,13 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
@@ -859,7 +883,13 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
@@ -913,7 +943,13 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
+        # dependency cache restore into a crawl. Across 91 healthy runs of
+        # this step the median is 17s and the slowest 52s, then it jumps to
+        # 277s and 300s: a worker that cannot manage a minute here is not
+        # going to manage the image pulls later either. Fail it fast rather
+        # than burn five minutes first (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
           cache-dependency-path: tests/go.sum
