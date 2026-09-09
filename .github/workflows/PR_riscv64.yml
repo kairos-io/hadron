@@ -25,18 +25,39 @@ concurrency:
 # comment). hadron-bios now builds the whole `default` target in one job, on
 # the same x86+QEMU runners as everything else in this pipeline — no OCI
 # hand-off, no native riscv64 runner.
+#
+# toolchain, container and hadron-bios build no runnable image artifact:
+# unlike PR_multiarch.yml's amd64/arm64 chains, nothing in this PR-only
+# pipeline consumes one downstream (no build-kairos-*, no ISO job), so there
+# is nothing to hand off as a tarball. Every stage here, from stage0 through
+# hadron-bios, is glued to the next purely by BuildKit's own registry-cache
+# reuse (cache-from/cache-to below) inside one shared Dockerfile with a
+# progressively deeper `target:` — matches PR_multiarch.yml's toolchain-amd64
+# job, which builds the same range in a single call with no CI-job boundary.
+
+# `oracle-vm-32cpu-128gb-x86-64` is a self-hosted runner (CNCF-donated, per its
+# own job logs), not a GitHub-hosted one — GitHub's hard, unraisable 6-hour
+# job cap only applies to GitHub-hosted runners. Every job below still fell
+# back to the GitHub Actions *default* `timeout-minutes` of 360 (6 hours),
+# which is just a workflow-level default and is free to raise on our own
+# hardware. Measured live on #573: cmake/kernel/systemd/python all got killed
+# at exactly 6h00m22s mid-build, not from any real runner limit.
 
 env:
+  # Per-PR BuildKit cache. Each build job reads its own pr-<number>-* tag first
+  # (warm from a prior push or an earlier job in this same run) and falls back
+  # to the shared main cache tag. Only a same-repo PR can WRITE it — a fork PR
+  # has no secrets, so it skips the quay.io login and cache-to, and still
+  # reads the public cache-from. Matches PR_multiarch.yml's PR_CACHE_WRITE.
+  PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  PR_NUM: ${{ github.event.pull_request.number }}
   CACHE_TO: mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
   CACHE_TO_MIN: mode=min,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
-  # published before any docker/build-push-action starts. Skipped
-  # while the riscv64 pipeline is gated off; the amd64 and arm64 PR
-  # workflows populate ghcr anyway, so nothing regresses.
+  # published before any docker/build-push-action starts.
   populate-sources:
-    if: ${{ false }}
     uses: ./.github/workflows/populate-sources.yml
     permissions:
       contents: read
@@ -80,7 +101,6 @@ jobs:
           exit $FAILED
 
   stage0:
-    if: ${{ false }}
     needs: populate-sources
     runs-on: oracle-vm-32cpu-128gb-x86-64
     permissions:
@@ -97,7 +117,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -118,8 +139,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: stage0
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage0-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -141,7 +163,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -162,9 +185,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: stage1-merge
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -186,7 +211,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -207,10 +233,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: rsync
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-rsync-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -218,6 +247,7 @@ jobs:
   cmake:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -232,7 +262,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -253,11 +284,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: cmake
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-cmake-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -266,6 +301,7 @@ jobs:
   kernel:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -283,7 +319,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -304,12 +341,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: kernel-misc
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}-riscv64,{2}', env.PR_NUM, matrix.kernel, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -318,6 +360,7 @@ jobs:
   systemd:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -332,7 +375,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -353,11 +397,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: systemd
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -365,6 +413,7 @@ jobs:
   python:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [rsync]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -379,7 +428,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -400,11 +450,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: python-build
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-python-build-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -412,6 +466,7 @@ jobs:
   toolchain:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [cmake, kernel, systemd, python]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -426,7 +481,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -435,6 +491,9 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      # No tags/push: nothing in this PR-only pipeline consumes a toolchain
+      # image directly (see the note above jobs:). This build exists to
+      # populate the toolchain-riscv64 registry cache for `container` below.
       - name: Build toolchain
         uses: docker/build-push-action@v7
         env:
@@ -444,22 +503,30 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/riscv64
-          push: true
-          tags: ttl.sh/hadron-toolchain-riscv64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: toolchain
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -467,6 +534,7 @@ jobs:
   container:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [toolchain]
+    timeout-minutes: 720
     permissions:
       contents: read
     steps:
@@ -481,7 +549,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -490,6 +559,7 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
+      # No tags/push, same reason as toolchain above: no consumer in this file.
       - name: Build container
         uses: docker/build-push-action@v7
         env:
@@ -499,23 +569,32 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/riscv64
-          push: true
-          tags: ttl.sh/hadron-container-riscv64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: container
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,${{ env.CACHE_TO }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-riscv64,{1}', env.PR_NUM, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
             BUILD_ARCH=riscv64
@@ -530,16 +609,27 @@ jobs:
           platforms: linux/riscv64
           target: container-test
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
           build-args: |
             ARCH=riscv64
@@ -550,7 +640,7 @@ jobs:
   hadron-bios:
     runs-on: oracle-vm-32cpu-128gb-x86-64
     needs: [container]
-    timeout-minutes: 360
+    timeout-minutes: 720
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -568,7 +658,8 @@ jobs:
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
-      - name: Log in to quay.io for cache
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
         uses: docker/login-action@v4
         with:
           registry: quay.io
@@ -577,7 +668,9 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
-      - name: Build and push default image (${{ matrix.kernel }})
+      # No tags/push, same reason as toolchain/container above: this is the
+      # terminal job in this PR-only pipeline, nothing consumes its image.
+      - name: Build default image (${{ matrix.kernel }})
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -586,24 +679,33 @@ jobs:
           context: ./
           file: ./Dockerfile
           platforms: linux/riscv64
-          push: true
           provenance: false
-          tags: ttl.sh/hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-riscv64:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           target: default
           cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-grub-${{ matrix.kernel }}-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
-          cache-to: type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,${{ env.CACHE_TO_MIN }}
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-grub-{1}-riscv64,{2}', env.PR_NUM, matrix.kernel, env.CACHE_TO_MIN) || '' }}
           build-args: |
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}

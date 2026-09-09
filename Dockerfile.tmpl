@@ -100,6 +100,15 @@ COPY --from=musl-toolchain-download /sources/downloads/musl-toolchain.tar.gz mus
 # match: ftpmirror.gnu.org/binutils/... maps to
 # mirror.netcologne.de/gnu/binutils/... at the same paths.
 RUN sed -i 's|https://ftpmirror\.gnu\.org|https://mirror.netcologne.de/gnu|g' mussel/mussel
+# mussel also fetches musl itself from musl.libc.org, which has failed
+# outright (connection timeouts, not bad content) on three separate CI
+# runs (this branch, twice, and kairos-io/hadron#574) between 21 and 23
+# August 2026 -- a plausible DDoS/rate-limiting incident, not one-off bad
+# luck. Redirect to Alpine's own distfiles cache, which mirrors the exact
+# same upstream tarball: verified byte-for-byte, sha256
+# a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4, against
+# mussel's own pinned checksum for musl-1.2.5 before landing this.
+RUN sed -i 's|https://musl\.libc\.org/releases|https://distfiles.alpinelinux.org/distfiles/v3.20|g' mussel/mussel
 RUN cd mussel && ./mussel ${ARCH} -k -l -o -p -s -T ${VENDOR}
 
 ENV PATH=/mussel/toolchain/bin/:$PATH
