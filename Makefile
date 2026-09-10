@@ -22,6 +22,8 @@ INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.21.0-alpha.4
 TARGET ?= default
 JOBS ?= $(shell nproc)
+## Optional load cap forwarded to make -l inside the build. Empty means no cap.
+MAX_LOAD ?=
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.0
 BOOTLOADER ?= grub
@@ -163,8 +165,9 @@ Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
 render: Dockerfile
 
 .PHONY: test-render
-test-render: ## Verify cache and fork source rendering
+test-render: ## Verify cache and fork source rendering, and the make -l flags
 	@./tests/render-fork-sources.sh
+	@./tests/render-make-flags.sh
 
 .PHONY: test-image-tags
 test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
@@ -175,6 +178,7 @@ build-hadron: Dockerfile
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
+	--build-arg MAX_LOAD=${MAX_LOAD} \
 	--build-arg ARCH=${TARGET_ARCH} \
 	--build-arg BUILD_ARCH=${BUILD_ARCH} \
 	--build-arg VERSION=${HADRON_VERSION} \
