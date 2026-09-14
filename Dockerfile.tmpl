@@ -2771,10 +2771,10 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --without-libcap-ng \
     --without-io_uring \
     --without-apparmor \
-    ## Foreign-arch syscall tables compiled in on purpose so ausearch and
-    ## auditctl on one arch can read rules and logs collected on another.
-    ## Hadron builds no 32-bit ARM (REQUIRED_PLATFORMS: amd64/arm64/riscv64),
-    ## so --with-arm is omitted.
+    ## Keep 32-bit ARM table enabled: CIS Section 4 rules are shipped as
+    ## arch=b64/arch=b32 pairs, and on aarch64 arch=b32 resolves to
+    ## AUDIT_ARCH_ARM at userspace rule-parse time.
+    --with-arm \
     --with-aarch64 \
     --with-riscv
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
