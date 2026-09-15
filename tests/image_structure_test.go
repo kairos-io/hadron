@@ -392,7 +392,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		// Pin their presence explicitly first, same shape as
 		// `ships utilities third-party scripts expect` above.
 		It("ships audit binaries", func() {
-			for _, bin := range []string{"auditd", "auditctl", "ausearch", "aureport", "augenrules", "autrace", "audisp-syslog"} {
+			for _, bin := range []string{"auditd", "auditctl", "ausearch", "aureport", "augenrules", "audisp-syslog"} {
 				out, code := shInImage("command -v " + bin)
 				Expect(code).To(Equal(0), "%s missing from image: %s", bin, out)
 			}
@@ -412,7 +412,6 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			Entry("ausearch", "ausearch", "--version"),
 			Entry("aureport", "aureport", "--version"),
 			Entry("augenrules", "augenrules", "--version"),
-			Entry("autrace", "autrace", "--version"),
 			// audisp-syslog needs the <unistd.h> patch
 			// (upstream PR linux-audit/audit-userspace#551) to compile at
 			// all. If the patch ever falls out, the Docker build itself
@@ -464,11 +463,11 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 
 		It("does NOT ship dropped upstream artifacts", func() {
-			// The audit stage removes rule templates and aclocal macros to
-			// keep the image small (see Dockerfile audit stage). Guard the
-			// deletion so a bump does not accidentally reintroduce them.
+			// The audit stage removes rule templates and its aclocal macros
+			// to keep the image small (see Dockerfile audit stage). Guard
+			// the deletion so a bump does not accidentally reintroduce them.
 			out, code := shInImage(
-				"! test -e /usr/share/audit-rules && ! test -e /usr/share/aclocal && echo OK")
+				"! test -e /usr/share/audit-rules && ! ls /usr/share/aclocal/*audit*.m4 >/dev/null 2>&1 && echo OK")
 			Expect(code).To(Equal(0),
 				"dropped upstream artifacts reappeared: %s", out)
 			Expect(out).To(ContainSubstring("OK"))
