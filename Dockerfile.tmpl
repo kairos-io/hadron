@@ -2781,8 +2781,9 @@ RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/audit install
 RUN mkdir -p /audit/etc/audit/rules.d
 RUN install -d -m 0700 /audit/var/log/audit
-## Drop upstream example rule templates
-RUN rm -rf /audit/usr/share/audit-rules /audit/usr/share/aclocal
+## Drop upstream example rule templates and audit aclocal macros.
+RUN rm -rf /audit/usr/share/audit-rules \
+ && rm -f /audit/usr/share/aclocal/*audit*.m4
 
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
