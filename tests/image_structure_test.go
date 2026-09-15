@@ -467,7 +467,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			// to keep the image small (see Dockerfile audit stage). Guard
 			// the deletion so a bump does not accidentally reintroduce them.
 			out, code := shInImage(
-				"! test -e /usr/share/audit-rules && ! ls /usr/share/aclocal/*audit*.m4 >/dev/null 2>&1 && echo OK")
+				"! test -e /usr/share/audit-rules && ( ! test -d /usr/share/aclocal || ! find /usr/share/aclocal -maxdepth 1 -name '*audit*.m4' | grep -q . ) && echo OK")
 			Expect(code).To(Equal(0),
 				"dropped upstream artifacts reappeared: %s", out)
 			Expect(out).To(ContainSubstring("OK"))
