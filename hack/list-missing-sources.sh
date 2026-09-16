@@ -17,8 +17,14 @@ set -eu
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$repo_root"
 
-# Same repository layout the cache FROM lines in Dockerfile.tmpl use.
-registry=${HADRON_SOURCES_REGISTRY:-ghcr.io/kairos-io/hadron-sources}
+# The cache repository is the `ARG SOURCES_REPO` default in the committed
+# Dockerfile, so this probe and the cache FROM lines cannot drift apart.
+# HADRON_SOURCES_REGISTRY overrides it to probe a mirror instead.
+registry=${HADRON_SOURCES_REGISTRY:-$(awk -F= '/^ARG SOURCES_REPO=/ {print $2; exit}' Dockerfile)}
+if [ -z "$registry" ]; then
+    echo "error: no ARG SOURCES_REPO= default in Dockerfile" >&2
+    exit 1
+fi
 registry_host=${registry%%/*}
 registry_path=${registry#*/}
 
@@ -30,21 +36,41 @@ fi
 accept='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json'
 
 pinned=$(mktemp)
-trap 'rm -f "$pinned"' EXIT
+raw=$(mktemp)
+trap 'rm -f "$pinned" "$raw"' EXIT
 
-python3 - <<'PY' > "$pinned"
-import sys
-try:
-    import yaml
-except ImportError:
-    sys.exit("PyYAML is required to probe the source cache (pip install pyyaml)")
-data = yaml.safe_load(open('sources.yaml')) or {}
-for name, spec in sorted((data.get('packages') or {}).items()):
-    version = spec.get('version')
-    if version is None:
-        sys.exit(f"sources.yaml entry {name!r} missing version")
-    print(f'{name} {version}')
-PY
+# The pinned version for each package is the default of its
+# `ARG <version_arg>=<version>` in the committed Dockerfile
+# (single source of truth); sources.yaml only names the version_arg.
+# awk writes to $raw (not a pipeline) so an `exit 1` on a missing ARG
+# actually fails the script under POSIX sh (no pipefail).
+awk '
+    /^ARG [A-Z0-9_]+=/ {
+        line = substr($0, 5)
+        eq = index(line, "=")
+        name = substr(line, 1, eq - 1)
+        val = substr(line, eq + 1)
+        gsub(/^"|"$/, "", val)
+        sub(/[ \t].*$/, "", val)
+        args[name] = val
+    }
+    END {
+        while ((getline yl < "sources.yaml") > 0) {
+            if (match(yl, /^  [a-z0-9._-]+:$/)) {
+                pkg = substr(yl, 3, RLENGTH - 3)
+            } else if (match(yl, /^    version_arg: [A-Z0-9_]+$/)) {
+                sub(/^    version_arg: /, "", yl)
+                arg = yl
+                if (!(arg in args)) {
+                    print "error: package " pkg " (version_arg " arg ") has no ARG default in Dockerfile" > "/dev/stderr"
+                    exit 1
+                }
+                print pkg " " args[arg]
+            }
+        }
+    }
+' Dockerfile > "$raw"
+sort "$raw" > "$pinned"
 
 # One anonymous pull token covering every package, rather than a token
 # round-trip per package. Registry tokens are scoped, so every package the

@@ -11,9 +11,11 @@
 #    GNU make reads that as *removing* any load limit.
 # 3. No `make` invocation passes a literal bare `-l`, for the same reason.
 #
-# Checks the rendered Dockerfile by default. Pass a path to check something
-# else; Dockerfile.tmpl works too, since envsubst touches neither the ARG
-# lines nor the ${MAX_LOAD} expansions.
+# Checks the committed Dockerfile by default. Pass a path to check something
+# else. Do not render first: on this branch hack/render.sh rewrites the
+# committed Dockerfile in place, so rendering here would leave the working
+# tree dirty, and the old cleanup (rm -f Dockerfile) would delete a tracked
+# file. The ARG lines and the ${MAX_LOAD} expansions are the same either way.
 
 set -eu
 
@@ -24,8 +26,6 @@ if [ "$#" -ge 1 ]; then
     dockerfile=$1
 else
     dockerfile=Dockerfile
-    trap 'rm -f "$repo_root/Dockerfile"' EXIT
-    ./hack/render.sh >/dev/null
 fi
 
 [ -f "$dockerfile" ] || { echo "error: $dockerfile not found" >&2; exit 1; }

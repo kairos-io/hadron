@@ -93,7 +93,7 @@ func assertBTFAvailable(vm VM) {
 // persistent partition wins, as long as its compression suffix comes no later
 // than the image blob's in the loader's uncompressed, .zst, .xz sequence. The
 // image blobs are .zst, so an .xz override loses to them. See the comment
-// above the firmware RUN in Dockerfile.tmpl for the derivation, and for why
+// above the firmware RUN in the Dockerfile for the derivation, and for why
 // riscv64 reads uncompressed overrides only.
 //
 // What this helper covers, and what it does not: it asserts the on-disk layout
