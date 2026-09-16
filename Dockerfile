@@ -12,8 +12,11 @@ ARG VERSION=0.0.1
 ## security-relevant SBAT revocation.
 ARG SBAT_DISTRO_VERSION=1
 ARG JOBS=16
-## Maximum load for make -l
-ARG MAX_LOAD=32
+## Optional load cap passed to make -l. Empty by default: the flag is omitted
+## entirely rather than passed bare, because GNU make reads a bare -l as
+## *removing* any load limit. Set `make build-hadron MAX_LOAD=32` to cap, or
+## --build-arg MAX_LOAD=32 on a direct docker build.
+ARG MAX_LOAD=
 ARG FIPS="no-fips"
 ARG TARGETARCH
 ARG CFLAGS
@@ -23,6 +26,129 @@ ARG ARCH
 ARG GNU_MIRROR_1=https://ftpmirror.gnu.org
 ARG GNU_MIRROR_2=https://ftp.gnu.org/gnu
 ARG GNU_MIRROR_3=https://mirror.netcologne.de/gnu
+
+## Registry and namespace holding the pre-downloaded package sources.
+## Every source stage below pulls `${SOURCES_REPO}/<pkg>:${<pkg>_VERSION}`.
+## Override it to build against a mirror or a private copy of the cache:
+##   docker build --build-arg SOURCES_REPO=my.registry/team/hadron-sources .
+## The cache is a plain OCI registry: the populate-sources workflow publishes
+## to the same path, so a mirror only has to hold the same tags.
+ARG SOURCES_REPO=ghcr.io/kairos-io/hadron-sources
+
+## Cached-package versions.
+## Single source of truth for the versions this project builds against.
+## Each ${<name>_VERSION} in the FROM lines below expands to the default here.
+## sources.yaml carries the matching urls + sha256 + filename metadata, keyed by version_arg.
+## To bump a package: change the ARG default here AND update the sha256 in sources.yaml.
+ARG ACL_VERSION=2.4.0
+ARG APORTS_VERSION=3.24.1
+ARG ARGP_STANDALONE_VERSION=1.4.1
+ARG ATTR_VERSION=2.6.0
+ARG AUDIT_VERSION=4.2.1
+ARG AUTOCONF_VERSION=2.73
+ARG AUTOMAKE_VERSION=1.18.1
+ARG BC_VERSION=7.1.0
+ARG BINUTILS_VERSION=2.47
+ARG BISON_VERSION=3.8.2
+ARG BUSYBOX_VERSION=1.38.0
+ARG CA_CERTIFICATES_VERSION=20260611
+ARG CMAKE_VERSION=4.4.2
+ARG CONNTRACK_TOOLS_VERSION=1.4.9
+ARG COREUTILS_VERSION=9.11
+ARG CRYPTSETUP_VERSION=2.8.7
+ARG CURL_VERSION=8.21.0
+ARG DBUS_VERSION=1.16.2
+ARG DIFFUTILS_VERSION=3.12
+ARG DOSFSTOOLS_VERSION=4.2
+ARG DRACUT_VERSION=112
+ARG DWARVES_VERSION=1.31
+ARG E2FSPROGS_VERSION=1.47.4
+ARG ELFUTILS_VERSION=0.195
+ARG EXPAT_VERSION=2.8.2
+ARG FINDUTILS_VERSION=4.11.0
+ARG FLEX_VERSION=2.6.4
+ARG GAWK_VERSION=5.4.1
+ARG GCC_VERSION=15.3.0
+ARG GDB_VERSION=17.2
+ARG GLIB_VERSION=2.86.2
+ARG GMP_VERSION=6.3.0
+ARG GPERF_VERSION=3.3
+ARG GREP_VERSION=3.12
+ARG GRUB_VERSION=2.14
+ARG GZIP_VERSION=1.14
+ARG IPTABLES_VERSION=1.8.13
+ARG JSONC_VERSION=0.19
+ARG KBD_VERSION=2.10.0
+ARG KEYUTILS_VERSION=1.6.3
+ARG KMOD_VERSION=34.2
+ARG LESS_VERSION=704
+ARG LIBAIO_VERSION=0.3.113
+ARG LIBBPF_VERSION=1.5.0
+ARG LIBCAP_VERSION=2.78
+ARG LIBELF_VERSION=0.195
+ARG LIBEVENT_VERSION=2.1.13
+ARG LIBFFI_VERSION=3.8.0
+ARG ICONV_VERSION=1.19
+ARG LIBKCAPI_VERSION=1.5.1
+ARG LIBMNL_VERSION=1.0.5
+ARG LIBNETFILTER_CONNTRACK_VERSION=1.1.1
+ARG LIBNETFILTER_CTHELPER_VERSION=1.0.1
+ARG LIBNETFILTER_CTTIMEOUT_VERSION=1.0.1
+ARG LIBNETFILTER_QUEUE_VERSION=1.0.5
+ARG LIBNFNETLINK_VERSION=1.0.2
+ARG LIBNFTNL_VERSION=1.3.1
+ARG LIBNL_VERSION=3.12.0
+ARG SECCOMP_VERSION=2.6.1
+ARG LIBTIRPC_VERSION=1.3.7
+ARG LIBTOOL_VERSION=2.5.4
+ARG LIBUCONTEXT_VERSION=1.5.2
+ARG LIBXML2_VERSION=2.15.3
+ARG KERNEL_VERSION=7.1.8
+ARG LVM2_VERSION=2.03.42
+ARG LZ4_VERSION=1.10.0
+ARG M4_VERSION=1.4.21
+ARG MAKE_VERSION=4.4.1
+ARG MPC_VERSION=1.4.1
+ARG MPFR_VERSION=4.2.2
+ARG MSPACK_VERSION=1.11
+ARG MULTIPATH_TOOLS_VERSION=0.15.0
+ARG MUSL_VERSION=1.2.6
+ARG FTS_VERSION=1.2.7
+ARG MUSL_OBSTACK_VERSION=1.2.3
+ARG MUSL_TOOLCHAIN_VERSION=1.2.5
+ARG NCURSES_VERSION=6.5
+ARG NFS_UTILS_VERSION=2.9.2
+ARG OPENVM_TOOLS_VERSION=13.1.0
+ARG OPEN_SCSI_VERSION=2.1.12
+ARG OPENSSH_VERSION=10.4p1
+ARG OPENSSL_VERSION=3.6.3
+ARG OPENSSL_FIPS_VERSION=3.1.2
+ARG PAM_VERSION=1.7.2
+ARG PARTED_VERSION=3.7
+ARG PATCH_VERSION=2.8
+ARG PAX_UTILS_VERSION=1.3.11
+ARG PCRE2_VERSION=10.47
+ARG PERL_VERSION=5.44.0
+ARG PKGCONFIG_VERSION=3.0.5
+ARG POPT_VERSION=1.19
+ARG PROCPS_NG_VERSION=4.0.6
+ARG PYTHON_VERSION=3.14.7
+ARG QEMU_AGENT_VERSION=10.1.5
+ARG READLINE_VERSION=8.3
+ARG RSYNC_VERSION=3.4.4
+ARG SHADOW_VERSION=4.20.2
+ARG SHIM_VERSION=16.1
+ARG SQLITE3_VERSION=3.53.4
+ARG STRACE_VERSION=7.1
+ARG SUDO_VERSION=1.9.17p2
+ARG SYSTEMD_VERSION=261.2
+ARG TPM2_TSS_VERSION=4.2.0
+ARG URCU_VERSION=0.15.6
+ARG UTIL_LINUX_VERSION=2.42.2
+ARG XXHASH_VERSION=0.8.3
+ARG XZUTILS_VERSION=5.8.3
+ARG ZLIB_VERSION=1.3.2
+ARG ZSTD_VERSION=1.5.7
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
@@ -48,7 +174,7 @@ WORKDIR /sources/downloads
 # The tarball mussel itself needs for its cross-toolchain build (see
 # stage0 below), cached the same way every other source in this
 # Dockerfile is -- so mussel never has to fetch musl.libc.org directly.
-FROM ghcr.io/kairos-io/hadron-sources/musl-toolchain:${MUSL_TOOLCHAIN_VERSION} AS musl-toolchain-download
+FROM ${SOURCES_REPO}/musl-toolchain:${MUSL_TOOLCHAIN_VERSION} AS musl-toolchain-download
 
 FROM alpine-base AS stage0
 
@@ -65,6 +191,7 @@ ENV ARCH=${ARCH}
 ARG BUILD_ARCH="x86_64"
 ENV BUILD_ARCH=${BUILD_ARCH}
 ARG JOBS
+ARG MAX_LOAD
 ENV JOBS=${JOBS}
 ARG MUSSEL_VERSION="687d2f5e4d679487209cd9b4bd75091a20cae357"
 ENV MUSSEL_VERSION=${MUSSEL_VERSION}
@@ -109,104 +236,105 @@ ENV BUILD=${BUILD_ARCH}-pc-linux-musl
 
 
 ### This stages below are used to download the sources for the packages
-FROM ghcr.io/kairos-io/hadron-sources/curl:${CURL_VERSION} AS curl-download
-FROM ghcr.io/kairos-io/hadron-sources/rsync:${RSYNC_VERSION} AS rsync-download
-FROM ghcr.io/kairos-io/hadron-sources/xxhash:${XXHASH_VERSION} AS xxhash-download
-FROM ghcr.io/kairos-io/hadron-sources/zstd:${ZSTD_VERSION} AS zstd-download
-FROM ghcr.io/kairos-io/hadron-sources/lz4:${LZ4_VERSION} AS lz4-download
-FROM ghcr.io/kairos-io/hadron-sources/zlib:${ZLIB_VERSION} AS zlib-download
-FROM ghcr.io/kairos-io/hadron-sources/acl:${ACL_VERSION} AS acl-download
-FROM ghcr.io/kairos-io/hadron-sources/attr:${ATTR_VERSION} AS attr-download
-FROM ghcr.io/kairos-io/hadron-sources/gawk:${GAWK_VERSION} AS gawk-download
-FROM ghcr.io/kairos-io/hadron-sources/ca-certificates:${CA_CERTIFICATES_VERSION} AS ca-certificates-download
-FROM ghcr.io/kairos-io/hadron-sources/systemd:${SYSTEMD_VERSION} AS systemd-download
-FROM ghcr.io/kairos-io/hadron-sources/libcap:${LIBCAP_VERSION} AS libcap-download
+FROM ${SOURCES_REPO}/curl:${CURL_VERSION} AS curl-download
+FROM ${SOURCES_REPO}/rsync:${RSYNC_VERSION} AS rsync-download
+FROM ${SOURCES_REPO}/xxhash:${XXHASH_VERSION} AS xxhash-download
+FROM ${SOURCES_REPO}/zstd:${ZSTD_VERSION} AS zstd-download
+FROM ${SOURCES_REPO}/lz4:${LZ4_VERSION} AS lz4-download
+FROM ${SOURCES_REPO}/zlib:${ZLIB_VERSION} AS zlib-download
+FROM ${SOURCES_REPO}/acl:${ACL_VERSION} AS acl-download
+FROM ${SOURCES_REPO}/attr:${ATTR_VERSION} AS attr-download
+FROM ${SOURCES_REPO}/audit:${AUDIT_VERSION} AS audit-download
+FROM ${SOURCES_REPO}/gawk:${GAWK_VERSION} AS gawk-download
+FROM ${SOURCES_REPO}/ca-certificates:${CA_CERTIFICATES_VERSION} AS ca-certificates-download
+FROM ${SOURCES_REPO}/systemd:${SYSTEMD_VERSION} AS systemd-download
+FROM ${SOURCES_REPO}/libcap:${LIBCAP_VERSION} AS libcap-download
 
-FROM ghcr.io/kairos-io/hadron-sources/util-linux:${UTIL_LINUX_VERSION} AS util-linux-download
-FROM ghcr.io/kairos-io/hadron-sources/python:${PYTHON_VERSION} AS python-download
-FROM ghcr.io/kairos-io/hadron-sources/sqlite3:${SQLITE3_VERSION} AS sqlite3-download
-FROM ghcr.io/kairos-io/hadron-sources/openssl:${OPENSSL_VERSION} AS openssl-download
-FROM ghcr.io/kairos-io/hadron-sources/openssl-fips:${OPENSSL_FIPS_VERSION} AS openssl-fips-download
-FROM ghcr.io/kairos-io/hadron-sources/openssh:${OPENSSH_VERSION} AS openssh-download
-FROM ghcr.io/kairos-io/hadron-sources/pkgconf:${PKGCONFIG_VERSION} AS pkgconf-download
-FROM ghcr.io/kairos-io/hadron-sources/dbus:${DBUS_VERSION} AS dbus-download
-FROM ghcr.io/kairos-io/hadron-sources/expat:${EXPAT_VERSION} AS expat-download
-FROM ghcr.io/kairos-io/hadron-sources/libseccomp:${SECCOMP_VERSION} AS libseccomp-download
-FROM ghcr.io/kairos-io/hadron-sources/strace:${STRACE_VERSION} AS strace-download
-FROM ghcr.io/kairos-io/hadron-sources/less:${LESS_VERSION} AS less-download
-FROM ghcr.io/kairos-io/hadron-sources/ncurses:${NCURSES_VERSION} AS ncurses-download
-FROM ghcr.io/kairos-io/hadron-sources/kbd:${KBD_VERSION} AS kbd-download
-FROM ghcr.io/kairos-io/hadron-sources/iptables:${IPTABLES_VERSION} AS iptables-download
-FROM ghcr.io/kairos-io/hadron-sources/libmnl:${LIBMNL_VERSION} AS libmnl-download
-FROM ghcr.io/kairos-io/hadron-sources/libnftnl:${LIBNFTNL_VERSION} AS libnftnl-download
-FROM ghcr.io/kairos-io/hadron-sources/libnfnetlink:${LIBNFNETLINK_VERSION} AS libnfnetlink-download
-FROM ghcr.io/kairos-io/hadron-sources/libnetfilter_conntrack:${LIBNETFILTER_CONNTRACK_VERSION} AS libnetfilter_conntrack-download
-FROM ghcr.io/kairos-io/hadron-sources/libnetfilter_cttimeout:${LIBNETFILTER_CTTIMEOUT_VERSION} AS libnetfilter_cttimeout-download
-FROM ghcr.io/kairos-io/hadron-sources/libnetfilter_cthelper:${LIBNETFILTER_CTHELPER_VERSION} AS libnetfilter_cthelper-download
-FROM ghcr.io/kairos-io/hadron-sources/libnetfilter_queue:${LIBNETFILTER_QUEUE_VERSION} AS libnetfilter_queue-download
-FROM ghcr.io/kairos-io/hadron-sources/conntrack-tools:${CONNTRACK_TOOLS_VERSION} AS conntrack-tools-download
-FROM ghcr.io/kairos-io/hadron-sources/procps-ng:${PROCPS_NG_VERSION} AS procps-ng-download
-FROM ghcr.io/kairos-io/hadron-sources/linux:${KERNEL_VERSION} AS linux-download
-FROM ghcr.io/kairos-io/hadron-sources/flex:${FLEX_VERSION} AS flex-download
-FROM ghcr.io/kairos-io/hadron-sources/bison:${BISON_VERSION} AS bison-download
-FROM ghcr.io/kairos-io/hadron-sources/autoconf:${AUTOCONF_VERSION} AS autoconf-download
-FROM ghcr.io/kairos-io/hadron-sources/automake:${AUTOMAKE_VERSION} AS automake-download
-FROM ghcr.io/kairos-io/hadron-sources/musl-fts:${FTS_VERSION} AS musl-fts-download
-FROM ghcr.io/kairos-io/hadron-sources/libtool:${LIBTOOL_VERSION} AS libtool-download
-FROM ghcr.io/kairos-io/hadron-sources/libelf:${LIBELF_VERSION} AS libelf-download
-FROM ghcr.io/kairos-io/hadron-sources/xz:${XZUTILS_VERSION} AS xz-download
-FROM ghcr.io/kairos-io/hadron-sources/kmod:${KMOD_VERSION} AS kmod-download
-FROM ghcr.io/kairos-io/hadron-sources/dracut:${DRACUT_VERSION} AS dracut-download
-FROM ghcr.io/kairos-io/hadron-sources/libaio:${LIBAIO_VERSION} AS libaio-download
-FROM ghcr.io/kairos-io/hadron-sources/lvm2:${LVM2_VERSION} AS lvm2-download
-FROM ghcr.io/kairos-io/hadron-sources/multipath-tools:${MULTIPATH_TOOLS_VERSION} AS multipath-tools-download
-FROM ghcr.io/kairos-io/hadron-sources/json-c:${JSONC_VERSION} AS json-c-download
-FROM ghcr.io/kairos-io/hadron-sources/cmake:${CMAKE_VERSION} AS cmake-download
-FROM ghcr.io/kairos-io/hadron-sources/dwarves:${DWARVES_VERSION} AS dwarves-download
-FROM ghcr.io/kairos-io/hadron-sources/libbpf:${LIBBPF_VERSION} AS libbpf-download
-FROM ghcr.io/kairos-io/hadron-sources/argp-standalone:${ARGP_STANDALONE_VERSION} AS argp-standalone-download
-FROM ghcr.io/kairos-io/hadron-sources/musl-obstack:${MUSL_OBSTACK_VERSION} AS musl-obstack-download
-FROM ghcr.io/kairos-io/hadron-sources/elfutils:${ELFUTILS_VERSION} AS elfutils-download
-FROM ghcr.io/kairos-io/hadron-sources/urcu:${URCU_VERSION} AS urcu-download
-FROM ghcr.io/kairos-io/hadron-sources/parted:${PARTED_VERSION} AS parted-download
-FROM ghcr.io/kairos-io/hadron-sources/e2fsprogs:${E2FSPROGS_VERSION} AS e2fsprogs-download
-FROM ghcr.io/kairos-io/hadron-sources/dosfstools:${DOSFSTOOLS_VERSION} AS dosfstools-download
-FROM ghcr.io/kairos-io/hadron-sources/libtirpc:${LIBTIRPC_VERSION} AS libtirpc-download
-FROM ghcr.io/kairos-io/hadron-sources/libnl:${LIBNL_VERSION} AS libnl-download
-FROM ghcr.io/kairos-io/hadron-sources/libevent:${LIBEVENT_VERSION} AS libevent-download
-FROM ghcr.io/kairos-io/hadron-sources/keyutils:${KEYUTILS_VERSION} AS keyutils-download
-FROM ghcr.io/kairos-io/hadron-sources/nfs-utils:${NFS_UTILS_VERSION} AS nfs-utils-download
-FROM ghcr.io/kairos-io/hadron-sources/cryptsetup:${CRYPTSETUP_VERSION} AS cryptsetup-download
-FROM ghcr.io/kairos-io/hadron-sources/grub:${GRUB_VERSION} AS grub-download
-FROM ghcr.io/kairos-io/hadron-sources/pam:${PAM_VERSION} AS pam-download
-FROM ghcr.io/kairos-io/hadron-sources/shadow:${SHADOW_VERSION} AS shadow-download
-FROM ghcr.io/kairos-io/hadron-sources/aports:${APORTS_VERSION} AS aports-download
-FROM ghcr.io/kairos-io/hadron-sources/busybox:${BUSYBOX_VERSION} AS busybox-download
-FROM ghcr.io/kairos-io/hadron-sources/musl:${MUSL_VERSION} AS musl-download
-FROM ghcr.io/kairos-io/hadron-sources/gcc:${GCC_VERSION} AS gcc-download
-FROM ghcr.io/kairos-io/hadron-sources/gmp:${GMP_VERSION} AS gmp-download
-FROM ghcr.io/kairos-io/hadron-sources/mpc:${MPC_VERSION} AS mpc-download
-FROM ghcr.io/kairos-io/hadron-sources/mpfr:${MPFR_VERSION} AS mpfr-download
-FROM ghcr.io/kairos-io/hadron-sources/make:${MAKE_VERSION} AS make-download
-FROM ghcr.io/kairos-io/hadron-sources/binutils:${BINUTILS_VERSION} AS binutils-download
-FROM ghcr.io/kairos-io/hadron-sources/popt:${POPT_VERSION} AS popt-download
-FROM ghcr.io/kairos-io/hadron-sources/m4:${M4_VERSION} AS m4-download
-FROM ghcr.io/kairos-io/hadron-sources/readline:${READLINE_VERSION} AS readline-download
-FROM ghcr.io/kairos-io/hadron-sources/perl:${PERL_VERSION} AS perl-download
-FROM ghcr.io/kairos-io/hadron-sources/coreutils:${COREUTILS_VERSION} AS coreutils-download
-FROM ghcr.io/kairos-io/hadron-sources/findutils:${FINDUTILS_VERSION} AS findutils-download
-FROM ghcr.io/kairos-io/hadron-sources/grep:${GREP_VERSION} AS grep-download
-FROM ghcr.io/kairos-io/hadron-sources/gperf:${GPERF_VERSION} AS gperf-download
-FROM ghcr.io/kairos-io/hadron-sources/diffutils:${DIFFUTILS_VERSION} AS diffutils-download
-FROM ghcr.io/kairos-io/hadron-sources/sudo:${SUDO_VERSION} AS sudo-download
-FROM ghcr.io/kairos-io/hadron-sources/pax-utils:${PAX_UTILS_VERSION} AS pax-utils-download
-FROM ghcr.io/kairos-io/hadron-sources/openscsi:${OPEN_SCSI_VERSION} AS openscsi-download
-FROM ghcr.io/kairos-io/hadron-sources/gdb:${GDB_VERSION} AS gdb-download
-FROM ghcr.io/kairos-io/hadron-sources/libffi:${LIBFFI_VERSION} AS libffi-download
-FROM ghcr.io/kairos-io/hadron-sources/tpm2-tss:${TPM2_TSS_VERSION} AS tpm2-tss-download
-FROM ghcr.io/kairos-io/hadron-sources/libucontext:${LIBUCONTEXT_VERSION} AS libucontext-download
-FROM ghcr.io/kairos-io/hadron-sources/libxml2:${LIBXML2_VERSION} AS libxml2-download
-FROM ghcr.io/kairos-io/hadron-sources/gzip:${GZIP_VERSION} AS gzip-download
+FROM ${SOURCES_REPO}/util-linux:${UTIL_LINUX_VERSION} AS util-linux-download
+FROM ${SOURCES_REPO}/python:${PYTHON_VERSION} AS python-download
+FROM ${SOURCES_REPO}/sqlite3:${SQLITE3_VERSION} AS sqlite3-download
+FROM ${SOURCES_REPO}/openssl:${OPENSSL_VERSION} AS openssl-download
+FROM ${SOURCES_REPO}/openssl-fips:${OPENSSL_FIPS_VERSION} AS openssl-fips-download
+FROM ${SOURCES_REPO}/openssh:${OPENSSH_VERSION} AS openssh-download
+FROM ${SOURCES_REPO}/pkgconf:${PKGCONFIG_VERSION} AS pkgconf-download
+FROM ${SOURCES_REPO}/dbus:${DBUS_VERSION} AS dbus-download
+FROM ${SOURCES_REPO}/expat:${EXPAT_VERSION} AS expat-download
+FROM ${SOURCES_REPO}/libseccomp:${SECCOMP_VERSION} AS libseccomp-download
+FROM ${SOURCES_REPO}/strace:${STRACE_VERSION} AS strace-download
+FROM ${SOURCES_REPO}/less:${LESS_VERSION} AS less-download
+FROM ${SOURCES_REPO}/ncurses:${NCURSES_VERSION} AS ncurses-download
+FROM ${SOURCES_REPO}/kbd:${KBD_VERSION} AS kbd-download
+FROM ${SOURCES_REPO}/iptables:${IPTABLES_VERSION} AS iptables-download
+FROM ${SOURCES_REPO}/libmnl:${LIBMNL_VERSION} AS libmnl-download
+FROM ${SOURCES_REPO}/libnftnl:${LIBNFTNL_VERSION} AS libnftnl-download
+FROM ${SOURCES_REPO}/libnfnetlink:${LIBNFNETLINK_VERSION} AS libnfnetlink-download
+FROM ${SOURCES_REPO}/libnetfilter_conntrack:${LIBNETFILTER_CONNTRACK_VERSION} AS libnetfilter_conntrack-download
+FROM ${SOURCES_REPO}/libnetfilter_cttimeout:${LIBNETFILTER_CTTIMEOUT_VERSION} AS libnetfilter_cttimeout-download
+FROM ${SOURCES_REPO}/libnetfilter_cthelper:${LIBNETFILTER_CTHELPER_VERSION} AS libnetfilter_cthelper-download
+FROM ${SOURCES_REPO}/libnetfilter_queue:${LIBNETFILTER_QUEUE_VERSION} AS libnetfilter_queue-download
+FROM ${SOURCES_REPO}/conntrack-tools:${CONNTRACK_TOOLS_VERSION} AS conntrack-tools-download
+FROM ${SOURCES_REPO}/procps-ng:${PROCPS_NG_VERSION} AS procps-ng-download
+FROM ${SOURCES_REPO}/linux:${KERNEL_VERSION} AS linux-download
+FROM ${SOURCES_REPO}/flex:${FLEX_VERSION} AS flex-download
+FROM ${SOURCES_REPO}/bison:${BISON_VERSION} AS bison-download
+FROM ${SOURCES_REPO}/autoconf:${AUTOCONF_VERSION} AS autoconf-download
+FROM ${SOURCES_REPO}/automake:${AUTOMAKE_VERSION} AS automake-download
+FROM ${SOURCES_REPO}/musl-fts:${FTS_VERSION} AS musl-fts-download
+FROM ${SOURCES_REPO}/libtool:${LIBTOOL_VERSION} AS libtool-download
+FROM ${SOURCES_REPO}/libelf:${LIBELF_VERSION} AS libelf-download
+FROM ${SOURCES_REPO}/xz:${XZUTILS_VERSION} AS xz-download
+FROM ${SOURCES_REPO}/kmod:${KMOD_VERSION} AS kmod-download
+FROM ${SOURCES_REPO}/dracut:${DRACUT_VERSION} AS dracut-download
+FROM ${SOURCES_REPO}/libaio:${LIBAIO_VERSION} AS libaio-download
+FROM ${SOURCES_REPO}/lvm2:${LVM2_VERSION} AS lvm2-download
+FROM ${SOURCES_REPO}/multipath-tools:${MULTIPATH_TOOLS_VERSION} AS multipath-tools-download
+FROM ${SOURCES_REPO}/json-c:${JSONC_VERSION} AS json-c-download
+FROM ${SOURCES_REPO}/cmake:${CMAKE_VERSION} AS cmake-download
+FROM ${SOURCES_REPO}/dwarves:${DWARVES_VERSION} AS dwarves-download
+FROM ${SOURCES_REPO}/libbpf:${LIBBPF_VERSION} AS libbpf-download
+FROM ${SOURCES_REPO}/argp-standalone:${ARGP_STANDALONE_VERSION} AS argp-standalone-download
+FROM ${SOURCES_REPO}/musl-obstack:${MUSL_OBSTACK_VERSION} AS musl-obstack-download
+FROM ${SOURCES_REPO}/elfutils:${ELFUTILS_VERSION} AS elfutils-download
+FROM ${SOURCES_REPO}/urcu:${URCU_VERSION} AS urcu-download
+FROM ${SOURCES_REPO}/parted:${PARTED_VERSION} AS parted-download
+FROM ${SOURCES_REPO}/e2fsprogs:${E2FSPROGS_VERSION} AS e2fsprogs-download
+FROM ${SOURCES_REPO}/dosfstools:${DOSFSTOOLS_VERSION} AS dosfstools-download
+FROM ${SOURCES_REPO}/libtirpc:${LIBTIRPC_VERSION} AS libtirpc-download
+FROM ${SOURCES_REPO}/libnl:${LIBNL_VERSION} AS libnl-download
+FROM ${SOURCES_REPO}/libevent:${LIBEVENT_VERSION} AS libevent-download
+FROM ${SOURCES_REPO}/keyutils:${KEYUTILS_VERSION} AS keyutils-download
+FROM ${SOURCES_REPO}/nfs-utils:${NFS_UTILS_VERSION} AS nfs-utils-download
+FROM ${SOURCES_REPO}/cryptsetup:${CRYPTSETUP_VERSION} AS cryptsetup-download
+FROM ${SOURCES_REPO}/grub:${GRUB_VERSION} AS grub-download
+FROM ${SOURCES_REPO}/pam:${PAM_VERSION} AS pam-download
+FROM ${SOURCES_REPO}/shadow:${SHADOW_VERSION} AS shadow-download
+FROM ${SOURCES_REPO}/aports:${APORTS_VERSION} AS aports-download
+FROM ${SOURCES_REPO}/busybox:${BUSYBOX_VERSION} AS busybox-download
+FROM ${SOURCES_REPO}/musl:${MUSL_VERSION} AS musl-download
+FROM ${SOURCES_REPO}/gcc:${GCC_VERSION} AS gcc-download
+FROM ${SOURCES_REPO}/gmp:${GMP_VERSION} AS gmp-download
+FROM ${SOURCES_REPO}/mpc:${MPC_VERSION} AS mpc-download
+FROM ${SOURCES_REPO}/mpfr:${MPFR_VERSION} AS mpfr-download
+FROM ${SOURCES_REPO}/make:${MAKE_VERSION} AS make-download
+FROM ${SOURCES_REPO}/binutils:${BINUTILS_VERSION} AS binutils-download
+FROM ${SOURCES_REPO}/popt:${POPT_VERSION} AS popt-download
+FROM ${SOURCES_REPO}/m4:${M4_VERSION} AS m4-download
+FROM ${SOURCES_REPO}/readline:${READLINE_VERSION} AS readline-download
+FROM ${SOURCES_REPO}/perl:${PERL_VERSION} AS perl-download
+FROM ${SOURCES_REPO}/coreutils:${COREUTILS_VERSION} AS coreutils-download
+FROM ${SOURCES_REPO}/findutils:${FINDUTILS_VERSION} AS findutils-download
+FROM ${SOURCES_REPO}/grep:${GREP_VERSION} AS grep-download
+FROM ${SOURCES_REPO}/gperf:${GPERF_VERSION} AS gperf-download
+FROM ${SOURCES_REPO}/diffutils:${DIFFUTILS_VERSION} AS diffutils-download
+FROM ${SOURCES_REPO}/sudo:${SUDO_VERSION} AS sudo-download
+FROM ${SOURCES_REPO}/pax-utils:${PAX_UTILS_VERSION} AS pax-utils-download
+FROM ${SOURCES_REPO}/openscsi:${OPEN_SCSI_VERSION} AS openscsi-download
+FROM ${SOURCES_REPO}/gdb:${GDB_VERSION} AS gdb-download
+FROM ${SOURCES_REPO}/libffi:${LIBFFI_VERSION} AS libffi-download
+FROM ${SOURCES_REPO}/tpm2-tss:${TPM2_TSS_VERSION} AS tpm2-tss-download
+FROM ${SOURCES_REPO}/libucontext:${LIBUCONTEXT_VERSION} AS libucontext-download
+FROM ${SOURCES_REPO}/libxml2:${LIBXML2_VERSION} AS libxml2-download
+FROM ${SOURCES_REPO}/gzip:${GZIP_VERSION} AS gzip-download
 FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
@@ -234,16 +362,16 @@ RUN for i in $(seq 1 ${PATCH_LEVEL}); do \
     done
 WORKDIR /sources/downloads
 
-FROM ghcr.io/kairos-io/hadron-sources/libkcapi:${LIBKCAPI_VERSION} AS libkcapi-download
-FROM ghcr.io/kairos-io/hadron-sources/shim:${SHIM_VERSION} AS shim-download
-FROM ghcr.io/kairos-io/hadron-sources/libiconv:${ICONV_VERSION} AS libiconv-download
-FROM ghcr.io/kairos-io/hadron-sources/bc:${BC_VERSION} AS bc-download
-FROM ghcr.io/kairos-io/hadron-sources/patch:${PATCH_VERSION} AS patch-download
-FROM ghcr.io/kairos-io/hadron-sources/pcre2:${PCRE2_VERSION} AS pcre2-download
-FROM ghcr.io/kairos-io/hadron-sources/glib:${GLIB_VERSION} AS glib-download
-FROM ghcr.io/kairos-io/hadron-sources/qemu:${QEMU_AGENT_VERSION} AS qemu-download
-FROM ghcr.io/kairos-io/hadron-sources/mspack:${MSPACK_VERSION} AS mspack-download
-FROM ghcr.io/kairos-io/hadron-sources/open-vm-tools:${OPENVM_TOOLS_VERSION} AS open-vm-tools-download
+FROM ${SOURCES_REPO}/libkcapi:${LIBKCAPI_VERSION} AS libkcapi-download
+FROM ${SOURCES_REPO}/shim:${SHIM_VERSION} AS shim-download
+FROM ${SOURCES_REPO}/libiconv:${ICONV_VERSION} AS libiconv-download
+FROM ${SOURCES_REPO}/bc:${BC_VERSION} AS bc-download
+FROM ${SOURCES_REPO}/patch:${PATCH_VERSION} AS patch-download
+FROM ${SOURCES_REPO}/pcre2:${PCRE2_VERSION} AS pcre2-download
+FROM ${SOURCES_REPO}/glib:${GLIB_VERSION} AS glib-download
+FROM ${SOURCES_REPO}/qemu:${QEMU_AGENT_VERSION} AS qemu-download
+FROM ${SOURCES_REPO}/mspack:${MSPACK_VERSION} AS mspack-download
+FROM ${SOURCES_REPO}/open-vm-tools:${OPENVM_TOOLS_VERSION} AS open-vm-tools-download
 FROM scratch AS sources-downloader
 COPY --from=curl-download /sources/downloads/curl.tar.gz /sources/downloads/
 COPY --from=rsync-download /sources/downloads/rsync.tar.gz /sources/downloads/
@@ -253,6 +381,7 @@ COPY --from=lz4-download /sources/downloads/lz4.tar.gz /sources/downloads/
 COPY --from=zlib-download /sources/downloads/zlib.tar.gz /sources/downloads/
 COPY --from=acl-download /sources/downloads/acl.tar.gz /sources/downloads/
 COPY --from=attr-download /sources/downloads/attr.tar.gz /sources/downloads/
+COPY --from=audit-download /sources/downloads/audit.tar.gz /sources/downloads/
 COPY --from=gawk-download /sources/downloads/gawk.tar.xz /sources/downloads/
 COPY --from=ca-certificates-download /sources/downloads/ca-certificates.tar.bz2 /sources/downloads/
 COPY --from=systemd-download /sources/downloads/systemd.tar.gz /sources/downloads/
@@ -492,6 +621,7 @@ EOF
 ###
 FROM stage0 AS busybox-stage0
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/busybox.tar.bz2 /sources/
 
 RUN cd /sources && tar -xf busybox.tar.bz2 && \
@@ -506,14 +636,15 @@ RUN cd /sources && tar -xf busybox.tar.bz2 && \
     sed -i 's/\(CONFIG_TCPSVD\)=y/# \1 is not set/' .config && \
     sed -i 's/\(CONFIG_TC\)=y/# \1 is not set/' .config && \
     if [ "${ARCH}" != "x86-64" ]; then sed -i 's/\(CONFIG_SHA1_HWACCEL\)=y/# \1 is not set/' .config; fi && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} && \
-    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
+    make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} CONFIG_PREFIX="/sysroot" install
 
 ###
 ### MUSL
 ###
 FROM stage0 AS musl-stage0
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources/
 RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
     cd musl && \
@@ -523,13 +654,14 @@ RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
       --disable-static \
       --target=${TARGET} && \
       make -s -j${JOBS} && \
-      DESTDIR=/sysroot make -s -j${JOBS} -l${MAX_LOAD} install
+      DESTDIR=/sysroot make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ###
 ### GCC
 ###
 FROM stage0 AS gcc-stage0
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/gcc.tar.xz .
 COPY --from=sources-downloader /sources/downloads/gmp.tar.bz2 .
 COPY --from=sources-downloader /sources/downloads/mpc.tar.xz .
@@ -555,14 +687,15 @@ RUN ../configure --quiet \
         --disable-libmudflap \
         --disable-multilib \
         --disable-libsanitizer
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD}
-RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
+RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s ARCH="${ARCH}" CROSS_COMPILE="${TARGET}-" -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/sysroot install
 
 ###
 ### Make
 ###
 FROM stage0 AS make-stage0
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/make.tar.gz /sources/
 
 RUN cd /sources && tar -xf make.tar.gz && mv make-* make
@@ -570,14 +703,15 @@ WORKDIR /sources/make
 COPY patches/0001-make-getopt-gcc15.patch .
 RUN patch -p1 < 0001-make-getopt-gcc15.patch
 RUN ./configure --quiet --prefix=/usr --build=${BUILD} --host=${TARGET} --disable-nls
-RUN make -s -j${JOBS} -l${MAX_LOAD}
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/sysroot install
 
 ###
 ### Binutils
 ###
 FROM stage0 AS binutils-stage0
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/binutils.tar.xz .
 RUN tar -xf binutils.tar.xz && mv binutils-* binutils
 
@@ -592,12 +726,13 @@ RUN <<EOT bash
        --disable-nls \
        --disable-multilib \
        --enable-shared && \
-       make -s -j${JOBS} -l${MAX_LOAD} && \
-       make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sysroot install ;
+       make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
+       make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/sysroot install ;
 EOT
 
 FROM make-stage0 AS kernel-headers-stage0
 ARG JOBS
+ARG MAX_LOAD
 
 COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
 
@@ -702,6 +837,7 @@ RUN ./test
 ## musl
 FROM stage1 AS musl
 ARG JOBS
+ARG MAX_LOAD
 
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources
@@ -718,7 +854,7 @@ RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
       make -s -j${JOBS} && \
-      DESTDIR=/sysroot make -s -j${JOBS} -l${MAX_LOAD} install
+      DESTDIR=/sysroot make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 # getent is not part of musl itself; Alpine ships it in musl-utils, built from
 # a small standalone getent.c kept in aports (same source we already use for
@@ -733,6 +869,7 @@ RUN tar -xf aports.tar.gz && mv aports-* aports && \
 ## pkgconfig
 FROM stage1 AS pkgconfig
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/pkgconf.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* pkgconfig && \
@@ -741,43 +878,47 @@ RUN mkdir -p /sources && cd /sources && tar -xf pkgconf.tar.xz && mv pkgconf-* p
     --infodir=/usr/share/info \
     --localstatedir=/var \
     --with-pkg-config-dir=/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig && \
-    make -s -j${JOBS} -l${MAX_LOAD} && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/pkgconfig install && make -s -j${JOBS} -l${MAX_LOAD} install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/pkgconfig install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install && ln -s pkgconf /pkgconfig/usr/bin/pkg-config
 
 ## xxhash
 FROM stage1 AS xxhash
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/xxhash.tar.gz /sources/
 ENV CC="gcc"
 RUN mkdir -p /sources && cd /sources && tar -xf xxhash.tar.gz && mv xxHash-* xxhash && \
-    cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/xxhash && \
-    make -s -j${JOBS} prefix=/usr -l${MAX_LOAD} DESTDIR=/xxhash install && make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
+    cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr DESTDIR=/xxhash && \
+    make -s -j${JOBS} prefix=/usr ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/xxhash install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr install
 
 ## zstd
 FROM xxhash AS zstd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/zstd.tar.gz /sources/
 RUN mkdir -p /zstd
 WORKDIR /sources
 RUN tar -xf zstd.tar.gz && mv zstd-* zstd
 WORKDIR /sources/zstd
 ENV CC=gcc
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zstd prefix=/usr
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zstd prefix=/usr install
-RUN make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/zstd prefix=/usr
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/zstd prefix=/usr install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr install
 
 ## lz4
 FROM zstd AS lz4
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/lz4.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf lz4.tar.gz && mv lz4-* lz4 && \
-    cd lz4 && mkdir -p /lz4 && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/lz4 && \
-    make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr DESTDIR=/lz4 install && make -s -j${JOBS} -l${MAX_LOAD} prefix=/usr install
+    cd lz4 && mkdir -p /lz4 && CC=gcc make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr DESTDIR=/lz4 && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr DESTDIR=/lz4 install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr install
 
 ## attr
 FROM lz4 AS attr
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/attr.tar.gz /sources/
 
 RUN mkdir -p /attr
@@ -789,44 +930,48 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --sysconf
     --mandir=/usr/share/man \
     --localstatedir=/var \
     --disable-nls
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/attr
-RUN make -s -j${JOBS} -l${MAX_LOAD}  DESTDIR=/attr install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/attr
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}  DESTDIR=/attr install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## acl
 FROM attr AS acl
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/acl.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf acl.tar.gz && mv acl-* acl && \
-    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-nls --libexecdir=/usr/libexec && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/acl && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/acl install && make -s -j${JOBS} -l${MAX_LOAD} install
+    cd acl && mkdir -p /acl && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --disable-nls --libexecdir=/usr/libexec && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/acl && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/acl install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## popt as static as only cryptsetup needs it
 FROM acl AS popt
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/popt.tar.gz /sources/
 RUN cd /sources && \
     tar -xf popt.tar.gz && mv popt-* popt && \
-    cd popt && mkdir -p /popt && ./configure  --quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --disable-dependency-tracking --disable-shared --enable-static && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/popt && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/popt install
+    cd popt && mkdir -p /popt && ./configure  --quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --disable-dependency-tracking --disable-shared --enable-static && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/popt && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/popt install
 
 ## zlib
 FROM acl AS zlib
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/zlib.tar.gz /sources/
 RUN mkdir -p /zlib
 WORKDIR /sources
 RUN tar -xf zlib.tar.gz && mv zlib-* zlib
 WORKDIR /sources/zlib
 RUN ./configure --shared --prefix=/usr
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zlib
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/zlib install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/zlib
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/zlib install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## gawk
 FROM zlib AS gawk
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/gawk.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk && \
@@ -834,12 +979,13 @@ RUN mkdir -p /sources && cd /sources && tar -xf gawk.tar.xz && mv gawk-* gawk &&
     --mandir=/usr/share/man \
     --infodir=/usr/share/info \
     --disable-nls \
-    --disable-pma && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gawk && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gawk install && make -s -j${JOBS} -l${MAX_LOAD} install
+    --disable-pma && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/gawk && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/gawk install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## rsync
 FROM gawk AS rsync
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/rsync.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync && \
@@ -857,12 +1003,13 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync
     --without-included-zlib \
     --disable-md2man \
     --disable-nls \
-    --disable-openssl && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/rsync && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/rsync install && make -s -j${JOBS} -l${MAX_LOAD} install
+    --disable-openssl && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/rsync && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/rsync install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## binutils
 FROM stage1 AS binutils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/binutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf binutils.tar.xz && mv binutils-* binutils && \
@@ -875,9 +1022,9 @@ ENV STRIP=strip
 ENV NM=nm
 ENV RANLIB=ranlib
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/binutils install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/binutils
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/binutils install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 # TARGET-prefixed symlinks so CROSS_COMPILE=${TARGET}- works out of the box on
 # native arm64/x86_64 builds (kbuild probes ${CROSS_COMPILE}ld etc.; without
 # these, cross-compile workflows fail even though the native tools can handle
@@ -892,35 +1039,39 @@ RUN for d in /binutils/usr/bin /usr/bin; do \
 ## m4 (from stage1, ready to be used in the final image)
 FROM stage1 AS m4
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/m4.tar.xz /sources/
 RUN cd /sources && \
     tar -xf m4.tar.xz && mv m4-* m4 && \
-    cd m4 && mkdir -p /m4 && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/m4 install && make -s -j${JOBS} -l${MAX_LOAD} install
+    cd m4 && mkdir -p /m4 && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/m4 && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/m4 install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## readline
 FROM stage1 AS readline
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
     tar -xf readline.tar.gz && mv readline-* readline && \
-    cd readline && mkdir -p /readline && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/readline && \
+    cd readline && mkdir -p /readline && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/readline && \
     make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
 ## flex
 FROM stage1 AS flex
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/flex.tar.gz /sources/
 COPY --from=m4 /m4 /
 RUN mkdir -p /flex
 RUN mkdir -p /sources && cd /sources && tar -xf flex.tar.gz && mv flex-* flex
 WORKDIR /sources/flex
 RUN ./configure --quiet --prefix=/usr --build=${BUILD} --enable-shared --disable-static --infodir=/usr/share/info --mandir=/usr/share/man
-RUN make -j${JOBS} -l${MAX_LOAD}
-RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/flex install
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/flex install
 
 ## perl
 FROM m4 AS perl
 ARG JOBS
+ARG MAX_LOAD
 ENV CFLAGS="${CFLAGS} -static -ffunction-sections -fdata-sections -Bsymbolic-functions"
 ENV LDFLAGS="-Wl,--gc-sections"
 ENV PERL_CROSS=1.6.2
@@ -957,11 +1108,12 @@ RUN cd /sources && \
        -Ud_off64_t \
        -Dusenm \
        -Duse64bitint && make -s -j${JOBS} libperl.so && \
-        make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/perl && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/perl install && make -s -j${JOBS} -l${MAX_LOAD} install
+        make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/perl && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/perl install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## bison
 FROM rsync AS bison
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=flex /flex/ /
 
 COPY --from=m4 /m4/ /
@@ -970,11 +1122,12 @@ COPY --from=perl /perl/ /
 
 COPY --from=sources-downloader /sources/downloads/bison.tar.xz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xvf bison.tar.xz && mv bison-* bison && cd bison && mkdir -p /bison && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --infodir=/usr/share/info --mandir=/usr/share/man --prefix=/usr --disable-static --enable-shared && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/bison install && make -j${JOBS} -l${MAX_LOAD} install
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/bison install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## bash
 FROM readline AS bash
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=bison /bison /
 COPY --from=flex /flex /
 
@@ -1008,24 +1161,26 @@ RUN CFLAGS="${CFLAGS}" ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     bash_cv_job_control_missing=nomissing \
     bash_cv_sys_named_pipes=nomissing \
     bash_cv_printf_a_format=yes
-RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} -l${MAX_LOAD} builtins/libbuiltins.a && make -s -j${JOBS} -l${MAX_LOAD}
+RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} builtins/libbuiltins.a && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
 RUN mkdir -p /bash/etc/bash
 RUN install -Dm644  /sources/bashrc /bash/etc/bash.bashrc
 RUN install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/bash install && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/bash install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## libcap
 FROM bash AS libcap
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/libcap.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf libcap.tar.xz && mv libcap-* libcap && \
-    cd libcap && mkdir -p /libcap && make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} -l${MAX_LOAD} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
+    cd libcap && mkdir -p /libcap && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} BUILD_CC=gcc CC="${CC:-gcc}" && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/libcap PAM_LIBDIR=/lib prefix=/usr SBINDIR=/sbin lib=lib RAISE_SETFCAP=no GOLANG=no install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} GOLANG=no PAM_LIBDIR=/lib lib=lib prefix=/usr SBINDIR=/sbin RAISE_SETFCAP=no install
 
 ## openssl
 FROM rsync AS openssl-no-fips
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=perl /perl/ /
 
 COPY --from=zlib /zlib/ /
@@ -1044,11 +1199,12 @@ RUN ./Configure --prefix=/usr         \
     no-tests no-unit-test no-external-tests no-docs \
     no-ui-console no-afalgeng no-capieng
 RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
-RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} -l${MAX_LOAD} install_sw install_ssldirs
+RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install_sw install_ssldirs
 
 FROM rsync AS openssl-fips
 
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=perl /perl/ /
 
 COPY --from=zlib /zlib/ /
@@ -1074,10 +1230,10 @@ RUN ./Configure --prefix=/usr         \
     no-weak-ssl-ciphers \
     zlib-dynamic \
      2>&1
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl 2>&1
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssl 2>&1
 RUN ./util/wrap.pl -fips apps/openssl list -provider-path providers -provider fips -providers | grep -A3 FIPS| grep -q active
-RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl install_sw install_ssldirs
-RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssl install_fips
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssl install_sw install_ssldirs
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssl install_fips
 COPY ./files/openssl/openssl.cnf.fips /openssl/etc/ssl/openssl.cnf
 
 FROM openssl-${FIPS} AS openssl
@@ -1086,6 +1242,7 @@ FROM openssl-${FIPS} AS openssl
 ## with a tiny config as we have other tools
 FROM stage1 AS busybox
 ARG JOBS
+ARG MAX_LOAD
 # Drop lto from busybox build as its causing issues in some environments
 ENV CFLAGS="${CFLAGS//-flto=auto/}"
 
@@ -1095,13 +1252,14 @@ RUN rm -rfv busybox && tar -xf busybox.tar.bz2 && mv busybox-* busybox
 WORKDIR /sources/busybox
 RUN make -s distclean
 COPY ./files/busybox/minimal.config .config
-RUN make -j${JOBS} -l${MAX_LOAD} silentoldconfig
-RUN make -s -j${JOBS} -l${MAX_LOAD} CONFIG_PREFIX="/sysroot" install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} silentoldconfig
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} CONFIG_PREFIX="/sysroot" install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## coreutils
 FROM rsync AS coreutils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=openssl /openssl/ /
 
 COPY --from=libcap /libcap /libcap
@@ -1123,30 +1281,33 @@ RUN cd /sources && \
     --enable-single-binary=symlinks \
     --enable-single-binary-exceptions=env,fmt,sha512sum \
     --with-openssl \
-    --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/coreutils && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/coreutils install
+    --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/coreutils && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/coreutils install
 
 ## findutils
 FROM stage1 AS findutils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/findutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf findutils.tar.xz && mv findutils-* findutils && \
-    cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-nls --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/findutils && \
+    cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-nls --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/findutils && \
     make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
 
 ## grep
 FROM stage1 AS grep
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/grep.tar.xz /sources/
 RUN cd /sources && \
     tar -xf grep.tar.xz && mv grep-* grep && \
-    cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/grep && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/grep install && make -s -j${JOBS} -l${MAX_LOAD} install
+    cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/grep && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/grep install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## ca-certificates
 FROM rsync AS ca-certificates
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=openssl /openssl/ /
 
 COPY --from=perl /perl/ /
@@ -1169,8 +1330,8 @@ COPY --from=findutils /findutils/ /
 COPY --from=sources-downloader /sources/downloads/ca-certificates.tar.bz2 /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xf ca-certificates.tar.bz2 && mv ca-certificates-* ca-certificates && \
-    cd ca-certificates && mkdir -p /ca-certificates && CC=gcc make -s -j${JOBS} -l${MAX_LOAD} && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/ca-certificates install
+    cd ca-certificates && mkdir -p /ca-certificates && CC=gcc make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/ca-certificates install
 
 COPY ./files/ca-certificates/post_install.sh /sources/post_install.sh
 RUN bash /sources/post_install.sh
@@ -1178,6 +1339,7 @@ RUN bash /sources/post_install.sh
 ## sqlite3 
 FROM rsync AS sqlite3
 ARG JOBS
+ARG MAX_LOAD
 ENV CFLAGS="${CFLAGS//-Os/-O2} -DSQLITE_ENABLE_FTS3_PARENTHESIS -DSQLITE_ENABLE_COLUMN_METADATA -DSQLITE_SECURE_DELETE -DSQLITE_ENABLE_UNLOCK_NOTIFY 	-DSQLITE_ENABLE_RTREE 	-DSQLITE_ENABLE_GEOPOLY 	-DSQLITE_USE_URI 	-DSQLITE_ENABLE_DBSTAT_VTAB 	-DSQLITE_SOUNDEX 	-DSQLITE_MAX_VARIABLE_NUMBER=250000"
 
 COPY --from=sources-downloader /sources/downloads/sqlite3.tar.gz /sources/
@@ -1193,12 +1355,13 @@ RUN mkdir -p /sources && cd /sources && tar -xf sqlite3.tar.gz && \
 		--enable-fts4 \
 		--enable-fts5 \
 		--soname=legacy && \
-    make -s -j${JOBS} -l${MAX_LOAD} && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/sqlite3 install && make -s -j${JOBS} -l${MAX_LOAD} install
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/sqlite3 install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## curl
 FROM rsync AS curl
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=ca-certificates /ca-certificates/ /
 
 COPY --from=openssl /openssl/ /
@@ -1225,11 +1388,12 @@ RUN mkdir -p /sources && cd /sources && tar -xf curl.tar.gz && mv curl-* curl &&
     --disable-ldap \
     --with-pic \
     --without-libpsl \
-    --without-libssh2 && make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/curl && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/curl install && make -s -j${JOBS} -l${MAX_LOAD} install
+    --without-libssh2 && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/curl && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/curl install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM rsync AS libffi
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/libffi.tar.gz /sources/
 RUN mkdir -p /libffi
 WORKDIR /sources
@@ -1238,11 +1402,12 @@ WORKDIR /sources/libffi
 # --disable-multi-os-directory makes sure we dont install the libs under /usr/lib64
 # https://github.com/libffi/libffi/issues/127
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-docs --libdir=/usr/lib --disable-multi-os-directory
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libffi
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libffi
 
 ## python
 FROM rsync AS python-build
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=openssl /openssl/ /
 
 COPY --from=bash /bash /bash
@@ -1269,9 +1434,9 @@ RUN ./configure --quiet --prefix=/usr \
     --with-computed-gotos \
     --disable-test-modules \
     --with-dbmliborder=gdbm:ndbm
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/python
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/python install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install 2>&1
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/python
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/python install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install 2>&1
 
 
 ## util-linux
@@ -1299,19 +1464,20 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix
     --disable-bfs \
     --without-python \
     --with-sysusersdir=/usr/lib/sysusers.d/
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/util-linux install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/util-linux
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/util-linux install
 
 
 ## gperf
 FROM stage1 AS gperf
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/gperf.tar.gz /sources/
 RUN cd /sources && \
     tar -xf gperf.tar.gz && mv gperf-* gperf && \
     cd gperf && mkdir -p /gperf && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr && \
-    make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
-    make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/gperf install && make -s -j${JOBS} -l${MAX_LOAD} install
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/gperf && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/gperf install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM stage1 AS hadron-splash
 WORKDIR /sources/hadron
@@ -1323,6 +1489,7 @@ RUN mkdir -p /hadron-splash && mv hadron-splash /hadron-splash
 ## libseccomp for k8s stuff mainly
 FROM rsync AS libseccomp
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=gperf /gperf/ /
 COPY --from=sources-downloader /sources/downloads/libseccomp.tar.gz /sources/
 RUN mkdir -p /libseccomp
@@ -1330,12 +1497,13 @@ WORKDIR /sources
 RUN tar -xf libseccomp.tar.gz && mv libseccomp-* libseccomp
 WORKDIR /sources/libseccomp
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libseccomp
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libseccomp
 
 
 ## expat
 FROM bash AS expat
 ARG JOBS
+ARG MAX_LOAD
 ## Force bash as shell otherwise it defaults to /bin/sh and fails
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 COPY --from=sources-downloader /sources/downloads/expat.tar.gz /sources/
@@ -1344,10 +1512,11 @@ WORKDIR /sources
 RUN tar -xf expat.tar.gz && mv expat-* expat
 WORKDIR /sources/expat
 RUN bash ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/expat
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/expat
 
 FROM stage0 AS gdb-stage0
 ARG JOBS
+ARG MAX_LOAD
 RUN mkdir -p /gdb
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/gdb.tar.gz .
@@ -1371,13 +1540,14 @@ RUN ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     --disable-nls \
     --with-libexpat-prefix=/usr \
     --disable-multilib
-RUN make -j${JOBS} -l${MAX_LOAD}
-RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/gdb install install-gdbserver
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/gdb install install-gdbserver
 
 
 ## dbus first pass without systemd support so we can build systemd afterwards
 FROM python-build AS dbus
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=expat /expat/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libcap /libcap /libcap
@@ -1396,6 +1566,7 @@ RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 # first pam build so we can build systemd against it
 FROM python-build AS pam
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=openssl /openssl/ /
 COPY --from=readline /readline/ /
@@ -1429,6 +1600,7 @@ RUN rsync -aHAX --keep-dirlinks  /libcap/. /
 # Shadow with PAM support, no systemd
 FROM shadow-base AS shadow
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pam /pam/ /
 COPY --from=sources-downloader /sources/downloads/shadow.tar.xz /sources/
 RUN mkdir -p /shadow
@@ -1437,7 +1609,7 @@ RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
 # --disable-logind disables building with systemd logind support. This is for the base shadow build without systemd
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls --disable-logind
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 
 ## openssh
@@ -1447,6 +1619,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_pref
 ## And enable --with-privsep-user=sshd during configure
 FROM rsync AS openssh
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=openssl /openssl/ /
 
 COPY --from=zlib /zlib/ /
@@ -1473,8 +1646,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --with-ssl-engine \
     --with-pam --disable-lastlog --disable-utmp --disable-wtmp --disable-utmpx --disable-wtmpx
 
-RUN make -s -j${JOBS} -l${MAX_LOAD}
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/openssh install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssh install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
 COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
@@ -1500,17 +1673,19 @@ RUN echo "PrintMotd no" >> /openssh/etc/ssh/sshd_config.d/03-hadron.conf
 ## xz and liblzma
 FROM rsync AS xz
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/xz.tar.gz /sources/
 RUN mkdir -p /xz
 WORKDIR /sources
 RUN tar -xf xz.tar.gz && mv xz-* xz
 WORKDIR /sources/xz
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-nls --disable-doc --enable-small --disable-scripts
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/xz && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/xz && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 # gzip at least for the toolchain
 FROM rsync AS gzip
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/gzip.tar.xz /sources/
 RUN mkdir -p /gzip
 WORKDIR /sources
@@ -1518,12 +1693,13 @@ RUN tar -xf gzip.tar.xz && mv gzip-* gzip
 WORKDIR /sources/gzip
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
 RUN make -j${JOBS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make install DESTDIR=/gzip
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make install DESTDIR=/gzip
 
 
 ## kmod so modprobe, insmod, lsmod, modinfo, rmmod are available
 FROM python-build AS kmod
 ARG JOBS
+ARG MAX_LOAD
 ## we need liblzma from xz to build
 COPY --from=xz /xz/ /
 
@@ -1548,6 +1724,7 @@ RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buil
 ## autoconf
 FROM rsync AS autoconf
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=m4 /m4/ /
 
 
@@ -1557,12 +1734,13 @@ COPY --from=sources-downloader /sources/downloads/autoconf.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf autoconf.tar.xz && mv autoconf-* autoconf && \
     cd autoconf && mkdir -p /autoconf && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/autoconf && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/autoconf install && make -j${JOBS} -l${MAX_LOAD} install
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/autoconf install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 
 ## automake
 FROM rsync AS automake
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=perl /perl/ /
 
 COPY --from=autoconf /autoconf/ /
@@ -1573,12 +1751,13 @@ COPY --from=sources-downloader /sources/downloads/automake.tar.xz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf automake.tar.xz && mv automake-* automake && \
     cd automake && mkdir -p /automake && ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr && make DESTDIR=/automake && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/automake install && make -j${JOBS} -l${MAX_LOAD} install
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/automake install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 
 ## libtool
 FROM rsync AS libtool
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=m4 /m4/ /
 
 COPY --from=sources-downloader /sources/downloads/libtool.tar.xz /sources/
@@ -1587,11 +1766,12 @@ RUN mkdir -p /sources && cd /sources && tar -xvf libtool.tar.xz && mv libtool-* 
 -e "s|test-funclib-quote.sh||" \
 -e "s|test-option-parser.sh||" \
 gnulib-tests/Makefile.in && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/libtool install && make -j${JOBS} -l${MAX_LOAD} install
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/libtool install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 
 FROM rsync AS patch
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=autoconf /autoconf/ /
 COPY --from=automake /automake/ /
 COPY --from=m4 /m4/ /
@@ -1601,14 +1781,15 @@ WORKDIR /sources
 RUN tar -xvf patch.tar.gz && mv patch-* patch
 WORKDIR /sources/patch
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr
-RUN make -j${JOBS} -l${MAX_LOAD}
-RUN make -j${JOBS} -l${MAX_LOAD} DESTDIR=/patch install
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/patch install
 
 ## fts
 ## fts is only needed to build dracut as it needs libfts.so
 ## This is only needed during build time so we can drop it later
 FROM rsync AS fts
 ARG JOBS
+ARG MAX_LOAD
 ENV CFLAGS="$CFLAGS -fPIC"
 
 COPY --from=autoconf /autoconf/ /
@@ -1626,12 +1807,13 @@ COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/musl-fts.tar.gz /sources/
 
 RUN mkdir -p /sources && cd /sources && tar -xvf musl-fts.tar.gz && mv musl-fts-* fts && cd fts && mkdir -p /fts && ./bootstrap.sh && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --localstatedir=/var --mandir=/usr/share/man  --sysconfdir=/etc  && \
-    make -j${JOBS} -l${MAX_LOAD} DESTDIR=/fts install && make -j${JOBS} -l${MAX_LOAD} install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/fts install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install &&  cp musl-fts.pc /fts/usr/lib/pkgconfig/libfts.pc
 
 ## libelf is the only part from elfutils that we need to build the kernel
 # basically gelf.h and elf.h
 FROM rsync AS libelf
 ARG JOBS
+ARG MAX_LOAD
 
 COPY --from=sources-downloader /sources/downloads/libelf.tar.gz /sources/
 
@@ -1645,6 +1827,7 @@ RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 ## argp-standalone — provides argp_parse for musl (required by elfutils configure)
 FROM rsync AS argp
 ARG JOBS
+ARG MAX_LOAD
 # LTO stripped: libargp.a is linked into elfutils libdw.so, and its bundled -Werror=stack-usage=
 # fires during ltrans re-compile of argp-help.c. Build argp without LTO so consumers can link cleanly.
 ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections"
@@ -1664,6 +1847,7 @@ RUN gcc ${CFLAGS} -fPIC -I. \
 ## musl-obstack — provides obstack functions for musl (required by elfutils configure)
 FROM rsync AS obstack
 ARG JOBS
+ARG MAX_LOAD
 ENV CFLAGS="$CFLAGS -fPIC"
 COPY --from=autoconf /autoconf/ /
 COPY --from=automake /automake/ /
@@ -1680,6 +1864,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf musl-obstack.tar.gz && mv musl-o
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
 ARG JOBS
+ARG MAX_LOAD
 # elfutils must NOT use LTO: lto-wrapper re-invokes make with elfutils' own -Werror=stack-usage=
 # which causes argp-help.c to fail with "stack usage might be unbounded".
 # Docker ENV does not support bash ${VAR//pat/sub} substitution, so set flags directly.
@@ -1724,6 +1909,7 @@ RUN rm -rf /elfutils/usr/share
 
 FROM rsync AS diffutils
 ARG JOBS
+ARG MAX_LOAD
 RUN mkdir -p /diffutils
 COPY --from=sources-downloader /sources/downloads/diffutils.tar.xz /sources/
 COPY --from=perl /perl/ /
@@ -1734,12 +1920,13 @@ WORKDIR /sources/diffutils
 ENV CFLAGS="${CFLAGS:-} -Dnullptr=NULL"
 # Set HOST to TARGET for cross compiling to avoid it trying to run tests
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --libdir=/usr/lib --host=${HOST}
-RUN make -s -j${JOBS} -l${MAX_LOAD} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} DESTDIR=/diffutils install
-RUN make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} BUILD_CC=gcc CC="${CC:-gcc}" lib=lib prefix=/usr GOLANG=no DESTDIR=/diffutils
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/diffutils install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM rsync AS libkcapi
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=autoconf /autoconf/ /
 COPY --from=automake /automake/ /
 COPY --from=libtool /libtool/ /
@@ -1758,7 +1945,7 @@ RUN tar -xf libkcapi.tar.gz && mv libkcapi-* libkcapi
 WORKDIR /sources/libkcapi
 RUN autoreconf -i
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --disable-static --enable-shared --disable-werror --enable-kcapi-hasher --disable-lib-kdf --disable-lib-sym --disable-lib-aead --disable-lib-rng
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install LIBDIR=lib BINDIR=/bin DESTDIR=/libkcapi
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install LIBDIR=lib BINDIR=/bin DESTDIR=/libkcapi
 RUN ln -s kcapi-hasher /libkcapi/usr/bin/sha512hmac
 RUN rm -Rf /libkcapi/usr/share /libkcapi/usr/lib/pkgconfig /libkcapi/usr/include /libkcapi/usr/libexec /libkcapi/usr/lib/*.la
 
@@ -1766,6 +1953,7 @@ RUN rm -Rf /libkcapi/usr/share /libkcapi/usr/lib/pkgconfig /libkcapi/usr/include
 # which means we can drop cmake buiilding which is very slow and heavy
 FROM rsync AS cmake
 ARG JOBS
+ARG MAX_LOAD
 # Disable lto for cmake as it gives us nothing but issues
 ENV CFLAGS="${CFLAGS//-flto=auto/}"
 ENV LDFLAGS="${LDFLAGS//-flto=auto/}"
@@ -1779,12 +1967,13 @@ RUN tar -xf cmake.tar.gz && mv cmake-* cmake
 WORKDIR /sources/cmake
 
 RUN ./bootstrap --prefix=/usr --no-debugger  --parallel=${JOBS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cmake
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/cmake
 
 ## libbpf — required by pahole; dwarves upstream ships it as a git submodule which the
 ## GitHub tarball omits, so we build the standalone release and enable LIBBPF_EMBEDDED=OFF.
 FROM rsync AS libbpf
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=elfutils /elfutils/ /
 COPY --from=zlib /zlib/ /
 COPY --from=pkgconfig /pkgconfig/ /
@@ -1802,6 +1991,7 @@ RUN cp -a /libbpf/usr/. /usr/
 ## pahole (dwarves) — required by the kernel to generate BTF from DWARF debug info
 FROM fts AS pahole
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=cmake /cmake/ /
 COPY --from=openssl /openssl/ /
 COPY --from=elfutils /elfutils/ /
@@ -1831,6 +2021,7 @@ RUN rm -rf /pahole/usr/include
 ## kernel
 FROM rsync AS kernel-base
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 
@@ -1917,6 +2108,7 @@ RUN if [ ${ARCH} = "aarch64" ] ; then \
 
 FROM kernel-${KERNEL_TYPE} AS kernel-build
 ARG JOBS
+ARG MAX_LOAD
 WORKDIR /sources/kernel
 # This only builds the kernel
 # Linux 7.0 added __attribute_const__ to include/uapi/linux/swab.h. That macro is defined in
@@ -1926,13 +2118,13 @@ WORKDIR /sources/kernel
 RUN hcflags='-D__attribute_const__=' && \
     if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 make olddefconfig; \
-    ARCH=arm64 make -s -j${JOBS} -l${MAX_LOAD} HOSTCFLAGS="$hcflags" Image; \
+    ARCH=arm64 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
     elif [ ${ARCH} = "riscv64" ]; then \
     ARCH=riscv make olddefconfig; \
-    ARCH=riscv make -s -j${JOBS} -l${MAX_LOAD} HOSTCFLAGS="$hcflags" Image; \
+    ARCH=riscv make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
     else \
     ARCH=x86_64 make olddefconfig; \
-    ARCH=x86_64 make -s -j${JOBS} -l${MAX_LOAD} HOSTCFLAGS="$hcflags" bzImage; \
+    ARCH=x86_64 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" bzImage; \
     fi
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
@@ -1989,17 +2181,18 @@ RUN hcflags='-D__attribute_const__=' && \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} -l${MAX_LOAD} HOSTCFLAGS="$hcflags" modules
+    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     elif [ ${ARCH} = "riscv64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${JOBS} -l${MAX_LOAD} modules_install
+    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
+ARG MAX_LOAD
 WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
@@ -2008,7 +2201,7 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi; make -s -j${JOBS} -l${MAX_LOAD} headers_install INSTALL_HDR_PATH=/linux-headers
+    fi; make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} headers_install INSTALL_HDR_PATH=/linux-headers
 
 FROM kernel-modules AS kernel-misc
 WORKDIR /output/
@@ -2023,6 +2216,7 @@ RUN cp /sources/kernel/Module.symvers /output/Module.symvers
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 
 # Use coreutils for install as it needs ln to support relative symlinks
@@ -2039,11 +2233,12 @@ WORKDIR /sources
 RUN tar -xf kbd.tar.gz && mv kbd-* kbd
 WORKDIR /sources/kbd
 RUN ./configure --quiet --prefix=/usr --disable-tests --disable-vlock -enable-libkeymap --enable-libkfont --disable-nls
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/kbd
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/kbd
 
 ## strace
 FROM rsync AS strace
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=gawk /gawk/ /
 COPY --from=sources-downloader /sources/downloads/strace.tar.xz /sources/
 RUN mkdir -p /strace
@@ -2051,7 +2246,7 @@ WORKDIR /sources
 RUN tar -xf strace.tar.xz && mv strace-* strace
 WORKDIR /sources/strace
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-mpers=check
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/strace
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/strace
 
 ## ncurses — `less` refuses to configure without a terminal library and
 ## this image has never shipped one, so build the narrowest thing that
@@ -2074,6 +2269,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## ssh from a graphical terminal, and the two multiplexers.
 FROM rsync AS ncurses
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/ncurses.tar.gz /sources/
 RUN mkdir -p /ncurses
 WORKDIR /sources
@@ -2089,7 +2285,7 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
         --without-debug \
         --without-manpages \
         --without-tests
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/ncurses-full
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/ncurses-full
 RUN mkdir -p /ncurses/usr/include /ncurses/usr/lib && \
     cp -a /ncurses-full/usr/lib/libtinfo.so* /ncurses/usr/lib/ && \
     cp -a /ncurses-full/usr/include/*.h /ncurses/usr/include/ && \
@@ -2113,6 +2309,7 @@ COPY --from=ncurses /ncurses/usr/share/terminfo/ /usr/share/terminfo/
 ## the SYSTEMD_COLORS=0 fallback in /etc/profile.d.
 FROM rsync AS less
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=ncurses /ncurses/ /
 COPY --from=sources-downloader /sources/downloads/less.tar.gz /sources/
 RUN mkdir -p /less
@@ -2120,23 +2317,25 @@ WORKDIR /sources
 RUN tar -xf less.tar.gz && mv less-* less
 WORKDIR /sources/less
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/less && \
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/less && \
     rm -rf /less/usr/share/man
 
 ## libmnl
 FROM rsync AS libmnl
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/libmnl.tar.bz2 /sources/
 RUN mkdir -p /libmnl
 WORKDIR /sources
 RUN tar -xf libmnl.tar.bz2 && mv libmnl-* libmnl
 WORKDIR /sources/libmnl
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libmnl
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libmnl
 
 ## libnftnl
 FROM rsync AS libnftnl
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnftnl.tar.xz /sources/
@@ -2145,11 +2344,12 @@ WORKDIR /sources
 RUN tar -xf libnftnl.tar.xz && mv libnftnl-* libnftnl
 WORKDIR /sources/libnftnl
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnftnl
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnftnl
 
 ## iptables
 FROM rsync AS iptables
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=libnftnl /libnftnl/ /
 COPY --from=libcap /libcap /libcap
@@ -2165,11 +2365,12 @@ WORKDIR /sources/iptables
 RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions/*.c
 
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables  --disable-legacy-utils --disable-bpf-compiler --disable-nfs --disable-libipq
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/iptables
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/iptables
 
 ## libnfnetlink (low-level netlink helper used by the libnetfilter_* libs)
 FROM rsync AS libnfnetlink
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnfnetlink.tar.bz2 /sources/
 RUN mkdir -p /libnfnetlink
@@ -2177,11 +2378,12 @@ WORKDIR /sources
 RUN tar -xf libnfnetlink.tar.bz2 && mv libnfnetlink-* libnfnetlink
 WORKDIR /sources/libnfnetlink
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnfnetlink
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnfnetlink
 
 ## libnetfilter_conntrack (conntrack object/netlink library used by conntrack-tools)
 FROM rsync AS libnetfilter_conntrack
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=libnfnetlink /libnfnetlink/ /
 COPY --from=pkgconfig /pkgconfig/ /
@@ -2191,11 +2393,12 @@ WORKDIR /sources
 RUN tar -xf libnetfilter_conntrack.tar.xz && mv libnetfilter_conntrack-* libnetfilter_conntrack
 WORKDIR /sources/libnetfilter_conntrack
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_conntrack
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnetfilter_conntrack
 
 ## libnetfilter_cttimeout (connection-tracking timeout policy library used by conntrackd)
 FROM rsync AS libnetfilter_cttimeout
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_cttimeout.tar.bz2 /sources/
@@ -2204,11 +2407,12 @@ WORKDIR /sources
 RUN tar -xf libnetfilter_cttimeout.tar.bz2 && mv libnetfilter_cttimeout-* libnetfilter_cttimeout
 WORKDIR /sources/libnetfilter_cttimeout
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_cttimeout
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnetfilter_cttimeout
 
 ## libnetfilter_cthelper (user-space conntrack helper library used by conntrackd)
 FROM rsync AS libnetfilter_cthelper
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/libnetfilter_cthelper.tar.bz2 /sources/
@@ -2217,11 +2421,12 @@ WORKDIR /sources
 RUN tar -xf libnetfilter_cthelper.tar.bz2 && mv libnetfilter_cthelper-* libnetfilter_cthelper
 WORKDIR /sources/libnetfilter_cthelper
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_cthelper
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnetfilter_cthelper
 
 ## libnetfilter_queue (packet-queueing library used by conntrack-tools)
 FROM rsync AS libnetfilter_queue
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=libnfnetlink /libnfnetlink/ /
 COPY --from=pkgconfig /pkgconfig/ /
@@ -2231,13 +2436,14 @@ WORKDIR /sources
 RUN tar -xf libnetfilter_queue.tar.bz2 && mv libnetfilter_queue-* libnetfilter_queue
 WORKDIR /sources/libnetfilter_queue
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnetfilter_queue
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnetfilter_queue
 
 ## libaio for lvm2
 FROM rsync AS libaio
 # remove -lto from CFLAGS as it causes issues building libaio
 ENV CFLAGS="${CFLAGS//-flto=auto/}"
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
 COPY --from=sources-downloader /sources/downloads/libaio.tar.gz /sources/
@@ -2247,13 +2453,14 @@ RUN tar -xf libaio.tar.gz && mv libaio-* libaio
 WORKDIR /sources/libaio
 # Avoid building the static libaio.a as we only need the shared one
 RUN sed -i '/install.*libaio.a/s/^/#/' src/Makefile
-RUN make -j${JOBS} -l${MAX_LOAD}
-RUN DESTDIR=/libaio make -j${JOBS} -l${MAX_LOAD} install
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN DESTDIR=/libaio make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## lvm2 for dmsetup, devmapper and so on
 ## TODO: build it with systemd support
 FROM rsync AS lvm2
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libaio /libaio/ /
 COPY --from=readline /readline/ /
@@ -2280,10 +2487,11 @@ RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --with-optimi
 #   [INSTALL] dmsetup
 #   ln: /lvm2/usr/sbin/dmstats: File exists
 # `-j1` on install only costs a second or two.
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j1 install_device-mapper DESTDIR=/lvm2
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j1 install_device-mapper DESTDIR=/lvm2
 
 FROM rsync AS jsonc
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=cmake /cmake/ /
 COPY --from=bash /bash /bash
 RUN rsync -aHAX --keep-dirlinks  /bash/. /
@@ -2296,11 +2504,12 @@ WORKDIR /sources
 RUN tar -xf json-c.tar.gz && mv json-c-* jsonc
 WORKDIR /sources/jsonc-build/
 RUN cmake ../jsonc -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_BUILD_TYPE=release -DBUILD_STATIC_LIBS=OFF -DCMAKE_C_FLAGS="${CFLAGS}" -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}" -DCMAKE_INSTALL_LIBDIR=lib
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/jsonc && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/jsonc && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 # pax-utils provives scanelf which lddconfig needs
 FROM python-build AS pax-utils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/pax-utils.tar.gz /sources/
 RUN mkdir -p /pax-utils
 WORKDIR /sources
@@ -2314,6 +2523,7 @@ RUN ninja -j${JOBS} -C buildDir install
 # Build URCU static as its only used by multipathd and never reused again, we can save space this way
 FROM rsync AS urcu
 ARG JOBS
+ARG MAX_LOAD
 ENV CFLAGS="${CFLAGS} -fPIC"
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libcap /libcap /libcap
@@ -2326,11 +2536,12 @@ RUN mkdir -p /urcu
 RUN tar -xf urcu.tar.bz2 && mv userspace-rcu-* urcu
 WORKDIR /sources/urcu
 RUN ./configure --quiet --prefix=/usr --host=${TARGET} --build=${BUILD} --enable-lto --disable-shared --enable-static --sysconfdir=/etc --mandir=/usr/share/man --infodir=/usr/share/info --localstatedir=/var
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/urcu && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/urcu && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## e2fsprogs for mkfs.ext4, e2fsck, tune2fs, etc
 FROM rsync AS e2fsprogs
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=util-linux /util-linux /util-linux
 RUN rsync -aHAX --keep-dirlinks  /util-linux/. /
@@ -2341,21 +2552,23 @@ WORKDIR /sources
 RUN tar -xf e2fsprogs.tar.xz && mv e2fsprogs-* e2fsprogs
 WORKDIR /sources/e2fsprogs
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-uuidd --disable-libuuid --disable-libblkid --disable-nls --enable-elf-shlibs  --disable-fsck --enable-symlink-install --disable-more
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/e2fsprogs && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/e2fsprogs && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## Provides mkfs.fat and fsck.fat
 FROM rsync AS dosfstools
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/dosfstools.tar.gz /sources/
 RUN mkdir -p /dosfstools
 WORKDIR /sources
 RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dosfstools
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/dosfstools
 
 FROM rsync AS libxml
 ARG JOBS
+ARG MAX_LOAD
 RUN mkdir -p /libxml
 COPY --from=pkgconfig /pkgconfig/ /
 
@@ -2364,7 +2577,7 @@ WORKDIR /sources
 RUN tar -xf libxml2.tar.xz && mv libxml2-* libxml2
 WORKDIR /sources/libxml2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-python
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libxml
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libxml
 
 ## bsd-compat-headers - <sys/queue.h>, <sys/cdefs.h>, <sys/tree.h>. musl does
 ## not ship these BSD compatibility headers; Alpine packages them as the
@@ -2387,6 +2600,7 @@ RUN install -Dm644 -t /bsd-compat-headers/usr/include/sys \
 ## stage above for the source of those.
 FROM rsync AS libtirpc
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=bsd-compat-headers /bsd-compat-headers/ /
 
@@ -2405,13 +2619,14 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --disable-gssapi \
       --disable-authdes \
       --enable-rpcdb
-RUN make -s -j${JOBS} -l${MAX_LOAD}
-RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libtirpc
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libtirpc
 
 ## conntrack-tools (conntrack + conntrackd binaries). Defined after libtirpc
 ## because conntrackd's RPC sync support requires it at configure time.
 FROM rsync AS conntrack-tools
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
 COPY --from=libnfnetlink /libnfnetlink/ /
 COPY --from=libnetfilter_conntrack /libnetfilter_conntrack/ /
@@ -2428,7 +2643,7 @@ WORKDIR /sources
 RUN tar -xf conntrack-tools.tar.xz && mv conntrack-tools-* conntrack-tools
 WORKDIR /sources/conntrack-tools
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/conntrack-tools
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/conntrack-tools
 
 ## procps-ng — provides the sysctl(8) CLI. systemd-sysctl only applies
 ## drop-in config files (it cannot read/list/set keys at runtime) and is
@@ -2440,6 +2655,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ## keep sysctl.
 FROM rsync AS procps-ng
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/procps-ng.tar.xz /sources/
 WORKDIR /sources
@@ -2452,8 +2668,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --without-systemd \
       --disable-kill \
       --disable-pidof
-RUN make -s -j${JOBS} -l${MAX_LOAD}
-RUN make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/procps-ng-full
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/procps-ng-full
 ## Keep only the sysctl binary (location varies by usrmerge layout)
 RUN mkdir -p /procps-ng/usr/sbin && \
     cp "$(find /procps-ng-full -type f -name sysctl | head -n1)" /procps-ng/usr/sbin/sysctl
@@ -2464,6 +2680,7 @@ RUN mkdir -p /procps-ng/usr/sbin && \
 ## build; --disable-cli drops the libnl CLI utilities we don't ship.
 FROM rsync AS libnl
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=flex /flex/ /
 COPY --from=m4 /m4/ /
@@ -2477,13 +2694,14 @@ WORKDIR /sources/libnl
 RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --sysconfdir=/etc \
       --disable-cli
-RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libnl
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} \
+ && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libnl
 
 ## libevent - async event notification library. Hard build-time dep of
 ## nfs-utils (used by sm-notify and by the new netlink-based daemons).
 FROM rsync AS libevent
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=openssl /openssl/ /
 
@@ -2496,8 +2714,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
       --sysconfdir=/etc \
       --disable-samples \
       --disable-libevent-regress
-RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/libevent
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} \
+ && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libevent
 
 ## keyutils - kernel keyring API + libkeyutils.so. Required by nfs-utils'
 ## nfsidmap binary, which the kernel calls via request-key for NFSv4 ID
@@ -2506,12 +2724,13 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} \
 ## here so the later nfs-utils build finds libkeyutils via pkg-config.
 FROM rsync AS keyutils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/keyutils.tar.gz /sources/
 RUN mkdir -p /keyutils
 WORKDIR /sources
 RUN tar -xf keyutils.tar.gz && mv keyutils-* keyutils
 WORKDIR /sources/keyutils
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/keyutils LIBDIR=/usr/lib
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/keyutils LIBDIR=/usr/lib
 
 ## nfs-utils - provides mount.nfs / mount.nfs4 host helpers required by
 ## `mount -t nfs`. Without them, Longhorn RWX (and any other in-cluster NFS
@@ -2535,6 +2754,7 @@ RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install D
 ##                            requiring a host one (Alpine builder has none).
 FROM rsync AS nfs-utils
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libtirpc /libtirpc/ /
 COPY --from=libnl /libnl/ /
@@ -2609,8 +2829,8 @@ RUN if ! grep -q '^#include <stddef\.h>' support/nfs/getport.c; then \
         sed -i '/^#include <errno\.h>/a #include <stddef.h>' support/nfs/getport.c; \
     fi
 
-RUN make -s -j${JOBS} -l${MAX_LOAD} \
- && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/nfs-utils
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} \
+ && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/nfs-utils
 
 # Trim to client-only. nfs-utils ships several server-side and NFSv3-only
 # binaries that aren't useful on a Hadron node and only drag libnl,
@@ -2640,9 +2860,58 @@ RUN rm -f \
       /nfs-utils/sbin/rpc.idmapd \
       /nfs-utils/sbin/rpcctl
 
+FROM rsync AS audit
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=autoconf /autoconf/ /
+COPY --from=automake /automake/ /
+COPY --from=libtool /libtool/ /
+COPY --from=m4 /m4/ /
+COPY --from=perl /perl/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/audit.tar.gz /sources/
+COPY patches/0001-audit-syslog-plugin-include-unistd.patch /sources/
+RUN mkdir -p /audit
+WORKDIR /sources
+RUN tar -xf audit.tar.gz && mv audit-userspace-* audit
+WORKDIR /sources/audit
+RUN patch -p1 < /sources/0001-audit-syslog-plugin-include-unistd.patch
+RUN autoreconf -fi
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+    --prefix=/usr \
+    --sbindir=/sbin \
+    --libdir=/usr/lib \
+    --sysconfdir=/etc \
+    --localstatedir=/var \
+    --runstatedir=/run \
+    --disable-dependency-tracking \
+    --disable-zos-remote \
+    --disable-listener \
+    --disable-gssapi-krb5 \
+    --disable-legacy-actions \
+    --without-python3 \
+    --without-golang \
+    --without-libcap-ng \
+    --without-io_uring \
+    --without-apparmor \
+    ## Keep 32-bit ARM table enabled: CIS Section 4 rules are shipped as
+    ## arch=b64/arch=b32 pairs, and on aarch64 arch=b32 resolves to
+    ## AUDIT_ARCH_ARM at userspace rule-parse time.
+    --with-arm \
+    --with-aarch64 \
+    --with-riscv
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/audit install
+RUN mkdir -p /audit/etc/audit/rules.d
+RUN install -d -m 0700 /audit/var/log/audit
+## Drop upstream example rule templates and audit aclocal macros.
+RUN rm -rf /audit/usr/share/audit-rules \
+ && rm -f /audit/usr/share/aclocal/*audit*.m4
+
 ## No need to have systemd support, systemd-cryptsetup picks cryptsetup directly
 FROM rsync AS cryptsetup
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=lvm2 /lvm2/ /
 COPY --from=openssl /openssl/ /
@@ -2669,10 +2938,11 @@ WORKDIR /sources/cryptsetup
 # Still, its not certified and building with the flag AND openssl will still give you a cryptsetupt hat reports as FIPS capable
 # while its not, so we avoid confusion and just build without fips support at all here.
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-crypto-backend=openssl --disable-asciidoc  --disable-nls --disable-ssh-token
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/cryptsetup
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/cryptsetup
 
 FROM rsync AS parted
 ARG JOBS
+ARG MAX_LOAD
 ## device-mapper from lvm2
 COPY --from=lvm2 /lvm2/ /
 
@@ -2687,7 +2957,7 @@ WORKDIR /sources
 RUN tar -xf parted.tar.xz && mv parted-* parted
 WORKDIR /sources/parted
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/parted && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/parted && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## grub for bootloader installation
 FROM python-build AS grub-base
@@ -2713,6 +2983,7 @@ WORKDIR /sources/grub
 
 FROM grub-base AS grub-efi
 ARG JOBS
+ARG MAX_LOAD
 # Remove --gc-sections from CFLAGS
 ARG CFLAGS="${CFLAGS//-Wl,--gc-sections/}"
 ARG LDFLAGS="${LDFLAGS//-Wl,--gc-sections/}"
@@ -2726,8 +2997,8 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --
 # This comes because on grub 2.14 these files are shipped pre-generated and they were built on a glibc system
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
-RUN make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install-strip DESTDIR=/grub-efi
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C grub-core/lib/gnulib
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install-strip DESTDIR=/grub-efi
 # The prefix should be empty so grub can find its config next to the efi file
 RUN if [ "${ARCH}" = "aarch64" ]; then \
 		grub_format="arm64-efi"; \
@@ -2749,6 +3020,7 @@ RUN if [ "${ARCH}" = "aarch64" ]; then \
 
 FROM grub-base AS grub-bios
 ARG JOBS
+ARG MAX_LOAD
 # Remove --gc-sections from CFLAGS
 ARG CFLAGS="${CFLAGS//-Wl,--gc-sections/}"
 ARG LDFLAGS="${LDFLAGS//-Wl,--gc-sections/}"
@@ -2763,7 +3035,7 @@ RUN if [ "${ARCH}" = "x86-64" ]; then ./configure ${COMMON_CONFIGURE_ARGS} --wit
 # This comes because on grub 2.14 these files are shipped pre-generated and they were built on a glibc system
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
-RUN if [ "${ARCH}" = "x86-64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-core/lib/gnulib;fi
+RUN if [ "${ARCH}" = "x86-64" ]; then make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C grub-core/lib/gnulib;fi
 # GRUB 2.14 + binutils >= 2.4x regression (musl toolchain): force -Ttext instead of --image-base
 #
 # Symptom:
@@ -2791,8 +3063,8 @@ RUN if [ "${ARCH}" = "x86-64" ]; then make -s -j${JOBS} -l${MAX_LOAD} -C grub-co
 #   Pass TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' on the make/make install invocations that produce/install i386-pc images.
 
 RUN if [ "${ARCH}" = "x86-64" ]; then \
-    make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
-    make -s -j${JOBS} -l${MAX_LOAD} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} TARGET_IMG_BASE_LDOPT='-Wl,-Ttext' install-strip DESTDIR=/grub-bios ; \
     fi
 # Test the mkimage generation in case we have a misalignment on the kernel.img start entry point
 RUN if [ "${ARCH}" = "x86-64" ]; then \
@@ -2806,16 +3078,18 @@ RUN if [ "${ARCH}" = "x86-64" ]; then \
 # libiconv for shim build only, NOT NEEDED IN THE FINAL BUILD
 FROM rsync AS iconv
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/libiconv.tar.gz /sources/
 RUN mkdir -p /iconv
 WORKDIR /sources
 RUN tar -xf libiconv.tar.gz && mv libiconv-* iconv
 WORKDIR /sources/iconv
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-static --enable-shared
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/iconv
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/iconv
 
 FROM rsync AS shim
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libelf /libelf/ /
 COPY --from=iconv /iconv/ /
 COPY --from=sources-downloader /sources/downloads/shim.tar.bz2 /sources/
@@ -2837,7 +3111,7 @@ RUN patch -p1 < 0001-shim-gnu-efi-grouped-target.patch
 # TEMP workaround, we should add our paths into the sdk so agent and aurora both search for the proper shim path
 # Skip shim build for RISC-V as it doesn't have Secure Boot support yet
 RUN if [ "${ARCH}" != "riscv64" ]; then \
-    make -s -j${JOBS} -l${MAX_LOAD} EFIDIR=hadron ARCH=${BUILD_ARCH} DESTDIR=/tmp/shim install; \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} EFIDIR=hadron ARCH=${BUILD_ARCH} DESTDIR=/tmp/shim install; \
     fi
 RUN if [ ${ARCH} = "aarch64" ] ; then \
     mkdir -p /shim/usr/share/efi/aarch64 && cp /tmp/shim/boot/efi/EFI/BOOT/BOOTAA64.EFI /shim/usr/share/efi/aarch64/shim.efi ; \
@@ -2849,6 +3123,7 @@ RUN if [ ${ARCH} = "aarch64" ] ; then \
 
 FROM rsync AS tpm2-tss
 ARG JOBS
+ARG MAX_LOAD
 RUN mkdir -p /tpm2-tss
 
 COPY --from=pkgconfig /pkgconfig/ /
@@ -2872,10 +3147,11 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}     --disable-fapi \
                                              --disable-tcti-swtpm \
                                              --disable-tcti-libusb \
                                              --disable-tcti-pcap
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/tpm2-tss
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/tpm2-tss
 
 FROM rsync AS libucontext
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=sources-downloader /sources/downloads/libucontext.tar.gz /sources/
 RUN mkdir -p /libucontext
 WORKDIR /sources
@@ -3007,6 +3283,7 @@ RUN DESTDIR=/systemd ninja -C buildDir install
 
 FROM rsync AS dracut
 ARG JOBS
+ARG MAX_LOAD
 
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=bash /bash /bash
@@ -3035,13 +3312,14 @@ WORKDIR /sources/dracut
 ## TODO: Fix this, it should be set everywhere already?
 ENV CC=gcc
 RUN ./configure --disable-asciidoctor --disable-documentation --prefix=/usr
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/dracut
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/dracut
 
 ## lvm2 for dmsetup, devmapper and so on
 ## We need to build it with systemd support so we can use it later with systemd rules and so on
 ## This helps when a device is unlocked to makle the mapper show the device right away
 FROM rsync AS lvm2-systemd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libaio /libaio/ /
 COPY --from=readline /readline/ /
@@ -3069,11 +3347,12 @@ WORKDIR /sources/lvm2
 # patch it
 RUN patch -p1 < /sources/patches/aport/main/lvm2/fix-stdio-usage.patch
 RUN ./configure --prefix=/usr --libdir=/usr/lib --enable-pkgconfig --enable-udev_sync --enable-udev_rules --with-udevdir=/usr/lib/udev/rules.d --enable-dmeventd
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/lvm2 && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/lvm2 && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## needed for dracut and other tools
 FROM rsync AS multipath-tools
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 # devmapper
 COPY --from=lvm2-systemd /lvm2/ /
@@ -3109,14 +3388,15 @@ RUN tar -xf multipath-tools.tar.gz && mv multipath-tools-* multipath-tools
 WORKDIR /sources/multipath-tools
 ENV CC="gcc"
 # Set lib to /lib so it works in initramfs as well
-RUN make -s -j${JOBS} -l${MAX_LOAD} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
-RUN make -s -j${JOBS} -l${MAX_LOAD} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
-RUN make -s -j${JOBS} -l${MAX_LOAD} LIB=/lib install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} sysconfdir="/etc" configdir="/etc/multipath/conf.d" LIB=/lib
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} SYSTEMDPATH=/lib LIB=/lib install DESTDIR=/multipath-tools
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} LIB=/lib install
 RUN rm -Rf /multipath/usr/share/man
 
 ## dbus second pass pass with systemd support, so we can have a working systemd and dbus
 FROM python-build AS dbus-systemd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=expat /expat/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=systemd /systemd/ /
@@ -3136,6 +3416,7 @@ RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=openssl /openssl/ /
 COPY --from=readline /readline/ /
@@ -3163,6 +3444,7 @@ RUN chmod 644 /pam/etc/shells
 # Shadow with systemd support via PAM
 FROM shadow-base AS shadow-systemd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pam-systemd /pam/ /
 COPY --from=libucontext /libucontext/ /
 COPY --from=systemd /systemd/ /
@@ -3172,7 +3454,7 @@ WORKDIR /sources
 RUN tar -xf shadow.tar.xz && mv shadow-* shadow
 WORKDIR /sources/shadow
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --without-libbsd --disable-nls
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} exec_prefix=/usr pamddir= install DESTDIR=/shadow && make exec_prefix=/usr pamddir= -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM rsync AS sudo-base
 
@@ -3184,6 +3466,7 @@ COPY --from=pax-utils /pax-utils/ /
 
 FROM sudo-base AS sudo-systemd
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pam-systemd /pam/ /
 COPY --from=libucontext /libucontext/ /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
@@ -3192,10 +3475,11 @@ WORKDIR /sources
 RUN tar -xf sudo.tar.gz && mv sudo-* sudo
 WORKDIR /sources/sudo
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --disable-nls --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/sudo && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/sudo && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM sudo-base AS sudo
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pam /pam/ /
 COPY --from=sources-downloader /sources/downloads/sudo.tar.gz /sources/
 RUN mkdir -p /sudo
@@ -3203,10 +3487,11 @@ WORKDIR /sources
 RUN tar -xf sudo.tar.gz && mv sudo-* sudo
 WORKDIR /sources/sudo
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --libexecdir=/usr/lib --with-pam --disable-nls --with-secure-path --with-env-editor --with-passprompt="[sudo] password for %p: "
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/sudo && make -s -j${JOBS} -l${MAX_LOAD} install
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/sudo && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 FROM python-build AS openscsi
 ARG JOBS
+ARG MAX_LOAD
 # Wee need cmake, libkmod, liblzma, mount, systemd, perl
 COPY --from=cmake /cmake/ /
 COPY --from=kmod /kmod/ /
@@ -3230,16 +3515,18 @@ RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C 
 
 FROM rsync AS bc
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=readline /readline/ /
 COPY --from=sources-downloader /sources/downloads/bc.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf bc.tar.xz && mv bc-* bc
 WORKDIR /sources/bc
 RUN ./configure --prefix=/usr -G -Os -N
-RUN make -s -j${JOBS} -l${MAX_LOAD} && make -s -j${JOBS} -l${MAX_LOAD} install DESTDIR=/bc
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/bc
 
 FROM rsync AS pcre2
 ARG JOBS
+ARG MAX_LOAD
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/pcre2.tar.gz /sources/
 RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
@@ -3250,6 +3537,7 @@ RUN make -s -j${JOBS} install DESTDIR=/pcre2
 
 FROM python-build AS glib2
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pcre2 /pcre2/ /
 COPY --from=libffi /libffi/ /
 WORKDIR /sources
@@ -3266,6 +3554,7 @@ RUN DESTDIR=/glib2 ninja -C buildDir install
 
 FROM automake AS libmspack
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=libtool /libtool/ /
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/mspack.tar.gz /sources/
@@ -3281,6 +3570,7 @@ RUN make -s -j${JOBS} install DESTDIR=/libmspack
 # qemu-ga — only the guest agent target
 FROM python-build AS qemu-guest-agent
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pcre2 /pcre2/ /
 COPY --from=libffi /libffi/ /
 COPY --from=glib2 /glib2/ /
@@ -3325,6 +3615,7 @@ RUN install -Dm644 contrib/systemd/qemu-guest-agent.service /output/usr/lib/syst
 # requires python3 for some after-install scripts
 FROM python-build AS open-vm-tools-build
 ARG JOBS
+ARG MAX_LOAD
 COPY --from=pcre2 /pcre2/ /
 COPY --from=libffi /libffi/ /
 COPY --from=glib2 /glib2/ /
@@ -3683,7 +3974,7 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 # Container base image, it has the minimal required to run as a container
 # ------------------------------------------------------------------------------
 # Component version manifests (container.json, full-image-*.json) are
-# generated on the host by hack/render.sh, one file per variant, in
+# generated on the host by hack/gen-manifests.sh, one file per variant, in
 # gen/components/. The final images below COPY the appropriate file
 # straight into /usr/lib/hadron/components.json.
 # ------------------------------------------------------------------------------
@@ -3704,7 +3995,7 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     fi
 # Set the version here as otherwise its easy to invalidate the cache with a version change
 RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
-# Per-image component manifest (generated on the host by hack/render.sh).
+# Per-image component manifest (generated on the host by hack/gen-manifests.sh).
 COPY gen/components/container.json /usr/lib/hadron/components.json
 CMD ["/bin/bash", "-l"]
 
@@ -3814,6 +4105,8 @@ COPY --from=xz /xz/ /skeleton/
 COPY --from=tpm2-tss /tpm2-tss/ /skeleton/
 
 COPY --from=libcap /libcap/ /skeleton/
+
+COPY --from=audit /audit/ /skeleton/
 
 ## Real `less`, replacing the busybox applet — see kairos-io/kairos#3815.
 ## libtinfo and its terminfo entries come along because less links them;
@@ -4092,7 +4385,7 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
-# Per-image component manifest (generated on the host by hack/render.sh).
+# Per-image component manifest (generated on the host by hack/gen-manifests.sh).
 # The four variants (fips/no-fips x grub/systemd) each get their own
 # pre-generated file; ARG interpolation in COPY picks the right one.
 ARG FIPS
