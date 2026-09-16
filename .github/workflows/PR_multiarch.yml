@@ -91,7 +91,7 @@ jobs:
   # to help once anything mid-way is edited.
 
   stage0-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: populate-sources
     permissions:
       contents: read
@@ -134,7 +134,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage0-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   stage1-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [stage0-amd64]
     permissions:
       contents: read
@@ -179,7 +179,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   rsync-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [stage1-amd64]
     permissions:
       contents: read
@@ -226,7 +226,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-rsync-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   cmake-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -275,7 +275,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-cmake-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   kernel-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -329,7 +329,7 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
 
   systemd-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -378,7 +378,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   python-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -436,7 +436,7 @@ jobs:
   # to help once anything mid-way is edited.
 
   stage0-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: populate-sources
     permissions:
       contents: read
@@ -482,7 +482,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   stage1-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: [stage0-arm64]
     permissions:
       contents: read
@@ -530,7 +530,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   rsync-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [stage1-arm64]
     permissions:
       contents: read
@@ -580,7 +580,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   cmake-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: [rsync-arm64]
     permissions:
       contents: read
@@ -632,7 +632,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   kernel-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -688,7 +688,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   systemd-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [rsync-arm64]
     permissions:
       contents: read
@@ -740,7 +740,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   python-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [rsync-arm64]
     permissions:
       contents: read
@@ -793,7 +793,7 @@ jobs:
 
 
   toolchain-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
@@ -858,7 +858,7 @@ jobs:
           target: toolchain
 
   toolchain-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
@@ -925,7 +925,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   container-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs:
       - toolchain-amd64
     permissions:
@@ -1029,7 +1029,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   container-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs:
       - toolchain-arm64
     permissions:
@@ -1138,7 +1138,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   hadron-bios-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     strategy:
@@ -1259,7 +1259,7 @@ jobs:
           compression-level: 0
 
   hadron-trusted-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     strategy:

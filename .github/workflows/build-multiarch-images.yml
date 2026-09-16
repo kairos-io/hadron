@@ -45,7 +45,7 @@ jobs:
   #                                                                          container-amd64
 
   stage0-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: populate-sources
     permissions:
       packages: write
@@ -92,7 +92,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,{0}', env.CACHE_TO) || '' }}
 
   stage1-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [stage0-amd64]
     permissions:
       packages: write
@@ -140,7 +140,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,{0}', env.CACHE_TO) || '' }}
 
   rsync-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [stage1-amd64]
     permissions:
       packages: write
@@ -189,7 +189,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,{0}', env.CACHE_TO) || '' }}
 
   cmake-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -239,7 +239,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,{0}', env.CACHE_TO) || '' }}
 
   kernel-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -294,7 +294,7 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
 
   systemd-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -344,7 +344,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,{0}', env.CACHE_TO) || '' }}
 
   python-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -411,7 +411,7 @@ jobs:
   #                                                                          container-arm64
 
   stage0-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: populate-sources
     permissions:
       packages: write
@@ -461,7 +461,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   stage1-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: [stage0-arm64]
     permissions:
       packages: write
@@ -512,7 +512,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   rsync-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [stage1-arm64]
     permissions:
       packages: write
@@ -564,7 +564,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   cmake-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     needs: [rsync-arm64]
     permissions:
       packages: write
@@ -617,7 +617,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   kernel-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-32-128-arm
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -674,7 +674,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   systemd-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [rsync-arm64]
     permissions:
       packages: write
@@ -727,7 +727,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   python-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [rsync-arm64]
     permissions:
       packages: write
@@ -781,7 +781,7 @@ jobs:
 
 
   toolchain-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
@@ -843,7 +843,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
   toolchain-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
@@ -950,7 +950,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   container-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs:
       - toolchain
     permissions:
@@ -1014,7 +1014,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
   container-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs:
       - toolchain
     permissions:
@@ -1123,7 +1123,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-bios-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1196,7 +1196,7 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
   hadron-bios-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-8-32-arm
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1317,7 +1317,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-trusted-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1388,7 +1388,7 @@ jobs:
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
   hadron-trusted-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-8-32-arm
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1522,7 +1522,7 @@ jobs:
 
   stage0-riscv64:
     if: ${{ false }}
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     permissions:
       packages: write
       contents: read
@@ -1571,7 +1571,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   stage1-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [stage0-riscv64]
     permissions:
       packages: write
@@ -1622,7 +1622,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   rsync-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [stage1-riscv64]
     permissions:
       packages: write
@@ -1674,7 +1674,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   cmake-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [rsync-riscv64]
     permissions:
       packages: write
@@ -1727,7 +1727,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   kernel-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-32-128-x86
     needs: [rsync-riscv64]
     strategy:
       matrix:
@@ -1785,7 +1785,7 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
 
   systemd-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-riscv64]
     permissions:
       packages: write
@@ -1838,7 +1838,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   python-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [rsync-riscv64]
     permissions:
       packages: write
@@ -1891,7 +1891,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   toolchain-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [cmake-riscv64, kernel-riscv64, systemd-riscv64, python-riscv64]
     permissions:
       packages: write
@@ -1958,7 +1958,7 @@ jobs:
             BUILD_ARCH=riscv64
 
   container-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs: [toolchain-riscv64]
     permissions:
       packages: write
@@ -2056,7 +2056,7 @@ jobs:
   # full-image-final for why the split (and the native riscv64 runner it
   # needed) is gone.
   hadron-bios-riscv64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs: [container-riscv64]
     timeout-minutes: 360
     strategy:
