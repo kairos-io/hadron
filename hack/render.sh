@@ -112,8 +112,10 @@ def downloader(match):
             f'package {pkg!r}: no ARG {version_arg}= default in Dockerfile'
         )
     version_underscore = version.replace('.', '_')
+    version_major_minor = '.'.join(version.split('.')[:2])
     urls = [
         url.replace('${version_underscore}', version_underscore)
+           .replace('${version_major_minor}', version_major_minor)
            .replace('${version}', version)
         for url in spec['urls']
     ]

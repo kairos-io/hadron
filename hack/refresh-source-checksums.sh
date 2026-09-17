@@ -155,10 +155,18 @@ while IFS='	' read -r pkg va sha fn urls; do
         exit 1
     fi
 
+    # Same placeholders, and the same order, as hack/render.sh and
+    # .github/workflows/populate-sources.yml. All three must stay in step.
+    version_underscore=$(printf '%s\n' "$version" | tr '.' '_')
+    version_major_minor=$(printf '%s\n' "$version" | cut -d. -f1,2)
+
     out="$work/$fn"
     actual=''
     for template in $urls; do
-        url=$(printf '%s\n' "$template" | sed "s|\${version}|$version|g")
+        url=$(printf '%s\n' "$template" \
+            | sed -e "s|\${version_underscore}|$version_underscore|g" \
+                  -e "s|\${version_major_minor}|$version_major_minor|g" \
+                  -e "s|\${version}|$version|g")
         rm -f "$out"
         if curl -fsSL --retry 2 --max-time 300 "$url" -o "$out"; then
             actual=$(sha256sum "$out" | awk '{print $1}')

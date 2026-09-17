@@ -39,6 +39,11 @@
 #                Dockerfile ARG default. ${version_underscore} is the
 #                same value with dots replaced by underscores, for
 #                upstreams whose tag is R_2_8_2 rather than 2.8.2.
+#                ${version_major_minor} is the first two components,
+#                for upstreams that file releases under a 2.42/ or
+#                v2.8/ series directory. Both exist so that bumping
+#                the ARG is the only edit a version bump needs; a
+#                literal series in a URL 404s on the first bump.
 #   filename     Path the tarball lands at inside the source image
 #                (/sources/downloads/<filename>). Must match the name
 #                the Dockerfile expects downstream via COPY --from.
@@ -164,7 +169,7 @@ packages:
     version_arg: CRYPTSETUP_VERSION
     sha256: e776f0d381e86ca61042c457069491fe8e0ac286780c7c3b1e4f9921abc961da
     urls:
-      - https://cdn.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-${version}.tar.xz
+      - https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${version_major_minor}/cryptsetup-${version}.tar.xz
     filename: cryptsetup.tar.xz
 
   curl:
@@ -277,7 +282,7 @@ packages:
     version_arg: GLIB_VERSION
     sha256: 8a724e970855357ea8101e27727202392a0ffd5410a98336aed54ec59113e611
     urls:
-      - https://download.gnome.org/sources/glib/2.86/glib-${version}.tar.xz
+      - https://download.gnome.org/sources/glib/${version_major_minor}/glib-${version}.tar.xz
     filename: glib.tar.xz
 
   gmp:
@@ -478,7 +483,7 @@ packages:
     version_arg: LIBNL_VERSION
     sha256: fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18
     urls:
-      - https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-${version}.tar.gz
+      - https://github.com/thom311/libnl/releases/download/libnl${version_underscore}/libnl-${version}.tar.gz
     filename: libnl.tar.gz
 
   libseccomp:
@@ -515,7 +520,7 @@ packages:
     version_arg: LIBXML2_VERSION
     sha256: 78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07
     urls:
-      - https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
+      - https://download.gnome.org/sources/libxml2/${version_major_minor}/libxml2-${version}.tar.xz
     filename: libxml2.tar.xz
 
   linux:
@@ -839,7 +844,7 @@ packages:
     version_arg: UTIL_LINUX_VERSION
     sha256: 03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a
     urls:
-      - https://www.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-${version}.tar.xz
+      - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz
 
   xxhash:
