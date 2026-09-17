@@ -237,7 +237,12 @@ jobs:
                       break
           if not version:
               sys.exit(f'package {pkg!r}: no ARG {version_arg}= default in Dockerfile')
-          urls = [u.replace('${version}', version) for u in spec['urls']]
+          version_underscore = version.replace('.', '_')
+          urls = [
+              u.replace('${version_underscore}', version_underscore)
+               .replace('${version}', version)
+              for u in spec['urls']
+          ]
           if any(' ' in u or '\t' in u or '\n' in u for u in urls):
               sys.exit(f'package {pkg!r} URL contains whitespace, would break the fetch loop')
           filename = spec['filename']

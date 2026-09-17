@@ -111,7 +111,12 @@ def downloader(match):
         raise SystemExit(
             f'package {pkg!r}: no ARG {version_arg}= default in Dockerfile'
         )
-    urls = [url.replace('${version}', version) for url in spec['urls']]
+    version_underscore = version.replace('.', '_')
+    urls = [
+        url.replace('${version_underscore}', version_underscore)
+           .replace('${version}', version)
+        for url in spec['urls']
+    ]
     if any(any(char.isspace() for char in url) for url in urls):
         raise SystemExit(f'package {pkg!r} URL contains whitespace')
     variable = pkg.upper().replace('-', '_')

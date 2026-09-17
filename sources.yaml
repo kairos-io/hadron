@@ -36,7 +36,9 @@
 #                list; multi-mirror rings (GNU sources, for example)
 #                list all mirrors and the workflow tries them in order.
 #                ${version} is substituted at fetch time from the
-#                Dockerfile ARG default.
+#                Dockerfile ARG default. ${version_underscore} is the
+#                same value with dots replaced by underscores, for
+#                upstreams whose tag is R_2_8_2 rather than 2.8.2.
 #   filename     Path the tarball lands at inside the source image
 #                (/sources/downloads/<filename>). Must match the name
 #                the Dockerfile expects downstream via COPY --from.
@@ -227,7 +229,7 @@ packages:
     version_arg: EXPAT_VERSION
     sha256: ef7d1994f533c9e7343d6c19f31064fc8ebbcbcaa144be3812b4f43052a05f4c
     urls:
-      - https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${version}.tar.gz
+      - https://github.com/libexpat/libexpat/releases/download/R_${version_underscore}/expat-${version}.tar.gz
     filename: expat.tar.gz
 
   findutils:
