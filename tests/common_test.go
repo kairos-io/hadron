@@ -229,7 +229,7 @@ func assertSSHHardening(vm VM) {
 
 // assertSSHCrypto verifies the sshd crypto matches the image's FIPS posture and,
 // critically, that the STIG drop-in did NOT override the FIPS crypto in FIPS
-// images (it sorts before the 100-* crypto file and sshd is first-value-wins).
+// images (it sorts before the 02-* crypto file and sshd is first-value-wins).
 func assertSSHCrypto(vm VM) {
 	By("checking sshd crypto matches the FIPS posture", func() {
 		cfg, err := vm.Sudo("sshd -T")
@@ -240,11 +240,40 @@ func assertSSHCrypto(vm VM) {
 			Expect(lc).ToNot(ContainSubstring("chacha20-poly1305"), "FIPS image must not offer chacha20 (STIG drop-in must not override FIPS crypto)")
 			Expect(lc).ToNot(ContainSubstring("curve25519"), "FIPS image must not offer curve25519")
 			Expect(lc).To(ContainSubstring("kexalgorithms ecdh-sha2-nistp256"))
+			// Neither PQ hybrid is computed by the validated OpenSSL FIPS
+			// provider (sshd carries its own ML-KEM/sntrup761/X25519), so
+			// offering one here would break the FIPS claim. See the header
+			// of files/ssh/sshd_config.d/02-hadron-fips.conf.
+			for _, kex := range []string{"mlkem768x25519", "sntrup761"} {
+				Expect(lc).ToNot(ContainSubstring(kex),
+					"FIPS image must not offer the post-quantum hybrid %q: it is computed outside the validated OpenSSL FIPS module", kex)
+			}
 		} else {
 			Expect(lc).To(ContainSubstring("chacha20-poly1305"))
 			Expect(lc).To(ContainSubstring("curve25519-sha256"))
+			// The crypto drop-in pre-empts the OpenSSH default KexAlgorithms,
+			// so it has to carry a post-quantum hybrid itself. Without one,
+			// every OpenSSH 10.1+ client warns on login that the session is
+			// not using a post-quantum key exchange (kairos-io/kairos#4701).
+			kex := kexAlgorithms(lc)
+			Expect(kex).ToNot(BeEmpty(), "sshd -T reported no kexalgorithms line:\n%s", cfg)
+			Expect(kex).To(SatisfyAny(
+				ContainSubstring("mlkem768x25519-sha256"),
+				ContainSubstring("sntrup761x25519-sha512"),
+			), "non-FIPS image must offer a post-quantum hybrid key exchange, got %q", kex)
 		}
 	})
+}
+
+// kexAlgorithms returns the value of the `kexalgorithms` line from a lowercased
+// `sshd -T` dump, or "" when the dump carries no such line.
+func kexAlgorithms(lowercasedSshdT string) string {
+	for _, line := range strings.Split(lowercasedSshdT, "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "kexalgorithms "); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 // assertSysctlHardening verifies the GPOS/STIG sysctl baseline is applied on a
