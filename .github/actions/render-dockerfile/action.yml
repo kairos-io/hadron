@@ -1,25 +1,21 @@
 name: Prepare build context
 description: |
-  Two things every docker/build-push-action call needs:
+  Fork-PR only: rewrite `FROM ${SOURCES_REPO}/...` lines in the committed
+  Dockerfile with checksum-verifying upstream download stages. A fork PR
+  cannot publish source-cache images, so any version it bumps has no cache
+  tag to pull. The cache is public, though, so the fork only has to reach
+  upstream for the versions it bumps itself.
 
-  - fork-PR only: rewrite `FROM ${SOURCES_REPO}/...` lines in the
-    committed Dockerfile with checksum-verifying upstream download
-    stages. A fork PR cannot publish source-cache images, so any version
-    it bumps has no cache tag to pull. The cache is public, though, so
-    the fork only has to reach upstream for the versions it bumps
-    itself.
+  `SOURCES_REPO` is a build arg, so pointing the build at a mirror or a
+  private copy of the cache needs no rewrite at all. This step is not about
+  *where* the cache is: it replaces a `FROM <cache image>` stage with a
+  different stage that curls the tarball and checks its sha256, for versions
+  that exist in no cache anywhere.
 
-    `SOURCES_REPO` is a build arg, so pointing the build at a mirror or
-    a private copy of the cache needs no rewrite at all. This step is
-    not about *where* the cache is: it replaces a `FROM <cache image>`
-    stage with a different stage that curls the tarball and checks its
-    sha256, for versions that exist in no cache anywhere.
-
-  - always: generate the per-variant component manifests the final
-    stages COPY into `/usr/lib/hadron/components.json` (container.json
-    and full-image-<fips>-<bootloader>.json). Trusted builds and fork
-    builds both need these; the committed Dockerfile has no other way
-    to produce them.
+  On a trusted build every step here is a no-op, but the action stays in the
+  workflows so a fork PR and a trusted PR run the same job definition.
+  Component manifests are no longer generated here: the Dockerfile's
+  components-manifest stage builds them inside the build.
 
 runs:
   using: composite
@@ -63,13 +59,3 @@ runs:
         # upstream downloads to this list instead of fetching every package.
         HADRON_UPSTREAM_PACKAGES: ${{ steps.source-mode.outputs.packages }}
       run: ./hack/render.sh
-
-    - name: Generate component manifests
-      shell: bash
-      run: |
-        set -euo pipefail
-        # container/full-image stages COPY these into /usr/lib/hadron/components.json.
-        # Generated once on the host (pure sh + awk, no toolchain) so docker
-        # build finds them in the context. The stage lists live in the script,
-        # which the Makefile's gen-components target calls the same way.
-        sh hack/gen-manifests.sh --format flat --out-dir gen/components

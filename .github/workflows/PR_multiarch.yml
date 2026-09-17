@@ -53,6 +53,8 @@ jobs:
         run: make test-image-tags
       - name: Verify the sources.yaml checksum refresher
         run: make test-source-checksums
+      - name: Verify the component-manifest generator
+        run: make test-components
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)

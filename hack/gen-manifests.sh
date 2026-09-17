@@ -16,9 +16,11 @@
 #   container.<ext>
 #   full-image-<fips>-<bootloader>.<ext>   (no-fips|fips x grub|systemd)
 #
-# The Dockerfile COPYs gen/components/container.json and
-# gen/components/full-image-${FIPS}-${BOOTLOADER}.json, so --format flat
-# --out-dir gen/components has to run before `docker build .`.
+# The Dockerfile runs this itself, in the components-manifest stage, with
+# --format flat --out-dir /gen/components, and the container/full-image stages
+# COPY --from=components-manifest. So `docker build .` needs no host step; this
+# script only has to stay runnable with sh/awk/grep/sed and to read nothing
+# beyond the Dockerfile and sources.yaml, which is all the stage copies in.
 set -eu
 
 FORMAT="flat"
