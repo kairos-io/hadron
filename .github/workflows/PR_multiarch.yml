@@ -51,6 +51,8 @@ jobs:
         run: make test-render
       - name: Verify the local base image tag invariant
         run: make test-image-tags
+      - name: Verify the sources.yaml checksum refresher
+        run: make test-source-checksums
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)

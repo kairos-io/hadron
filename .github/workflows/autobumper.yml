@@ -102,12 +102,24 @@ jobs:
           
           updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
 
+          # updatecli moves the version ARG and nothing else, but the matching
+          # sha256 lives in sources.yaml and still describes the previous
+          # release. Both consumers of that field then reject the new tarball:
+          # populate-sources fails the cell on a checksum mismatch, and the
+          # downloader stages hack/render.sh writes for fork pull requests
+          # exhaust their URL list without a match. Every bump opened a pull
+          # request that could not build until this step existed.
+          #
+          # Runs before update-kernel-configs so a kernel version no URL serves
+          # is reverted before the configs are regenerated against it.
+          ./hack/refresh-source-checksums.sh --changed
+
           # For kernel-and-boot, regenerate kernel configs to match the new kernel version
           if [ "${{ matrix.config }}" = "kernel-and-boot" ]; then
             make update-kernel-configs
           fi
-          
-          git add Dockerfile
+
+          git add Dockerfile sources.yaml
 
           # For kernel-and-boot, also stage the regenerated kernel config files
           if [ "${{ matrix.config }}" = "kernel-and-boot" ]; then
