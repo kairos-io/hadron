@@ -912,7 +912,7 @@ jobs:
       - toolchain-amd64
       - toolchain-arm64
       # - toolchain-riscv64
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -1085,7 +1085,7 @@ jobs:
       - container-amd64
       - container-arm64
       # - container-riscv64
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -1275,7 +1275,7 @@ jobs:
       - hadron-bios-amd64
       - hadron-bios-arm64
       # - hadron-bios-riscv64
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -1468,7 +1468,7 @@ jobs:
     needs:
       - hadron-trusted-amd64
       - hadron-trusted-arm64
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: read
@@ -2148,7 +2148,7 @@ jobs:
     needs:
       - hadron-bios
       - hadron-trusted
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write   # push the size-history branch
       packages: read    # pull the :main images
