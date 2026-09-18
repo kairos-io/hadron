@@ -139,7 +139,7 @@ packages:
 
   cmake:
     version_arg: CMAKE_VERSION
-    sha256: 1db9e61e60b6e0874c86386340b910382f3c5e75b9fbfb44d122063129a2789d
+    sha256: c46400618b4f1f2b43507f24fb22f3ae830c3416cf23b776e16e1d413aa892f0
     urls:
       - https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}.tar.gz
     filename: cmake.tar.gz
@@ -730,7 +730,7 @@ packages:
 
   pkgconf:
     version_arg: PKGCONFIG_VERSION
-    sha256: 3acd3a8a3cce65a8d620321855d92fb602e026cbe8e13ee36bdec58483b59ace
+    sha256: c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a
     urls:
       - https://distfiles.dereferenced.org/pkgconf/pkgconf-${version}.tar.xz
     filename: pkgconf.tar.xz
