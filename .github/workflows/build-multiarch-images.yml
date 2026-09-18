@@ -1323,6 +1323,7 @@ jobs:
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
+        fips: [ "no-fips", "fips" ]
     permissions:
       packages: write
       contents: read
@@ -1368,7 +1369,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
@@ -1380,13 +1381,14 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-amd64,mode=max
-          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel) || '' }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           target: default
           build-args: |
             VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
   hadron-trusted-arm64:
     runs-on: cncf-ubuntu-8-32-arm
     needs:
@@ -1394,6 +1396,7 @@ jobs:
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
+        fips: [ "no-fips", "fips" ]
     permissions:
       packages: write
       contents: read
@@ -1439,7 +1442,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
@@ -1451,13 +1454,14 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-arm64,mode=max
-          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel) || '' }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-${{ matrix.fips }}-arm64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           target: default
           build-args: |
             VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
   hadron-trusted:
@@ -1473,6 +1477,7 @@ jobs:
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
+        fips: [ "no-fips", "fips" ]
     steps:
       - uses: docker/login-action@v4
         with:
@@ -1482,7 +1487,7 @@ jobs:
       - uses: docker/metadata-action@v6
         id: metadata
         with:
-          images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted
+          images: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - uses: int128/docker-manifest-create-action@v2
@@ -1491,11 +1496,11 @@ jobs:
           index-annotations: ${{ steps.metadata.outputs.labels }}
           tags: ${{ steps.metadata.outputs.tags }}
           sources: |
-            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-amd64
-            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted:${{ github.ref_name }}-arm64
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-amd64
+            ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-arm64
       - uses: vlaurin/action-ghcr-prune@v0.6.0
         with:
-          container: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}-trusted"
+          container: "${{ github.event.repository.name }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted"
           token: ${{ secrets.GITHUB_TOKEN }}
           dry-run: 'false'
           keep-tags-regexes: |

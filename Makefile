@@ -169,21 +169,20 @@ test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only b
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
 	@sh ./hack/refresh-source-checksums_test.sh
 
-## Component manifests copied into the container / full-image stages
-## (gen/components/container.json and gen/components/full-image-<fips>-<bootloader>.json).
-## Regenerated on every build: `make build-hadron` depends on this target, so a
-## clean clone builds. A hand-rolled `docker build .` needs `make gen-components`
-## first, since nothing under gen/ is committed.
+## Component manifests for the working tree, written to gen/components/.
+## The build does NOT need this: the Dockerfile's components-manifest stage
+## generates the same files inside the build, so `docker build .` works on a
+## fresh clone. Kept for inspecting what a variant would ship without running
+## a build. Nothing under gen/ is committed.
 ## The stage lists live in hack/gen-manifests.sh, which runs with `set -eu`
-## so a failure part-way through the five manifests stops the build instead of
-## surfacing later as a BuildKit "failed to compute cache key" on the one file
-## that did not get written.
+## so a failure part-way through the five manifests stops the target instead of
+## leaving a partial set behind.
 .PHONY: gen-components
 gen-components:
 	@sh hack/gen-manifests.sh --format flat --out-dir gen/components --quiet
 
 ## This builds the Hadron image from scratch
-build-hadron: gen-components
+build-hadron:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
@@ -343,4 +342,5 @@ components: ## Generate components.json + components.md for the working tree
 test-components: ## Run the component-generator shell tests
 	sh ./hack/gen-components_test.sh
 	sh ./hack/gen-components_shipped_test.sh
+	sh ./hack/gen-manifests_context_test.sh
 	node ./hack/components-template_test.js

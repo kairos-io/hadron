@@ -52,19 +52,19 @@ ARG BINUTILS_VERSION=2.47
 ARG BISON_VERSION=3.8.2
 ARG BUSYBOX_VERSION=1.38.0
 ARG CA_CERTIFICATES_VERSION=20260611
-ARG CMAKE_VERSION=4.4.2
+ARG CMAKE_VERSION=4.4.3
 ARG CONNTRACK_TOOLS_VERSION=1.4.9
-ARG COREUTILS_VERSION=9.11
-ARG CRYPTSETUP_VERSION=2.8.7
-ARG CURL_VERSION=8.21.0
+ARG COREUTILS_VERSION=9.12
+ARG CRYPTSETUP_VERSION=2.8.8
+ARG CURL_VERSION=8.22.0
 ARG DBUS_VERSION=1.16.2
 ARG DIFFUTILS_VERSION=3.12
 ARG DOSFSTOOLS_VERSION=4.2
 ARG DRACUT_VERSION=112
-ARG DWARVES_VERSION=1.31
+ARG DWARVES_VERSION=1.32
 ARG E2FSPROGS_VERSION=1.47.4
 ARG ELFUTILS_VERSION=0.195
-ARG EXPAT_VERSION=2.8.2
+ARG EXPAT_VERSION=2.8.4
 ARG FINDUTILS_VERSION=4.11.0
 ARG FLEX_VERSION=2.6.4
 ARG GAWK_VERSION=5.4.1
@@ -85,7 +85,7 @@ ARG LESS_VERSION=704
 ARG LIBAIO_VERSION=0.3.113
 ARG LIBBPF_VERSION=1.5.0
 ARG LIBCAP_VERSION=2.78
-ARG LIBELF_VERSION=0.195
+ARG LIBELF_VERSION=0.196
 ARG LIBEVENT_VERSION=2.1.13
 ARG LIBFFI_VERSION=3.8.0
 ARG ICONV_VERSION=1.19
@@ -99,11 +99,11 @@ ARG LIBNFNETLINK_VERSION=1.0.2
 ARG LIBNFTNL_VERSION=1.3.1
 ARG LIBNL_VERSION=3.12.0
 ARG SECCOMP_VERSION=2.6.1
-ARG LIBTIRPC_VERSION=1.3.7
+ARG LIBTIRPC_VERSION=1.3.8
 ARG LIBTOOL_VERSION=2.5.4
 ARG LIBUCONTEXT_VERSION=1.5.2
-ARG LIBXML2_VERSION=2.15.3
-ARG KERNEL_VERSION=7.1.8
+ARG LIBXML2_VERSION=2.15.4
+ARG KERNEL_VERSION=7.2.6
 ARG LVM2_VERSION=2.03.42
 ARG LZ4_VERSION=1.10.0
 ARG M4_VERSION=1.4.21
@@ -111,7 +111,7 @@ ARG MAKE_VERSION=4.4.1
 ARG MPC_VERSION=1.4.1
 ARG MPFR_VERSION=4.2.2
 ARG MSPACK_VERSION=1.11
-ARG MULTIPATH_TOOLS_VERSION=0.15.0
+ARG MULTIPATH_TOOLS_VERSION=0.15.1
 ARG MUSL_VERSION=1.2.6
 ARG FTS_VERSION=1.2.7
 ARG MUSL_OBSTACK_VERSION=1.2.3
@@ -119,32 +119,32 @@ ARG MUSL_TOOLCHAIN_VERSION=1.2.5
 ARG NCURSES_VERSION=6.5
 ARG NFS_UTILS_VERSION=2.9.2
 ARG OPENVM_TOOLS_VERSION=13.1.0
-ARG OPEN_SCSI_VERSION=2.1.12
-ARG OPENSSH_VERSION=10.4p1
-ARG OPENSSL_VERSION=3.6.3
+ARG OPEN_SCSI_VERSION=2.1.13
+ARG OPENSSH_VERSION=10.5p1
+ARG OPENSSL_VERSION=3.6.4
 ARG OPENSSL_FIPS_VERSION=3.1.2
 ARG PAM_VERSION=1.7.2
 ARG PARTED_VERSION=3.7
 ARG PATCH_VERSION=2.8
 ARG PAX_UTILS_VERSION=1.3.11
-ARG PCRE2_VERSION=10.47
+ARG PCRE2_VERSION=10.48
 ARG PERL_VERSION=5.44.0
-ARG PKGCONFIG_VERSION=3.0.5
+ARG PKGCONFIG_VERSION=3.0.7
 ARG POPT_VERSION=1.19
 ARG PROCPS_NG_VERSION=4.0.6
 ARG PYTHON_VERSION=3.14.7
 ARG QEMU_AGENT_VERSION=10.1.5
 ARG READLINE_VERSION=8.3
-ARG RSYNC_VERSION=3.4.4
+ARG RSYNC_VERSION=3.5.0
 ARG SHADOW_VERSION=4.20.2
 ARG SHIM_VERSION=16.1
 ARG SQLITE3_VERSION=3.53.4
-ARG STRACE_VERSION=7.1
+ARG STRACE_VERSION=7.2
 ARG SUDO_VERSION=1.9.17p2
-ARG SYSTEMD_VERSION=261.2
+ARG SYSTEMD_VERSION=261.3
 ARG TPM2_TSS_VERSION=4.2.0
-ARG URCU_VERSION=0.15.6
-ARG UTIL_LINUX_VERSION=2.42.2
+ARG URCU_VERSION=0.15.7
+ARG UTIL_LINUX_VERSION=2.42.3
 ARG XXHASH_VERSION=0.8.3
 ARG XZUTILS_VERSION=5.8.3
 ARG ZLIB_VERSION=1.3.2
@@ -339,7 +339,7 @@ FROM sources-downloader-base AS bash-download
 ARG BASH_VERSION=5.3
 # Patch level is the number of patches upstream bash has released for this version https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # It is bumped separately from BASH_VERSION by updatecli.d/core-system.yaml
-ARG PATCH_LEVEL=15
+ARG PATCH_LEVEL=20
 # Get the patches from https://ftp.gnu.org/gnu/bash/bash-${BASH_VERSION}-patches/
 # They are in the format bash$BASH_VERSION_NO_DOT-NNN where NNN is a 3-digit zero-padded index
 # starting at 001.
@@ -1444,6 +1444,15 @@ FROM bash AS util-linux
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
+# Cherry-picks from upstream PR https://github.com/util-linux/util-linux/pull/4600
+# (a323dddbcd1e, 473b6a5a3adb) so 2.42.3 builds against musl — the idmap hook
+# references RESOLVE_NO_SYMLINKS from <linux/openat2.h> without including it.
+COPY ./patches/util-linux /sources/util-linux-patches
+RUN cd /sources/util-linux && \
+    for p in $(ls /sources/util-linux-patches/*.patch 2>/dev/null | sort); do \
+        echo "Applying util-linux patch: $p"; \
+        patch -p1 < "$p"; \
+    done
 WORKDIR /sources/util-linux
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
@@ -3973,11 +3982,27 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 # Container base image, it has the minimal required to run as a container
 # ------------------------------------------------------------------------------
-# Component version manifests (container.json, full-image-*.json) are
-# generated on the host by hack/gen-manifests.sh, one file per variant, in
-# gen/components/. The final images below COPY the appropriate file
-# straight into /usr/lib/hadron/components.json.
+# Component version manifests (container.json, full-image-*.json), one file per
+# variant, COPYd by the final images below into /usr/lib/hadron/components.json.
+#
+# Generated inside the build rather than on the host, so a plain `docker build .`
+# on a fresh clone works: nothing under gen/ is committed (.gitignore), and the
+# COPYs used to read from the build context, so only `make build-hadron` (which
+# depends on the gen-components target) could satisfy them.
+#
+# hack/gen-components.sh reads exactly two inputs — the ARG *_VERSION defaults in
+# this Dockerfile and the version_arg -> package-name map in sources.yaml — and
+# uses only sh/awk/grep/sed, so the whole generator fits in an alpine stage.
+# The flat format carries no ref/commit/date metadata, so the output here is
+# byte-identical to what the host step produced.
 # ------------------------------------------------------------------------------
+
+FROM alpine-base AS components-manifest
+WORKDIR /src
+COPY Dockerfile sources.yaml ./
+COPY hack/gen-components.sh hack/gen-manifests.sh hack/
+RUN sh hack/gen-manifests.sh --format flat --out-dir /gen/components --quiet
+
 
 FROM scratch AS container
 ARG VERSION
@@ -3995,8 +4020,8 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     fi
 # Set the version here as otherwise its easy to invalidate the cache with a version change
 RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
-# Per-image component manifest (generated on the host by hack/gen-manifests.sh).
-COPY gen/components/container.json /usr/lib/hadron/components.json
+# Per-image component manifest (generated by the components-manifest stage).
+COPY --from=components-manifest /gen/components/container.json /usr/lib/hadron/components.json
 CMD ["/bin/bash", "-l"]
 
 # Target that tests to see if the binaries work or we are missing some libs
@@ -4385,12 +4410,12 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
-# Per-image component manifest (generated on the host by hack/gen-manifests.sh).
+# Per-image component manifest (generated by the components-manifest stage).
 # The four variants (fips/no-fips x grub/systemd) each get their own
 # pre-generated file; ARG interpolation in COPY picks the right one.
 ARG FIPS
 ARG BOOTLOADER
-COPY gen/components/full-image-${FIPS}-${BOOTLOADER}.json /usr/lib/hadron/components.json
+COPY --from=components-manifest /gen/components/full-image-${FIPS}-${BOOTLOADER}.json /usr/lib/hadron/components.json
 
 ## final image with debug
 FROM full-image-final AS debug

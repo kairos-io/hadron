@@ -144,7 +144,7 @@ packages:
 
   cmake:
     version_arg: CMAKE_VERSION
-    sha256: 1db9e61e60b6e0874c86386340b910382f3c5e75b9fbfb44d122063129a2789d
+    sha256: c46400618b4f1f2b43507f24fb22f3ae830c3416cf23b776e16e1d413aa892f0
     urls:
       - https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}.tar.gz
     filename: cmake.tar.gz
@@ -158,7 +158,7 @@ packages:
 
   coreutils:
     version_arg: COREUTILS_VERSION
-    sha256: 394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
+    sha256: a480198559733e9b3da999e90543ac6f888a2caa544d8d664c5a1f17e528e210
     urls:
       - https://ftpmirror.gnu.org/coreutils/coreutils-${version}.tar.xz
       - https://ftp.gnu.org/gnu/coreutils/coreutils-${version}.tar.xz
@@ -167,14 +167,14 @@ packages:
 
   cryptsetup:
     version_arg: CRYPTSETUP_VERSION
-    sha256: e776f0d381e86ca61042c457069491fe8e0ac286780c7c3b1e4f9921abc961da
+    sha256: 3acfa685f2dd7fcc832e0b77bc7093aa7da554a51ce8dafbb4138eaa854eee35
     urls:
       - https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${version_major_minor}/cryptsetup-${version}.tar.xz
     filename: cryptsetup.tar.xz
 
   curl:
     version_arg: CURL_VERSION
-    sha256: d9b327997999045a24cda50f3983e69e51c516bd8be6ef9842fc7f99135e33bb
+    sha256: d54dd598bf05927a726deb38df31c6a255ba83ff1de57c5d1464dac3ed8f44a1
     urls:
       - https://curl.se/download/curl-${version}.tar.gz
     filename: curl.tar.gz
@@ -211,7 +211,7 @@ packages:
 
   dwarves:
     version_arg: DWARVES_VERSION
-    sha256: 2b6511691bda2b3ae328987092902d30fd073ef7c8754894f4a69271a66686f2
+    sha256: 34314c33a3c86524f2bc0c60b72b94bc4fac4a880648349813282afe6006002b
     urls:
       - https://github.com/acmel/dwarves/archive/refs/tags/v${version}.tar.gz
     filename: dwarves.tar.gz
@@ -232,7 +232,7 @@ packages:
 
   expat:
     version_arg: EXPAT_VERSION
-    sha256: ef7d1994f533c9e7343d6c19f31064fc8ebbcbcaa144be3812b4f43052a05f4c
+    sha256: b8ece2437692dad44d851c4532723390a5a330990007706be9c8d2b90d294f36
     urls:
       - https://github.com/libexpat/libexpat/releases/download/R_${version_underscore}/expat-${version}.tar.gz
     filename: expat.tar.gz
@@ -395,7 +395,7 @@ packages:
 
   libelf:
     version_arg: LIBELF_VERSION
-    sha256: 7230aa671c991ab2576b9a7735b3bf6256185b0a23d3bb3fc1d44dd740a81343
+    sha256: 1e839a9926a90430e4302300168741719ae8ce096109e903e31ed8fce18a7517
     urls:
       - https://github.com/arachsys/libelf/archive/refs/tags/v${version}.tar.gz
     filename: libelf.tar.gz
@@ -495,7 +495,7 @@ packages:
 
   libtirpc:
     version_arg: LIBTIRPC_VERSION
-    sha256: b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702
+    sha256: 8839959bfcc7a0f4c609d8e4f53f1c67ae33de23775ec35beb39ff15adf11920
     urls:
       - https://downloads.sourceforge.net/project/libtirpc/libtirpc/${version}/libtirpc-${version}.tar.bz2
     filename: libtirpc.tar.bz2
@@ -518,14 +518,14 @@ packages:
 
   libxml2:
     version_arg: LIBXML2_VERSION
-    sha256: 78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07
+    sha256: 98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821
     urls:
       - https://download.gnome.org/sources/libxml2/${version_major_minor}/libxml2-${version}.tar.xz
     filename: libxml2.tar.xz
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: ff01dcb449279d5b4cfccdb01fee639cf5ff1803f1749a77844dd33915422c49
+    sha256: 039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
@@ -589,7 +589,7 @@ packages:
 
   multipath-tools:
     version_arg: MULTIPATH_TOOLS_VERSION
-    sha256: 23e8500f7d12f1fbc571aafbcdaa4a07e9a1ec46920078ce92882ca6d71d45c7
+    sha256: 99e4a4b8c245479dd5c5d473a031acb67d752b94dcd76be172279cd445845421
     urls:
       - https://github.com/opensvc/multipath-tools/archive/refs/tags/${version}.tar.gz
     filename: multipath-tools.tar.gz
@@ -661,21 +661,21 @@ packages:
 
   openscsi:
     version_arg: OPEN_SCSI_VERSION
-    sha256: e2441b61e4b05cd5f0f94b35dcdf460e8d542e40d71b480882628170d6462d9a
+    sha256: 1c3a8ad7d86e57d247a08c013f5055ef695b3a07ed760d1aea7d90b9f9011602
     urls:
       - https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${version}.tar.gz
     filename: openscsi.tar.gz
 
   openssh:
     version_arg: OPENSSH_VERSION
-    sha256: ef6026dd2aea8d56059638d5d3262902c892ceba9f88395835e0d06d3fb63238
+    sha256: d44d28a839ea9daf969cc69150fde59910b2b39361dad81a3bd6cbd19218db11
     urls:
       - https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${version}.tar.gz
     filename: openssh.tar.gz
 
   openssl:
     version_arg: OPENSSL_VERSION
-    sha256: 243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1
+    sha256: 9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef
     urls:
       - https://www.openssl.org/source/openssl-${version}.tar.gz
     filename: openssl.tar.gz
@@ -721,7 +721,7 @@ packages:
 
   pcre2:
     version_arg: PCRE2_VERSION
-    sha256: c08ae2388ef333e8403e670ad70c0a11f1eed021fd88308d7e02f596fcd9dc16
+    sha256: ebcc25aadf2a51fa1fefa9b8bc9e7a79b3dae86870a0f1152a22e42befd46888
     urls:
       - https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${version}/pcre2-${version}.tar.gz
     filename: pcre2.tar.gz
@@ -735,7 +735,7 @@ packages:
 
   pkgconf:
     version_arg: PKGCONFIG_VERSION
-    sha256: 3acd3a8a3cce65a8d620321855d92fb602e026cbe8e13ee36bdec58483b59ace
+    sha256: c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a
     urls:
       - https://distfiles.dereferenced.org/pkgconf/pkgconf-${version}.tar.xz
     filename: pkgconf.tar.xz
@@ -779,7 +779,7 @@ packages:
 
   rsync:
     version_arg: RSYNC_VERSION
-    sha256: bd88cf82fa653da32314fb229136407c5c90f80d1758d8f4b091767877d8fa96
+    sha256: c7ffd1ef653e99540f661e47cb00b7f9cad1ee6b972399b16f93d672656e0d33
     urls:
       - https://github.com/RsyncProject/rsync/releases/download/v${version}/rsync-${version}.tar.gz
     filename: rsync.tar.gz
@@ -807,7 +807,7 @@ packages:
 
   strace:
     version_arg: STRACE_VERSION
-    sha256: 81743ecf2a5b44186b2f5038afdc8beda7e5c70aed15b4fbfbcc6e9ece24490f
+    sha256: 4bde6246926890dcee824f6e6ac42a06752f47d77e5097d86e3c0d6d4b709fe5
     urls:
       - https://strace.io/files/${version}/strace-${version}.tar.xz
     filename: strace.tar.xz
@@ -821,7 +821,7 @@ packages:
 
   systemd:
     version_arg: SYSTEMD_VERSION
-    sha256: ed1059ff964f5df35b6056434cc17cc83f86dc913f10489948a0b19b6081c5ec
+    sha256: 3f8d3d3969af7214bda600930e14c6a24135eb3dce1ba7f1b980b74e6dc15b72
     urls:
       - https://github.com/systemd/systemd/archive/refs/tags/v${version}.tar.gz
     filename: systemd.tar.gz
@@ -835,14 +835,14 @@ packages:
 
   urcu:
     version_arg: URCU_VERSION
-    sha256: 850b192096eb11ebf2c70e8f97bc7da7479ee41da1bebeb44e3986908bac414f
+    sha256: 2556b83adc0f9b3ac8024e613e17d014d04c4c49110604ce55fcb14eae32edd3
     urls:
       - https://lttng.org/files/urcu/userspace-rcu-${version}.tar.bz2
     filename: urcu.tar.bz2
 
   util-linux:
     version_arg: UTIL_LINUX_VERSION
-    sha256: 03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a
+    sha256: 66ac7c0e725278eb2b039e3104f2c91119341d941b41bac7a285c695f940bd57
     urls:
       - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz

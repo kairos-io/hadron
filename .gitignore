@@ -26,6 +26,6 @@ files/hadron-splash/hadron
 /components.md
 /docs/static/components/
 
-# Per-variant component manifests, generated on the host by hack/gen-manifests.sh
-# before every docker build.
+# Per-variant component manifests. The build generates its own copies in the
+# Dockerfile's components-manifest stage; `make gen-components` writes them here.
 /gen/
