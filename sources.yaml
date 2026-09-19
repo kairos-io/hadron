@@ -474,7 +474,7 @@ packages:
 
   libnftnl:
     version_arg: LIBNFTNL_VERSION
-    sha256: 607da28dba66fbdeccf8ef1395dded9077e8d19f2995f9a4d45a9c2f0bcffba8
+    sha256: c97abc3409f8fa396b4462b2bb7f147a3a47a4ddc97cfa0b2f18890c9cfde8b0
     urls:
       - https://www.netfilter.org/projects/libnftnl/files/libnftnl-${version}.tar.xz
     filename: libnftnl.tar.xz
