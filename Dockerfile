@@ -1702,8 +1702,14 @@ WORKDIR /sources/gzip
 ## gzip 1.15 moved "gzip.h" above the system headers in gzip.c, so its
 ## `#define head (prev+WSIZE)` now rewrites the four `struct _aarch64_ctx head`
 ## members that musl declares in the aarch64 <signal.h>, and gzip.o stops
-## compiling for arm64. Include <signal.h> before gzip.h until upstream puts
-## the system headers back on top.
+## compiling for arm64. Include <signal.h> before gzip.h.
+##
+## Reported upstream on bug-gzip:
+##   https://lists.gnu.org/archive/html/bug-gzip/2026-09/msg00031.html
+## Drop this line once a gzip release carries the upstream fix, that is once
+## gzip.c stops including "gzip.h" ahead of the system headers. The grep below
+## fails the build if a release moves the anchor, so this cannot become a
+## silent no-op.
 RUN sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c \
     && grep -q '^#include <signal\.h>' gzip.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
