@@ -75,7 +75,7 @@ ARG GMP_VERSION=6.3.0
 ARG GPERF_VERSION=3.3
 ARG GREP_VERSION=3.12
 ARG GRUB_VERSION=2.14
-ARG GZIP_VERSION=1.14
+ARG GZIP_VERSION=1.15
 ARG IPTABLES_VERSION=1.8.13
 ARG JSONC_VERSION=0.19
 ARG KBD_VERSION=2.10.0
@@ -1699,6 +1699,13 @@ RUN mkdir -p /gzip
 WORKDIR /sources
 RUN tar -xf gzip.tar.xz && mv gzip-* gzip
 WORKDIR /sources/gzip
+## gzip 1.15 moved "gzip.h" above the system headers in gzip.c, so its
+## `#define head (prev+WSIZE)` now rewrites the four `struct _aarch64_ctx head`
+## members that musl declares in the aarch64 <signal.h>, and gzip.o stops
+## compiling for arm64. Include <signal.h> before gzip.h until upstream puts
+## the system headers back on top.
+RUN sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c \
+    && grep -q '^#include <signal\.h>' gzip.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
 RUN make -j${JOBS}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make install DESTDIR=/gzip
