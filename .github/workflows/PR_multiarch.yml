@@ -1654,7 +1654,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
-          name: acceptance-${{github.sha}}.logs.zip
+          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
@@ -1771,7 +1771,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
-          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
+          name: ${{ matrix.test }}-fips-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
@@ -1931,7 +1931,7 @@ jobs:
           compression-level: 0
 
   build-kairos-grub-arm64:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     needs:
       - hadron-grub-arm64
     steps:
@@ -1978,7 +1978,7 @@ jobs:
           compression-level: 0
 
   build-grub-iso-arm64:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     needs:
       - build-kairos-grub-arm64
     steps:
@@ -1999,12 +1999,12 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=arm64 \
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-bios-${{ github.sha }} \
+          --override-name kairos-hadron-bios-arm64-${{ github.sha }} \
           docker:hadron-init-bios-arm64:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+          name: kairos-hadron-bios-arm64-${{ github.sha }}.iso.zip
           path: build/*.iso
 
 # This test requires changes onto PEG to support ARM architecture properly.
@@ -2035,7 +2035,7 @@ jobs:
 #      - name: Download artifacts
 #        uses: actions/download-artifact@v7
 #        with:
-#          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+#          name: kairos-hadron-bios-arm64-${{ github.sha }}.iso.zip
 #      - name: Enable KVM group perms
 #        run: |
 #          sudo apt-get update
@@ -2057,6 +2057,6 @@ jobs:
 #      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
 #        if: failure()
 #        with:
-#          name: acceptance-${{github.sha}}.logs.zip
+#          name: ${{ matrix.test }}-arm64-${{github.sha}}.logs.zip
 #          path: tests/**/logs/*
 #          if-no-files-found: warn

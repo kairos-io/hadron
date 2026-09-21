@@ -96,7 +96,7 @@ ARG LIBNETFILTER_CTHELPER_VERSION=1.0.1
 ARG LIBNETFILTER_CTTIMEOUT_VERSION=1.0.1
 ARG LIBNETFILTER_QUEUE_VERSION=1.0.5
 ARG LIBNFNETLINK_VERSION=1.0.2
-ARG LIBNFTNL_VERSION=1.3.1
+ARG LIBNFTNL_VERSION=1.3.2
 ARG LIBNL_VERSION=3.12.0
 ARG SECCOMP_VERSION=2.6.1
 ARG LIBTIRPC_VERSION=1.3.8
@@ -152,7 +152,7 @@ ARG ZSTD_VERSION=1.5.7
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
-FROM alpine:3.24.2@sha256:31b6477333eb8257db9e5d7c3a7264fd0467928756f0bbcc27d35bea5d28cdbd AS alpine-base
+FROM alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS alpine-base
 RUN apk update && \
     apk add --no-cache git bash wget bash perl build-base make patch busybox-static \
     curl m4 xz texinfo bison gawk gzip zstd-dev coreutils bzip2 tar rsync \
@@ -1699,6 +1699,19 @@ RUN mkdir -p /gzip
 WORKDIR /sources
 RUN tar -xf gzip.tar.xz && mv gzip-* gzip
 WORKDIR /sources/gzip
+## gzip 1.15 moved "gzip.h" above the system headers in gzip.c, so its
+## `#define head (prev+WSIZE)` now rewrites the four `struct _aarch64_ctx head`
+## members that musl declares in the aarch64 <signal.h>, and gzip.o stops
+## compiling for arm64. Include <signal.h> before gzip.h.
+##
+## Reported upstream on bug-gzip:
+##   https://lists.gnu.org/archive/html/bug-gzip/2026-09/msg00031.html
+## Drop this whole block once a gzip release carries the upstream fix, that is
+## once gzip.c stops including "gzip.h" ahead of the system headers. The grep
+## in front of the sed asserts the anchor is still there and fails the build if
+## a release moves or renames it, so this cannot become a silent no-op.
+RUN grep -q '^#include "gzip\.h"' gzip.c \
+    && sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
 RUN make -j${JOBS}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make install DESTDIR=/gzip
