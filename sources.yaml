@@ -323,7 +323,7 @@ packages:
 
   gzip:
     version_arg: GZIP_VERSION
-    sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+    sha256: 9aa0cc780dec156b8282844833b342ab7cb08c25d2cd9a1869cdd0df31deff48
     urls:
       - https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
       - https://ftp.gnu.org/gnu/gzip/gzip-${version}.tar.xz
@@ -849,7 +849,7 @@ packages:
 
   xxhash:
     version_arg: XXHASH_VERSION
-    sha256: aae608dfe8213dfd05d909a57718ef82f30722c392344583d3f39050c7f29a80
+    sha256: 5738270935e7c3d38a79b3adf7c9692566ce7895a25f67de43ad52ab504acd32
     urls:
       - https://github.com/Cyan4973/xxHash/archive/refs/tags/v${version}.tar.gz
     filename: xxhash.tar.gz
