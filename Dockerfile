@@ -1706,12 +1706,12 @@ WORKDIR /sources/gzip
 ##
 ## Reported upstream on bug-gzip:
 ##   https://lists.gnu.org/archive/html/bug-gzip/2026-09/msg00031.html
-## Drop this line once a gzip release carries the upstream fix, that is once
-## gzip.c stops including "gzip.h" ahead of the system headers. The grep below
-## fails the build if a release moves the anchor, so this cannot become a
-## silent no-op.
-RUN sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c \
-    && grep -q '^#include <signal\.h>' gzip.c
+## Drop this whole block once a gzip release carries the upstream fix, that is
+## once gzip.c stops including "gzip.h" ahead of the system headers. The grep
+## in front of the sed asserts the anchor is still there and fails the build if
+## a release moves or renames it, so this cannot become a silent no-op.
+RUN grep -q '^#include "gzip\.h"' gzip.c \
+    && sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
 RUN make -j${JOBS}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make install DESTDIR=/gzip
