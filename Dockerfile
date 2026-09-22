@@ -1002,6 +1002,7 @@ RUN mkdir -p /sources && cd /sources && tar -xf rsync.tar.gz && mv rsync-* rsync
     --without-included-zlib \
     --disable-md2man \
     --disable-nls \
+    --disable-idn \
     --disable-openssl && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/rsync && \
     make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/rsync install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
