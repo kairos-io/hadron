@@ -1013,16 +1013,21 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Run image-structure tests
         env:
           # Image was loaded locally by the build step above (no push needed).
@@ -1122,16 +1127,21 @@ jobs:
             BUILD_ARCH=aarch64
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Run image-structure tests
         env:
           # Image was loaded locally by the build step above (no push needed).
@@ -1225,16 +1235,21 @@ jobs:
             FIPS=${{ matrix.fips }}
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Run full-image structure tests
         env:
           # container-amd64 structure-tests the minimal base. The firmware
@@ -1618,16 +1633,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -1674,16 +1694,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -1734,16 +1759,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        # These workers cap at 100Mb/s, so a congested one turns the ~305MB
-        # dependency cache restore into a crawl. Across 91 healthy runs of
-        # this step the median is 17s and the slowest 52s, then it jumps to
-        # 277s and 300s: a worker that cannot manage a minute here is not
-        # going to manage the image pulls later either. Fail it fast rather
-        # than burn five minutes first (kairos-io/kairos#4564).
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
         timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
