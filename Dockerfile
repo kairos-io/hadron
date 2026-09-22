@@ -103,7 +103,7 @@ ARG LIBTIRPC_VERSION=1.3.8
 ARG LIBTOOL_VERSION=2.5.4
 ARG LIBUCONTEXT_VERSION=1.5.2
 ARG LIBXML2_VERSION=2.15.4
-ARG KERNEL_VERSION=7.2.6
+ARG KERNEL_VERSION=7.2.7
 ARG LVM2_VERSION=2.03.42
 ARG LZ4_VERSION=1.10.0
 ARG M4_VERSION=1.4.21
@@ -144,7 +144,7 @@ ARG SUDO_VERSION=1.9.17p2
 ARG SYSTEMD_VERSION=261.3
 ARG TPM2_TSS_VERSION=4.2.0
 ARG URCU_VERSION=0.15.7
-ARG UTIL_LINUX_VERSION=2.42.3
+ARG UTIL_LINUX_VERSION=2.42.4
 ARG XXHASH_VERSION=0.8.4
 ARG XZUTILS_VERSION=5.8.3
 ARG ZLIB_VERSION=1.3.2
@@ -1444,15 +1444,6 @@ FROM bash AS util-linux
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
-# Cherry-picks from upstream PR https://github.com/util-linux/util-linux/pull/4600
-# (a323dddbcd1e, 473b6a5a3adb) so 2.42.3 builds against musl — the idmap hook
-# references RESOLVE_NO_SYMLINKS from <linux/openat2.h> without including it.
-COPY ./patches/util-linux /sources/util-linux-patches
-RUN cd /sources/util-linux && \
-    for p in $(ls /sources/util-linux-patches/*.patch 2>/dev/null | sort); do \
-        echo "Applying util-linux patch: $p"; \
-        patch -p1 < "$p"; \
-    done
 WORKDIR /sources/util-linux
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \

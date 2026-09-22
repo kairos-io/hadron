@@ -525,7 +525,7 @@ packages:
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: 039aef84f2b0994aeda3f4fcfc3d02ec9d7a9bbb9020ea264c43f446c860f606
+    sha256: 4ac34c47db2540ffb2713943f8d891ff1702e0ba6934525a493b7d1cad43145a
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
@@ -842,7 +842,7 @@ packages:
 
   util-linux:
     version_arg: UTIL_LINUX_VERSION
-    sha256: 66ac7c0e725278eb2b039e3104f2c91119341d941b41bac7a285c695f940bd57
+    sha256: fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec
     urls:
       - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz
