@@ -1443,15 +1443,6 @@ FROM bash AS util-linux
 WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/util-linux.tar.xz /sources/
 RUN tar -xf util-linux.tar.xz && mv util-linux-* util-linux
-# Cherry-picks from upstream PR https://github.com/util-linux/util-linux/pull/4600
-# (a323dddbcd1e, 473b6a5a3adb) so 2.42.3 builds against musl — the idmap hook
-# references RESOLVE_NO_SYMLINKS from <linux/openat2.h> without including it.
-COPY ./patches/util-linux /sources/util-linux-patches
-RUN cd /sources/util-linux && \
-    for p in $(ls /sources/util-linux-patches/*.patch 2>/dev/null | sort); do \
-        echo "Applying util-linux patch: $p"; \
-        patch -p1 < "$p"; \
-    done
 WORKDIR /sources/util-linux
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking  --prefix=/usr \
     --libdir=/usr/lib \
