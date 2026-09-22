@@ -842,7 +842,7 @@ packages:
 
   util-linux:
     version_arg: UTIL_LINUX_VERSION
-    sha256: 66ac7c0e725278eb2b039e3104f2c91119341d941b41bac7a285c695f940bd57
+    sha256: fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec
     urls:
       - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz
