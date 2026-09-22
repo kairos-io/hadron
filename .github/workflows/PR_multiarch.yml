@@ -1978,7 +1978,16 @@ jobs:
           compression-level: 0
 
   build-grub-iso-arm64:
-    runs-on: ubuntu-26.04-arm
+    # Pinned to 24.04 while the rest of the arm64 lane is on 26.04 (#630). This
+    # job hands a docker-daemon image to auroraboot, and on ubuntu-26.04-arm
+    # auroraboot reads it back as an empty tree: the copy into
+    # /output/temp-rootfs "finishes" in seconds, then os-release and the kernel
+    # are both missing and the ISO build dies with
+    # "No file found with prefixes: [uImage Image zImage vmlinuz image]".
+    # build-kairos-grub-arm64, which only builds and uploads that same image,
+    # is fine on 26.04 -- so it is the daemon read, not the image. Raise this
+    # back once auroraboot copes with the newer engine's image store.
+    runs-on: ubuntu-24.04-arm
     needs:
       - build-kairos-grub-arm64
     steps:
