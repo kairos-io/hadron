@@ -1619,6 +1619,8 @@ jobs:
     name: ${{ matrix.test }} tests
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -1683,6 +1685,8 @@ jobs:
     name: ${{ matrix.test }} tests
     needs:
       - build-trusted-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -1747,6 +1751,8 @@ jobs:
     name: ${{ matrix.test }} tests (FIPS)
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
