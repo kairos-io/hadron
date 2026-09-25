@@ -786,7 +786,7 @@ packages:
 
   shadow:
     version_arg: SHADOW_VERSION
-    sha256: b89f432b75ae55a2d852b446d0365484795fdf533ab97d550e325fa15594a224
+    sha256: 623be9429f64fa2165bfc5957c6a642ec309c5cf23c0d53855c99f7591922297
     urls:
       - https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
     filename: shadow.tar.xz
