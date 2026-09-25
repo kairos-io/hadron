@@ -1615,10 +1615,12 @@ jobs:
           path: build/*.iso
 
   tests-bios-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -1656,7 +1658,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
@@ -1679,10 +1681,12 @@ jobs:
           if-no-files-found: warn
 
   tests-trusted-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests
     needs:
       - build-trusted-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -1717,7 +1721,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
@@ -1743,10 +1747,12 @@ jobs:
           if-no-files-found: warn
 
   tests-bios-fips-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests (FIPS)
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -1782,7 +1788,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
