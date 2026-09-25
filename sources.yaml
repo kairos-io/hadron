@@ -696,7 +696,7 @@ packages:
 
   parted:
     version_arg: PARTED_VERSION
-    sha256: 008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b
+    sha256: a2b7811f47b0ddb1f7b1d0aa456f7c1270da70708ce231c2fe054c7199eafa63
     urls:
       - https://ftpmirror.gnu.org/parted/parted-${version}.tar.xz
       - https://ftp.gnu.org/gnu/parted/parted-${version}.tar.xz
