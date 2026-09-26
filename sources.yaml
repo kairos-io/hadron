@@ -273,7 +273,7 @@ packages:
 
   gdb:
     version_arg: GDB_VERSION
-    sha256: cb891b9a9f554cac972eea5368176b240640ae90b681aae84bf873a9501f0063
+    sha256: fb83623deb238cab91ad17f8a906e2da26d0b4620fb1da43c20a274252e51082
     urls:
       - https://sourceware.org/pub/gdb/releases/gdb-${version}.tar.gz
     filename: gdb.tar.gz
