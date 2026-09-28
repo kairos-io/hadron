@@ -20,6 +20,14 @@ env:
   # Pinned commit, not a branch: see the matching comment on
   # KAIROS_DOCKERFILE_REF in the Makefile. Keep the two in sync.
   KAIROS_DOCKERFILE_REF: c2426c11c34198fcb50bfe4d43e827619292e26f
+  # Temporary override while kairos-io/kairos#5035 is unmerged.
+  # PR 5035 is the kairos-init side of the sshd-hardening consolidation
+  # this PR carries on the Hadron side: without it the built ISO would
+  # ship an old kairos-init that sets `PermitRootLogin no` and
+  # assertSSHHardening would fail expecting `prohibit-password`.
+  # Remove once PR 5035 merges and a new kairos-init release lands
+  # in images/Dockerfile's ARG KAIROS_INIT default at the pinned SHA.
+  KAIROS_INIT_IMAGE: ghcr.io/kairos-io/kairos/kairos-init:pr-5035
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
@@ -1454,6 +1462,7 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
+            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false \
             --build-arg FIPS=${{ matrix.fips }}
@@ -1523,6 +1532,7 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-trusted:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-trusted-${{ github.sha }}:24h \
+            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=true
       - name: Save the image as a tarball
@@ -1998,6 +2008,7 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios-arm64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-arm64:${{ github.sha }} \
+            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false
       - name: Save the image as a tarball
