@@ -3495,7 +3495,14 @@ RUN mkdir -p /libpwquality
 WORKDIR /sources
 RUN tar -xf libpwquality.tar.bz2 && mv libpwquality-* libpwquality
 WORKDIR /sources/libpwquality
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib --disable-python-bindings --disable-nls
+## LIBS=-lpam works around a bug in libpwquality's configure.ac: the
+## AC_CHECK_FUNC probe for pam_modutil_check_user_in_passwd runs before
+## PAM_LIBS is added to LIBS, so on musl the modern helper is never
+## detected and pam_pwquality.c falls back to fgetpwent_r, which musl
+## does not implement. Forcing -lpam into LIBS for the whole configure
+## run lets the probe link and pick up the helper (present in
+## linux-pam >= 1.5.0, so shipped by hadron's PAM 1.7.2).
+RUN LIBS="-lpam" ./configure ${COMMON_CONFIGURE_ARGS} --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib --disable-python-bindings --disable-nls
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libpwquality
 
 # Shadow with systemd support via PAM
