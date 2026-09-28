@@ -290,32 +290,37 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	It("ships a valid, STIG-hardened sshd config (sshd -G parses cleanly)", func() {
+	It("ships a valid sshd config that parses cleanly", func() {
 		skipUnlessFullImage()
+		// sshd policy hardening is owned by kairos-init's
+		// 05-kairos-hardening.conf, not hadron. This test only verifies
+		// that the raw hadron image's sshd_config still parses; the
+		// effective STIG values are asserted post-boot by
+		// assertSSHHardening in common_test.go, once kairos-init has
+		// laid down its drop-in.
 		out, code, err := runInImage("sshd", "-G")
 		Expect(err).ToNot(HaveOccurred(), out)
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
-		lc := strings.ToLower(out)
-		for _, want := range []string{
-			"permitrootlogin prohibit-password",
-			"x11forwarding no",
-			"maxauthtries 4",
-		} {
-			Expect(lc).To(ContainSubstring(want), "effective sshd config missing %q", want)
-		}
 	})
 
-	It("STIG sshd drop-in carries no crypto keywords (FIPS-safety invariant)", func() {
+	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", func() {
 		skipUnlessFullImage()
-		// The STIG drop-in sorts before the 02-* crypto file and sshd is
-		// first-value-wins for these keywords, so crypto here would silently
-		// override FIPS crypto in FIPS images. Guard against a regression.
-		out, code := shInImage("cat /etc/ssh/sshd_config.d/01-hadron-stig.conf")
+		// The only sshd drop-in a hadron image ships is
+		// 02-hadron-fips.conf, and only in FIPS builds. Non-FIPS builds
+		// must ship no drop-in at all: every hardening directive comes
+		// from kairos-init's 05-kairos-hardening.conf at image-build
+		// time. Regression guard against 01/02-non-fips/03 sneaking back
+		// in and stealing directives from kairos-init under
+		// first-value-wins.
+		out, code := shInImage("ls /etc/ssh/sshd_config.d/ 2>&1")
 		Expect(code).To(Equal(0), out)
-		lc := strings.ToLower(out)
-		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
-			Expect(lc).ToNot(MatchRegexp(`(?m)^[[:space:]]*`+k+`[[:space:]]`),
-				"STIG drop-in must not set crypto keyword %q (breaks FIPS ordering)", k)
+		for _, forbidden := range []string{
+			"01-hadron-stig.conf",
+			"02-hadron-crypto.conf",
+			"03-hadron.conf",
+		} {
+			Expect(out).ToNot(ContainSubstring(forbidden),
+				"hadron must not ship %s; hardening belongs in kairos-init", forbidden)
 		}
 	})
 

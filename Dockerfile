@@ -1657,23 +1657,16 @@ RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssh install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
 COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
-# Add sshd_config.d dir for droping extra configs
+# Add sshd_config.d dir for dropping extra configs. Hardening (UsePAM,
+# PrintMotd, PermitRootLogin, Ciphers/MACs/KexAlgorithms/HostKeyAlgorithms,
+# session/login policy, banner) is owned by kairos-init's
+# /etc/ssh/sshd_config.d/05-kairos-hardening.conf. Hadron ships nothing
+# here except the FIPS crypto override (02-hadron-fips.conf, copied later
+# in the full-image-merge-fips target) so that FIPS images pin the
+# FIPS-validated crypto subset before kairos-init's non-FIPS list.
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
 RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
 RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
-# Add Hadron config with enabled pam
-# 03- (not 99-): kairos-init ships its own hardening drop-in at
-# /etc/ssh/sshd_config.d/05-kairos-hardening.conf, and sshd applies the
-# FIRST value it sees per directive across sshd_config.d/*.conf in lexical
-# order. A 99- filename sorted after it, silently losing on every
-# directive both files set. See 01-hadron-stig.conf's header for the full
-# explanation; this file doesn't currently collide with kairos-init on a
-# value that matters (both set UsePAM yes), but keeping every Hadron
-# sshd drop-in below 05- avoids relying on that staying true.
-RUN echo "# Hadron specific sshd config" >> /openssh/etc/ssh/sshd_config.d/03-hadron.conf
-RUN echo "UsePAM yes" >> /openssh/etc/ssh/sshd_config.d/03-hadron.conf
-# We already have a motd from bash, disable the sshd one
-RUN echo "PrintMotd no" >> /openssh/etc/ssh/sshd_config.d/03-hadron.conf
 
 
 ## xz and liblzma
@@ -4217,19 +4210,15 @@ RUN find /skeleton -name "__pycache__" -type d -exec rm -rf {} +
 
 
 FROM full-image-merge-base AS full-image-merge-no-fips
-# Non-FIPS crypto hardening for sshd. The FIPS variant ships 02-hadron-fips.conf
-# instead; exactly one 02-* crypto drop-in is present per image so neither can
-# override the other (sshd is first-value-wins for Ciphers/MACs/KexAlgorithms).
-# 02- (not 100-): kairos-init ships its own Ciphers/MACs/KexAlgorithms/
-# HostKeyAlgorithms in /etc/ssh/sshd_config.d/05-kairos-hardening.conf. A
-# 100- filename sorted after it and silently lost every one of those
-# directives to kairos-init's non-FIPS-validated list — in FIPS images too,
-# which is a real compliance break, not a cosmetic mismatch. See
-# 01-hadron-stig.conf's header for the full first-value-wins explanation.
-COPY files/ssh/sshd_config.d/02-hadron-crypto.conf /skeleton/etc/ssh/sshd_config.d/02-hadron-crypto.conf
+# Non-FIPS crypto for sshd is owned by kairos-init's
+# /etc/ssh/sshd_config.d/05-kairos-hardening.conf. Hadron ships no crypto
+# drop-in in non-FIPS builds.
 
 FROM full-image-merge-base AS full-image-merge-fips
 COPY --from=libkcapi /libkcapi/ /skeleton/
+# FIPS crypto override. Sorts BEFORE kairos-init's 05-kairos-hardening.conf,
+# so on FIPS builds this file's FIPS-validated Ciphers/MACs/KexAlgorithms/
+# HostKeyAlgorithms win over kairos-init's post-quantum non-FIPS list.
 COPY files/ssh/sshd_config.d/02-hadron-fips.conf /skeleton/etc/ssh/sshd_config.d/02-hadron-fips.conf
 
 
@@ -4381,10 +4370,9 @@ COPY files/sysctl/* /etc/sysctl.d/
 COPY files/modprobe.d/* /etc/modprobe.d/
 # copy a new login.defs to have better defaults as some stuff is already done by shadow and pam
 COPY files/login.defs /etc/login.defs
-# STIG-hardening sshd drop-in (all images; carries NO crypto keywords so it never
-# pre-empts the 02-* crypto drop-in in FIPS builds — see the file header).
-# 01- (not 99-): see the file's own header for why.
-COPY files/ssh/sshd_config.d/01-hadron-stig.conf /etc/ssh/sshd_config.d/01-hadron-stig.conf
+# sshd hardening is owned by kairos-init's 05-kairos-hardening.conf.
+# The only sshd drop-in hadron itself ships is 02-hadron-fips.conf, copied
+# into FIPS builds by the full-image-merge-fips target above.
 ## Remove users stuff
 RUN rm -f /etc/passwd /etc/shadow /etc/group /etc/gshadow
 ## Override root shell to /bin/bash (systemd basic.conf default is /bin/sh); /etc/sysusers.d/ wins over /usr/lib/sysusers.d/
