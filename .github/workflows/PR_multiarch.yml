@@ -22,12 +22,27 @@ env:
   KAIROS_DOCKERFILE_REF: c2426c11c34198fcb50bfe4d43e827619292e26f
   # Temporary override while kairos-io/kairos#5035 is unmerged.
   # PR 5035 is the kairos-init side of the sshd-hardening consolidation
-  # this PR carries on the Hadron side: without it the built ISO would
-  # ship an old kairos-init that sets `PermitRootLogin no` and
-  # assertSSHHardening would fail expecting `prohibit-password`.
-  # Remove once PR 5035 merges and a new kairos-init release lands
-  # in images/Dockerfile's ARG KAIROS_INIT default at the pinned SHA.
-  KAIROS_INIT_IMAGE: ghcr.io/kairos-io/kairos/kairos-init:pr-5035
+  # this PR carries on the Hadron side. Without it the built ISO ships
+  # the released kairos-init (v0.17.3) whose 05-kairos-hardening.conf
+  # still sets `PermitRootLogin no`, and assertSSHHardening fails
+  # expecting `prohibit-password`.
+  #
+  # The pinned images/Dockerfile at KAIROS_DOCKERFILE_REF hard-wires
+  # `FROM quay.io/kairos/kairos-init:${KAIROS_INIT}`, so overriding the
+  # image reference alone (KAIROS_INIT_IMAGE, etc.) is silently ignored.
+  # The kairos-image build job pulls KAIROS_INIT_OVERRIDE_SOURCE, retags
+  # it as `quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}` in the
+  # local docker image store (plain `docker build` resolves FROM against
+  # that store), and passes `--build-arg KAIROS_INIT=<tag>` so the FROM
+  # in the pinned Dockerfile resolves to the retagged image. It also
+  # asserts the override actually took effect on the built image so a
+  # dropped arg never masquerades as a merge-order wait.
+  #
+  # Remove all of this (env + pull + tag + build-arg + assertion) once
+  # PR 5035 merges and a new kairos-init release lands in the pinned
+  # images/Dockerfile's ARG KAIROS_INIT default.
+  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:pr-5035
+  KAIROS_INIT_OVERRIDE_TAG: pr-5035
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
@@ -1454,6 +1469,10 @@ jobs:
       # Plain docker build, not buildx. The buildx docker-container driver
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1462,10 +1481,25 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
-            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false \
             --build-arg FIPS=${{ matrix.fips }}
+      - name: Assert the kairos-init override was actually consumed
+        # Fails fast if docker silently dropped the KAIROS_INIT build-arg
+        # (wrong ARG name, older pinned Dockerfile that hard-codes the
+        # image, etc.), so the acceptance red stays honest rather than
+        # reading as "waiting on kairos-io/kairos#5035" forever.
+        run: |
+          image="hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            exit 1
+          fi
       # The recovery test needs an extension inside the image. /var/lib/kairos
       # is an ephemeral overlay, not persistent, so a file written at runtime
       # does not survive a reboot and is not visible to another boot mode. The
@@ -1524,6 +1558,10 @@ jobs:
       # Plain docker build, not buildx. The buildx docker-container driver
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1532,9 +1570,20 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-trusted:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-trusted-${{ github.sha }}:24h \
-            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=true
+      - name: Assert the kairos-init override was actually consumed
+        run: |
+          image="hadron-init-trusted:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            exit 1
+          fi
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-trusted:${{ github.sha }} | gzip > hadron-init-trusted.tar.gz
@@ -2000,6 +2049,10 @@ jobs:
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry. This job is a
       # native arm64 build with no cache export, so it needs nothing buildx adds.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -2008,9 +2061,20 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios-arm64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-arm64:${{ github.sha }} \
-            --build-arg KAIROS_INIT_IMAGE=${{ env.KAIROS_INIT_IMAGE }} \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false
+      - name: Assert the kairos-init override was actually consumed
+        run: |
+          image="hadron-init-bios-arm64:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            exit 1
+          fi
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-bios-arm64:${{ github.sha }} | gzip > hadron-init-bios-arm64.tar.gz
