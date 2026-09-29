@@ -51,6 +51,8 @@ jobs:
         run: make test-render
       - name: Verify the local base image tag invariant
         run: make test-image-tags
+      - name: Verify the source-cache probe retries a stalled connection
+        run: make test-source-probe
       - name: Verify the sources.yaml checksum refresher
         run: make test-source-checksums
       - name: Verify the component-manifest generator

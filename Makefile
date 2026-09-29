@@ -165,6 +165,10 @@ test-render: ## Verify cache and fork source rendering, and the make -l flags
 test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
 	@./tests/make-image-tags.sh
 
+.PHONY: test-source-probe
+test-source-probe: ## Verify the source-cache probe retries a stalled connection
+	@./tests/list-missing-sources-retry.sh
+
 .PHONY: test-source-checksums
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
 	@sh ./hack/refresh-source-checksums_test.sh
