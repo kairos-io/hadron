@@ -185,10 +185,20 @@ func genericTests(vm VM) {
 		Expect(err).ToNot(HaveOccurred(), out)
 	})
 	By("Checking OEM/PERSISTENT are mounted", func() {
-		out, err := vm.Sudo("df -h") // Shows the disk by label which is easier to check
-		Expect(err).ToNot(HaveOccurred())
-		Expect(out).To(ContainSubstring("/dev/disk/by-label/COS_OEM"))
-		Expect(out).To(ContainSubstring("/dev/disk/by-label/COS_PERSISTENT"))
+		// Assert on the mountpoint, not on the source device path. The
+		// source path is unstable across immucore versions: earlier
+		// releases mounted the LUKS partition via the /dev/disk/by-label
+		// symlink; the current release mounts the plain cryptsetup
+		// mapper name (/dev/mapper/vda2). Both point at the same
+		// crypt-opened partition, and this test's real intent is that
+		// /oem and /usr/local are mounted after the UKI trusted-boot
+		// flow, not the exact string df prints.
+		out, err := vm.Sudo("mountpoint -q /oem && echo /oem-mounted")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("/oem-mounted"))
+		out, err = vm.Sudo("mountpoint -q /usr/local && echo /usr/local-mounted")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("/usr/local-mounted"))
 	})
 	By("Checking OEM/PERSISTENT are encrypted", func() {
 		out, err := vm.Sudo("blkid /dev/vda2")

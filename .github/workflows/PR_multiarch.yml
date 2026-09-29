@@ -20,12 +20,14 @@ env:
   # Pinned commit, not a branch: see the matching comment on
   # KAIROS_DOCKERFILE_REF in the Makefile. Keep the two in sync.
   KAIROS_DOCKERFILE_REF: c2426c11c34198fcb50bfe4d43e827619292e26f
-  # Temporary override while kairos-io/kairos#5035 is unmerged.
-  # PR 5035 is the kairos-init side of the sshd-hardening consolidation
-  # this PR carries on the Hadron side. Without it the built ISO ships
-  # the released kairos-init (v0.17.3) whose 05-kairos-hardening.conf
-  # still sets `PermitRootLogin no`, and assertSSHHardening fails
-  # expecting `prohibit-password`.
+  # Temporary override until a kairos-init release cuts with the merged
+  # kairos-io/kairos#5035 (sshd-hardening consolidation this PR carries
+  # on the Hadron side). Without it the built ISO ships the released
+  # kairos-init (v0.17.3) whose 05-kairos-hardening.conf still sets
+  # `PermitRootLogin no`, and assertSSHHardening fails expecting
+  # `prohibit-password`. PR 5035 has already merged; the `:master`
+  # kairos-init image tracks kairos master and now carries the merged
+  # drop-in content.
   #
   # The pinned images/Dockerfile at KAIROS_DOCKERFILE_REF hard-wires
   # `FROM quay.io/kairos/kairos-init:${KAIROS_INIT}`, so overriding the
@@ -36,13 +38,13 @@ env:
   # that store), and passes `--build-arg KAIROS_INIT=<tag>` so the FROM
   # in the pinned Dockerfile resolves to the retagged image. It also
   # asserts the override actually took effect on the built image so a
-  # dropped arg never masquerades as a merge-order wait.
+  # dropped arg never masquerades as a wait-for-release.
   #
   # Remove all of this (env + pull + tag + build-arg + assertion) once
-  # PR 5035 merges and a new kairos-init release lands in the pinned
-  # images/Dockerfile's ARG KAIROS_INIT default.
-  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:pr-5035
-  KAIROS_INIT_OVERRIDE_TAG: pr-5035
+  # a kairos release lands with the merged 05-kairos-hardening.conf and
+  # the pinned images/Dockerfile's ARG KAIROS_INIT default points at it.
+  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:master
+  KAIROS_INIT_OVERRIDE_TAG: master
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
@@ -1489,7 +1491,7 @@ jobs:
         # Fails fast if docker silently dropped the KAIROS_INIT build-arg
         # (wrong ARG name, older pinned Dockerfile that hard-codes the
         # image, etc.), so the acceptance red stays honest rather than
-        # reading as "waiting on kairos-io/kairos#5035" forever.
+        # reading as "waiting on a kairos-init release" forever.
         run: |
           image="hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}"
           out=$(docker run --rm --entrypoint sh "$image" -c \
@@ -1497,7 +1499,7 @@ jobs:
           if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
             echo "kairos-init override did NOT reach the built image:"
             echo "$out"
-            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
             exit 1
           fi
       # The recovery test needs an extension inside the image. /var/lib/kairos
@@ -1581,7 +1583,7 @@ jobs:
           if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
             echo "kairos-init override did NOT reach the built image:"
             echo "$out"
-            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
             exit 1
           fi
       - name: Save the image as a tarball
@@ -2072,7 +2074,7 @@ jobs:
           if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
             echo "kairos-init override did NOT reach the built image:"
             echo "$out"
-            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from PR 5035"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
             exit 1
           fi
       - name: Save the image as a tarball
