@@ -25,8 +25,8 @@ env:
   # on the Hadron side). Without it the built ISO ships the released
   # kairos-init (v0.17.3) whose 05-kairos-hardening.conf still sets
   # `PermitRootLogin no`, and assertSSHHardening fails expecting
-  # `prohibit-password`. PR 5035 has already merged; the `:master`
-  # kairos-init image tracks kairos master and now carries the merged
+  # `prohibit-password`. PR 5035 has already merged; the `:master-scratch`
+  # kairos-init image tracks kairos master (untested-but-freshest, unlike `:master` which promotes only on green) and carries the merged
   # drop-in content.
   #
   # The pinned images/Dockerfile at KAIROS_DOCKERFILE_REF hard-wires
@@ -43,8 +43,8 @@ env:
   # Remove all of this (env + pull + tag + build-arg + assertion) once
   # a kairos release lands with the merged 05-kairos-hardening.conf and
   # the pinned images/Dockerfile's ARG KAIROS_INIT default points at it.
-  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:master
-  KAIROS_INIT_OVERRIDE_TAG: master
+  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:master-scratch
+  KAIROS_INIT_OVERRIDE_TAG: master-scratch
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
