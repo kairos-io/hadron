@@ -137,14 +137,38 @@ var _ = Describe("kairos basic test", func() {
 			Expect(out).To(ContainSubstring("--id recovery"))
 			Expect(out).To(ContainSubstring("--id statereset"))
 			// /grubmenu on the state partition holds extra menu entries an
-			// operator adds. kairos-io/kairos#5072 dropped the shipped
-			// remoterecovery entry from the default kairos-init drop-in;
-			// the file is now the documented "drop your own entries here"
-			// placeholder. Check the file was copied to the state
-			// partition rather than a specific menuentry.
-			out, err = vm.Sudo("cat /run/initramfs/cos-state/grubmenu")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(ContainSubstring("Drop your own menuentry blocks"))
+			// operator adds. 08_grub.yaml copies
+			// /etc/kairos/branding/grubmenu.cfg there and grub.cfg sources it
+			// from there, so those entries survive an upgrade.
+			// kairos-io/kairos#5072 dropped the shipped remoterecovery entry
+			// from the default kairos-init drop-in; the file is now the
+			// documented "drop your own entries here" placeholder. Check the
+			// file was copied to the state partition rather than a specific
+			// menuentry: any fixed substring passes or fails on which
+			// KAIROS_DOCKERFILE_REF this build pinned rather than on whether
+			// hadron copied the file.
+			//
+			// Both files have to exist before they are compared, and the
+			// comparison is over sizes as well as contents: if kairos-init
+			// stops shipping grubmenu.cfg altogether, every `$(cat ...)` is
+			// the empty string, `[ "" = "" ]` is true, and the assertion
+			// passes without testing anything. Then this has to fail loudly so
+			// the step gets rethought. Comparing `stat -c %s` too covers the
+			// trailing newlines `$(...)` strips: equal sizes plus equal
+			// contents-after-stripping means the same number of trailing
+			// newlines on both sides, so the files are byte for byte the same.
+			//
+			// cmp would say that in one word, but diffutils is not in the
+			// image and the step exits 127. `stat` and `cat` are, and both are
+			// already exercised by the assertions above.
+			out, err = vm.Sudo(`set -eu
+test -f /etc/kairos/branding/grubmenu.cfg
+test -f /run/initramfs/cos-state/grubmenu
+[ "$(stat -c %s /etc/kairos/branding/grubmenu.cfg)" = "$(stat -c %s /run/initramfs/cos-state/grubmenu)" ]
+[ "$(cat /etc/kairos/branding/grubmenu.cfg)" = "$(cat /run/initramfs/cos-state/grubmenu)" ]
+echo grubmenu-copied`)
+			Expect(err).ToNot(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("grubmenu-copied"))
 		})
 
 		By("checking additional mount specified, with no dir in rootfs", func() {
