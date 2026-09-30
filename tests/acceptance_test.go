@@ -136,10 +136,15 @@ var _ = Describe("kairos basic test", func() {
 			Expect(out).To(ContainSubstring("--id fallback"))
 			Expect(out).To(ContainSubstring("--id recovery"))
 			Expect(out).To(ContainSubstring("--id statereset"))
-			// Now this one you can override with a custom grubmenu but by default we ship the remote recovery on it
+			// /grubmenu on the state partition holds extra menu entries an
+			// operator adds. kairos-io/kairos#5072 dropped the shipped
+			// remoterecovery entry from the default kairos-init drop-in;
+			// the file is now the documented "drop your own entries here"
+			// placeholder. Check the file was copied to the state
+			// partition rather than a specific menuentry.
 			out, err = vm.Sudo("cat /run/initramfs/cos-state/grubmenu")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(ContainSubstring("remoterecovery"))
+			Expect(out).To(ContainSubstring("Drop your own menuentry blocks"))
 		})
 
 		By("checking additional mount specified, with no dir in rootfs", func() {
