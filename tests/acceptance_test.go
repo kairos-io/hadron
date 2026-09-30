@@ -317,7 +317,7 @@ openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 
 		By("Checking that vm has rebooted to 'recovery'")
 		Eventually(func() string {
-			out, _ := vm.Sudo("kairos-agent state boot")
+			out, _ := vm.Sudo("kairos-agent state get boot")
 			return out
 		}, 40*time.Minute, 10*time.Second).Should(
 			ContainSubstring("recovery_boot"))
