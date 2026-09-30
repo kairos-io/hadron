@@ -28,9 +28,15 @@ mkdir -p "$tmp/bin"
 # Counts live in files, not variables: curl runs in a child shell.
 mkdir -p "$tmp/calls"
 
-# A curl that fails the way a stalled connection does. STALL_TOKEN and
-# STALL_MANIFEST say how many of the first calls of each kind exit 28 after
-# writing the `000` that curl writes on a failed transfer.
+# A curl that fails the way a stalled connection does, and that can answer a
+# manifest request with a status other than 200:
+#
+#   STALL_TOKEN=N       the first N token calls exit 28
+#   STALL_TOKEN_FROM=K  token calls from the Kth on exit 28
+#   STALL_MANIFEST=N    the first N manifest calls exit 28
+#   MANIFEST_401=N      the first N manifest calls answer 401
+#   MISSING_NTH=N       the Nth manifest call answers 404, and the package it
+#                       asked about is recorded in $STALL_DIR/missing
 cat > "$tmp/bin/curl" <<'STUB'
 #!/bin/sh
 # A curl stand-in. Honours -o (body goes to the file, the -w status stays on
@@ -38,12 +44,14 @@ cat > "$tmp/bin/curl" <<'STUB'
 # stdout.
 kind=manifest
 out=""
+url=""
 next_is_out=0
 for arg in "$@"; do
     if [ "$next_is_out" = 1 ]; then out=$arg; next_is_out=0; continue; fi
     case "$arg" in
         -o) next_is_out=1 ;;
-        */token\?*) kind=token ;;
+        */token\?*) kind=token; url=$arg ;;
+        https://*/manifests/*) url=$arg ;;
     esac
 done
 
@@ -52,30 +60,60 @@ n=$(cat "$count_file" 2>/dev/null || echo 0)
 n=$((n + 1))
 echo "$n" > "$count_file"
 
-case "$kind" in
-    token)  stall=${STALL_TOKEN:-0} ;;
-    *)      stall=${STALL_MANIFEST:-0} ;;
-esac
-
 emit_body() {
     if [ -n "$out" ]; then printf '%s' "$1" > "$out"; else printf '%s' "$1"; fi
 }
 
-if [ "$n" -le "$stall" ]; then
+stalled() {
+    [ "$n" -le "${1:-0}" ] && return 0
+    [ -n "${2:-}" ] && [ "$n" -ge "$2" ] && return 0
+    return 1
+}
+
+case "$kind" in
+    token) stall_now=$(stalled "${STALL_TOKEN:-0}" "${STALL_TOKEN_FROM:-}" && echo yes) ;;
+    *)     stall_now=$(stalled "${STALL_MANIFEST:-0}" "" && echo yes) ;;
+esac
+
+if [ "${stall_now:-}" = yes ]; then
     # curl writes the -w output even when the transfer fails, then exits 28.
-    emit_body ""
+    # It does not touch the -o file at all when the connection never opens,
+    # which is why the probe must not read success out of that file's size.
     [ "$kind" = manifest ] && printf '000'
     echo "curl: (28) Connection timed out after 60001 milliseconds" >&2
     exit 28
 fi
 
-case "$kind" in
-    token)    emit_body '{"token":"stub-token"}' ;;
-    manifest) emit_body ""; printf '200' ;;
-esac
+if [ "$kind" = token ]; then
+    emit_body '{"token":"stub-token"}'
+    exit 0
+fi
+
+# The package this manifest request is about: .../v2/<path>/<package>/manifests/<version>
+package=${url%/manifests/*}
+package=${package##*/}
+
+if [ "$n" -le "${MANIFEST_401:-0}" ]; then
+    emit_body ""; printf '401'; exit 0
+fi
+
+if [ "$n" = "${MISSING_NTH:-0}" ]; then
+    printf '%s' "$package" > "${STALL_DIR}/missing"
+    emit_body ""; printf '404'; exit 0
+fi
+
+emit_body ""; printf '200'
 exit 0
 STUB
 chmod +x "$tmp/bin/curl"
+
+# The retry sleeps between attempts. The subject here is which attempts happen,
+# not how long the probe waits, and the real sleeps add ~40s to the run.
+cat > "$tmp/bin/sleep" <<'STUB'
+#!/bin/sh
+exit 0
+STUB
+chmod +x "$tmp/bin/sleep"
 
 # The probe reads the token out of the JSON with python3. Runners have it;
 # this box may not, and the subject of this test is curl, not the parser.
@@ -92,15 +130,21 @@ STUB
     chmod +x "$tmp/bin/python3"
 fi
 
+# run_probe <stall_token> <stall_manifest> [extra VAR=VALUE ...]
 run_probe() {
+    stall_token=$1
+    stall_manifest=$2
+    shift 2
     rm -rf "$tmp/calls"
     mkdir -p "$tmp/calls"
     (
         cd "$repo_root"
-        PATH="$tmp/bin:$PATH" \
-        STALL_DIR="$tmp/calls" \
-        STALL_TOKEN="$1" \
-        STALL_MANIFEST="$2" \
+        env \
+            PATH="$tmp/bin:$PATH" \
+            STALL_DIR="$tmp/calls" \
+            STALL_TOKEN="$stall_token" \
+            STALL_MANIFEST="$stall_manifest" \
+            "$@" \
             ./hack/list-missing-sources.sh
     )
 }
@@ -143,5 +187,32 @@ fi
 grep -q 'could not determine whether' "$tmp/err" ||
     fail "expected the probe's own error text, got: $(cat "$tmp/err")"
 echo "ok: a registry that never answers fails loudly"
+
+# 5. A 404 is the one status that means "not published", and it is the whole
+#    point of the script. Retrying it would be wrong too: 404 is an answer,
+#    not a transport failure. The stub records which package it answered 404
+#    for, so this asserts on the registry's answer rather than on a package
+#    name copied out of the Dockerfile.
+out=$(run_probe 0 0 MISSING_NTH=1) || fail "the probe failed when one package was unpublished"
+missing=$(cat "$tmp/calls/missing" 2>/dev/null || echo "")
+[ -n "$missing" ] || fail "the stub never answered 404; MISSING_NTH did not take effect"
+[ "$out" = "$missing" ] ||
+    fail "expected exactly '$missing' reported missing, got: ${out:-<nothing>}"
+[ "$(calls manifest)" -eq "$packages" ] ||
+    fail "a 404 was retried: expected $packages manifest requests, got $(calls manifest)"
+echo "ok: a 404 is reported missing exactly once and is not retried"
+
+# 6. A 401 mid-run asks for a fresh token. If that refresh fails, the probe
+#    has to say so. $body is shared by every request_token call, and curl -o
+#    leaves the file untouched when the connection never opens, so deciding
+#    success from the file's size read the first call's still-present token as
+#    a fresh one and carried on with an expired token, silently.
+out=$(run_probe 0 0 STALL_TOKEN_FROM=2 MANIFEST_401=1 2>"$tmp/err") ||
+    fail "a failed token refresh killed the probe: $(cat "$tmp/err")"
+[ "$(calls token)" -eq 4 ] ||
+    fail "expected 1 token request plus 3 refresh attempts, got $(calls token)"
+grep -q 'could not get a pull token' "$tmp/err" ||
+    fail "a token refresh whose every attempt stalled was not reported: $(cat "$tmp/err")"
+echo "ok: a token refresh that stalls on every attempt is reported, not passed off as fresh"
 
 echo "PASS: hack/list-missing-sources.sh retries stalled connections"

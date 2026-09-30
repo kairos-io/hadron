@@ -89,6 +89,11 @@ request_token() {
 
     token_attempt=1
     while [ "$token_attempt" -le 3 ]; do
+        # Empty the body first. curl -o leaves the file's prior contents fully
+        # intact when the connection never opens, and can leave a partial body
+        # when it times out mid-transfer, so a failed attempt must not be able
+        # to hand old or truncated bytes to the check below.
+        : > "$body"
         if curl -fsS --max-time 60 -o "$body" \
             "https://${registry_host}/token?${query}"; then
             break
@@ -97,7 +102,12 @@ request_token() {
         token_attempt=$((token_attempt + 1))
     done
 
-    if [ ! -s "$body" ]; then
+    # Decide from the loop counter, not from the file: token_attempt only gets
+    # past 3 when no attempt broke out of the loop. $body is shared by every
+    # request_token call, so on the 401 refresh path a file-size check reads
+    # the first call's still-present token as success and prints an expired
+    # token instead of reporting the failure.
+    if [ "$token_attempt" -gt 3 ] || [ ! -s "$body" ]; then
         echo "error: could not get a pull token from ${registry_host}" \
             "after 3 attempts" >&2
         return 1
