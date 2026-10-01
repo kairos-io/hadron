@@ -308,6 +308,13 @@ jobs:
     strategy:
       matrix:
         kernel: [cloud, default]
+        fips: [no-fips]
+        # The FIPS image legs build kernel-base against openssl-fips, so their
+        # kernel graph shares no cache with the no-fips one. Build it here, in
+        # parallel, instead of serially inside hadron-bios-amd64 (cloud, fips).
+        include:
+          - kernel: cloud
+            fips: fips
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -345,20 +352,28 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: kernel-misc
           cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-amd64,mode=max
-          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            # Seed from main's full-image cache for the same leg until the
+            # per-leg kernel tag above has been published once.
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}{2}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel, matrix.fips == 'fips' && '-fips' || '') || '' }}
           build-args: |
             KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
 
   systemd-amd64:
     runs-on: cncf-ubuntu-16-64-x86
+    strategy:
+      matrix:
+        # See kernel-amd64: systemd links openssl, so FIPS needs its own graph.
+        fips: [no-fips, fips]
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -396,15 +411,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           target: systemd
           cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
-          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.fips == 'fips' && '-fips' || '') || '' }}
+          build-args: |
+            FIPS=${{ matrix.fips }}
 
   python-amd64:
     runs-on: cncf-ubuntu-16-64-x86
@@ -1240,15 +1258,15 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max

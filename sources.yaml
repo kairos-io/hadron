@@ -689,7 +689,7 @@ packages:
 
   openssl:
     version_arg: OPENSSL_VERSION
-    sha256: 9bffaa1ad1e07b354c21bd3324ec02fa15579f45a7d0494b3e74bc449b7333ef
+    sha256: a2157c2830efdec3788939b00c9b0638306d3f0bbb76dc4832ee503bb397df98
     urls:
       - https://www.openssl.org/source/openssl-${version}.tar.gz
     filename: openssl.tar.gz
@@ -770,7 +770,7 @@ packages:
 
   python:
     version_arg: PYTHON_VERSION
-    sha256: 3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81
+    sha256: c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
     urls:
       - https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz
     filename: Python.tar.xz
