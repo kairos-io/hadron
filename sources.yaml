@@ -546,7 +546,7 @@ packages:
 
   lvm2:
     version_arg: LVM2_VERSION
-    sha256: 352703ef5b72ebb22d4f250284a29b89fe64d4049c6bf64c693f9af486c8081e
+    sha256: d87ec0dac9061f1fa58ebced5c6b1360c87d4c5cd7b455dc0ebe1d3f036920d7
     urls:
       - http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${version}.tgz
     filename: lvm2.tgz
