@@ -353,6 +353,8 @@ jobs:
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
           target: kernel-misc
+          # The last cache-from entry seeds from main's full-image cache for the
+          # same leg, until the per-leg kernel tag above has been published once.
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
@@ -362,8 +364,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
-            # Seed from main's full-image cache for the same leg until the
-            # per-leg kernel tag above has been published once.
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}{2}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel, matrix.fips == 'fips' && '-fips' || '') || '' }}
           build-args: |
