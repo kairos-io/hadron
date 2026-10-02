@@ -3,17 +3,15 @@ package hadron_test
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
-var stateContains = func(vm VM, query string, expected ...string) {
+var stateContains = func(vm testVM, query string, expected ...string) {
 	var or []types.GomegaMatcher
 	for _, e := range expected {
 		or = append(or, ContainSubstring(e))
@@ -24,7 +22,7 @@ var stateContains = func(vm VM, query string, expected ...string) {
 }
 
 var _ = Describe("kairos basic test", func() {
-	var vm VM
+	var vm testVM
 	var datasource string
 
 	// BeforeEach only brings the live-CD VM up so that an install/reboot failure
@@ -58,11 +56,11 @@ var _ = Describe("kairos basic test", func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
+			// The serial console lives on the host, so it is the one log
+			// that survives a VM that is gone. Save it before anything
+			// reaches over SSH for the rest.
+			saveSerialLog(vm)
 			gatherLogs(vm)
-			serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))
-			_ = os.MkdirAll("logs", os.ModePerm|os.ModeDir)
-			_ = os.WriteFile(filepath.Join("logs", "serial.log"), serial, os.ModePerm)
-			fmt.Println(string(serial))
 		}
 
 		err := vm.Destroy(nil)
@@ -346,7 +344,7 @@ openssl x509 -in /etc/ssl/certs/ca-cert-hadron-custom-ca.pem -noout -subject`)
 
 		By("Checking that vm has rebooted to 'recovery'")
 		Eventually(func() string {
-			out, _ := vm.Sudo("kairos-agent state get boot")
+			out, _ := vm.RootCommand("kairos-agent state get boot")
 			return out
 		}, 40*time.Minute, 10*time.Second).Should(
 			ContainSubstring("recovery_boot"))

@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
 // fipsEnabled reports whether the suite is running in FIPS mode.
@@ -25,7 +24,7 @@ func fipsEnabled() bool {
 }
 
 // assertFIPSEnabled verifies the kernel has FIPS mode enabled.
-func assertFIPSEnabled(vm VM) {
+func assertFIPSEnabled(vm testVM) {
 	By("Checking that FIPS is enabled", func() {
 		out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -34,7 +33,7 @@ func assertFIPSEnabled(vm VM) {
 }
 
 // assertWriteableTmp verifies /tmp is writeable.
-func assertWriteableTmp(vm VM) {
+func assertWriteableTmp(vm testVM) {
 	By("checking writeable tmp", func() {
 		_, err := vm.Sudo("echo 'foo' > /tmp/bar")
 		Expect(err).ToNot(HaveOccurred())
@@ -47,7 +46,7 @@ func assertWriteableTmp(vm VM) {
 }
 
 // assertBpfMounted verifies the bpf filesystem is mounted.
-func assertBpfMounted(vm VM) {
+func assertBpfMounted(vm testVM) {
 	By("checking bpf mount", func() {
 		Eventually(func() string {
 			out, _ := vm.Sudo("mount")
@@ -64,7 +63,7 @@ func assertBpfMounted(vm VM) {
 // (Datadog system-probe, Tetragon, Inspektor Gadget, Parca, bpftrace, BCC
 // CO-RE tools) require this to relocate their pre-compiled programs at load
 // time. Without it they fail with "no BTF data".
-func assertBTFAvailable(vm VM) {
+func assertBTFAvailable(vm testVM) {
 	By("checking kernel BTF is exposed for CO-RE eBPF", func() {
 		out, err := vm.Sudo("stat -c %s /sys/kernel/btf/vmlinux 2>/dev/null || echo missing")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -109,7 +108,7 @@ func assertBTFAvailable(vm VM) {
 // built. Observing it in CI means building CONFIG_TEST_FIRMWARE=m and driving
 // /sys/devices/virtual/misc/test_firmware/trigger_request, which is a kernel
 // config change outside this PR.
-func assertFirmwareLayout(vm VM) {
+func assertFirmwareLayout(vm testVM) {
 	By("checking the firmware directory is a real directory", func() {
 		// A symlink here makes a firmware sysext replace the baked-in blobs
 		// instead of merging with them: overlayfs merges two directories, but
@@ -148,7 +147,7 @@ func assertFirmwareLayout(vm VM) {
 }
 
 // assertRootfsShared verifies the rootfs is mounted as a shared mount.
-func assertRootfsShared(vm VM) {
+func assertRootfsShared(vm testVM) {
 	By("checking rootfs shared mount", func() {
 		out, err := vm.Sudo(`cat /proc/1/mountinfo | grep ' / / '`)
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -157,7 +156,7 @@ func assertRootfsShared(vm VM) {
 }
 
 // assertNetworking verifies that networking is functional.
-func assertNetworking(vm VM) {
+func assertNetworking(vm testVM) {
 	By("checking that networking is functional", func() {
 		out, err := vm.Sudo(`curl google.it`)
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -167,7 +166,7 @@ func assertNetworking(vm VM) {
 
 // assertInstallRecoveryServicesAbsent verifies the interactive install and
 // recovery services are not present on a non-alpine flavor.
-func assertInstallRecoveryServicesAbsent(vm VM) {
+func assertInstallRecoveryServicesAbsent(vm testVM) {
 	By("Checking install/recovery services do not exist", func() {
 		if !isFlavor(vm, "alpine") {
 			for _, service := range []string{"kairos-interactive", "kairos-recovery"} {
@@ -187,7 +186,7 @@ func assertInstallRecoveryServicesAbsent(vm VM) {
 
 // assertKairosState verifies the shared kairos state assertions: the OS name,
 // flavor, and that the reported version matches the on-disk version.
-func assertKairosState(vm VM) {
+func assertKairosState(vm testVM) {
 	currentVersion, err := vm.Sudo(getVersionCmd)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), currentVersion)
 
@@ -199,7 +198,7 @@ func assertKairosState(vm VM) {
 // assertSSHHardening verifies the STIG sshd policy hardening is in effect on a
 // booted node. Uses `sshd -T` (effective config dump; host keys exist at
 // runtime via sshkeygen.service). Keyword names in -T output are lowercased.
-func assertSSHHardening(vm VM) {
+func assertSSHHardening(vm testVM) {
 	By("checking sshd STIG policy hardening is effective", func() {
 		cfg, err := vm.Sudo("sshd -T")
 		Expect(err).ToNot(HaveOccurred(), cfg)
@@ -230,7 +229,7 @@ func assertSSHHardening(vm VM) {
 // assertSSHCrypto verifies the sshd crypto matches the image's FIPS posture and,
 // critically, that the STIG drop-in did NOT override the FIPS crypto in FIPS
 // images (it sorts before the 02-* crypto file and sshd is first-value-wins).
-func assertSSHCrypto(vm VM) {
+func assertSSHCrypto(vm testVM) {
 	By("checking sshd crypto matches the FIPS posture", func() {
 		cfg, err := vm.Sudo("sshd -T")
 		Expect(err).ToNot(HaveOccurred(), cfg)
@@ -283,7 +282,7 @@ func kexAlgorithms(lowercasedSshdT string) string {
 // Only universally-present keys are value-asserted here; the config-dependent
 // ones and the k8s-safety omissions are checked structurally in the
 // image-structure suite.
-func assertSysctlHardening(vm VM) {
+func assertSysctlHardening(vm testVM) {
 	By("checking sysctl --system applies cleanly (no missing-key failures)", func() {
 		out, err := vm.Sudo("sysctl --system")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -311,7 +310,7 @@ func assertSysctlHardening(vm VM) {
 
 // assertLegacyNetDisabled verifies the legacy network protocol modules (DCCP,
 // RDS, TIPC, ATM, AX25, NETROM) are blocked from loading via modprobe.d.
-func assertLegacyNetDisabled(vm VM) {
+func assertLegacyNetDisabled(vm testVM) {
 	By("checking legacy network protocols are blocked from loading", func() {
 		for _, mod := range []string{"dccp", "rds", "tipc", "atm", "ax25", "netrom"} {
 			// modprobe -n -v is a config-based dry run: with `install <mod>
@@ -333,7 +332,7 @@ func assertLegacyNetDisabled(vm VM) {
 
 // assertLoginDefsHardening verifies the STIG login.defs hardening (password max
 // age, successful-login logging, restrictive default umask) on a booted node.
-func assertLoginDefsHardening(vm VM) {
+func assertLoginDefsHardening(vm testVM) {
 	By("checking login.defs STIG hardening values", func() {
 		out, err := vm.Sudo("cat /etc/login.defs")
 		Expect(err).ToNot(HaveOccurred(), out)

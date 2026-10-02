@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,7 +14,7 @@ import (
 )
 
 var _ = Describe("kairos custom partitioning install", Label("custom-partitioning"), func() {
-	var vm VM
+	var vm testVM
 	var installationOutput string
 	var installError error
 
@@ -30,7 +29,7 @@ var _ = Describe("kairos custom partitioning install", Label("custom-partitionin
 
 		m, err := machine.New(opts...)
 		Expect(err).ToNot(HaveOccurred())
-		vm = NewVM(m, stateDir)
+		vm = testVM{VM: NewVM(m, stateDir), machine: m}
 		_, err = vm.Start(context.Background())
 		Expect(err).ToNot(HaveOccurred())
 
@@ -59,11 +58,8 @@ var _ = Describe("kairos custom partitioning install", Label("custom-partitionin
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
+			saveSerialLog(vm)
 			gatherLogs(vm)
-			serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))
-			_ = os.MkdirAll("logs", os.ModePerm|os.ModeDir)
-			_ = os.WriteFile(filepath.Join("logs", "serial.log"), serial, os.ModePerm)
-			fmt.Println(string(serial))
 		}
 	})
 

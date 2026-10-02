@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/spectrocloud/peg/matcher"
+	"github.com/spectrocloud/peg/pkg/controller"
 	"github.com/spectrocloud/peg/pkg/machine"
 	"github.com/spectrocloud/peg/pkg/machine/types"
 )
@@ -95,28 +97,47 @@ func pass() string {
 	return p
 }
 
-func gatherLogs(vm VM) {
+// saveSerialLog copies the qemu serial console into logs/ and prints it.
+//
+// qemu writes that file on the host, so it is readable even when the VM is
+// gone, and it is the only log that is. Everything else has to be fetched over
+// SSH, so this one comes first.
+func saveSerialLog(vm testVM) {
+	serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))
+	_ = os.MkdirAll("logs", os.ModePerm|os.ModeDir)
+	_ = os.WriteFile(filepath.Join("logs", "serial.log"), serial, os.ModePerm)
+	fmt.Println(string(serial))
+}
+
+// gatherLogs collects what a failed spec left on the VM.
+//
+// It runs on a machine that has just failed, so an unreachable or rebooting VM
+// is the normal case here and not an edge case. Every command goes through
+// RootCommand for that reason: a vm.Sudo here would take the whole suite down
+// with a panic, and it would do so from inside the handler whose only job is to
+// preserve the evidence.
+func gatherLogs(vm testVM) {
 	// Use kairos-agent logs command to collect logs
-	vm.Sudo("kairos-agent logs --output /run/kairos-logs.tar.gz")
+	vm.RootCommand("kairos-agent logs --output /run/kairos-logs.tar.gz")
 
 	// Collect additional system information not covered by kairos-agent logs
-	vm.Sudo("cat /oem/* > /run/oem.yaml")
-	vm.Sudo("cat /etc/resolv.conf > /run/resolv.conf")
-	vm.Sudo("k3s kubectl get pods -A -o json > /run/pods.json")
-	vm.Sudo("k3s kubectl get events -A -o json > /run/events.json")
-	vm.Sudo("cat /proc/cmdline > /run/cmdline")
-	vm.Sudo("chmod 777 /run/events.json")
+	vm.RootCommand("cat /oem/* > /run/oem.yaml")
+	vm.RootCommand("cat /etc/resolv.conf > /run/resolv.conf")
+	vm.RootCommand("k3s kubectl get pods -A -o json > /run/pods.json")
+	vm.RootCommand("k3s kubectl get events -A -o json > /run/events.json")
+	vm.RootCommand("cat /proc/cmdline > /run/cmdline")
+	vm.RootCommand("chmod 777 /run/events.json")
 
-	vm.Sudo("df -h > /run/disk")
-	vm.Sudo("mount > /run/mounts")
-	vm.Sudo("blkid > /run/blkid")
-	vm.Sudo("dmesg > /run/dmesg.log")
+	vm.RootCommand("df -h > /run/disk")
+	vm.RootCommand("mount > /run/mounts")
+	vm.RootCommand("blkid > /run/blkid")
+	vm.RootCommand("dmesg > /run/dmesg.log")
 
 	// Collect Kubernetes logs
 	vm.Scp("assets/kubernetes_logs.sh", "/tmp/logs.sh", "0770")
-	vm.Sudo("sh /tmp/logs.sh > /run/kube_logs")
+	vm.RootCommand("sh /tmp/logs.sh > /run/kube_logs")
 
-	vm.GatherAllLogs(
+	gatherAllLogs(vmLogSink(vm), "logs",
 		[]string{
 			"edgevpn@kairos",
 		},
@@ -137,6 +158,114 @@ func gatherLogs(vm VM) {
 		})
 }
 
+// logSink is everything gatherAllLogs needs from a VM: run a command as root,
+// and copy one file off the machine. Both report failure as an error, which is
+// the whole point of the type, and it lets the plan be tested without a VM.
+type logSink struct {
+	run   func(cmd string) (string, error)
+	fetch func(remotePath, localPath string) error
+}
+
+// vmLogSink binds a logSink to a running machine.
+//
+// peg's own vm.GatherAllLogs cannot be used here. Both it and the
+// vm.GatherLog it calls about twenty times route through machineSudo, which
+// panics from its own goroutine once the SSH session has died (see testVM). A
+// failed spec is precisely when the VM is gone or rebooting, so that is the
+// common case rather than the edge case, and the panic ends the test binary on
+// the spot: the files the steps above just wrote on the VM are never copied off
+// it, and no later spec runs. machine.Command and the SCP client both return
+// errors instead.
+func vmLogSink(vm testVM) logSink {
+	return logSink{
+		run: vm.RootCommand,
+		fetch: func(remotePath, localPath string) error {
+			f, err := os.Create(localPath)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			client := controller.NewSCPClient(vm.machine)
+			if err := client.Connect(); err != nil {
+				return err
+			}
+			defer client.Close()
+
+			// A VM that answered the chmod can still stall mid-transfer, and
+			// this runs inside AfterEach: without a deadline one wedged file
+			// would hold the whole suite until the job timeout.
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+
+			return client.CopyFromRemote(ctx, f, remotePath)
+		},
+	}
+}
+
+// gatherAllLogs collects the services and files peg's GatherAllLogs collects,
+// into outDir, without ever taking the process down with it. Every step is
+// best effort: a VM that cannot answer costs that one file, not the run.
+func gatherAllLogs(s logSink, outDir string, services, logFiles []string) {
+	for _, service := range services {
+		path := fmt.Sprintf("/run/%s.log", service)
+		runForLog(s, fmt.Sprintf("journalctl -u %s -o short-iso >> %s", service, path))
+		gatherLog(s, outDir, path)
+	}
+
+	for _, file := range logFiles {
+		gatherLog(s, outDir, file)
+	}
+
+	for _, extra := range []struct {
+		cmds []string
+		path string
+	}{
+		{[]string{"dmesg > /run/dmesg"}, "/run/dmesg"},
+		{[]string{"journalctl -o short-iso > /run/journal.log"}, "/run/journal.log"},
+		{[]string{"uname -a > /run/uname.log"}, "/run/uname.log"},
+		{[]string{"lsblk -a >> /run/disks.log", "blkid >> /run/disks.log"}, "/run/disks.log"},
+	} {
+		for _, cmd := range extra.cmds {
+			runForLog(s, cmd)
+		}
+		gatherLog(s, outDir, extra.path)
+	}
+
+	gatherLog(s, outDir, "/etc/passwd")
+	gatherLog(s, outDir, "/etc/os-release")
+}
+
+// runForLog runs one gathering command and reports a failure without raising.
+func runForLog(s logSink, cmd string) {
+	if out, err := s.run(cmd); err != nil {
+		fmt.Printf("Error running %q: %s\nOutput: %s\n", cmd, err, out)
+	}
+}
+
+// gatherLog copies one file from the VM into outDir, world readable so the
+// CI artifact upload can read it.
+func gatherLog(s logSink, outDir, remotePath string) {
+	if out, err := s.run("chmod 777 " + remotePath); err != nil {
+		fmt.Printf("Couldn't change permissions on %s: %s\nOutput: %s\n", remotePath, err, out)
+		return
+	}
+
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		fmt.Printf("Couldn't create %s: %s\n", outDir, err)
+		return
+	}
+
+	localPath := filepath.Join(outDir, filepath.Base(remotePath))
+	if err := s.fetch(remotePath, localPath); err != nil {
+		fmt.Printf("Error while copying %s: %s\n", remotePath, err)
+		return
+	}
+
+	_ = os.Chmod(localPath, 0666)
+	fmt.Printf("File %s copied!\n", remotePath)
+}
+
 // return the PID of the swtpm (to be killed later) and the state directory
 func emulateTPM(stateDir string) {
 	t := path.Join(stateDir, "tpm")
@@ -155,7 +284,40 @@ func emulateTPM(stateDir string) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func startVM() (context.Context, VM) {
+// testVM is peg's VM plus the machine it was built from.
+//
+// peg keeps the machine unexported and reaches it through vm.Sudo, which runs
+// `sudo /bin/sh` and feeds the command into the session's stdin from a
+// goroutine of its own. If the SSH session dies while that write is in flight,
+// io.Copy returns an error and the goroutine panics (peg
+// matcher/helpers.go:226). A panic on a goroutine Ginkgo does not own takes the
+// whole test binary down: no spec failure, no AfterEach, so no gatherLogs and
+// no serial console either. Keeping the machine lets the suite call Command
+// instead, which is session.CombinedOutput and returns an error.
+type testVM struct {
+	VM
+	machine types.Machine
+}
+
+// RootCommand runs cmd as root over a fresh SSH session and returns an error,
+// never a panic, when the VM is rebooting or already gone.
+//
+// cmd still runs under /bin/sh as root, so redirections inside it are performed
+// by the root shell exactly as they are with vm.Sudo.
+func (v testVM) RootCommand(cmd string) (string, error) {
+	return v.machine.Command("sudo /bin/sh -c " + shellQuote(cmd))
+}
+
+// shellQuote wraps s in single quotes so /bin/sh sees it as one word.
+//
+// RootCommand passes the caller's command as an argument to `sh -c`, which
+// means it travels through one more shell than vm.Sudo's stdin did, and the
+// gathering commands are full of redirections and globs that must survive it.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+func startVM() (context.Context, testVM) {
 	stateDir, err := os.MkdirTemp("", "")
 	Expect(err).ToNot(HaveOccurred())
 	fmt.Printf("State dir: %s\n", stateDir)
@@ -165,7 +327,7 @@ func startVM() (context.Context, VM) {
 	m, err := machine.New(opts...)
 	Expect(err).ToNot(HaveOccurred())
 
-	vm := NewVM(m, stateDir)
+	vm := testVM{VM: NewVM(m, stateDir), machine: m}
 
 	ctx, err := vm.Start(context.Background())
 	Expect(err).ToNot(HaveOccurred())
@@ -173,12 +335,12 @@ func startVM() (context.Context, VM) {
 	return ctx, vm
 }
 
-func isFlavor(vm VM, flavor string) bool {
+func isFlavor(vm testVM, flavor string) bool {
 	out, err := vm.Sudo(fmt.Sprintf("cat /etc/os-release | grep ID=%s", flavor))
 	return err == nil && out != ""
 }
 
-func expectDefaultService(vm VM) {
+func expectDefaultService(vm testVM) {
 	By("checking if default service is active in live cd mode", func() {
 		if isFlavor(vm, "alpine") {
 			out, err := vm.Sudo("rc-status")
@@ -198,19 +360,19 @@ func expectDefaultService(vm VM) {
 	})
 }
 
-func expectStartedInstallation(vm VM) {
+func expectStartedInstallation(vm testVM) {
 	By("checking that installation has started (via journald logs)", func() {
 		Eventually(func() string {
-			out, _ := vm.Sudo("journalctl -t kairos-agent --no-pager")
+			out, _ := vm.RootCommand("journalctl -t kairos-agent --no-pager")
 			return out
 		}, 30*time.Minute, 1*time.Second).Should(ContainSubstring("kairos-install.after"))
 	})
 }
 
-func expectRebootedToActive(vm VM) {
+func expectRebootedToActive(vm testVM) {
 	By("checking that vm has rebooted to 'active'", func() {
 		Eventually(func() string {
-			out, _ := vm.Sudo("kairos-agent state get boot")
+			out, _ := vm.RootCommand("kairos-agent state get boot")
 			return out
 		}, 40*time.Minute, 10*time.Second).Should(
 			Or(
@@ -270,6 +432,12 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 		types.WithSSHUser(user()),
 		types.WithSSHPass(pass()),
 		types.OnFailure(func(p *process.Process) {
+			// peg calls this from the goroutine it starts in
+			// machine.monitor, not from a Ginkgo node, so the Fail below
+			// needs a GinkgoRecover to be turned into a spec failure
+			// instead of an unrecovered panic.
+			defer GinkgoRecover()
+
 			var serial string
 
 			out, _ := os.ReadFile(p.StdoutPath())
@@ -371,7 +539,7 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 	return opts
 }
 
-var stateAssertVM = func(vm VM, query, expected string) {
+var stateAssertVM = func(vm testVM, query, expected string) {
 	out, err := vm.Sudo(fmt.Sprintf("kairos-agent state get %s", query))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), out)
 	ExpectWithOffset(1, out).To(ContainSubstring(expected))

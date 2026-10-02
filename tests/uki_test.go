@@ -4,16 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
 var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func() {
-	var vm VM
+	var vm testVM
 	var datasource string
 
 	BeforeAll(func() {
@@ -24,12 +22,7 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))
-			_ = os.MkdirAll("logs", os.ModePerm|os.ModeDir)
-			_ = os.WriteFile(filepath.Join("logs", "serial.log"), serial, os.ModePerm)
-			fmt.Println(string(serial))
-		}
-		if CurrentSpecReport().Failed() {
+			saveSerialLog(vm)
 			gatherLogs(vm)
 		}
 
@@ -125,7 +118,7 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 })
 
-func genericTests(vm VM) {
+func genericTests(vm testVM) {
 	By("Checking SecureBoot is enabled", func() {
 		out, err := vm.Sudo(`dmesg|grep -i secure| grep -i enabled`)
 		Expect(err).ToNot(HaveOccurred(), out)
