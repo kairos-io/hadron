@@ -10,7 +10,7 @@ Some comments about dev here.
 
 # golang size reduction
 
-- Compress everything with upx `--best --lzma` for final releases
+- Do not compress with upx. It used to head this list, and it is now off the table for every Kairos Go binary, for two reasons. A packed binary unpacks itself at run time through a `memfd:upx` mapping, and on riscv64 under `qemu-system-riscv64 -accel tcg` that mapping faults: a packed `immucore` died with `unhandled signal 11` before the live root overlay was set up, and the same ISO booted once the binary was left unpacked (kairos-io/kairos#4089). A packed binary also hides its Go module metadata, so a scanner reads zero packages out of it, and `kairos-io/kairos/.github/workflows/release-scan.yml` is a release gate that fails on exactly that, because zero extracted packages is a broken scan rather than a clean one. Use the flags below instead
 - use the cflags `-w -s` to drop uneeded debug and trace stuff. Sucks for debugging but reduces the size a lot
 - use the gcflags `-l` which disables function inlining
 - if you are starved for size, you can use the gcflags `-B` which disables bounds checks. This reduces the size a lot (relative) but its a bit unsafe as out of bound errors no longer panic...
