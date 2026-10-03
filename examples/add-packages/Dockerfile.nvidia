@@ -199,7 +199,8 @@ RUN cp -a /sbin/ldconfig.real ${OUTPUT}/usr/bin/ldconfig
 # COPY --from=OUR_IMAGE_NAME:TAG / /
 # Or create a sysextension with the help of Auroraboot (https://github.com/kairos-io/auroraboot)
 FROM scratch AS default
-COPY --from=builder /output/ /
+COPY --from=modules-builder /output/ /usr/
+COPY --from=nvidia-builder /output/ /
 
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS hadron-extension
 COPY --link --from=modules-builder /output/ /usr/
