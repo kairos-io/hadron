@@ -2155,12 +2155,38 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
 # link vmlinuz to our kernel
 RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-release) /kernel/vmlinuz
 
-FROM kernel-build AS kernel-no-fips
+# The modules are built here, in the same stage lineage as the kernel image, and both
+# travel together from this point on. CONFIG_MODULE_SIG_KEY points at certs/signing_key.pem,
+# which is not in the tree, so kbuild mints a fresh throwaway key on every real kernel build
+# and CONFIG_MODULE_SIG_ALL=y signs the modules with it. If vmlinuz and lib/modules ever come
+# from two different builds, the modules carry a signature the kernel's builtin keyring does
+# not know, and with CONFIG_CRYPTO_FIPS=y a fips=1 boot panics on the first modular crypto
+# algorithm it loads. Keeping one linear chain, kernel-build -> kernel-modules -> kernel,
+# means the cache cannot serve the two halves from different builds.
+FROM kernel-build AS kernel-modules
+# This builds the modules
+RUN hcflags='-D__attribute_const__=' && \
+    if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
+    else \
+    export ARCH=x86_64;\
+    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
+RUN if [ ${ARCH} = "aarch64" ]; then \
+    export ARCH=arm64; \
+    elif [ ${ARCH} = "riscv64" ]; then \
+    export ARCH=riscv; \
+    else \
+    export ARCH=x86_64;\
+    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
+
+FROM kernel-modules AS kernel-no-fips
 # Nothing to do here, just a placeholder
 
 
 # This will generate the needed FIPS HMAC for the kernel so dracut can verify it
-FROM kernel-build AS kernel-fips
+FROM kernel-modules AS kernel-fips
 WORKDIR /sources/
 # Generate the FIPS integrity HMAC for the kernel. libkcapi/sha512hmac can only reach the
 # kernel crypto API through AF_ALG, which Docker's default seccomp profile blocks at build
@@ -2183,24 +2209,6 @@ RUN kver=$(cat /kernel/kernel-release) && \
     chmod 0644 "/kernel/.vmlinuz-${kver}.hmac"
 
 FROM kernel-${FIPS} AS kernel
-
-FROM kernel-build AS kernel-modules
-# This builds the modules
-RUN hcflags='-D__attribute_const__=' && \
-    if [ ${ARCH} = "aarch64" ]; then \
-    export ARCH=arm64; \
-    elif [ ${ARCH} = "riscv64" ]; then \
-    export ARCH=riscv; \
-    else \
-    export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
-RUN if [ ${ARCH} = "aarch64" ]; then \
-    export ARCH=arm64; \
-    elif [ ${ARCH} = "riscv64" ]; then \
-    export ARCH=riscv; \
-    else \
-    export ARCH=x86_64;\
-    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
 
 FROM kernel-base AS kernel-headers
 ARG JOBS
@@ -4100,9 +4108,10 @@ COPY --from=openssl /openssl/ /skeleton/
 ## openssh
 COPY --from=openssh /openssh/ /skeleton/
 
-# kernel and modules
+# kernel and modules. Both come from the single `kernel` stage so that the image can never
+# pair a vmlinuz with modules signed by a different build's throwaway module signing key.
 COPY --from=kernel /kernel/ /skeleton/boot/
-COPY --from=kernel-modules /modules/lib/modules/ /skeleton/lib/modules
+COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
 
 COPY --from=sudo-systemd /sudo/ /skeleton/
 
