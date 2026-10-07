@@ -1,35 +1,108 @@
-This folder contains 2 sysextensions
+This folder contains 2 sysextensions. The whole folder is handed to
+auroraboot as `--overlay-iso` by `.github/workflows/PR_multiarch.yml`, so it
+ends up on the Trusted Boot test ISO.
 
-work.raw contains a simple script called `hello.sh` that prints "Hello World" to the console.
-hello-broke.raw contains a simple script called `hello.sh` that prints "Hello World" to the console, but it is NOT signed or verity checked.
+`work.sysext.raw` contains a script called `hello.sh` that prints
+`Hello world`. It is verity + signed with the `db.key` and `db.pem` test keys
+under `tests/assets/keys`, which are the same keys the UKI ISO enrols into the
+Secure Boot db, so the kernel trusts the signature and systemd-sysext merges
+the extension.
 
-Both extensions need to have a `extension-release.NAME` with `ID=_any` for it to be identified as a sysextension.
-Full path on the image should be `usr/lib/extension-release.d/extension-release.NAME`
+`hello-broke.sysext.raw` contains the same script but is NOT signed and has no
+verity. The image policy the kairos drop-in installs rejects it. It is there to
+assert that a broken extension does not take the valid one down with it.
 
-work.raw is verity+signed with the db.key and db.crt test keys found under tests/assets/keys
+Both extensions carry a `usr/lib/extension-release.d/extension-release.NAME`
+with `ID=_any`, so systemd-sysext identifies them regardless of the host
+os-release.
 
-The idea is to copy them into the Kairos iso overlay folder and test the verity+signed sysextension loading.
+## Where the payload sits
 
-immucore should only copy the valid ones and ignore the invalid ones. A warning should be logged in the immucore log.
+`work.sysext.raw` ships `hello.sh` at `usr/bin/`. It used to ship it at
+`usr/local/bin/`, which stopped working when kairos-io/kairos#5115 removed
+every `/usr/local` path from `SYSTEMD_SYSEXT_HIERARCHIES` in
+`kairos-init/pkg/bundled/cloudconfigs/99_sysext.yaml`: `/usr/local` is where
+`COS_PERSISTENT` is mounted, and a successful merge makes every hierarchy it
+covers read-only, which cost the persistent partition its writable half.
+`/usr/bin` is where a sysext-delivered binary belongs anyway.
 
-The test idea is as follows:
+`hello-broke.sysext.raw` is never merged, so where its payload sits does not
+matter and it is left untouched.
+
+## The test
+
 1. Copy the sysextensions to the overlay folder on test preparation
-2. Build the uki iso with the overlay files on it and sign it with the same test keys
+2. Build the uki iso with the overlay files on it and sign it with the same
+   test keys
 3. Boot the uki iso and check if the sysextensions are loaded correctly
-4. Check if we got a warning for hello-broke.raw
-5. Check if the work.raw extension was moved onto /run/extensions and loaded correctly
-6. Check if the hello.sh script is executed correctly, as it should be loaded
-7. Check if the sysext service is running with the override from kairos with the policy
+4. Check that `hello-broke.sysext.raw` never reaches `/run/extensions`
+5. Check that `work.sysext.raw` was moved onto `/run/extensions` and merged at
+   `/usr/bin`
+6. Check that `hello.sh` runs, which it only can if the merge went up
+7. Check if the sysext service is running with the override from kairos with
+   the policy
 
+## Rebuilding
 
+`work.sysext.raw` is a systemd-repart DDI (erofs data + verity hash + verity
+signature partition). `systemd-repart -S` needs systemd's stock
+`sysext.repart.d` installed on the build host and fails with
+`DDI type 'sysext' is not defined` without it, so pass an explicit definitions
+directory instead.
 
-The sysextensions are really stupid, its just a /usr/local/bin/ dir with a hello.sh script on them.
-work.raw was built with systemd-repart so it would be verity+signed
+Prepare a `SOURCE_DIR` with `usr/bin/hello.sh` (mode 0755) and
+`usr/lib/extension-release.d/extension-release.work` (carrying `ID=_any`), then
+write `defs.d`:
+
 ```bash
-systemd-repart -S -s SOURCE_DIR OUTPUT_FILE --private-key=tests/assets/keys/db.key --certificate=tests/assets/keys/db.pem
+mkdir -p defs.d
+cat > defs.d/10-root.conf <<'EOF'
+[Partition]
+Type=root
+Format=erofs
+CopyFiles=/usr/
+CopyFiles=/opt/
+Verity=data
+VerityMatchKey=root
+Minimize=best
+EOF
+cat > defs.d/20-root-verity.conf <<'EOF'
+[Partition]
+Type=root-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=best
+EOF
+cat > defs.d/30-root-verity-sig.conf <<'EOF'
+[Partition]
+Type=root-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
 ```
 
-The other one was built with [sysext-bakery](https://github.com/flatcar/sysext-bakery) which makes it easy to build sysextensions, but doesn't have support for signing or verity yet. So its simple to generate images with it but they won't work on UKI.
+`mkfs.erofs` (package `erofs-utils`) has to be on PATH. The seed only fixes
+what repart derives from it: `mkfs.erofs` stamps a random filesystem UUID into
+the data partition, so the verity root hash and the partition UUIDs repart
+derives from it change on every rebuild. Expect different bytes each time.
+
+Then, with a 0600 copy of the key (repart refuses a more permissive one):
+
+```bash
+systemd-repart --seed=00000000-0000-0000-0000-000000000000 \
+    --empty=create --size=auto --offline=yes \
+    --definitions=defs.d --root=SOURCE_DIR OUTPUT_FILE \
+    --private-key=db.key --certificate=tests/assets/keys/db.pem
+```
+
+`hello-broke.sysext.raw` was built with
+[sysext-bakery](https://github.com/flatcar/sysext-bakery), which has no support
+for signing or verity, which is the point:
+
 ```bash
 bake.sh SOURCE_DIR
 ```
+
+The same pair of extensions lives upstream in
+`kairos-io/kairos` under `tests/assets/sysext-uki/` and `tests/assets/sysext-grub/`.
+Keep this one in step with the UKI half.

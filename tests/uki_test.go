@@ -10,6 +10,27 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// The hierarchy list the kairos drop-in installs, spelled out so that
+// `systemd-sysext status` reports on what the boot merged instead of on its
+// own defaults. /usr/local is deliberately not in it: it is where
+// COS_PERSISTENT is mounted, and a successful merge turns every hierarchy it
+// covers read-only. kairos-io/kairos#5115 took every /usr/local path out of
+// kairos-init's SYSTEMD_SYSEXT_HIERARCHIES for that reason.
+const sysextHierarchiesEnv = `SYSTEMD_SYSEXT_HIERARCHIES="/usr/bin:/usr/share:/usr/lib:/usr/include:/usr/src:/usr/sbin"`
+
+// tests/assets/sysext/work.sysext.raw carries its payload at /usr/bin/hello.sh,
+// which is a merged hierarchy, so a successful merge puts the script on the
+// host's PATH. Running it is the strongest proof the overlay went up: the image
+// has to be accepted by the boot's image policy, merged, and visible to a fresh
+// process. The payload used to live at /usr/local/bin/hello.sh; the image was
+// regenerated rather than the assertion weakened. See the asset's README for
+// the rebuild recipe.
+const (
+	mergedExtensionHierarchy = "/usr/bin"
+	mergedExtensionCommand   = "hello.sh"
+	mergedExtensionOutput    = "Hello world"
+)
+
 var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func() {
 	var vm testVM
 	var datasource string
@@ -238,24 +259,26 @@ func genericTests(vm testVM) {
 		}
 
 		// when calling the status we need to set the hierarchy env variable so it can find them
-		env := "SYSTEMD_SYSEXT_HIERARCHIES=\"/usr/local/bin:/usr/local/sbin:/usr/local/include:/usr/local/lib:/usr/local/share:/usr/local/src:/usr/bin:/usr/share:/usr/lib:/usr/include:/usr/src:/usr/sbin\""
-		out, err := vm.Sudo(fmt.Sprintf("%s systemd-sysext --json=short", env))
+		out, err := vm.Sudo(fmt.Sprintf("%s systemd-sysext --json=short", sysextHierarchiesEnv))
 		Expect(err).ToNot(HaveOccurred(), out)
 		// marshall output to struct
 		var sysexts sysextStatus
 		err = json.Unmarshal([]byte(out), &sysexts)
 		Expect(err).ToNot(HaveOccurred())
 		// check if sysexts are loaded
+		var merged bool
 		for _, sysext := range sysexts {
-			if sysext.Hierarchy == "/usr/local/bin" {
+			if sysext.Hierarchy == mergedExtensionHierarchy {
 				Expect(sysext.Extensions).To(ContainElement("work"))
+				merged = true
 			}
 		}
+		Expect(merged).To(BeTrue(), "no %s hierarchy in %s", mergedExtensionHierarchy, out)
 	})
 	By("Checking that we can run a command from a sysext", func() {
-		out, err := vm.Sudo("hello.sh")
+		out, err := vm.Sudo(mergedExtensionCommand)
 		Expect(err).ToNot(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("Hello world"))
+		Expect(out).To(ContainSubstring(mergedExtensionOutput))
 	})
 
 }
