@@ -2092,16 +2092,16 @@ RUN tar -xf linux.tar.xz && mv linux-* kernel
 # segfault during vmlinux BTF generation on musl (glibc mremap hides the bug).
 # `set -e` is required: the exit status of a `for` loop is the status of its last
 # iteration, so without it a patch that fails to apply leaves the kernel
-# unpatched and the build still succeeds. `--batch` keeps patch from asking a
-# question nobody can answer during a build, and `--forward` turns an
-# already-applied patch into a failure, which is the signal to drop it.
+# unpatched and the build still succeeds. The flags stay bare on purpose: this
+# stage runs busybox `patch`, which rejects GNU long options such as `--batch`,
+# and every other patch site in this file uses the same `patch -p1` form.
 COPY ./patches/kernel-patches /sources/kernel-patches
 RUN set -e; \
     cd /sources/kernel; \
     for p in /sources/kernel-patches/*.patch; do \
         [ -e "$p" ] || continue; \
         echo "Applying kernel patch: $p"; \
-        patch -p1 --batch --forward < "$p"; \
+        patch -p1 < "$p"; \
     done
 
 
