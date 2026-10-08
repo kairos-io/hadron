@@ -68,6 +68,7 @@ ARG ELFUTILS_VERSION=0.195
 ARG EXPAT_VERSION=2.9.0
 ARG FINDUTILS_VERSION=4.11.0
 ARG FLEX_VERSION=2.6.4
+ARG FREETYPE_VERSION=2.14.3
 ARG GAWK_VERSION=5.4.1
 ARG GCC_VERSION=15.3.0
 ARG GDB_VERSION=18.1
@@ -145,6 +146,7 @@ ARG STRACE_VERSION=7.2
 ARG SUDO_VERSION=1.9.17p2
 ARG SYSTEMD_VERSION=262
 ARG TPM2_TSS_VERSION=4.2.0
+ARG UNIFONT_VERSION=16.0.04
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
 ARG XXHASH_VERSION=0.8.4
@@ -308,6 +310,8 @@ FROM ${SOURCES_REPO}/keyutils:${KEYUTILS_VERSION} AS keyutils-download
 FROM ${SOURCES_REPO}/nfs-utils:${NFS_UTILS_VERSION} AS nfs-utils-download
 FROM ${SOURCES_REPO}/cryptsetup:${CRYPTSETUP_VERSION} AS cryptsetup-download
 FROM ${SOURCES_REPO}/grub:${GRUB_VERSION} AS grub-download
+FROM ${SOURCES_REPO}/freetype:${FREETYPE_VERSION} AS freetype-download
+FROM ${SOURCES_REPO}/unifont:${UNIFONT_VERSION} AS unifont-download
 FROM ${SOURCES_REPO}/pam:${PAM_VERSION} AS pam-download
 FROM ${SOURCES_REPO}/cracklib:${CRACKLIB_VERSION} AS cracklib-download
 FROM ${SOURCES_REPO}/libpwquality:${LIBPWQUALITY_VERSION} AS libpwquality-download
@@ -434,6 +438,8 @@ COPY --from=keyutils-download /sources/downloads/keyutils.tar.gz /sources/downlo
 COPY --from=nfs-utils-download /sources/downloads/nfs-utils.tar.xz /sources/downloads/
 COPY --from=cryptsetup-download /sources/downloads/cryptsetup.tar.xz /sources/downloads/
 COPY --from=grub-download /sources/downloads/grub.tar.xz /sources/downloads/
+COPY --from=freetype-download /sources/downloads/freetype.tar.xz /sources/downloads/
+COPY --from=unifont-download /sources/downloads/unifont.bdf.gz /sources/downloads/
 COPY --from=pam-download /sources/downloads/pam.tar.xz /sources/downloads/
 COPY --from=cracklib-download /sources/downloads/cracklib.tar.bz2 /sources/downloads/
 COPY --from=libpwquality-download /sources/downloads/libpwquality.tar.bz2 /sources/downloads/
@@ -2986,6 +2992,28 @@ WORKDIR /sources/parted
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --without-readline
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/parted && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
+## freetype, build-time only: grub-mkfont links against it, and grub-mkfont is
+## what turns the unifont glyphs into the .pf2 files the GRUB menu loads. The
+## library is never copied into the final image, only into the grub-efi stage.
+## Everything optional is off: grub-mkfont reads one BDF and writes a bitmap
+## font, so zlib, png, brotli, bzip2 and harfbuzz would all be dead weight.
+FROM rsync AS freetype
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/freetype.tar.xz /sources/
+RUN mkdir -p /freetype
+WORKDIR /sources
+RUN tar -xf freetype.tar.xz && mv freetype-* freetype
+WORKDIR /sources/freetype
+RUN ./configure ${COMMON_CONFIGURE_ARGS} \
+    --with-zlib=no \
+    --with-bzip2=no \
+    --with-png=no \
+    --with-harfbuzz=no \
+    --with-brotli=no
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/freetype
+
 ## grub for bootloader installation
 FROM python-build AS grub-base
 COPY --from=pkgconfig /pkgconfig/ /
@@ -3019,13 +3047,42 @@ ARG CFLAGS="${CFLAGS//-flto=auto/}"
 ARG LDFLAGS="${LDFLAGS//-flto=auto/}"
 WORKDIR /sources/grub
 RUN mkdir -p /grub-efi
-RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror
+# Fonts. Without these two inputs grub builds no .pf2 at all, `loadfont unicode`
+# in the Kairos GRUB config finds nothing, gfxterm falls back to the plain text
+# console and kairos-agent warns on every install. See kairos-io/kairos#5334.
+#
+# --with-unifont names the glyph source outright rather than leaving it to the
+# well-known-directory scan in configure.ac, and --enable-grub-mkfont turns the
+# freetype probe from a silent skip into a hard configure error. Both matter:
+# the default for either one is "guess, and carry on quietly if the guess comes
+# up empty", which is how a fontless image shipped in the first place.
+#
+# The BDF is unpacked here instead of handed over gzipped so that nothing
+# depends on how freetype was configured for zlib.
+COPY --from=freetype /freetype/ /
+COPY --from=sources-downloader /sources/downloads/unifont.bdf.gz /sources/
+RUN gzip -dc /sources/unifont.bdf.gz > /sources/grub/unifont.bdf
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-platform=efi --disable-efiemu --disable-werror \
+    --enable-grub-mkfont --with-unifont=/sources/grub/unifont.bdf
 # Reconfigure gnulib shipped with grub to avoid build issues
 # This comes because on grub 2.14 these files are shipped pre-generated and they were built on a glibc system
 # which causes issues when building on musl systems as it expects the bsd-compat-headers to be available
 # which is not the case here. So we force regenerating these files with our musl toolchain so it can find there is no cdefs
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C grub-core/lib/gnulib
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install-strip DESTDIR=/grub-efi
+# A missing FONT_SOURCE leaves the build green and silently drops the fonts,
+# which is exactly how #5334 shipped unnoticed. Fail here instead. These are
+# the three names kairos-agent copies onto the state partition
+# (agent/pkg/constants GetGrubFonts).
+RUN for f in ascii.pf2 euro.pf2 unicode.pf2; do \
+		test -s "/grub-efi/usr/share/grub/$f" || \
+			{ echo "grub built no $f: check FONT_SOURCE and --enable-grub-mkfont" >&2; exit 1; }; \
+	done
+# grub-mkfont is the only grub binary that links against freetype, and freetype
+# stays in this stage, so shipping it would put a binary with an unresolvable
+# NEEDED entry in the image. The fonts it produces are already built above;
+# nothing on a running node calls it.
+RUN rm -f /grub-efi/usr/bin/grub-mkfont
 # The prefix should be empty so grub can find its config next to the efi file
 RUN if [ "${ARCH}" = "aarch64" ]; then \
 		grub_format="arm64-efi"; \

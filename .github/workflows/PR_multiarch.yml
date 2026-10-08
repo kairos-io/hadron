@@ -1304,7 +1304,7 @@ jobs:
         run: |
           cp tests/go.* .
           go mod download
-          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "firmware-layout || audit" ./tests/
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "firmware-layout || audit || grub-fonts" ./tests/
       - name: Save the image as a tarball
         # The file name carries the variant: this artifact and its siblings
         # (other kernel/fips combos) are all downloaded into one workspace by

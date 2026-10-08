@@ -290,6 +290,46 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
+	Describe("grub fonts", Label("grub-fonts"), func() {
+		// kairos-io/kairos#5334. grub only emits .pf2 files when its configure
+		// found both a unifont source and a usable freetype, and a miss is not
+		// a build error: the image shipped fontless for as long as the fonts
+		// were never asked for. The symptom is one line in the GRUB config,
+		// `loadfont unicode`, resolving to nothing, so gfxterm renders with no
+		// font and kairos-agent logs three "did not find grub font" warnings on
+		// every install.
+		BeforeEach(func() {
+			skipUnlessFullImage()
+			if _, code := shInImage("test -d /usr/lib/grub"); code != 0 {
+				Skip("this image carries no grub (systemd-boot variant); " +
+					"the .pf2 fonts ship with the grub bootloader only")
+			}
+		})
+
+		// The three names are agent/pkg/constants GetGrubFonts: what
+		// kairos-agent walks the rootfs for and copies onto COS_STATE at
+		// install time.
+		DescribeTable("ships the font kairos-agent copies to the state partition",
+			func(font string) {
+				out, code := shInImage("test -s /usr/share/grub/" + font)
+				Expect(code).To(Equal(0),
+					"/usr/share/grub/%s is missing or empty; grub was built with no "+
+						"FONT_SOURCE or without grub-mkfont. Output: %s", font, out)
+			},
+			Entry("ascii.pf2", "ascii.pf2"),
+			Entry("euro.pf2", "euro.pf2"),
+			Entry("unicode.pf2", "unicode.pf2"),
+		)
+
+		It("does not ship grub-mkfont, whose freetype is build-time only", func() {
+			// freetype never reaches the image, so a shipped grub-mkfont would
+			// be a binary with an unresolvable NEEDED entry.
+			out, code := shInImage("test -e /usr/bin/grub-mkfont && echo PRESENT")
+			Expect(code).ToNot(Equal(0),
+				"grub-mkfont should have been removed from the image: %s", out)
+		})
+	})
+
 	It("ships a valid sshd config that parses cleanly", func() {
 		skipUnlessFullImage()
 		// sshd policy hardening is owned by kairos-init's

@@ -260,6 +260,15 @@ packages:
       - https://github.com/westes/flex/releases/download/v${version}/flex-${version}.tar.gz
     filename: flex.tar.gz
 
+  freetype:
+    version_arg: FREETYPE_VERSION
+    sha256: 36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f
+    urls:
+      - https://download-mirror.savannah.gnu.org/releases/freetype/freetype-${version}.tar.xz
+      - https://download.savannah.gnu.org/releases/freetype/freetype-${version}.tar.xz
+      - https://downloads.sourceforge.net/freetype/freetype-${version}.tar.xz
+    filename: freetype.tar.xz
+
   gawk:
     version_arg: GAWK_VERSION
     sha256: 07f6f7342b7febe4313fc2c2542ad93d64fe20ad8717200109f105a826f5fd37
@@ -846,6 +855,20 @@ packages:
     urls:
       - https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz
     filename: tpm2-tss.tar.gz
+
+  # The precompiled BDF release, not the unifont source tarball: grub needs
+  # the glyphs only, and building unifont from source would pull perl, GD,
+  # bdftopcf and imagemagick into the toolchain for nothing. unifoundry is the
+  # upstream that publishes the font-builds directory, hence the single host;
+  # the second url is the same file over plain http, for a runner that cannot
+  # complete the TLS handshake.
+  unifont:
+    version_arg: UNIFONT_VERSION
+    sha256: 4a1689c0065666ac70e1310420ce67d7fa3dcf83c1a2e1e6b2c115aa22deb3cf
+    urls:
+      - https://unifoundry.com/pub/unifont/unifont-${version}/font-builds/unifont-${version}.bdf.gz
+      - http://unifoundry.com/pub/unifont/unifont-${version}/font-builds/unifont-${version}.bdf.gz
+    filename: unifont.bdf.gz
 
   urcu:
     version_arg: URCU_VERSION
