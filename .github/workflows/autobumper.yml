@@ -40,65 +40,53 @@ jobs:
         uses: updatecli/updatecli-action@v3.9.0
       - name: commit and push changes
         env:
+          # updatecli's github release sources, autobumper-changelog.rb and gh
+          # all read this. It stays a user token: a pull request opened by the
+          # workflow's own token does not start `pull_request` runs.
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          # git pushes the bump branch with the workflow's own token, which has
+          # contents: write on this repository (declared above). No ruleset
+          # applies to branches other than main.
+          REPO_TOKEN: ${{ github.token }}
         run: |
           set -ex
-          # Check if fork exists, create if not
-          if ! gh repo view ci-forks/hadron --json name > /dev/null 2>&1; then
-            echo "Fork does not exist. Creating fork..."
-            gh repo fork kairos-io/hadron --clone=false --remote=false --org ci-forks
-          else
-            echo "Fork already exists."
-          fi
-          
-          # Clone fork using HTTPS with the token embedded in the URL; credentials are not stored on disk
-          git clone "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git" fork
-          cd fork
-          
-          # Ensure all pushes go to the fork using the authenticated URL
-          git remote set-url origin "https://ci-forks:${GITHUB_TOKEN}@github.com/ci-forks/hadron.git"
-          
-          # Add upstream and sync main
-          git remote add upstream https://github.com/kairos-io/hadron || true
-          git fetch upstream
-          git checkout main
-          git reset --hard upstream/main
+          # The bump branch lives in kairos-io/hadron, not in a fork.
+          # PR_multiarch.yml gates its per-PR BuildKit cache on
+          # `head.repo.full_name == github.repository`, because a pull request
+          # opened from a fork cannot reach the quay credentials. On a fork
+          # pull request every `cache-to` collapses to '', so the twenty-two
+          # cache-warming jobs publish nothing and each image leg recompiles
+          # the sub-trees they had just built. Measured on #670, the kernel
+          # bump of 2026-10-04: 614 of that run's 1201 runner minutes went
+          # into artifacts no later job could read.
+          #
+          # kairos-io/hadron carries no ruleset on branches other than main,
+          # and no workflow triggers on an arbitrary branch push, so pushing
+          # the bump branch here costs nothing and turns the handoff on.
+          git clone "https://x-access-token:${REPO_TOKEN}@github.com/kairos-io/hadron.git" repo
+          cd repo
 
-          # Every matrix job shares this one fork, so all of them push the same
-          # ref at the same time and the losers are rejected with
-          # "cannot lock ref 'refs/heads/main'". They all want main at the same
-          # commit, so a rejection is only a problem if the ref is not there
-          # afterwards. Re-read it and retry until it is.
-          target="$(git rev-parse upstream/main)"
-          for attempt in 1 2 3; do
-            if git push origin "${target}:refs/heads/main" --force; then
-              break
+          branch="bumps-${{ matrix.config }}-${{ github.sha }}"
+
+          # The bump branches land in this repository now, so prune the ones
+          # whose pull request is finished. Branches carrying the sha of the
+          # run in progress belong to a sibling matrix job that may not have
+          # opened its pull request yet, and a branch with no pull request at
+          # all is left alone.
+          for stale in $(git ls-remote --heads origin 'bumps-*' | sed 's#.*refs/heads/##'); do
+            case "$stale" in
+              *-${{ github.sha }}) continue ;;
+            esac
+            state=$(gh pr list --head "$stale" --base main --repo kairos-io/hadron --state all --json state -q '.[0].state // ""')
+            if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
+              git push origin --delete "$stale" || echo "could not delete ${stale}"
             fi
-            git fetch origin main
-            if [ "$(git rev-parse FETCH_HEAD)" = "$target" ]; then
-              echo "fork main is already at ${target}, pushed by a concurrent matrix job"
-              break
-            fi
-            if [ "$attempt" = 3 ]; then
-              echo "could not sync the fork's main to ${target}" >&2
-              exit 1
-            fi
-            sleep "$((attempt * 3))"
           done
 
-          # Fetch all branches
-          git fetch origin
-          
-          # Check if remote bumps branch exists
-          if git ls-remote --exit-code --heads origin bumps-${{ matrix.config }}-${{ github.sha }} > /dev/null; then
-            echo "Remote 'bumps-${{ matrix.config }}-${{ github.sha }}' branch exists. Checking it out."
-            git checkout bumps-${{ matrix.config }}-${{ github.sha }}
-          else
-            echo "Remote 'bumps-${{ matrix.config }}-${{ github.sha }}' branch does not exist. Creating from upstream/main."
-            git checkout -B bumps-${{ matrix.config }}-${{ github.sha }} upstream/main
-          fi
-          
-          git reset --hard upstream/main
+          # updatecli is deterministic against its manifest, so an earlier
+          # attempt on the same branch has nothing to contribute: always start
+          # from main.
+          git checkout -B "$branch" origin/main
           
           updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
 
@@ -129,7 +117,7 @@ jobs:
           # Check if there are staged changes
           if git diff --cached --quiet; then
             echo "No changes to commit. Checking PR state."
-            PR_INFO=$(gh pr list --head bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+            PR_INFO=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
             PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
             PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
             if [ -n "$PR_NUMBER" ]; then
@@ -137,8 +125,8 @@ jobs:
                 # Check if PR is merged
                 MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
                 if [ -z "$MERGED_AT" ]; then
-                  echo "PR #$PR_NUMBER is closed and not merged. Deleting remote 'bumps-${{ matrix.config }}' branch to allow clean recreation."
-                  git push origin --delete bumps-${{ matrix.config }} || echo "Remote branch already deleted."
+                  echo "PR #$PR_NUMBER is closed and not merged. Deleting remote '$branch' branch to allow clean recreation."
+                  git push origin --delete "$branch" || echo "Remote branch already deleted."
                 else
                   echo "PR #$PR_NUMBER is merged. Nothing to do."
                 fi
@@ -158,11 +146,11 @@ jobs:
           ruby .github/scripts/autobumper-changelog.rb
 
           git commit -s -F /tmp/commit_msg.txt
-          git push origin bumps-${{ matrix.config }}-${{ github.sha }} --force
+          git push origin "$branch" --force
           PR_TITLE=$(cat /tmp/pr_title.txt)
           
           # Check if PR already exists (open or closed)
-          PR_INFO=$(gh pr list --head bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
+          PR_INFO=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
           PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
           PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
           if [ -n "$PR_NUMBER" ]; then
@@ -173,7 +161,7 @@ jobs:
                 echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
                 if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
                   echo "Failed to reopen PR. Creating a new one."
-                  gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+                  gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
                 else
                   gh pr edit $PR_NUMBER --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
                 fi
@@ -186,5 +174,5 @@ jobs:
             fi
           else
             echo "No PR found. Creating a new one."
-            gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head ci-forks:bumps-${{ matrix.config }}-${{ github.sha }} --base main --repo kairos-io/hadron
+            gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
           fi
