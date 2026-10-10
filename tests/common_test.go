@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/spectrocloud/peg/matcher"
 )
 
 // fipsEnabled reports whether the suite is running in FIPS mode.
@@ -25,7 +24,7 @@ func fipsEnabled() bool {
 }
 
 // assertFIPSEnabled verifies the kernel has FIPS mode enabled.
-func assertFIPSEnabled(vm VM) {
+func assertFIPSEnabled(vm testVM) {
 	By("Checking that FIPS is enabled", func() {
 		out, err := vm.Sudo("cat /proc/sys/crypto/fips_enabled")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -34,7 +33,7 @@ func assertFIPSEnabled(vm VM) {
 }
 
 // assertWriteableTmp verifies /tmp is writeable.
-func assertWriteableTmp(vm VM) {
+func assertWriteableTmp(vm testVM) {
 	By("checking writeable tmp", func() {
 		_, err := vm.Sudo("echo 'foo' > /tmp/bar")
 		Expect(err).ToNot(HaveOccurred())
@@ -47,7 +46,7 @@ func assertWriteableTmp(vm VM) {
 }
 
 // assertBpfMounted verifies the bpf filesystem is mounted.
-func assertBpfMounted(vm VM) {
+func assertBpfMounted(vm testVM) {
 	By("checking bpf mount", func() {
 		Eventually(func() string {
 			out, _ := vm.Sudo("mount")
@@ -64,7 +63,7 @@ func assertBpfMounted(vm VM) {
 // (Datadog system-probe, Tetragon, Inspektor Gadget, Parca, bpftrace, BCC
 // CO-RE tools) require this to relocate their pre-compiled programs at load
 // time. Without it they fail with "no BTF data".
-func assertBTFAvailable(vm VM) {
+func assertBTFAvailable(vm testVM) {
 	By("checking kernel BTF is exposed for CO-RE eBPF", func() {
 		out, err := vm.Sudo("stat -c %s /sys/kernel/btf/vmlinux 2>/dev/null || echo missing")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -80,8 +79,75 @@ func assertBTFAvailable(vm VM) {
 	})
 }
 
+// assertFirmwareLayout verifies the firmware search layout on an installed
+// node. See kairos-io/kairos#4290: the image blobs used to live at
+// /usr/local/lib/firmware with /lib/firmware symlinked into it, so the
+// COS_PERSISTENT mount at /usr/local hid every blob baked into the image.
+//
+// The blobs now sit in the real directory /usr/lib/firmware, on the read-only
+// rootfs where the persistent mount cannot shadow them, and the persistent
+// partition is reachable as the override directory /usr/lib/firmware/updates.
+// The kernel searches /lib/firmware/updates before /lib/firmware (fw_path[]
+// in drivers/base/firmware_loader/main.c), so an operator blob dropped on the
+// persistent partition wins, as long as its compression suffix comes no later
+// than the image blob's in the loader's uncompressed, .zst, .xz sequence. The
+// image blobs are .zst, so an .xz override loses to them. See the comment
+// above the firmware RUN in the Dockerfile for the derivation, and for why
+// riscv64 reads uncompressed overrides only.
+//
+// What this helper covers, and what it does not: it asserts the on-disk layout
+// that makes the kernel's documented search order reachable, namely that
+// /usr/lib/firmware is a real directory, that it is not backed by the
+// persistent partition, and that a file written under /usr/local/lib/firmware
+// is readable through /lib/firmware/updates. It never asks the kernel to load
+// firmware, so it does not observe the loader choosing between two same-named
+// blobs. That is not reachable from this suite: /usr is read-only at runtime,
+// so a colliding blob cannot be planted in /usr/lib/firmware, and
+// CONFIG_TEST_FIRMWARE is unset in every files/kernel/*.config, so the
+// trigger_request interface that would let userspace see which file won is not
+// built. Observing it in CI means building CONFIG_TEST_FIRMWARE=m and driving
+// /sys/devices/virtual/misc/test_firmware/trigger_request, which is a kernel
+// config change outside this PR.
+func assertFirmwareLayout(vm testVM) {
+	By("checking the firmware directory is a real directory", func() {
+		// A symlink here makes a firmware sysext replace the baked-in blobs
+		// instead of merging with them: overlayfs merges two directories, but
+		// an upper directory replaces a lower symlink outright.
+		out, err := vm.Sudo("test -d /usr/lib/firmware && test ! -L /usr/lib/firmware && echo ok")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("ok"))
+	})
+
+	By("checking the firmware directory is not backed by the persistent partition", func() {
+		fwDev, err := vm.Sudo("stat -c %d /usr/lib/firmware")
+		Expect(err).ToNot(HaveOccurred(), fwDev)
+		persistentDev, err := vm.Sudo("stat -c %d /usr/local")
+		Expect(err).ToNot(HaveOccurred(), persistentDev)
+		Expect(strings.TrimSpace(persistentDev)).ToNot(BeEmpty())
+		Expect(strings.TrimSpace(fwDev)).ToNot(Equal(strings.TrimSpace(persistentDev)),
+			"/usr/lib/firmware sits on the persistent partition, so blobs baked into the image are hidden")
+	})
+
+	By("checking the override directory resolves onto the persistent partition", func() {
+		out, err := vm.Sudo("readlink /usr/lib/firmware/updates")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(strings.TrimSpace(out)).To(Equal("/usr/local/lib/firmware"))
+
+		// The kernel opens the override path through /lib/firmware/updates, so
+		// walk that exact path rather than the /usr/lib one.
+		out, err = vm.Sudo("mkdir -p /usr/local/lib/firmware && " +
+			"echo kairos-4290 > /usr/local/lib/firmware/kairos-4290.bin && " +
+			"cat /lib/firmware/updates/kairos-4290.bin")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("kairos-4290"))
+
+		out, err = vm.Sudo("rm -f /usr/local/lib/firmware/kairos-4290.bin")
+		Expect(err).ToNot(HaveOccurred(), out)
+	})
+}
+
 // assertRootfsShared verifies the rootfs is mounted as a shared mount.
-func assertRootfsShared(vm VM) {
+func assertRootfsShared(vm testVM) {
 	By("checking rootfs shared mount", func() {
 		out, err := vm.Sudo(`cat /proc/1/mountinfo | grep ' / / '`)
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -90,7 +156,7 @@ func assertRootfsShared(vm VM) {
 }
 
 // assertNetworking verifies that networking is functional.
-func assertNetworking(vm VM) {
+func assertNetworking(vm testVM) {
 	By("checking that networking is functional", func() {
 		out, err := vm.Sudo(`curl google.it`)
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -100,7 +166,7 @@ func assertNetworking(vm VM) {
 
 // assertInstallRecoveryServicesAbsent verifies the interactive install and
 // recovery services are not present on a non-alpine flavor.
-func assertInstallRecoveryServicesAbsent(vm VM) {
+func assertInstallRecoveryServicesAbsent(vm testVM) {
 	By("Checking install/recovery services do not exist", func() {
 		if !isFlavor(vm, "alpine") {
 			for _, service := range []string{"kairos-interactive", "kairos-recovery"} {
@@ -120,7 +186,7 @@ func assertInstallRecoveryServicesAbsent(vm VM) {
 
 // assertKairosState verifies the shared kairos state assertions: the OS name,
 // flavor, and that the reported version matches the on-disk version.
-func assertKairosState(vm VM) {
+func assertKairosState(vm testVM) {
 	currentVersion, err := vm.Sudo(getVersionCmd)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), currentVersion)
 
@@ -132,7 +198,7 @@ func assertKairosState(vm VM) {
 // assertSSHHardening verifies the STIG sshd policy hardening is in effect on a
 // booted node. Uses `sshd -T` (effective config dump; host keys exist at
 // runtime via sshkeygen.service). Keyword names in -T output are lowercased.
-func assertSSHHardening(vm VM) {
+func assertSSHHardening(vm testVM) {
 	By("checking sshd STIG policy hardening is effective", func() {
 		cfg, err := vm.Sudo("sshd -T")
 		Expect(err).ToNot(HaveOccurred(), cfg)
@@ -162,8 +228,8 @@ func assertSSHHardening(vm VM) {
 
 // assertSSHCrypto verifies the sshd crypto matches the image's FIPS posture and,
 // critically, that the STIG drop-in did NOT override the FIPS crypto in FIPS
-// images (it sorts before the 100-* crypto file and sshd is first-value-wins).
-func assertSSHCrypto(vm VM) {
+// images (it sorts before the 02-* crypto file and sshd is first-value-wins).
+func assertSSHCrypto(vm testVM) {
 	By("checking sshd crypto matches the FIPS posture", func() {
 		cfg, err := vm.Sudo("sshd -T")
 		Expect(err).ToNot(HaveOccurred(), cfg)
@@ -173,11 +239,40 @@ func assertSSHCrypto(vm VM) {
 			Expect(lc).ToNot(ContainSubstring("chacha20-poly1305"), "FIPS image must not offer chacha20 (STIG drop-in must not override FIPS crypto)")
 			Expect(lc).ToNot(ContainSubstring("curve25519"), "FIPS image must not offer curve25519")
 			Expect(lc).To(ContainSubstring("kexalgorithms ecdh-sha2-nistp256"))
+			// Neither PQ hybrid is computed by the validated OpenSSL FIPS
+			// provider (sshd carries its own ML-KEM/sntrup761/X25519), so
+			// offering one here would break the FIPS claim. See the header
+			// of files/ssh/sshd_config.d/02-hadron-fips.conf.
+			for _, kex := range []string{"mlkem768x25519", "sntrup761"} {
+				Expect(lc).ToNot(ContainSubstring(kex),
+					"FIPS image must not offer the post-quantum hybrid %q: it is computed outside the validated OpenSSL FIPS module", kex)
+			}
 		} else {
 			Expect(lc).To(ContainSubstring("chacha20-poly1305"))
 			Expect(lc).To(ContainSubstring("curve25519-sha256"))
+			// The crypto drop-in pre-empts the OpenSSH default KexAlgorithms,
+			// so it has to carry a post-quantum hybrid itself. Without one,
+			// every OpenSSH 10.1+ client warns on login that the session is
+			// not using a post-quantum key exchange (kairos-io/kairos#4701).
+			kex := kexAlgorithms(lc)
+			Expect(kex).ToNot(BeEmpty(), "sshd -T reported no kexalgorithms line:\n%s", cfg)
+			Expect(kex).To(SatisfyAny(
+				ContainSubstring("mlkem768x25519-sha256"),
+				ContainSubstring("sntrup761x25519-sha512"),
+			), "non-FIPS image must offer a post-quantum hybrid key exchange, got %q", kex)
 		}
 	})
+}
+
+// kexAlgorithms returns the value of the `kexalgorithms` line from a lowercased
+// `sshd -T` dump, or "" when the dump carries no such line.
+func kexAlgorithms(lowercasedSshdT string) string {
+	for _, line := range strings.Split(lowercasedSshdT, "\n") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "kexalgorithms "); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 // assertSysctlHardening verifies the GPOS/STIG sysctl baseline is applied on a
@@ -187,7 +282,7 @@ func assertSSHCrypto(vm VM) {
 // Only universally-present keys are value-asserted here; the config-dependent
 // ones and the k8s-safety omissions are checked structurally in the
 // image-structure suite.
-func assertSysctlHardening(vm VM) {
+func assertSysctlHardening(vm testVM) {
 	By("checking sysctl --system applies cleanly (no missing-key failures)", func() {
 		out, err := vm.Sudo("sysctl --system")
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -215,7 +310,7 @@ func assertSysctlHardening(vm VM) {
 
 // assertLegacyNetDisabled verifies the legacy network protocol modules (DCCP,
 // RDS, TIPC, ATM, AX25, NETROM) are blocked from loading via modprobe.d.
-func assertLegacyNetDisabled(vm VM) {
+func assertLegacyNetDisabled(vm testVM) {
 	By("checking legacy network protocols are blocked from loading", func() {
 		for _, mod := range []string{"dccp", "rds", "tipc", "atm", "ax25", "netrom"} {
 			// modprobe -n -v is a config-based dry run: with `install <mod>
@@ -237,7 +332,7 @@ func assertLegacyNetDisabled(vm VM) {
 
 // assertLoginDefsHardening verifies the STIG login.defs hardening (password max
 // age, successful-login logging, restrictive default umask) on a booted node.
-func assertLoginDefsHardening(vm VM) {
+func assertLoginDefsHardening(vm testVM) {
 	By("checking login.defs STIG hardening values", func() {
 		out, err := vm.Sudo("cat /etc/login.defs")
 		Expect(err).ToNot(HaveOccurred(), out)

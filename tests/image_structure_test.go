@@ -11,19 +11,24 @@ package hadron_test
 // overridden with CONTAINER_RUNTIME (defaults to "docker").
 //
 // Prerequisites:
-//   - A built (or pulled) Hadron container image, e.g. via `make build-hadron`
-//     or `docker pull ghcr.io/kairos-io/hadron:main`.
+//   - A Hadron container image. Either build one with `make build-hadron`,
+//     which tags it `hadron:local` (`hadron-trusted:local` with
+//     BOOTLOADER=systemd), or pull the published one with
+//     `docker pull ghcr.io/kairos-io/hadron:main`.
 //   - A working `docker` (or other CONTAINER_RUNTIME) on the host.
 //
-// Run locally with:
+// Run locally against an image you just built:
 //
-//	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main \
+//	CONTAINER_IMAGE=hadron:local \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 //
-// Or with a custom runtime:
+// Or against the published image, with a custom runtime:
 //
-//	CONTAINER_IMAGE=hadron:dev CONTAINER_RUNTIME=podman \
+//	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main CONTAINER_RUNTIME=podman \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
+//
+// Specs that only apply to the full image carry a second label so CI can run
+// them against the full image alone (see "firmware-layout").
 
 import (
 	"encoding/json"
@@ -243,32 +248,79 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("/bin -> usr/bin", "/bin", "usr"),
 	)
 
-	It("ships a valid, STIG-hardened sshd config (sshd -G parses cleanly)", func() {
+	// The firmware layout lands in the full image only (the last RUN in the
+	// full-image-final stage), so these specs skip on the minimal container
+	// base. The full image is what downstream consumers pull, so a regression
+	// here is worth catching without booting anything.
+	Describe("firmware layout", Label("firmware-layout"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		It("keeps /usr/lib/firmware a real directory", func() {
+			// As a symlink onto the persistent mount it hid the image's own
+			// blobs on a fresh install, and it made a firmware sysext
+			// unmergeable: overlayfs merges a directory but an upper directory
+			// replaces a lower symlink outright.
+			out, code := shInImage(
+				"test -d /usr/lib/firmware && ! test -L /usr/lib/firmware && echo OK")
+			Expect(code).To(Equal(0),
+				"/usr/lib/firmware must be a real directory, got: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("points /usr/lib/firmware/updates at the persistent mount", func() {
+			// The kernel searches /lib/firmware/updates before /lib/firmware,
+			// so this symlink is the operator override slot and needs no
+			// firmware_class.path on the cmdline.
+			out, code := shInImage(
+				"test -L /usr/lib/firmware/updates && readlink /usr/lib/firmware/updates")
+			Expect(code).To(Equal(0),
+				"expected /usr/lib/firmware/updates to be a symlink, got: %s", out)
+			Expect(out).To(Equal("/usr/local/lib/firmware"))
+		})
+
+		It("ships the override target as a real directory", func() {
+			// /usr/local is where COS_PERSISTENT gets mounted. The directory
+			// has to exist in the image or the updates symlink dangles before
+			// the mount happens.
+			out, code := shInImage(
+				"test -d /usr/local/lib/firmware && ! test -L /usr/local/lib/firmware && echo OK")
+			Expect(code).To(Equal(0),
+				"/usr/local/lib/firmware must be a real directory, got: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+	})
+
+	It("ships a valid sshd config that parses cleanly", func() {
 		skipUnlessFullImage()
+		// sshd policy hardening is owned by kairos-init's
+		// 05-kairos-hardening.conf, not hadron. This test only verifies
+		// that the raw hadron image's sshd_config still parses; the
+		// effective STIG values are asserted post-boot by
+		// assertSSHHardening in common_test.go, once kairos-init has
+		// laid down its drop-in.
 		out, code, err := runInImage("sshd", "-G")
 		Expect(err).ToNot(HaveOccurred(), out)
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
-		lc := strings.ToLower(out)
-		for _, want := range []string{
-			"permitrootlogin prohibit-password",
-			"x11forwarding no",
-			"maxauthtries 4",
-		} {
-			Expect(lc).To(ContainSubstring(want), "effective sshd config missing %q", want)
-		}
 	})
 
-	It("STIG sshd drop-in carries no crypto keywords (FIPS-safety invariant)", func() {
+	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", func() {
 		skipUnlessFullImage()
-		// The STIG drop-in sorts before the 02-* crypto file and sshd is
-		// first-value-wins for these keywords, so crypto here would silently
-		// override FIPS crypto in FIPS images. Guard against a regression.
-		out, code := shInImage("cat /etc/ssh/sshd_config.d/01-hadron-stig.conf")
+		// The only sshd drop-in a hadron image ships is
+		// 02-hadron-fips.conf, and only in FIPS builds. Non-FIPS builds
+		// must ship no drop-in at all: every hardening directive comes
+		// from kairos-init's 05-kairos-hardening.conf at image-build
+		// time. Regression guard against 01/02-non-fips/03 sneaking back
+		// in and stealing directives from kairos-init under
+		// first-value-wins.
+		out, code := shInImage("ls /etc/ssh/sshd_config.d/ 2>&1")
 		Expect(code).To(Equal(0), out)
-		lc := strings.ToLower(out)
-		for _, k := range []string{"ciphers", "macs", "kexalgorithms", "hostkeyalgorithms"} {
-			Expect(lc).ToNot(MatchRegexp(`(?m)^[[:space:]]*`+k+`[[:space:]]`),
-				"STIG drop-in must not set crypto keyword %q (breaks FIPS ordering)", k)
+		for _, forbidden := range []string{
+			"01-hadron-stig.conf",
+			"02-hadron-crypto.conf",
+			"03-hadron.conf",
+		} {
+			Expect(out).ToNot(ContainSubstring(forbidden),
+				"hadron must not ship %s; hardening belongs in kairos-init", forbidden)
 		}
 	})
 
@@ -329,5 +381,148 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Expect(out).To(MatchRegexp(`(?m)^PASS_MAX_DAYS\s+60\b`), "PASS_MAX_DAYS should be 60")
 		Expect(out).To(MatchRegexp(`(?m)^LOG_OK_LOGINS\s+yes\b`), "LOG_OK_LOGINS should be yes")
 		Expect(out).To(MatchRegexp(`(?m)^UMASK\s+077\b`), "UMASK should be 077")
+	})
+
+	// audit-userspace ships in the full image so kairos-init can drop the
+	// CIS Section 4 baseline rules; see kairos-io/kairos#4637. The stage
+	// builds with `--disable-legacy-actions --without-libcap-ng
+	// --without-io_uring --without-apparmor --without-golang
+	// --without-python3` and installs to /sbin + /etc + /usr/lib.
+	Describe("audit userspace", Label("audit"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		// The crash-signal table below cannot detect a missing binary: a
+		// container run against a non-existent --entrypoint exits 127, and
+		// 127 is not a crash signal, so the spec would pass silently.
+		// Pin their presence explicitly first, same shape as
+		// `ships utilities third-party scripts expect` above.
+		It("ships audit binaries", func() {
+			for _, bin := range []string{"auditd", "auditctl", "ausearch", "aureport", "augenrules", "audisp-syslog"} {
+				out, code := shInImage("command -v " + bin)
+				Expect(code).To(Equal(0), "%s missing from image: %s", bin, out)
+			}
+		})
+
+		DescribeTable("audit binaries run without crashing",
+			func(bin string, args ...string) {
+				out, code, err := runInImage(bin, args...)
+				Expect(err).ToNot(HaveOccurred(),
+					"failed to invoke %q: %s", runtime, out)
+				if sig, crashed := crashSignalExitCodes[code]; crashed {
+					Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
+						bin, sig, code, out))
+				}
+			},
+			Entry("auditctl", "auditctl", "-v"),
+			Entry("ausearch", "ausearch", "--version"),
+			Entry("aureport", "aureport", "--version"),
+			Entry("augenrules", "augenrules", "--version"),
+			// audisp-syslog needs the <unistd.h> patch
+			// (upstream PR linux-audit/audit-userspace#551) to compile at
+			// all. If the patch ever falls out, the Docker build itself
+			// fails, not this spec — the presence check above catches the
+			// binary going missing for any other reason.
+			Entry("audisp-syslog", "audisp-syslog", "--help"),
+		)
+
+		It("ships the auditd daemon", func() {
+			// auditd exits non-zero without root/netlink but the binary must
+			// be present. -h prints usage and exits cleanly.
+			out, code := shInImage("test -x /sbin/auditd && echo OK")
+			Expect(code).To(Equal(0), "/sbin/auditd missing: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("ships /etc/audit/auditd.conf", func() {
+			out, code := shInImage("cat /etc/audit/auditd.conf")
+			Expect(code).To(Equal(0), out)
+			Expect(out).To(ContainSubstring("log_file"),
+				"auditd.conf missing expected log_file directive")
+		})
+
+		It("ships /etc/audit/rules.d as a real directory", func() {
+			// kairos-init drops the CIS baseline .rules files here.
+			out, code := shInImage(
+				"test -d /etc/audit/rules.d && ! test -L /etc/audit/rules.d && echo OK")
+			Expect(code).To(Equal(0),
+				"/etc/audit/rules.d must be a real directory, got: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("ships the auditd systemd unit", func() {
+			out, code := shInImage(
+				"cat /usr/lib/systemd/system/auditd.service")
+			Expect(code).To(Equal(0),
+				"auditd.service missing: %s", out)
+			Expect(out).To(ContainSubstring("ExecStart="),
+				"auditd.service missing ExecStart line")
+		})
+
+		It("ships libaudit and libauparse shared libraries", func() {
+			out, code := shInImage(
+				"ls /usr/lib/libaudit.so.* /usr/lib/libauparse.so.* 2>&1")
+			Expect(code).To(Equal(0),
+				"audit shared libraries missing: %s", out)
+			Expect(out).To(ContainSubstring("libaudit.so."))
+			Expect(out).To(ContainSubstring("libauparse.so."))
+		})
+
+		It("does NOT ship dropped upstream artifacts", func() {
+			// The audit stage removes rule templates and its aclocal macros
+			// to keep the image small (see Dockerfile audit stage). Guard
+			// the deletion so a bump does not accidentally reintroduce them.
+			out, code := shInImage(
+				"! test -e /usr/share/audit-rules && ( ! test -d /usr/share/aclocal || ! find /usr/share/aclocal -maxdepth 1 -name '*audit*.m4' | grep -q . ) && echo OK")
+			Expect(code).To(Equal(0),
+				"dropped upstream artifacts reappeared: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+	})
+
+	Describe("PAM password quality and lockout", Label("pam"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		It("ships pam_pwquality.so for CIS L1 5.4.1", func() {
+			out, code := shInImage(
+				"find /usr/lib/security /lib/security /lib64/security -name pam_pwquality.so 2>/dev/null | head -1")
+			Expect(code).To(Equal(0), out)
+			Expect(strings.TrimSpace(out)).ToNot(BeEmpty(),
+				"pam_pwquality.so missing from PAM module directories: %s", out)
+		})
+
+		It("ships pam_faillock.so for CIS L1 5.4.2", func() {
+			out, code := shInImage(
+				"find /usr/lib/security /lib/security /lib64/security -name pam_faillock.so 2>/dev/null | head -1")
+			Expect(code).To(Equal(0), out)
+			Expect(strings.TrimSpace(out)).ToNot(BeEmpty(),
+				"pam_faillock.so missing from PAM module directories: %s", out)
+		})
+
+		It("ships libpwquality and libcrack shared libraries", func() {
+			out, code := shInImage(
+				"ls /usr/lib/libpwquality.so.* /usr/lib/libcrack.so.* 2>&1")
+			Expect(code).To(Equal(0),
+				"libpwquality/libcrack shared libraries missing: %s", out)
+			Expect(out).To(ContainSubstring("libpwquality.so."))
+			Expect(out).To(ContainSubstring("libcrack.so."))
+		})
+
+		It("wires pam_pwquality into the password stack of system-auth", func() {
+			out, code := shInImage("cat /etc/pam.d/system-auth")
+			Expect(code).To(Equal(0), out)
+			Expect(out).To(MatchRegexp(`(?m)^password\s+\S+\s+pam_pwquality\.so`),
+				"system-auth password stack missing pam_pwquality line: %s", out)
+		})
+
+		It("wires pam_faillock into the auth stack of system-auth", func() {
+			out, code := shInImage("cat /etc/pam.d/system-auth")
+			Expect(code).To(Equal(0), out)
+			Expect(out).To(MatchRegexp(`(?m)^auth\s+\S+\s+pam_faillock\.so\s+preauth`),
+				"system-auth auth stack missing pam_faillock preauth: %s", out)
+			Expect(out).To(MatchRegexp(`(?m)^auth\s+\S+\s+pam_faillock\.so\s+authfail`),
+				"system-auth auth stack missing pam_faillock authfail: %s", out)
+			Expect(out).To(MatchRegexp(`(?m)^auth\s+\S+\s+pam_faillock\.so\s+authsucc`),
+				"system-auth auth stack missing pam_faillock authsucc: %s", out)
+		})
 	})
 })

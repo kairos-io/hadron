@@ -45,7 +45,7 @@ EOF
 fail() { echo "FAIL: $1" >&2; exit 1; }
 
 # --- container manifest: only stage2-merge's shipped packages ---
-HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --format flat \
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --format flat \
   --name container --out-dir "$WORK"
 
 CJSON="$WORK/container.json"
@@ -57,7 +57,7 @@ grep -q 'pam'      "$CJSON" && fail "container must NOT list pam (not shipped th
 grep -q 'paxutils' "$CJSON" && fail "container must NOT list paxutils (its COPY is commented out)"
 
 # --- full-image manifest: union of both merge stages, -systemd suffix stripped ---
-HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge full-image-merge-base" --format flat \
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge full-image-merge-base" --format flat \
   --name full-image --out-dir "$WORK"
 
 FJSON="$WORK/full-image.json"
@@ -75,7 +75,7 @@ grep -q '"open-scsi": "2.1.11"' "$FJSON" || fail "openscsi should map to open-sc
 #     its on-disk name. Models the `FROM openssl-${FIPS} AS openssl` alias: in
 #     fips builds the `openssl` that ships is built from OPENSSL_FIPS_VERSION
 #     (3.1.2), not OPENSSL_VERSION (3.6.3) — one entry, named openssl. ---
-HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --override "openssl=OPENSSL_FIPS_VERSION" \
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --override "openssl=OPENSSL_FIPS_VERSION" \
   --format flat --name ovr --out-dir "$WORK"
 
 OJSON="$WORK/ovr.json"
@@ -86,7 +86,7 @@ grep -q 'openssl-fips'       "$OJSON" && fail "--override must not emit a separa
 grep -q '"curl": "8.20.0"'   "$OJSON" || fail "--override disturbed unrelated components"
 
 # without --override, openssl keeps its default (non-fips) version
-HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --format flat --name noovr --out-dir "$WORK"
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --format flat --name noovr --out-dir "$WORK"
 grep -q '"openssl": "3.6.3"' "$WORK/noovr.json" || fail "default openssl version should be 3.6.3"
 
 # --- flat JSON is a valid, flat object if python3 is available ---

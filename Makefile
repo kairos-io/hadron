@@ -1,8 +1,29 @@
-IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
+# The tag `build-hadron` writes and `build-kairos` reads. It is deliberately a
+# local-only tag: when this named a published registry reference, an
+# out-of-band `docker pull ghcr.io/kairos-io/hadron:main` -- by any other
+# script, tool or human on the box -- silently replaced the base that
+# `build-hadron` had just produced, and the next `build-kairos` layered
+# kairos-init onto the published image instead of the local one. That reads as
+# "my change was reverted during the kairos build" and costs an hour of rebuild
+# to not diagnose. CI never hit it because it tags per commit SHA.
+#
+# What this does NOT close, so nobody rules it out when the symptom comes back:
+#   - `pull-image` retags PULL_IMAGE_NAME onto IMAGE_NAME on purpose, so `make
+#     build` after `make build-hadron` still replaces the local base. Use `make
+#     build-scratch` to keep it.
+#   - This is one tag in one docker daemon, so a second checkout on the same
+#     box overwrites the first one's base. Pass IMAGE_NAME per checkout if you
+#     need them isolated.
+IMAGE_NAME ?= hadron:local
+# The published base `pull-image` fetches, retagged to IMAGE_NAME so that
+# `make build` and `make build-scratch` feed build-kairos the same way.
+PULL_IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.21.0-alpha.4
 TARGET ?= default
 JOBS ?= $(shell nproc)
+## Optional load cap forwarded to make -l inside the build. Empty means no cap.
+MAX_LOAD ?=
 HADRON_VERSION ?= $(shell git describe --tags --always --dirty)
 VERSION ?= v0.0.0
 BOOTLOADER ?= grub
@@ -27,12 +48,11 @@ FIPS ?= "no-fips"
 # with `make build-kairos KAIROS_DOCKERFILE_REF=master` to test against
 # tip.
 KAIROS_DOCKERFILE_REF ?= c2426c11c34198fcb50bfe4d43e827619292e26f
-# Versions live in sources.yaml (single source of truth). Dockerfile is
-# generated from Dockerfile.tmpl by `make render`; both KERNEL_VERSION and
-# DWARVES_VERSION are read from sources.yaml so this Makefile does not
-# depend on the rendered Dockerfile existing yet.
-KERNEL_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
-DWARVES_VERSION ?= $(shell python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['dwarves']['version'])")
+# Versions live in the committed Dockerfile as `ARG <NAME>_VERSION=<v>`
+# defaults (single source of truth); grep them out here so the Makefile
+# does not carry a duplicate value.
+KERNEL_VERSION ?= $(shell awk -F= '/^ARG KERNEL_VERSION=/{print $$2; exit}' Dockerfile)
+DWARVES_VERSION ?= $(shell awk -F= '/^ARG DWARVES_VERSION=/{print $$2; exit}' Dockerfile)
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -61,13 +81,17 @@ else
 $(error "Architecture $(ARCH) is not supported. Please use 'amd64', 'arm64', or 'riscv64'.")
 endif
 
-# Adjust IMAGE_NAME based on BOOTLOADER
-# If we are building with systemd (Trusted Boot), we change the IMAGE_NAME to use the trusted version
-# of the Hadron image. If the user has overridden IMAGE_NAME, we respect that.
+# Adjust the image names based on BOOTLOADER.
+# If we are building with systemd (Trusted Boot), we switch to the trusted
+# variant of the Hadron image. If the user has overridden either name, we
+# respect that.
 # If we are building with grub, we do nothing.
 ifeq ($(BOOTLOADER),systemd)
-	ifeq ($(IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
-          IMAGE_NAME := ghcr.io/kairos-io/hadron-trusted:main
+	ifeq ($(IMAGE_NAME),hadron:local)
+          IMAGE_NAME := hadron-trusted:local
+	endif
+	ifeq ($(PULL_IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
+          PULL_IMAGE_NAME := ghcr.io/kairos-io/hadron-trusted:main
 	endif
 endif
 
@@ -97,6 +121,7 @@ targets:
 	@echo "trusted-iso: Build the Trusted Boot ISO image. Expects the Hadron+Kairos OCI images to be built already."
 	@echo "components: Generate components.json + components.md for the working tree"
 	@echo "test-components: Run the component-generator shell test"
+	@echo "test-source-checksums: Verify the sources.yaml checksum refresher the autobumper runs"
 
 .PHONY: help
 help: targets
@@ -106,7 +131,8 @@ help: targets
 	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'."
 	@ECHO "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.0."
-	@echo "The IMAGE_NAME variable can be set to the name of the Hadron image that its built. The default is 'hadron'."
+	@echo "The IMAGE_NAME variable can be set to the local tag of the Hadron image that is built and that build-kairos uses as its base. The default is 'hadron:local' ('hadron-trusted:local' with BOOTLOADER=systemd)."
+	@echo "The PULL_IMAGE_NAME variable can be set to the published Hadron image that pull-image fetches. The default is 'ghcr.io/kairos-io/hadron:main' ('ghcr.io/kairos-io/hadron-trusted:main' with BOOTLOADER=systemd)."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
 	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
@@ -126,22 +152,45 @@ build-scratch: build-hadron build-kairos build-iso
 build: pull-image build-kairos build-iso
 
 pull-image:
-	@echo "Pulling base Hadron image from ${IMAGE_NAME}..."
-	@docker pull --platform=${ARCH} ${IMAGE_NAME}
+	@echo "Pulling base Hadron image from ${PULL_IMAGE_NAME}..."
+	@docker pull --platform=${ARCH} ${PULL_IMAGE_NAME}
+	@docker tag ${PULL_IMAGE_NAME} ${IMAGE_NAME}
 
-# Dockerfile is generated from Dockerfile.tmpl + sources.yaml. Anyone
-# who edits either file (or hack/render.sh) triggers a regeneration.
-Dockerfile: Dockerfile.tmpl sources.yaml hack/render.sh
-	@./hack/render.sh
+.PHONY: test-render
+test-render: ## Verify cache and fork source rendering, and the make -l flags
+	@./tests/render-fork-sources.sh
+	@./tests/render-make-flags.sh
 
-.PHONY: render
-render: Dockerfile
+.PHONY: test-image-tags
+test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
+	@./tests/make-image-tags.sh
+
+.PHONY: test-source-probe
+test-source-probe: ## Verify the source-cache probe retries a stalled connection
+	@./tests/list-missing-sources-retry.sh
+
+.PHONY: test-source-checksums
+test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
+	@sh ./hack/refresh-source-checksums_test.sh
+
+## Component manifests for the working tree, written to gen/components/.
+## The build does NOT need this: the Dockerfile's components-manifest stage
+## generates the same files inside the build, so `docker build .` works on a
+## fresh clone. Kept for inspecting what a variant would ship without running
+## a build. Nothing under gen/ is committed.
+## The stage lists live in hack/gen-manifests.sh, which runs with `set -eu`
+## so a failure part-way through the five manifests stops the target instead of
+## leaving a partial set behind.
+.PHONY: gen-components
+gen-components:
+	@sh hack/gen-manifests.sh --format flat --out-dir gen/components --quiet
 
 ## This builds the Hadron image from scratch
-build-hadron: Dockerfile
+build-hadron:
 	@echo "Building Hadron image..."
 	@docker build ${PROGRESS_FLAG} --platform=${ARCH} --load \
 	--build-arg JOBS=${JOBS} \
+	--build-arg MAX_LOAD=${MAX_LOAD} \
 	--build-arg ARCH=${TARGET_ARCH} \
 	--build-arg BUILD_ARCH=${BUILD_ARCH} \
 	--build-arg VERSION=${HADRON_VERSION} \
@@ -186,7 +235,6 @@ run:
 
 clean:
 	@docker rmi ${IMAGE_NAME}
-	@rm -f Dockerfile
 
 grub-iso:
 	@echo "Building BIOS ISO image..."
@@ -298,4 +346,5 @@ components: ## Generate components.json + components.md for the working tree
 test-components: ## Run the component-generator shell tests
 	sh ./hack/gen-components_test.sh
 	sh ./hack/gen-components_shipped_test.sh
+	sh ./hack/gen-manifests_context_test.sh
 	node ./hack/components-template_test.js

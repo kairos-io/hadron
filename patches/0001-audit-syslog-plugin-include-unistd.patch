@@ -1,0 +1,26 @@
+audisp-syslog: include <unistd.h> for getppid()
+
+audisp-syslog.c calls getppid() in its SIGTERM handler but never includes
+<unistd.h>. On glibc the prototype leaks in through some other header
+audit-userspace pulls in and the build stays quiet; musl does not leak
+it, so the build fails with
+
+  audisp-syslog.c: In function 'term_handler':
+  audisp-syslog.c:54:37: error: implicit declaration of function 'getppid'
+
+Every sibling audisp plugin (statsd, remote, ids, filter, af_unix,
+zos-remote) already includes <unistd.h> for the same reason. Match them.
+
+Submitted upstream as https://github.com/linux-audit/audit-userspace/pull/551.
+Drop this patch once the fix lands in a tagged release.
+
+--- a/audisp/plugins/syslog/audisp-syslog.c
++++ b/audisp/plugins/syslog/audisp-syslog.c
+@@ -28,6 +28,7 @@
+ #include <sys/select.h>
+ #include <errno.h>
+ #include <syslog.h>
++#include <unistd.h>
+ #include <stdlib.h>
+ #ifdef HAVE_LIBCAP_NG
+ #include <cap-ng.h>

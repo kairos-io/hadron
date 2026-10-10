@@ -26,6 +26,6 @@ files/hadron-splash/hadron
 /components.md
 /docs/static/components/
 
-# Rendered artifact - generated from Dockerfile.tmpl + sources.yaml by hack/render.sh
-/Dockerfile
+# Per-variant component manifests. The build generates its own copies in the
+# Dockerfile's components-manifest stage; `make gen-components` writes them here.
 /gen/

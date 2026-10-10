@@ -8,7 +8,10 @@ ARG HADRON_VERSION=v0.0.4
 ARG BASE_IMAGE=quay.io/kairos/hadron
 ARG BASE_IMAGE_TAG=v0.0.4-standard-amd64-generic-v4.0.3-k3s-v1.35.2-k3s1
 ARG JOBS
-ARG NVIDIA_VERSION=580.126.20
+# The open kernel modules must guard their linux/of_gpio.h include with
+# NV_LINUX_OF_GPIO_H_PRESENT, because Linux 7.1 removed that header. 580 includes it
+# unconditionally and does not compile against Hadron v0.5.1 (Linux 7.1.3).
+ARG NVIDIA_VERSION=595.91.07
 ARG TARGETARCH
 # KERNEL_ARCH uses Linux kernel naming (x86_64, arm64) rather than Docker's (amd64, arm64)
 ARG KERNEL_ARCH=x86_64
@@ -20,7 +23,9 @@ ARG KERNEL_ARCH
 WORKDIR /build
 # kernel version is stored under /usr/share/kernel-misc/kernel-version file
 # Pull kernel sources so we can build the modules
-RUN kver=$(cat /usr/share/kernel-misc/kernel-version) && curl -L https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${kver}.tar.xz -o linux-${kver}.tar.xz
+# cdn.kernel.org stores the tarballs under vMAJOR.x, so derive that from the version
+# instead of hardcoding it, and let curl fail on the download rather than on the untar
+RUN kver=$(cat /usr/share/kernel-misc/kernel-version) && curl -fL https://cdn.kernel.org/pub/linux/kernel/v${kver%%.*}.x/linux-${kver}.tar.xz -o linux-${kver}.tar.xz
 RUN kver=$(cat /usr/share/kernel-misc/kernel-version) && tar -xf linux-${kver}.tar.xz && mv linux-${kver} linux
 WORKDIR /build/linux
 RUN cp /usr/share/kernel-misc/kernel-config .config
@@ -32,7 +37,7 @@ RUN ARCH=${KERNEL_ARCH} make -s -j${JOBS} modules_prepare
 RUN cp /usr/share/kernel-misc/Module.symvers .
 ARG NVIDIA_VERSION
 WORKDIR /build
-RUN curl -L https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/${NVIDIA_VERSION}.tar.gz --output nvidia.tar.gz
+RUN curl -fL https://github.com/NVIDIA/open-gpu-kernel-modules/archive/refs/tags/${NVIDIA_VERSION}.tar.gz --output nvidia.tar.gz
 RUN tar -xf nvidia.tar.gz && rm nvidia.tar.gz && mv open-gpu-kernel-modules-${NVIDIA_VERSION} nvidia-modules
 WORKDIR /build/nvidia-modules
 ENV CFLAGS="-Os -pipe"
@@ -67,9 +72,9 @@ WORKDIR /work
 # Download NVIDIA redistributable driver archive
 ARG TARGETARCH
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    curl -L https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-x86_64/nvidia_driver-linux-x86_64-${NVIDIA_VERSION}-archive.tar.xz -o nvidia.tar.xz; \
+    curl -fL https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-x86_64/nvidia_driver-linux-x86_64-${NVIDIA_VERSION}-archive.tar.xz -o nvidia.tar.xz; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
-    curl -L https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-sbsa/nvidia_driver-linux-sbsa-${NVIDIA_VERSION}-archive.tar.xz -o nvidia.tar.xz; \
+    curl -fL https://developer.download.nvidia.com/compute/nvidia-driver/redist/nvidia_driver/linux-sbsa/nvidia_driver-linux-sbsa-${NVIDIA_VERSION}-archive.tar.xz -o nvidia.tar.xz; \
     else echo "Unsupported architecture: $TARGETARCH" && exit 1; \
     fi
 
@@ -199,7 +204,8 @@ RUN cp -a /sbin/ldconfig.real ${OUTPUT}/usr/bin/ldconfig
 # COPY --from=OUR_IMAGE_NAME:TAG / /
 # Or create a sysextension with the help of Auroraboot (https://github.com/kairos-io/auroraboot)
 FROM scratch AS default
-COPY --from=builder /output/ /
+COPY --from=modules-builder /output/ /usr/
+COPY --from=nvidia-builder /output/ /
 
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS hadron-extension
 COPY --link --from=modules-builder /output/ /usr/

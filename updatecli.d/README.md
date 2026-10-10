@@ -61,6 +61,30 @@ To run a specific configuration:
 updatecli diff --config updatecli.d/compression-tools.yaml
 ```
 
+### Refreshing the checksums
+
+Every target here writes an `ARG <NAME>_VERSION=` default in the Dockerfile and
+nothing else. The matching `sha256` lives in `sources.yaml` and still describes
+the previous release, so an `updatecli apply` on its own produces a tree that
+cannot build: `populate-sources` fails the cell on a checksum mismatch, and the
+downloader stages `hack/render.sh` writes for fork pull requests exhaust their
+URL list without a match.
+
+Run the refresher after applying, which downloads each bumped tarball and writes
+its real checksum back:
+
+```bash
+./hack/refresh-source-checksums.sh --changed
+```
+
+A package whose new version no URL serves keeps its checksum and has its ARG
+reverted, so one unfetchable package costs its own bump instead of the whole
+group's. That usually means the entry's URL template embeds a version spelling
+`${version}` does not cover, and the template needs fixing.
+
+The nightly workflow runs this step itself; `hack/refresh-source-checksums_test.sh`
+(`make test-source-checksums`) covers it without touching the network.
+
 ### Environment Variables
 
 Some configurations require environment variables:

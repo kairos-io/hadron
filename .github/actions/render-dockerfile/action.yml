@@ -1,28 +1,61 @@
-name: Render Dockerfile
+name: Prepare build context
 description: |
-  Regenerate Dockerfile from Dockerfile.tmpl and sources.yaml.
-  Every job that runs docker/build-push-action must call this first
-  because Dockerfile is a generated artifact and not in git.
+  Fork-PR only: rewrite `FROM ${SOURCES_REPO}/...` lines in the committed
+  Dockerfile with checksum-verifying upstream download stages. A fork PR
+  cannot publish source-cache images, so any version it bumps has no cache
+  tag to pull. The cache is public, though, so the fork only has to reach
+  upstream for the versions it bumps itself.
+
+  `SOURCES_REPO` is a build arg, so pointing the build at a mirror or a
+  private copy of the cache needs no rewrite at all. This step is not about
+  *where* the cache is: it replaces a `FROM <cache image>` stage with a
+  different stage that curls the tarball and checks its sha256, for versions
+  that exist in no cache anywhere.
+
+  On a trusted build every step here is a no-op, but the action stays in the
+  workflows so a fork PR and a trusted PR run the same job definition.
+  Component manifests are no longer generated here: the Dockerfile's
+  components-manifest stage builds them inside the build.
 
 runs:
   using: composite
   steps:
-    - name: Ensure render dependencies
+    - name: Detect fork PR and select packages to fetch
+      id: source-mode
+      shell: bash
+      env:
+        IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+      run: |
+        set -euo pipefail
+        if [ "$IS_FORK_PR" != "true" ]; then
+            echo "mode=cache" >> "$GITHUB_OUTPUT"
+            echo "packages=" >> "$GITHUB_OUTPUT"
+            echo "Trusted build: every source comes from the cache; Dockerfile is untouched."
+            exit 0
+        fi
+        missing=$(./hack/list-missing-sources.sh | tr '\n' ' ')
+        missing=${missing% }
+        echo "mode=upstream" >> "$GITHUB_OUTPUT"
+        echo "packages=${missing}" >> "$GITHUB_OUTPUT"
+        echo "Fork pull request: fetching from upstream: ${missing:-<nothing, all sources are cached>}"
+
+    - name: Ensure upstream-mode dependencies
+      if: steps.source-mode.outputs.mode == 'upstream'
       shell: bash
       run: |
         set -e
-        # gettext-base gives us envsubst; python3-yaml gives PyYAML.
-        # Both are usually preinstalled on ubuntu runners; the check
-        # keeps this step a fast no-op when they are already present.
-        if ! command -v envsubst >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y gettext-base
-        fi
+        # PyYAML is only needed for the fork-PR upstream-mode rewrite in
+        # hack/render.sh; trusted builds skip this step entirely.
         if ! python3 -c "import yaml" >/dev/null 2>&1; then
             sudo apt-get update
             sudo apt-get install -y python3-yaml
         fi
 
-    - name: Render Dockerfile from Dockerfile.tmpl + sources.yaml
+    - name: Rewrite FROM lines for fork PR
+      if: steps.source-mode.outputs.mode == 'upstream'
       shell: bash
-      run: make render
+      env:
+        # Set, possibly to the empty string, so hack/render.sh restricts
+        # upstream downloads to this list instead of fetching every package.
+        HADRON_UPSTREAM_PACKAGES: ${{ steps.source-mode.outputs.packages }}
+      run: ./hack/render.sh

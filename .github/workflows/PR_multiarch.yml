@@ -20,6 +20,31 @@ env:
   # Pinned commit, not a branch: see the matching comment on
   # KAIROS_DOCKERFILE_REF in the Makefile. Keep the two in sync.
   KAIROS_DOCKERFILE_REF: c2426c11c34198fcb50bfe4d43e827619292e26f
+  # Temporary override until a kairos-init release cuts with the merged
+  # kairos-io/kairos#5035 (sshd-hardening consolidation this PR carries
+  # on the Hadron side). Without it the built ISO ships the released
+  # kairos-init (v0.17.3) whose 05-kairos-hardening.conf still sets
+  # `PermitRootLogin no`, and assertSSHHardening fails expecting
+  # `prohibit-password`. PR 5035 has already merged; the `:master-scratch`
+  # kairos-init image tracks kairos master (untested-but-freshest, unlike `:master` which promotes only on green) and carries the merged
+  # drop-in content.
+  #
+  # The pinned images/Dockerfile at KAIROS_DOCKERFILE_REF hard-wires
+  # `FROM quay.io/kairos/kairos-init:${KAIROS_INIT}`, so overriding the
+  # image reference alone (KAIROS_INIT_IMAGE, etc.) is silently ignored.
+  # The kairos-image build job pulls KAIROS_INIT_OVERRIDE_SOURCE, retags
+  # it as `quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}` in the
+  # local docker image store (plain `docker build` resolves FROM against
+  # that store), and passes `--build-arg KAIROS_INIT=<tag>` so the FROM
+  # in the pinned Dockerfile resolves to the retagged image. It also
+  # asserts the override actually took effect on the built image so a
+  # dropped arg never masquerades as a wait-for-release.
+  #
+  # Remove all of this (env + pull + tag + build-arg + assertion) once
+  # a kairos release lands with the merged 05-kairos-hardening.conf and
+  # the pinned images/Dockerfile's ARG KAIROS_INIT default points at it.
+  KAIROS_INIT_OVERRIDE_SOURCE: ghcr.io/kairos-io/kairos/kairos-init:master-scratch
+  KAIROS_INIT_OVERRIDE_TAG: master-scratch
 
 jobs:
   # Ensure every ghcr source image the Dockerfile references is
@@ -37,9 +62,9 @@ jobs:
     secrets: inherit
 
   # Kernel config version + BTF checks are arch-independent (they read the
-  # single linux version from sources.yaml), so run them once for all four
-  # config files: x86_64 (cloud.config, default.config) and arm64
-  # (cloud-arm64.config, default-arm64.config).
+  # single linux version pinned in the Dockerfile), so run them once for
+  # all four config files: x86_64 (cloud.config, default.config) and
+  # arm64 (cloud-arm64.config, default-arm64.config).
   check-kernel-configs:
     runs-on: ubuntu-latest
     steps:
@@ -47,9 +72,19 @@ jobs:
         uses: actions/checkout@v7
       - name: Install PyYAML
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
+      - name: Verify fork-PR upstream source rewrite
+        run: make test-render
+      - name: Verify the local base image tag invariant
+        run: make test-image-tags
+      - name: Verify the source-cache probe retries a stalled connection
+        run: make test-source-probe
+      - name: Verify the sources.yaml checksum refresher
+        run: make test-source-checksums
+      - name: Verify the component-manifest generator
+        run: make test-components
       - name: Verify kernel configs are resolved against current kernel version
         run: |
-          KERNEL_VERSION=$(python3 -c "import yaml; print(yaml.safe_load(open('sources.yaml'))['packages']['linux']['version'])")
+          KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)
           [[ "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
           FAILED=0
           for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
@@ -77,9 +112,738 @@ jobs:
           done
           exit $FAILED
 
-  toolchain-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+  # ============================================================================
+  # amd64 per-stage cache jobs (PR-scoped)
+  # ============================================================================
+  # Same shape as the main-branch pipeline: one job per compiled sub-tree so
+  # each writes its own per-PR cache tag. Splitting the tags means a subsequent
+  # push to the same PR gets an already-warm cache down to whichever stage
+  # actually changed, instead of a single monolithic toolchain tag that fails
+  # to help once anything mid-way is edited.
+
+  stage0-amd64:
+    runs-on: cncf-ubuntu-32-128-x86
     needs: populate-sources
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build stage0
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage0
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage0-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+
+  stage1-amd64:
+    runs-on: cncf-ubuntu-32-128-x86
+    needs: [stage0-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build stage1-merge
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage1-merge
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+
+  rsync-amd64:
+    runs-on: cncf-ubuntu-16-64-x86
+    needs: [stage1-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build rsync
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: rsync
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-rsync-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+
+  cmake-amd64:
+    runs-on: cncf-ubuntu-32-128-x86
+    needs: [rsync-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build cmake
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: cmake
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-cmake-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+
+  kernel-amd64:
+    runs-on: cncf-ubuntu-32-128-x86
+    strategy:
+      matrix:
+        kernel: [cloud, default]
+        fips: [no-fips]
+        # The FIPS image legs build kernel-base against openssl-fips, so their
+        # kernel graph shares no cache with the no-fips one. Build it here, in
+        # parallel, instead of serially inside hadron-bios-amd64 (cloud, fips).
+        include:
+          - kernel: cloud
+            fips: fips
+    needs: [rsync-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build kernel-misc
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: kernel-misc
+          # The last cache-from entry seeds from main's full-image cache for the
+          # same leg, until the per-leg kernel tag above has been published once.
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}{2}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel, matrix.fips == 'fips' && '-fips' || '') || '' }}
+          build-args: |
+            KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
+
+  systemd-amd64:
+    runs-on: cncf-ubuntu-16-64-x86
+    strategy:
+      matrix:
+        # See kernel-amd64: systemd links openssl, so FIPS needs its own graph.
+        fips: [no-fips, fips]
+    needs: [rsync-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build systemd
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: systemd
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.fips == 'fips' && '-fips' || '') || '' }}
+          build-args: |
+            FIPS=${{ matrix.fips }}
+
+  python-amd64:
+    runs-on: cncf-ubuntu-16-64-x86
+    needs: [rsync-amd64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build python-build
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: python-build
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-python-build-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+
+  # ============================================================================
+  # arm64 per-stage cache jobs (PR-scoped)
+  # ============================================================================
+  # Same shape as the main-branch pipeline: one job per compiled sub-tree so
+  # each writes its own per-PR cache tag. Splitting the tags means a subsequent
+  # push to the same PR gets an already-warm cache down to whichever stage
+  # actually changed, instead of a single monolithic toolchain tag that fails
+  # to help once anything mid-way is edited.
+
+  stage0-arm64:
+    runs-on: cncf-ubuntu-32-128-arm
+    needs: populate-sources
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build stage0
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage0
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage0-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  stage1-arm64:
+    runs-on: cncf-ubuntu-32-128-arm
+    needs: [stage0-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build stage1-merge
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: stage1-merge
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  rsync-arm64:
+    runs-on: cncf-ubuntu-16-64-arm
+    needs: [stage1-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build rsync
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: rsync
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-rsync-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  cmake-arm64:
+    runs-on: cncf-ubuntu-32-128-arm
+    needs: [rsync-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build cmake
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: cmake
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-cmake-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  kernel-arm64:
+    runs-on: cncf-ubuntu-32-128-arm
+    strategy:
+      matrix:
+        kernel: [cloud, default]
+    needs: [rsync-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build kernel-misc
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: kernel-misc
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
+          build-args: |
+            KERNEL_TYPE=${{ matrix.kernel }}
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  systemd-arm64:
+    runs-on: cncf-ubuntu-16-64-arm
+    needs: [rsync-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build systemd
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: systemd
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+  python-arm64:
+    runs-on: cncf-ubuntu-16-64-arm
+    needs: [rsync-arm64]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+      - name: Log in to quay.io (push per-PR build cache)
+        if: ${{ env.PR_CACHE_WRITE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_IO_USERNAME }}
+          password: ${{ secrets.QUAY_IO_PASSWORD }}
+      - name: Build python-build
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: python-build
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
+          cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-python-build-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
+          build-args: |
+            ARCH=aarch64
+            BUILD_ARCH=aarch64
+
+
+  toolchain-amd64:
+    runs-on: cncf-ubuntu-16-64-x86
+    needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
       contents: read
@@ -122,13 +886,29 @@ jobs:
             cache-label=quay-remote-amd64
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           target: toolchain
 
   toolchain-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
-    needs: populate-sources
+    runs-on: cncf-ubuntu-16-64-arm
+    needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
       contents: read
@@ -171,6 +951,22 @@ jobs:
           target: toolchain
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
@@ -178,7 +974,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   container-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-16-64-x86
     needs:
       - toolchain-amd64
     permissions:
@@ -225,6 +1021,22 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
@@ -246,10 +1058,21 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Run image-structure tests
         env:
           # Image was loaded locally by the build step above (no push needed).
@@ -260,7 +1083,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   container-arm64:
-    runs-on: oracle-vm-32cpu-128gb-arm64
+    runs-on: cncf-ubuntu-16-64-arm
     needs:
       - toolchain-arm64
     permissions:
@@ -309,6 +1132,22 @@ jobs:
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-cloud-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-container-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
@@ -333,10 +1172,21 @@ jobs:
             BUILD_ARCH=aarch64
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Run image-structure tests
         env:
           # Image was loaded locally by the build step above (no push needed).
@@ -347,7 +1197,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   hadron-bios-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     strategy:
@@ -406,6 +1256,20 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
@@ -414,6 +1278,33 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      - name: Install Go
+        uses: actions/setup-go@v7
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
+        with:
+          go-version-file: tests/go.mod
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
+      - name: Run full-image structure tests
+        env:
+          # container-amd64 structure-tests the minimal base. The firmware
+          # layout exists only in the full image, which is also what
+          # downstream consumers pull, so assert it here.
+          CONTAINER_IMAGE: hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
+        run: |
+          cp tests/go.* .
+          go mod download
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "firmware-layout || audit" ./tests/
       - name: Save the image as a tarball
         # The file name carries the variant: this artifact and its siblings
         # (other kernel/fips combos) are all downloaded into one workspace by
@@ -432,7 +1323,7 @@ jobs:
           compression-level: 0
 
   hadron-trusted-amd64:
-    runs-on: oracle-vm-32cpu-128gb-x86-64
+    runs-on: cncf-ubuntu-8-32-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     strategy:
@@ -487,9 +1378,23 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-trusted-${{ matrix.kernel }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-no-fips-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-trusted-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM, matrix.kernel) || '' }}
           build-args: |
             BOOTLOADER=systemd
@@ -529,37 +1434,21 @@ jobs:
       - name: Generate combined component versions report
         run: |
           SHA="${{ github.sha }}"
-          mkdir -p /tmp/components
 
-          # container image
-          sh hack/gen-components.sh \
-            --shipped "stage2-merge" \
-            --format md --name container --out-dir /tmp/components
-
-          # full-image bios / no-fips
-          sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-grub full-image-final" \
-            --format md --name full-image-bios-no-fips --out-dir /tmp/components
-
-          # full-image bios / fips (openssl version swapped)
-          sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-fips full-image-pre-grub full-image-final" \
-            --override openssl=OPENSSL_FIPS_VERSION \
-            --format md --name full-image-bios-fips --out-dir /tmp/components
-
-          # full-image trusted / no-fips
-          sh hack/gen-components.sh \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-no-fips full-image-pre-systemd full-image-final" \
-            --format md --name full-image-trusted --out-dir /tmp/components
+          # Same stage lists the build manifests use, so the report describes
+          # the package set actually baked into each image. This block used to
+          # carry its own copy of them; the single definition now lives in
+          # hack/gen-manifests.sh.
+          sh hack/gen-manifests.sh --format md --out-dir /tmp/components --quiet
 
           {
             printf '## 🧩 Component versions (amd64)\n\n'
 
             for variant in \
               "container|hadron-container-amd64:${SHA}|container (stage2-merge)" \
-              "full-image-bios-no-fips|hadron-cloud-amd64:${SHA}|bios / no-fips" \
-              "full-image-bios-fips|hadron-cloud-fips-amd64:${SHA}|bios / fips" \
-              "full-image-trusted|hadron-cloud-trusted-${SHA}:24h|trusted (systemd / no-fips)"
+              "full-image-no-fips-grub|hadron-cloud-amd64:${SHA}|bios / no-fips" \
+              "full-image-fips-grub|hadron-cloud-fips-amd64:${SHA}|bios / fips" \
+              "full-image-no-fips-systemd|hadron-cloud-trusted-${SHA}:24h|trusted (systemd / no-fips)"
             do
               name="${variant%%|*}"; rest="${variant#*|}"
               image="${rest%%|*}"; label="${rest#*|}"
@@ -602,6 +1491,10 @@ jobs:
       # Plain docker build, not buildx. The buildx docker-container driver
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -610,9 +1503,25 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false \
             --build-arg FIPS=${{ matrix.fips }}
+      - name: Assert the kairos-init override was actually consumed
+        # Fails fast if docker silently dropped the KAIROS_INIT build-arg
+        # (wrong ARG name, older pinned Dockerfile that hard-codes the
+        # image, etc.), so the acceptance red stays honest rather than
+        # reading as "waiting on a kairos-init release" forever.
+        run: |
+          image="hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
+            exit 1
+          fi
       # The recovery test needs an extension inside the image. /var/lib/kairos
       # is an ephemeral overlay, not persistent, so a file written at runtime
       # does not survive a reboot and is not visible to another boot mode. The
@@ -671,6 +1580,10 @@ jobs:
       # Plain docker build, not buildx. The buildx docker-container driver
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -679,8 +1592,20 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-trusted:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-trusted-${{ github.sha }}:24h \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=true
+      - name: Assert the kairos-init override was actually consumed
+        run: |
+          image="hadron-init-trusted:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
+            exit 1
+          fi
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-trusted:${{ github.sha }} | gzip > hadron-init-trusted.tar.gz
@@ -771,10 +1696,12 @@ jobs:
           path: build/*.iso
 
   tests-bios-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -789,10 +1716,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -801,7 +1739,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
@@ -816,18 +1754,20 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: acceptance-${{github.sha}}.logs.zip
+          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
   tests-trusted-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests
     needs:
       - build-trusted-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -839,10 +1779,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -851,7 +1802,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
@@ -869,7 +1820,7 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
           name: acceptance-trusted-${{github.sha}}.logs.zip
@@ -877,10 +1828,12 @@ jobs:
           if-no-files-found: warn
 
   tests-bios-fips-amd64:
-    runs-on: fast # Custom runner, more memory and CPU
+    runs-on: cncf-ubuntu-16-64-x86
     name: ${{ matrix.test }} tests (FIPS)
     needs:
       - build-bios-iso-amd64
+    permissions:
+      contents: read
     strategy:
       matrix:
         test:
@@ -893,10 +1846,21 @@ jobs:
           fetch-depth: 0
       - name: Install Go
         uses: actions/setup-go@v7
-        timeout-minutes: 5
+        # These workers cap at 100Mb/s, so a congested one turns even the Go
+        # toolchain download into a crawl, and a worker that cannot manage two
+        # minutes here is not going to manage the image pulls later either.
+        # Fail it fast rather than burn five minutes first
+        # (kairos-io/kairos#4564).
+        timeout-minutes: 2
         with:
           go-version-file: tests/go.mod
-          cache-dependency-path: tests/go.sum
+          # The dependency cache costs more than it saves. Restoring it moves
+          # ~305MB where a cold "go mod download" of tests/go.sum moves 124MB,
+          # and in run 35681926163 it missed nine times out of twelve. It also
+          # writes from a post step, and a step's timeout-minutes covers its
+          # post action too, so packing the 449MB module cache ran past the
+          # budget above and failed two jobs whose work had already passed.
+          cache: false
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
@@ -905,7 +1869,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libvirt-clients libvirt-daemon-system libvirt-daemon virtinst bridge-utils qemu-system qemu-system-x86 qemu-system-x86 qemu-utils qemu-kvm acl udev mkisofs swtpm
-          sudo setfacl -m u:runner:rwx /dev/kvm
+          sudo setfacl -m u:$(id -un):rwx /dev/kvm
       - name: Run tests
         env:
           USE_QEMU: true
@@ -921,10 +1885,10 @@ jobs:
           cp tests/go.* .
           go mod download
           go run github.com/onsi/ginkgo/v2/ginkgo -v --fail-fast -r --label-filter "${{ matrix.test }}" ./tests/
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
+          name: ${{ matrix.test }}-fips-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
@@ -1046,6 +2010,20 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-grub-${{ matrix.kernel }}-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-container-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-toolchain-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-${{ matrix.kernel }}-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-python-build-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-arm64,mode=max
@@ -1070,7 +2048,7 @@ jobs:
           compression-level: 0
 
   build-kairos-grub-arm64:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     needs:
       - hadron-grub-arm64
     steps:
@@ -1093,6 +2071,10 @@ jobs:
       # cannot resolve a FROM against the local image store, and the base image
       # arrives here as a tarball rather than from a registry. This job is a
       # native arm64 build with no cache export, so it needs nothing buildx adds.
+      - name: Retag kairos-init PR image into local store as quay tag
+        run: |
+          docker pull "${KAIROS_INIT_OVERRIDE_SOURCE}"
+          docker tag  "${KAIROS_INIT_OVERRIDE_SOURCE}" "quay.io/kairos/kairos-init:${KAIROS_INIT_OVERRIDE_TAG}"
       - name: Build the kairos image
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1101,8 +2083,20 @@ jobs:
             --file ./build/Dockerfile.kairos \
             --tag hadron-init-bios-arm64:${{ github.sha }} \
             --build-arg BASE_IMAGE=hadron-cloud-arm64:${{ github.sha }} \
+            --build-arg KAIROS_INIT=${{ env.KAIROS_INIT_OVERRIDE_TAG }} \
             --build-arg VERSION=v0.0.1-${{ github.sha }} \
             --build-arg TRUSTED_BOOT=false
+      - name: Assert the kairos-init override was actually consumed
+        run: |
+          image="hadron-init-bios-arm64:${{ github.sha }}"
+          out=$(docker run --rm --entrypoint sh "$image" -c \
+            "cat /etc/ssh/sshd_config.d/05-kairos-hardening.conf 2>/dev/null || true")
+          if ! printf '%s\n' "$out" | grep -q '^PermitRootLogin prohibit-password'; then
+            echo "kairos-init override did NOT reach the built image:"
+            echo "$out"
+            echo "expected 05-kairos-hardening.conf to carry 'PermitRootLogin prohibit-password' from the merged 05-kairos-hardening.conf"
+            exit 1
+          fi
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-bios-arm64:${{ github.sha }} | gzip > hadron-init-bios-arm64.tar.gz
@@ -1117,6 +2111,15 @@ jobs:
           compression-level: 0
 
   build-grub-iso-arm64:
+    # Pinned to 24.04 while the rest of the arm64 lane is on 26.04 (#630). This
+    # job hands a docker-daemon image to auroraboot, and on ubuntu-26.04-arm
+    # auroraboot reads it back as an empty tree: the copy into
+    # /output/temp-rootfs "finishes" in seconds, then os-release and the kernel
+    # are both missing and the ISO build dies with
+    # "No file found with prefixes: [uImage Image zImage vmlinuz image]".
+    # build-kairos-grub-arm64, which only builds and uploads that same image,
+    # is fine on 26.04 -- so it is the daemon read, not the image. Raise this
+    # back once auroraboot copes with the newer engine's image store.
     runs-on: ubuntu-24.04-arm
     needs:
       - build-kairos-grub-arm64
@@ -1138,12 +2141,12 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=arm64 \
           -v $PWD/build/:/output \
           quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
-          --override-name kairos-hadron-bios-${{ github.sha }} \
+          --override-name kairos-hadron-bios-arm64-${{ github.sha }} \
           docker:hadron-init-bios-arm64:${{ github.sha }}
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+          name: kairos-hadron-bios-arm64-${{ github.sha }}.iso.zip
           path: build/*.iso
 
 # This test requires changes onto PEG to support ARM architecture properly.
@@ -1174,7 +2177,7 @@ jobs:
 #      - name: Download artifacts
 #        uses: actions/download-artifact@v7
 #        with:
-#          name: kairos-hadron-bios-${{ github.sha }}.iso.zip
+#          name: kairos-hadron-bios-arm64-${{ github.sha }}.iso.zip
 #      - name: Enable KVM group perms
 #        run: |
 #          sudo apt-get update
@@ -1196,6 +2199,6 @@ jobs:
 #      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
 #        if: failure()
 #        with:
-#          name: acceptance-${{github.sha}}.logs.zip
+#          name: ${{ matrix.test }}-arm64-${{github.sha}}.logs.zip
 #          path: tests/**/logs/*
 #          if-no-files-found: warn

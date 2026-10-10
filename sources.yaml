@@ -1,44 +1,55 @@
-# Metadata for the per-package source cache.
+# Fetch metadata for the per-package source cache.
 #
 # Each top-level key under `packages` becomes an OCI image at
-# ghcr.io/kairos-io/hadron-sources/<name> tagged with the pinned
-# `version` here. The populate-sources workflow fetches the tarball
-# from `url` (or the first working entry in `urls`), verifies its
-# `sha256`, and publishes a scratch image containing
-# /sources/downloads/<filename>. Consumers in Dockerfile.tmpl do
+# ${SOURCES_REPO}/<name>, where SOURCES_REPO defaults to
+# ghcr.io/kairos-io/hadron-sources, tagged with the version pinned in
+# the Dockerfile as `ARG <version_arg>=<version>`. The populate-sources
+# workflow reads that ARG default, fetches the
+# tarball from `url` (or the first working entry in `urls`), verifies
+# its `sha256`, and publishes a scratch image containing
+# /sources/downloads/<filename>. Consumers in the Dockerfile do
 #
-#   FROM ghcr.io/kairos-io/hadron-sources/<name>:${<version_arg>} AS <name>-download
+#   FROM ${SOURCES_REPO}/<name>:${<version_arg>} AS <name>-download
 #
-# and the render step (make render) substitutes ${<version_arg>} with
-# `version` at build time using envsubst.
+# and Docker interpolates both ${SOURCES_REPO} and ${<version_arg>} from
+# their ARG defaults at build time.
 #
-# This file is the single source of truth for the upstream versions
-# this project builds against. To move the cache elsewhere (offline
-# mirror, forked distro) all one needs is this file: fetch every
-# listed url, verify each sha256, and push to a reachable registry
+# The Dockerfile is the single source of truth for the versions this
+# project builds against. This file carries only the fetch metadata
+# (urls / sha256 / filename) keyed by the same version_arg the
+# Dockerfile declares. To move the cache elsewhere (offline mirror,
+# forked distro) fetch every listed url at the ARG version in the
+# Dockerfile, verify each sha256, and push to a reachable registry
 # under the same repository layout.
 #
 # Fields per package:
-#   version      Upstream version. Rendered into Dockerfile.tmpl.
-#   version_arg  Name of the environment variable (and Dockerfile ARG)
-#                that expands to `version`. Historically some ARGs
-#                use different identifiers than their package name
-#                (JSONC_VERSION for json-c, KERNEL_VERSION for linux),
-#                so this mapping is explicit.
+#   version_arg  Name of the environment variable (and Dockerfile ARG
+#                default) that expands to the pinned version.
+#                Historically some ARGs use different identifiers than
+#                their package name (JSONC_VERSION for json-c,
+#                KERNEL_VERSION for linux), so this mapping is
+#                explicit.
 #   sha256       Expected SHA256 of the fetched tarball. Publish fails
 #                loudly on mismatch (upstream retagged, or wrong pin).
 #   urls         List of upstream URLs tried in order until one returns
 #                a non-empty body. Single-URL packages use a one-element
 #                list; multi-mirror rings (GNU sources, for example)
 #                list all mirrors and the workflow tries them in order.
-#                ${version} is substituted at fetch time.
+#                ${version} is substituted at fetch time from the
+#                Dockerfile ARG default. ${version_underscore} is the
+#                same value with dots replaced by underscores, for
+#                upstreams whose tag is R_2_8_2 rather than 2.8.2.
+#                ${version_major_minor} is the first two components,
+#                for upstreams that file releases under a 2.42/ or
+#                v2.8/ series directory. Both exist so that bumping
+#                the ARG is the only edit a version bump needs; a
+#                literal series in a URL 404s on the first bump.
 #   filename     Path the tarball lands at inside the source image
 #                (/sources/downloads/<filename>). Must match the name
 #                the Dockerfile expects downstream via COPY --from.
 
 packages:
   acl:
-    version: "2.4.0"
     version_arg: ACL_VERSION
     sha256: 73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a
     urls:
@@ -47,7 +58,6 @@ packages:
     filename: acl.tar.gz
 
   aports:
-    version: "3.24.1"
     version_arg: APORTS_VERSION
     sha256: 1873402d600d069aa4616e7eea115e070f77598a6f2ddef890e717585872be50
     urls:
@@ -55,7 +65,6 @@ packages:
     filename: aports.tar.gz
 
   argp-standalone:
-    version: "1.4.1"
     version_arg: ARGP_STANDALONE_VERSION
     sha256: 879d76374424dce051b812f16f43c6d16de8dbaddd76002f83fd1b6e57d39e0b
     urls:
@@ -63,7 +72,6 @@ packages:
     filename: argp-standalone.tar.gz
 
   attr:
-    version: "2.6.0"
     version_arg: ATTR_VERSION
     sha256: d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612
     urls:
@@ -71,8 +79,14 @@ packages:
       - http://download-mirror.savannah.nongnu.org/releases/attr/attr-${version}.tar.gz
     filename: attr.tar.gz
 
+  audit:
+    version_arg: AUDIT_VERSION
+    sha256: 42876d195ee2ded19e5f72d7664096eee314928aa36ad346719ba5b25818fc84
+    urls:
+      - https://github.com/linux-audit/audit-userspace/archive/refs/tags/v${version}.tar.gz
+    filename: audit.tar.gz
+
   autoconf:
-    version: "2.73"
     version_arg: AUTOCONF_VERSION
     sha256: 9fd672b1c8425fac2fa67fa0477b990987268b90ff36d5f016dae57be0d6b52e
     urls:
@@ -82,7 +96,6 @@ packages:
     filename: autoconf.tar.xz
 
   automake:
-    version: "1.18.1"
     version_arg: AUTOMAKE_VERSION
     sha256: 168aa363278351b89af56684448f525a5bce5079d0b6842bd910fdd3f1646887
     urls:
@@ -92,7 +105,6 @@ packages:
     filename: automake.tar.xz
 
   bc:
-    version: "7.1.0"
     version_arg: BC_VERSION
     sha256: 1f13663ba0f2435b684321714a4d0b9fff32bb951fc78dc7424cd69bba5c0d3a
     urls:
@@ -100,7 +112,6 @@ packages:
     filename: bc.tar.xz
 
   binutils:
-    version: "2.47"
     version_arg: BINUTILS_VERSION
     sha256: 154ab23b60070e8f27013c22977f1129425d67d1e8acd6e13010e617811e4cff
     urls:
@@ -108,7 +119,6 @@ packages:
     filename: binutils.tar.xz
 
   bison:
-    version: "3.8.2"
     version_arg: BISON_VERSION
     sha256: 9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2
     urls:
@@ -118,15 +128,14 @@ packages:
     filename: bison.tar.xz
 
   busybox:
-    version: "1.37.0"
     version_arg: BUSYBOX_VERSION
-    sha256: 3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4
+    sha256: 34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2
     urls:
       - https://busybox.net/downloads/busybox-${version}.tar.bz2
+      - https://sources.openwrt.org/busybox-${version}.tar.bz2
     filename: busybox.tar.bz2
 
   ca-certificates:
-    version: "20260611"
     version_arg: CA_CERTIFICATES_VERSION
     sha256: 32ca73f2e81e2b88dc614f12e1ee04a82b1ec5a8e29d9f359ddf8905a0afcbb0
     urls:
@@ -134,15 +143,13 @@ packages:
     filename: ca-certificates.tar.bz2
 
   cmake:
-    version: "4.4.2"
     version_arg: CMAKE_VERSION
-    sha256: 1db9e61e60b6e0874c86386340b910382f3c5e75b9fbfb44d122063129a2789d
+    sha256: bd24c30d80a7744ae84b845ff080cc8453b06c622ef01066564108e9cefc44cf
     urls:
       - https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}.tar.gz
     filename: cmake.tar.gz
 
   conntrack-tools:
-    version: "1.4.9"
     version_arg: CONNTRACK_TOOLS_VERSION
     sha256: c15afe488a8d408c9d6d61e97dbd19f3c591942f62c13df6453a961ca4231cae
     urls:
@@ -150,33 +157,36 @@ packages:
     filename: conntrack-tools.tar.xz
 
   coreutils:
-    version: "9.11"
     version_arg: COREUTILS_VERSION
-    sha256: 394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
+    sha256: a480198559733e9b3da999e90543ac6f888a2caa544d8d664c5a1f17e528e210
     urls:
       - https://ftpmirror.gnu.org/coreutils/coreutils-${version}.tar.xz
       - https://ftp.gnu.org/gnu/coreutils/coreutils-${version}.tar.xz
       - https://mirror.netcologne.de/gnu/coreutils/coreutils-${version}.tar.xz
     filename: coreutils.tar.xz
 
-  cryptsetup:
-    version: "2.8.7"
-    version_arg: CRYPTSETUP_VERSION
-    sha256: e776f0d381e86ca61042c457069491fe8e0ac286780c7c3b1e4f9921abc961da
+  cracklib:
+    version_arg: CRACKLIB_VERSION
+    sha256: f3dcb54725d5604523f54a137b378c0427c1a0be3e91cfb8650281a485d10dae
     urls:
-      - https://cdn.kernel.org/pub/linux/utils/cryptsetup/v2.8/cryptsetup-${version}.tar.xz
+      - https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.bz2
+    filename: cracklib.tar.bz2
+
+  cryptsetup:
+    version_arg: CRYPTSETUP_VERSION
+    sha256: 3acfa685f2dd7fcc832e0b77bc7093aa7da554a51ce8dafbb4138eaa854eee35
+    urls:
+      - https://cdn.kernel.org/pub/linux/utils/cryptsetup/v${version_major_minor}/cryptsetup-${version}.tar.xz
     filename: cryptsetup.tar.xz
 
   curl:
-    version: "8.21.0"
     version_arg: CURL_VERSION
-    sha256: d9b327997999045a24cda50f3983e69e51c516bd8be6ef9842fc7f99135e33bb
+    sha256: d54dd598bf05927a726deb38df31c6a255ba83ff1de57c5d1464dac3ed8f44a1
     urls:
       - https://curl.se/download/curl-${version}.tar.gz
     filename: curl.tar.gz
 
   dbus:
-    version: "1.16.2"
     version_arg: DBUS_VERSION
     sha256: 0ba2a1a4b16afe7bceb2c07e9ce99a8c2c3508e5dec290dbb643384bd6beb7e2
     urls:
@@ -184,7 +194,6 @@ packages:
     filename: dbus.tar.xz
 
   diffutils:
-    version: "3.12"
     version_arg: DIFFUTILS_VERSION
     sha256: 7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd
     urls:
@@ -194,7 +203,6 @@ packages:
     filename: diffutils.tar.xz
 
   dosfstools:
-    version: "4.2"
     version_arg: DOSFSTOOLS_VERSION
     sha256: 64926eebf90092dca21b14259a5301b7b98e7b1943e8a201c7d726084809b527
     urls:
@@ -202,7 +210,6 @@ packages:
     filename: dosfstools.tar.gz
 
   dracut:
-    version: "112"
     version_arg: DRACUT_VERSION
     sha256: 839d21eb4bd27bb0ee40d74c9da46df088c2e1425fcd8c3ea62b7e3a3dd28a91
     urls:
@@ -210,15 +217,13 @@ packages:
     filename: dracut.tar.gz
 
   dwarves:
-    version: "1.31"
     version_arg: DWARVES_VERSION
-    sha256: 2b6511691bda2b3ae328987092902d30fd073ef7c8754894f4a69271a66686f2
+    sha256: 34314c33a3c86524f2bc0c60b72b94bc4fac4a880648349813282afe6006002b
     urls:
       - https://github.com/acmel/dwarves/archive/refs/tags/v${version}.tar.gz
     filename: dwarves.tar.gz
 
   e2fsprogs:
-    version: "1.47.4"
     version_arg: E2FSPROGS_VERSION
     sha256: fd5bf388cbdbe006a3d3b318d983b2948382440acc85a87f1e7d108653e8db0b
     urls:
@@ -226,7 +231,6 @@ packages:
     filename: e2fsprogs.tar.xz
 
   elfutils:
-    version: "0.195"
     version_arg: ELFUTILS_VERSION
     sha256: 37629fdf7f1f3dc2818e138fca2b8094177d6c2d0f701d3bb650a561218dc026
     urls:
@@ -234,15 +238,13 @@ packages:
     filename: elfutils.tar.bz2
 
   expat:
-    version: "2.8.2"
     version_arg: EXPAT_VERSION
-    sha256: ef7d1994f533c9e7343d6c19f31064fc8ebbcbcaa144be3812b4f43052a05f4c
+    sha256: 16afbb9cefead2aa278105cf27d9f597bde7fbf3dbb85015857ca7ca6a4e89ba
     urls:
-      - https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-${version}.tar.gz
+      - https://github.com/libexpat/libexpat/releases/download/R_${version_underscore}/expat-${version}.tar.gz
     filename: expat.tar.gz
 
   findutils:
-    version: "4.11.0"
     version_arg: FINDUTILS_VERSION
     sha256: bfd19cb06cc71f3352d567e90284d8cdac02ac89774bbeadf0b533b0c11432fd
     urls:
@@ -252,7 +254,6 @@ packages:
     filename: findutils.tar.xz
 
   flex:
-    version: "2.6.4"
     version_arg: FLEX_VERSION
     sha256: e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995
     urls:
@@ -260,7 +261,6 @@ packages:
     filename: flex.tar.gz
 
   gawk:
-    version: "5.4.1"
     version_arg: GAWK_VERSION
     sha256: 07f6f7342b7febe4313fc2c2542ad93d64fe20ad8717200109f105a826f5fd37
     urls:
@@ -270,7 +270,6 @@ packages:
     filename: gawk.tar.xz
 
   gcc:
-    version: "15.3.0"
     version_arg: GCC_VERSION
     sha256: fa59c1beef8995f27c4d71c1df227587189315d3e6faff1bb4306e61b0c530eb
     urls:
@@ -280,23 +279,20 @@ packages:
     filename: gcc.tar.xz
 
   gdb:
-    version: "17.2"
     version_arg: GDB_VERSION
-    sha256: cb891b9a9f554cac972eea5368176b240640ae90b681aae84bf873a9501f0063
+    sha256: fb83623deb238cab91ad17f8a906e2da26d0b4620fb1da43c20a274252e51082
     urls:
       - https://sourceware.org/pub/gdb/releases/gdb-${version}.tar.gz
     filename: gdb.tar.gz
 
   glib:
-    version: "2.86.2"
     version_arg: GLIB_VERSION
     sha256: 8a724e970855357ea8101e27727202392a0ffd5410a98336aed54ec59113e611
     urls:
-      - https://download.gnome.org/sources/glib/2.86/glib-${version}.tar.xz
+      - https://download.gnome.org/sources/glib/${version_major_minor}/glib-${version}.tar.xz
     filename: glib.tar.xz
 
   gmp:
-    version: "6.3.0"
     version_arg: GMP_VERSION
     sha256: ac28211a7cfb609bae2e2c8d6058d66c8fe96434f740cf6fe2e47b000d1c20cb
     urls:
@@ -306,7 +302,6 @@ packages:
     filename: gmp.tar.bz2
 
   gperf:
-    version: "3.3"
     version_arg: GPERF_VERSION
     sha256: fd87e0aba7e43ae054837afd6cd4db03a3f2693deb3619085e6ed9d8d9604ad8
     urls:
@@ -316,7 +311,6 @@ packages:
     filename: gperf.tar.gz
 
   grep:
-    version: "3.12"
     version_arg: GREP_VERSION
     sha256: 2649b27c0e90e632eadcd757be06c6e9a4f48d941de51e7c0f83ff76408a07b9
     urls:
@@ -326,7 +320,6 @@ packages:
     filename: grep.tar.xz
 
   grub:
-    version: "2.14"
     version_arg: GRUB_VERSION
     sha256: bc8d3c73535b8838d8c8e2654d73edc4e6ae8c8acdb45d5df5dc9a1547446d43
     urls:
@@ -336,9 +329,8 @@ packages:
     filename: grub.tar.xz
 
   gzip:
-    version: "1.14"
     version_arg: GZIP_VERSION
-    sha256: 01a7b881bd220bfdf615f97b8718f80bdfd3f6add385b993dcf6efd14e8c0ac6
+    sha256: 9aa0cc780dec156b8282844833b342ab7cb08c25d2cd9a1869cdd0df31deff48
     urls:
       - https://ftpmirror.gnu.org/gzip/gzip-${version}.tar.xz
       - https://ftp.gnu.org/gnu/gzip/gzip-${version}.tar.xz
@@ -346,7 +338,6 @@ packages:
     filename: gzip.tar.xz
 
   iptables:
-    version: "1.8.13"
     version_arg: IPTABLES_VERSION
     sha256: 1afcd33da9e8f913ace6a2126788162e207e26f5d5e29c6573c0e581ffc58b99
     urls:
@@ -354,7 +345,6 @@ packages:
     filename: iptables.tar.xz
 
   json-c:
-    version: "0.19"
     version_arg: JSONC_VERSION
     sha256: 37ad0249902e301bd9052bf712e511fcc6acff4ecaad4b5900aad9ce564e26de
     urls:
@@ -362,7 +352,6 @@ packages:
     filename: json-c.tar.gz
 
   kbd:
-    version: "2.10.0"
     version_arg: KBD_VERSION
     sha256: 4ed59299759457aa6424b4a4ce116625ec27660f6492e4be264d326053fe4261
     urls:
@@ -370,7 +359,6 @@ packages:
     filename: kbd.tar.gz
 
   keyutils:
-    version: "1.6.3"
     version_arg: KEYUTILS_VERSION
     sha256: a61d5706136ae4c05bd48f86186bcfdbd88dd8bd5107e3e195c924cfc1b39bb4
     urls:
@@ -378,15 +366,20 @@ packages:
     filename: keyutils.tar.gz
 
   kmod:
-    version: "34.2"
     version_arg: KMOD_VERSION
     sha256: d60a79fb12a85feab75674ce5b86b2c8bae1714f775f481eae926bd2657b2ffe
     urls:
       - https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${version}.tar.gz
     filename: kmod.tar.gz
 
+  less:
+    version_arg: LESS_VERSION
+    sha256: 20a0b0a2bb2525fa53c7eee9beb854b4c9cf172eabb209af7020743547bfe9fb
+    urls:
+      - https://www.greenwoodsoftware.com/less/less-${version}.tar.gz
+    filename: less.tar.gz
+
   libaio:
-    version: "0.3.113"
     version_arg: LIBAIO_VERSION
     sha256: 2c44d1c5fd0d43752287c9ae1eb9c023f04ef848ea8d4aafa46e9aedb678200b
     urls:
@@ -394,7 +387,6 @@ packages:
     filename: libaio.tar.gz
 
   libbpf:
-    version: "1.5.0"
     version_arg: LIBBPF_VERSION
     sha256: 53492aff6dd47e4da04ef5e672d753b9743848bdb38e9d90eafbe190b7983c44
     urls:
@@ -402,7 +394,6 @@ packages:
     filename: libbpf.tar.gz
 
   libcap:
-    version: "2.78"
     version_arg: LIBCAP_VERSION
     sha256: 0d621e562fd932ccf67b9660fb018e468a683d7b827541df27813228c996bb11
     urls:
@@ -410,15 +401,13 @@ packages:
     filename: libcap.tar.xz
 
   libelf:
-    version: "0.195"
     version_arg: LIBELF_VERSION
-    sha256: 7230aa671c991ab2576b9a7735b3bf6256185b0a23d3bb3fc1d44dd740a81343
+    sha256: 1e839a9926a90430e4302300168741719ae8ce096109e903e31ed8fce18a7517
     urls:
       - https://github.com/arachsys/libelf/archive/refs/tags/v${version}.tar.gz
     filename: libelf.tar.gz
 
   libevent:
-    version: "2.1.13"
     version_arg: LIBEVENT_VERSION
     sha256: f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c
     urls:
@@ -426,15 +415,13 @@ packages:
     filename: libevent.tar.gz
 
   libffi:
-    version: "3.7.1"
     version_arg: LIBFFI_VERSION
-    sha256: d5e9a6638ddbd2513ddb54518eb67e4bbe6fa707bcc01c10f6212f0a088d819d
+    sha256: 7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4
     urls:
       - https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
     filename: libffi.tar.gz
 
   libiconv:
-    version: "1.19"
     version_arg: ICONV_VERSION
     sha256: 88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6
     urls:
@@ -444,15 +431,13 @@ packages:
     filename: libiconv.tar.gz
 
   libkcapi:
-    version: "1.5.0"
     version_arg: LIBKCAPI_VERSION
-    sha256: f1d827738bda03065afd03315479b058f43493ab6e896821b947f391aa566ba0
+    sha256: 8d24a355509d500a520a76c7f919772279e6961073a01f2ef2bdaf8edce32fce
     urls:
       - https://github.com/smuellerDD/libkcapi/archive/refs/tags/v${version}.tar.gz
     filename: libkcapi.tar.gz
 
   libmnl:
-    version: "1.0.5"
     version_arg: LIBMNL_VERSION
     sha256: 274b9b919ef3152bfb3da3a13c950dd60d6e2bcd54230ffeca298d03b40d0525
     urls:
@@ -460,7 +445,6 @@ packages:
     filename: libmnl.tar.bz2
 
   libnetfilter_conntrack:
-    version: "1.1.1"
     version_arg: LIBNETFILTER_CONNTRACK_VERSION
     sha256: 769d3eaf57fa4fbdb05dd12873b6cb9a5be7844d8937e222b647381d44284820
     urls:
@@ -468,7 +452,6 @@ packages:
     filename: libnetfilter_conntrack.tar.xz
 
   libnetfilter_cthelper:
-    version: "1.0.1"
     version_arg: LIBNETFILTER_CTHELPER_VERSION
     sha256: 14073d5487233897355d3ff04ddc1c8d03cc5ba8d2356236aa88161a9f2dc912
     urls:
@@ -476,7 +459,6 @@ packages:
     filename: libnetfilter_cthelper.tar.bz2
 
   libnetfilter_cttimeout:
-    version: "1.0.1"
     version_arg: LIBNETFILTER_CTTIMEOUT_VERSION
     sha256: 0b59da2f3204e1c80cb85d1f6d72285fc07b01a2f5678abf5dccfbbefd650325
     urls:
@@ -484,7 +466,6 @@ packages:
     filename: libnetfilter_cttimeout.tar.bz2
 
   libnetfilter_queue:
-    version: "1.0.5"
     version_arg: LIBNETFILTER_QUEUE_VERSION
     sha256: f9ff3c11305d6e03d81405957bdc11aea18e0d315c3e3f48da53a24ba251b9f5
     urls:
@@ -492,7 +473,6 @@ packages:
     filename: libnetfilter_queue.tar.bz2
 
   libnfnetlink:
-    version: "1.0.2"
     version_arg: LIBNFNETLINK_VERSION
     sha256: b064c7c3d426efb4786e60a8e6859b82ee2f2c5e49ffeea640cfe4fe33cbc376
     urls:
@@ -500,23 +480,27 @@ packages:
     filename: libnfnetlink.tar.bz2
 
   libnftnl:
-    version: "1.3.1"
     version_arg: LIBNFTNL_VERSION
-    sha256: 607da28dba66fbdeccf8ef1395dded9077e8d19f2995f9a4d45a9c2f0bcffba8
+    sha256: c97abc3409f8fa396b4462b2bb7f147a3a47a4ddc97cfa0b2f18890c9cfde8b0
     urls:
       - https://www.netfilter.org/projects/libnftnl/files/libnftnl-${version}.tar.xz
     filename: libnftnl.tar.xz
 
   libnl:
-    version: "3.12.0"
     version_arg: LIBNL_VERSION
     sha256: fc51ca7196f1a3f5fdf6ffd3864b50f4f9c02333be28be4eeca057e103c0dd18
     urls:
-      - https://github.com/thom311/libnl/releases/download/libnl3_12_0/libnl-${version}.tar.gz
+      - https://github.com/thom311/libnl/releases/download/libnl${version_underscore}/libnl-${version}.tar.gz
     filename: libnl.tar.gz
 
+  libpwquality:
+    version_arg: LIBPWQUALITY_VERSION
+    sha256: 6fcf18b75d305d99d04d2e42982ed5b787a081af2842220ed63287a2d6a10988
+    urls:
+      - https://github.com/libpwquality/libpwquality/releases/download/libpwquality-${version}/libpwquality-${version}.tar.bz2
+    filename: libpwquality.tar.bz2
+
   libseccomp:
-    version: "2.6.1"
     version_arg: SECCOMP_VERSION
     sha256: 501f66c667225d53791b97e1d7cf85ab764c297d04881f60f38f451c4b0ee1be
     urls:
@@ -524,15 +508,13 @@ packages:
     filename: libseccomp.tar.gz
 
   libtirpc:
-    version: "1.3.7"
     version_arg: LIBTIRPC_VERSION
-    sha256: b47d3ac19d3549e54a05d0019a6c400674da716123858cfdb6d3bdd70a66c702
+    sha256: 8839959bfcc7a0f4c609d8e4f53f1c67ae33de23775ec35beb39ff15adf11920
     urls:
       - https://downloads.sourceforge.net/project/libtirpc/libtirpc/${version}/libtirpc-${version}.tar.bz2
     filename: libtirpc.tar.bz2
 
   libtool:
-    version: "2.5.4"
     version_arg: LIBTOOL_VERSION
     sha256: f81f5860666b0bc7d84baddefa60d1cb9fa6fceb2398cc3baca6afaa60266675
     urls:
@@ -542,7 +524,6 @@ packages:
     filename: libtool.tar.xz
 
   libucontext:
-    version: "1.5.2"
     version_arg: LIBUCONTEXT_VERSION
     sha256: 9230397327bbf580e04c9456d1509e9af19599c7f6deca7f75969ece6e9d598e
     urls:
@@ -550,31 +531,27 @@ packages:
     filename: libucontext.tar.gz
 
   libxml2:
-    version: "2.15.3"
     version_arg: LIBXML2_VERSION
-    sha256: 78262a6e7ac170d6528ebfe2efccdf220191a5af6a6cd61ea4a9a9a5042c7a07
+    sha256: 98087fd181d9070724f3fbc65c7377db03038eb92bd882374daff44940138821
     urls:
-      - https://download.gnome.org/sources/libxml2/2.15/libxml2-${version}.tar.xz
+      - https://download.gnome.org/sources/libxml2/${version_major_minor}/libxml2-${version}.tar.xz
     filename: libxml2.tar.xz
 
   linux:
-    version: "7.1.8"
     version_arg: KERNEL_VERSION
-    sha256: ff01dcb449279d5b4cfccdb01fee639cf5ff1803f1749a77844dd33915422c49
+    sha256: b4c5dfbe51a364a6c7f03869200f88c8e1f77403539005f14b7fc6bc91b8d8ba
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
 
   lvm2:
-    version: "2.03.41"
     version_arg: LVM2_VERSION
-    sha256: d58011b845df8ec13816ca13ea6c39d4cb3d038cd2d7d387acdf5681ad7d6637
+    sha256: d87ec0dac9061f1fa58ebced5c6b1360c87d4c5cd7b455dc0ebe1d3f036920d7
     urls:
       - http://ftp-stud.fht-esslingen.de/pub/Mirrors/sourceware.org/lvm2/releases/LVM2.${version}.tgz
     filename: lvm2.tgz
 
   lz4:
-    version: "1.10.0"
     version_arg: LZ4_VERSION
     sha256: 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
     urls:
@@ -582,7 +559,6 @@ packages:
     filename: lz4.tar.gz
 
   m4:
-    version: "1.4.21"
     version_arg: M4_VERSION
     sha256: f25c6ab51548a73a75558742fb031e0625d6485fe5f9155949d6486a2408ab66
     urls:
@@ -592,7 +568,6 @@ packages:
     filename: m4.tar.xz
 
   make:
-    version: "4.4.1"
     version_arg: MAKE_VERSION
     sha256: dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3
     urls:
@@ -602,7 +577,6 @@ packages:
     filename: make.tar.gz
 
   mpc:
-    version: "1.4.1"
     version_arg: MPC_VERSION
     sha256: 91204cd32f164bd3b7c992d4a6a8ce6519511aadab30f78b6982d0bf8d73e931
     urls:
@@ -612,7 +586,6 @@ packages:
     filename: mpc.tar.xz
 
   mpfr:
-    version: "4.2.2"
     version_arg: MPFR_VERSION
     sha256: 9ad62c7dc910303cd384ff8f1f4767a655124980bb6d8650fe62c815a231bb7b
     urls:
@@ -622,7 +595,6 @@ packages:
     filename: mpfr.tar.bz2
 
   mspack:
-    version: "1.11"
     version_arg: MSPACK_VERSION
     sha256: 284e0e51fee991c40e8cbbc0f5e635f99722796a3642a14397989fc00b862f72
     urls:
@@ -630,19 +602,18 @@ packages:
     filename: mspack.tar.gz
 
   multipath-tools:
-    version: "0.15.0"
     version_arg: MULTIPATH_TOOLS_VERSION
-    sha256: 23e8500f7d12f1fbc571aafbcdaa4a07e9a1ec46920078ce92882ca6d71d45c7
+    sha256: 99e4a4b8c245479dd5c5d473a031acb67d752b94dcd76be172279cd445845421
     urls:
       - https://github.com/opensvc/multipath-tools/archive/refs/tags/${version}.tar.gz
     filename: multipath-tools.tar.gz
 
   musl:
-    version: "1.2.6"
     version_arg: MUSL_VERSION
     sha256: d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
     urls:
       - https://musl.libc.org/releases/musl-${version}.tar.gz
+      - https://distfiles.alpinelinux.org/distfiles/edge/musl-${version}.tar.gz
     filename: musl.tar.gz
 
   # A second, separately-versioned entry, not a duplicate of `musl` above.
@@ -654,17 +625,18 @@ packages:
   # failing (stage0 timing out on musl.libc.org, not on riscv64 at all).
   # Cached here the same way as every other source in this file, then
   # pre-staged into mussel's own source directory before it runs, so it
-  # never touches musl.libc.org directly. See stage0 in Dockerfile.tmpl.
+  # never touches musl.libc.org directly. See stage0 in Dockerfile.
   musl-toolchain:
-    version: "1.2.5"
     version_arg: MUSL_TOOLCHAIN_VERSION
     sha256: a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4
     urls:
       - https://musl.libc.org/releases/musl-${version}.tar.gz
+      # Alpine keeps 1.2.5 on its 3.20 branch, not on edge. A version bump
+      # here must move this path to the branch that carries the new tarball.
+      - https://distfiles.alpinelinux.org/distfiles/v3.20/musl-${version}.tar.gz
     filename: musl-toolchain.tar.gz
 
   musl-fts:
-    version: "1.2.7"
     version_arg: FTS_VERSION
     sha256: 49ae567a96dbab22823d045ffebe0d6b14b9b799925e9ca9274d47d26ff482a6
     urls:
@@ -672,23 +644,29 @@ packages:
     filename: musl-fts.tar.gz
 
   musl-obstack:
-    version: "1.2.3"
     version_arg: MUSL_OBSTACK_VERSION
     sha256: 9ffb3479b15df0170eba4480e51723c3961dbe0b461ec289744622db03a69395
     urls:
       - https://github.com/void-linux/musl-obstack/archive/refs/tags/v${version}.tar.gz
     filename: musl-obstack.tar.gz
 
+  ncurses:
+    version_arg: NCURSES_VERSION
+    sha256: 136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6
+    urls:
+      - https://ftpmirror.gnu.org/ncurses/ncurses-${version}.tar.gz
+      - https://ftp.gnu.org/gnu/ncurses/ncurses-${version}.tar.gz
+      - https://mirror.netcologne.de/gnu/ncurses/ncurses-${version}.tar.gz
+    filename: ncurses.tar.gz
+
   nfs-utils:
-    version: "2.9.2"
     version_arg: NFS_UTILS_VERSION
-    sha256: e1dd8a9c95af15492065942cc3b52b1339ffd586baa2280ed86c9d3dc4097e8c
+    sha256: 7dbc05eb8b32828b322872b759a62cb3979cb4118f344dd8616813d1390e84e0
     urls:
       - https://www.kernel.org/pub/linux/utils/nfs-utils/${version}/nfs-utils-${version}.tar.xz
     filename: nfs-utils.tar.xz
 
   open-vm-tools:
-    version: "13.1.0"
     version_arg: OPENVM_TOOLS_VERSION
     sha256: 2fed62074256ff5031609722f666b17921742a98dbec73f1b11121a301d6315b
     urls:
@@ -696,31 +674,27 @@ packages:
     filename: open-vm-tools.tar.gz
 
   openscsi:
-    version: "2.1.12"
     version_arg: OPEN_SCSI_VERSION
-    sha256: e2441b61e4b05cd5f0f94b35dcdf460e8d542e40d71b480882628170d6462d9a
+    sha256: 1c3a8ad7d86e57d247a08c013f5055ef695b3a07ed760d1aea7d90b9f9011602
     urls:
       - https://github.com/open-iscsi/open-iscsi/archive/refs/tags/${version}.tar.gz
     filename: openscsi.tar.gz
 
   openssh:
-    version: "10.4p1"
     version_arg: OPENSSH_VERSION
-    sha256: ef6026dd2aea8d56059638d5d3262902c892ceba9f88395835e0d06d3fb63238
+    sha256: a9dc9565dffe8640f64d863cd29a32bc4a3dbdec0566a7fc44c5d6ee767d5f39
     urls:
       - https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-${version}.tar.gz
     filename: openssh.tar.gz
 
   openssl:
-    version: "3.6.3"
     version_arg: OPENSSL_VERSION
-    sha256: 243a86649cf6f23eeb6a2ff2456e09e5d77dd9018a54d3d96b0c6bdd6ba6c7f1
+    sha256: a2157c2830efdec3788939b00c9b0638306d3f0bbb76dc4832ee503bb397df98
     urls:
       - https://www.openssl.org/source/openssl-${version}.tar.gz
     filename: openssl.tar.gz
 
   openssl-fips:
-    version: "3.1.2"
     version_arg: OPENSSL_FIPS_VERSION
     sha256: a0ce69b8b97ea6a35b96875235aa453b966ba3cba8af2de23657d8b6767d6539
     urls:
@@ -728,7 +702,6 @@ packages:
     filename: openssl-fips.tar.gz
 
   pam:
-    version: "1.7.2"
     version_arg: PAM_VERSION
     sha256: 3d86b6383fb5fd9eb9578d2cd47d92801191f4bf3f9bc61419bfefc8aa1e531a
     urls:
@@ -736,9 +709,8 @@ packages:
     filename: pam.tar.xz
 
   parted:
-    version: "3.7"
     version_arg: PARTED_VERSION
-    sha256: 008de57561a4f3c25a0648e66ed11e7b30be493889b64334a6d70f2c1951ef7b
+    sha256: a2b7811f47b0ddb1f7b1d0aa456f7c1270da70708ce231c2fe054c7199eafa63
     urls:
       - https://ftpmirror.gnu.org/parted/parted-${version}.tar.xz
       - https://ftp.gnu.org/gnu/parted/parted-${version}.tar.xz
@@ -746,7 +718,6 @@ packages:
     filename: parted.tar.xz
 
   patch:
-    version: "2.8"
     version_arg: PATCH_VERSION
     sha256: 308a4983ff324521b9b21310bfc2398ca861798f02307c79eb99bb0e0d2bf980
     urls:
@@ -756,7 +727,6 @@ packages:
     filename: patch.tar.gz
 
   pax-utils:
-    version: "1.3.11"
     version_arg: PAX_UTILS_VERSION
     sha256: aa01db76341e64c9c6895d83f6b5f835a3cc9efdf1c21c72b8e45f1b0add32c7
     urls:
@@ -764,15 +734,13 @@ packages:
     filename: pax-utils.tar.gz
 
   pcre2:
-    version: "10.47"
     version_arg: PCRE2_VERSION
-    sha256: c08ae2388ef333e8403e670ad70c0a11f1eed021fd88308d7e02f596fcd9dc16
+    sha256: 929f0b20e62879252a15886b06c89f1edef61a363cbd5826fb041080a5e557ae
     urls:
       - https://github.com/PCRE2Project/pcre2/releases/download/pcre2-${version}/pcre2-${version}.tar.gz
     filename: pcre2.tar.gz
 
   perl:
-    version: "5.44.0"
     version_arg: PERL_VERSION
     sha256: b9a53d539af95412ecce2bdd548eac9beaf559ea48ace5dd8427504c25b01b46
     urls:
@@ -780,15 +748,13 @@ packages:
     filename: perl.tar.gz
 
   pkgconf:
-    version: "3.0.5"
     version_arg: PKGCONFIG_VERSION
-    sha256: 3acd3a8a3cce65a8d620321855d92fb602e026cbe8e13ee36bdec58483b59ace
+    sha256: c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a
     urls:
       - https://distfiles.dereferenced.org/pkgconf/pkgconf-${version}.tar.xz
     filename: pkgconf.tar.xz
 
   popt:
-    version: "1.19"
     version_arg: POPT_VERSION
     sha256: c25a4838fc8e4c1c8aacb8bd620edb3084a3d63bf8987fdad3ca2758c63240f9
     urls:
@@ -796,7 +762,6 @@ packages:
     filename: popt.tar.gz
 
   procps-ng:
-    version: "4.0.6"
     version_arg: PROCPS_NG_VERSION
     sha256: 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
     urls:
@@ -804,15 +769,13 @@ packages:
     filename: procps-ng.tar.xz
 
   python:
-    version: "3.14.6"
     version_arg: PYTHON_VERSION
-    sha256: 143b1dddefaec3bd2e21e3b839b34a2b7fb9842272883c576420d605e9f30c63
+    sha256: c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
     urls:
       - https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz
     filename: Python.tar.xz
 
   qemu:
-    version: "10.1.5"
     version_arg: QEMU_AGENT_VERSION
     sha256: 1f1209b4db82e6c4417eaf6e7e0b073563572a042d9fb7492b084ba65a9c0693
     urls:
@@ -820,7 +783,6 @@ packages:
     filename: qemu.tar.xz
 
   readline:
-    version: "8.3"
     version_arg: READLINE_VERSION
     sha256: fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
     urls:
@@ -830,23 +792,20 @@ packages:
     filename: readline.tar.gz
 
   rsync:
-    version: "3.4.4"
     version_arg: RSYNC_VERSION
-    sha256: bd88cf82fa653da32314fb229136407c5c90f80d1758d8f4b091767877d8fa96
+    sha256: c55f9c9dc10fb8bec397b399a0fdded53cc9a2d8e30891bb0d63724d25c37bef
     urls:
       - https://github.com/RsyncProject/rsync/releases/download/v${version}/rsync-${version}.tar.gz
     filename: rsync.tar.gz
 
   shadow:
-    version: "4.20.0"
     version_arg: SHADOW_VERSION
-    sha256: 239781632846db3b01901028147fb4b57e6f2d5330ca63ce104b21d9b3e6031f
+    sha256: 623be9429f64fa2165bfc5957c6a642ec309c5cf23c0d53855c99f7591922297
     urls:
       - https://github.com/shadow-maint/shadow/releases/download/${version}/shadow-${version}.tar.xz
     filename: shadow.tar.xz
 
   shim:
-    version: "16.1"
     version_arg: SHIM_VERSION
     sha256: 46319cd228d8f2c06c744241c0f342412329a7c630436fce7f82cf6936b1d603
     urls:
@@ -854,7 +813,6 @@ packages:
     filename: shim.tar.bz2
 
   sqlite3:
-    version: "3.53.4"
     version_arg: SQLITE3_VERSION
     sha256: 16bc1b2027ba2653e3d262e740376be23f67cad77865db814493267494326c3c
     urls:
@@ -862,15 +820,13 @@ packages:
     filename: sqlite3.tar.gz
 
   strace:
-    version: "7.1"
     version_arg: STRACE_VERSION
-    sha256: 81743ecf2a5b44186b2f5038afdc8beda7e5c70aed15b4fbfbcc6e9ece24490f
+    sha256: 4bde6246926890dcee824f6e6ac42a06752f47d77e5097d86e3c0d6d4b709fe5
     urls:
       - https://strace.io/files/${version}/strace-${version}.tar.xz
     filename: strace.tar.xz
 
   sudo:
-    version: "1.9.17p2"
     version_arg: SUDO_VERSION
     sha256: 4a38a1ab3adb1199257edc2a7c4a2bd714665eb605b04368843b06dada2cfcfb
     urls:
@@ -878,15 +834,13 @@ packages:
     filename: sudo.tar.gz
 
   systemd:
-    version: "261.2"
     version_arg: SYSTEMD_VERSION
-    sha256: ed1059ff964f5df35b6056434cc17cc83f86dc913f10489948a0b19b6081c5ec
+    sha256: 6aa77506c0644aa67f940a48e3d3a7368601f787e4f249139516d353f107bcab
     urls:
       - https://github.com/systemd/systemd/archive/refs/tags/v${version}.tar.gz
     filename: systemd.tar.gz
 
   tpm2-tss:
-    version: "4.2.0"
     version_arg: TPM2_TSS_VERSION
     sha256: b53f0c5c8c4ce17f05701a410ca9688f725ca380c9bc4640eacd0eadb1fea124
     urls:
@@ -894,47 +848,44 @@ packages:
     filename: tpm2-tss.tar.gz
 
   urcu:
-    version: "0.15.6"
     version_arg: URCU_VERSION
-    sha256: 850b192096eb11ebf2c70e8f97bc7da7479ee41da1bebeb44e3986908bac414f
+    sha256: 2556b83adc0f9b3ac8024e613e17d014d04c4c49110604ce55fcb14eae32edd3
     urls:
       - https://lttng.org/files/urcu/userspace-rcu-${version}.tar.bz2
     filename: urcu.tar.bz2
 
   util-linux:
-    version: "2.42.2"
     version_arg: UTIL_LINUX_VERSION
-    sha256: 03a05d3adf9602ef128f2da05b84b3205ce60c351e5737c0370f74000679ce8a
+    sha256: fbd62a100ab7bb8746ba0661255c3c48185b1e9021507c624da01fbc696330ec
     urls:
-      - https://www.kernel.org/pub/linux/utils/util-linux/v2.42/util-linux-${version}.tar.xz
+      - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz
 
   xxhash:
-    version: "0.8.3"
     version_arg: XXHASH_VERSION
-    sha256: aae608dfe8213dfd05d909a57718ef82f30722c392344583d3f39050c7f29a80
+    sha256: 5738270935e7c3d38a79b3adf7c9692566ce7895a25f67de43ad52ab504acd32
     urls:
       - https://github.com/Cyan4973/xxHash/archive/refs/tags/v${version}.tar.gz
     filename: xxhash.tar.gz
 
   xz:
-    version: "5.8.3"
     version_arg: XZUTILS_VERSION
     sha256: 3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0
     urls:
       - https://tukaani.org/xz/xz-${version}.tar.gz
     filename: xz.tar.gz
 
+  # zlib.net refuses or drops connections from the CI runners, so the
+  # author's GitHub release comes first and zlib.net stays as a fallback.
   zlib:
-    version: "1.3.2"
     version_arg: ZLIB_VERSION
     sha256: bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
     urls:
+      - https://github.com/madler/zlib/releases/download/v${version}/zlib-${version}.tar.gz
       - https://zlib.net/fossils/zlib-${version}.tar.gz
     filename: zlib.tar.gz
 
   zstd:
-    version: "1.5.7"
     version_arg: ZSTD_VERSION
     sha256: 37d7284556b20954e56e1ca85b80226768902e2edabd3b649e9e72c0c9012ee3
     urls:

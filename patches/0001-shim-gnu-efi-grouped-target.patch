@@ -1,0 +1,26 @@
+Build gnu-efi's two archives with a grouped target.
+
+The rule that produces libgnuefi.a and libefi.a lists both files before a
+single ':', which GNU make reads as two independent rules that happen to
+share a recipe, not as one recipe that produces both. Under 'make -j' the
+two rules are eligible at the same time, so make runs the gnu-efi sub-make
+twice in parallel in the same directory. The two 'ar' processes then write
+libgnuefi.a at once and the build fails with:
+
+    ar: creating libgnuefi.a
+    ar: libgnuefi.a: file format not recognized
+
+'&:' declares a grouped target: one recipe that produces every file listed,
+so make schedules it once. Supported since GNU make 4.3.
+
+--- a/Makefile
++++ b/Makefile
+@@ -167,7 +167,7 @@
+ 	$(LD) -o $@ $(LDFLAGS) $^ $(EFI_LIBS) lib/lib.a
+ 
+ gnu-efi/$(ARCH_GNUEFI)/gnuefi/libgnuefi.a gnu-efi/$(ARCH_GNUEFI)/lib/libefi.a: CFLAGS+=-DGNU_EFI_USE_EXTERNAL_STDARG
+-gnu-efi/$(ARCH_GNUEFI)/gnuefi/libgnuefi.a gnu-efi/$(ARCH_GNUEFI)/lib/libefi.a:
++gnu-efi/$(ARCH_GNUEFI)/gnuefi/libgnuefi.a gnu-efi/$(ARCH_GNUEFI)/lib/libefi.a &:
+ 	mkdir -p gnu-efi/lib gnu-efi/gnuefi
+ 	$(MAKE) -C gnu-efi \
+ 		COMPILER="$(COMPILER)" \

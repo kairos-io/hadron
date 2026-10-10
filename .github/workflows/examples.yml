@@ -36,3 +36,19 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-cloud-amd64
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-default-amd64
+      # hadron-extension is the last stage in every example, so the step above
+      # never builds `default`, which is the target the examples tell users to
+      # build. Build it too. Every stage it needs is already in this job's
+      # buildx cache from the step above, so it costs the COPY lines only.
+      - name: Build the default target
+        uses: docker/build-push-action@v7
+        with:
+          file: examples/add-packages/${{ matrix.extra-file }}
+          target: default
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-cloud-amd64
+            type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-default-amd64

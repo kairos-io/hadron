@@ -4,16 +4,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/spectrocloud/peg/matcher"
+)
+
+// The hierarchy list the kairos drop-in installs, spelled out so that
+// `systemd-sysext status` reports on what the boot merged instead of on its
+// own defaults. /usr/local is deliberately not in it: it is where
+// COS_PERSISTENT is mounted, and a successful merge turns every hierarchy it
+// covers read-only. kairos-io/kairos#5115 took every /usr/local path out of
+// kairos-init's SYSTEMD_SYSEXT_HIERARCHIES for that reason.
+const sysextHierarchiesEnv = `SYSTEMD_SYSEXT_HIERARCHIES="/usr/bin:/usr/share:/usr/lib:/usr/include:/usr/src:/usr/sbin"`
+
+// tests/assets/sysext/work.sysext.raw carries its payload at /usr/bin/hello.sh,
+// which is a merged hierarchy, so a successful merge puts the script on the
+// host's PATH. Running it is the strongest proof the overlay went up: the image
+// has to be accepted by the boot's image policy, merged, and visible to a fresh
+// process. The payload used to live at /usr/local/bin/hello.sh; the image was
+// regenerated rather than the assertion weakened. See the asset's README for
+// the rebuild recipe.
+const (
+	mergedExtensionHierarchy = "/usr/bin"
+	mergedExtensionCommand   = "hello.sh"
+	mergedExtensionOutput    = "Hello world"
 )
 
 var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func() {
-	var vm VM
+	var vm testVM
 	var datasource string
 
 	BeforeAll(func() {
@@ -24,12 +43,7 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			serial, _ := os.ReadFile(filepath.Join(vm.StateDir, "serial.log"))
-			_ = os.MkdirAll("logs", os.ModePerm|os.ModeDir)
-			_ = os.WriteFile(filepath.Join("logs", "serial.log"), serial, os.ModePerm)
-			fmt.Println(string(serial))
-		}
-		if CurrentSpecReport().Failed() {
+			saveSerialLog(vm)
 			gatherLogs(vm)
 		}
 
@@ -125,7 +139,7 @@ var _ = Describe("kairos UKI test", Label("acceptance-trusted"), Ordered, func()
 
 })
 
-func genericTests(vm VM) {
+func genericTests(vm testVM) {
 	By("Checking SecureBoot is enabled", func() {
 		out, err := vm.Sudo(`dmesg|grep -i secure| grep -i enabled`)
 		Expect(err).ToNot(HaveOccurred(), out)
@@ -185,10 +199,20 @@ func genericTests(vm VM) {
 		Expect(err).ToNot(HaveOccurred(), out)
 	})
 	By("Checking OEM/PERSISTENT are mounted", func() {
-		out, err := vm.Sudo("df -h") // Shows the disk by label which is easier to check
-		Expect(err).ToNot(HaveOccurred())
-		Expect(out).To(ContainSubstring("/dev/disk/by-label/COS_OEM"))
-		Expect(out).To(ContainSubstring("/dev/disk/by-label/COS_PERSISTENT"))
+		// Assert on the mountpoint, not on the source device path. The
+		// source path is unstable across immucore versions: earlier
+		// releases mounted the LUKS partition via the /dev/disk/by-label
+		// symlink; the current release mounts the plain cryptsetup
+		// mapper name (/dev/mapper/vda2). Both point at the same
+		// crypt-opened partition, and this test's real intent is that
+		// /oem and /usr/local are mounted after the UKI trusted-boot
+		// flow, not the exact string df prints.
+		out, err := vm.Sudo("mountpoint -q /oem && echo /oem-mounted")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("/oem-mounted"))
+		out, err = vm.Sudo("mountpoint -q /usr/local && echo /usr/local-mounted")
+		Expect(err).ToNot(HaveOccurred(), out)
+		Expect(out).To(ContainSubstring("/usr/local-mounted"))
 	})
 	By("Checking OEM/PERSISTENT are encrypted", func() {
 		out, err := vm.Sudo("blkid /dev/vda2")
@@ -235,24 +259,26 @@ func genericTests(vm VM) {
 		}
 
 		// when calling the status we need to set the hierarchy env variable so it can find them
-		env := "SYSTEMD_SYSEXT_HIERARCHIES=\"/usr/local/bin:/usr/local/sbin:/usr/local/include:/usr/local/lib:/usr/local/share:/usr/local/src:/usr/bin:/usr/share:/usr/lib:/usr/include:/usr/src:/usr/sbin\""
-		out, err := vm.Sudo(fmt.Sprintf("%s systemd-sysext --json=short", env))
+		out, err := vm.Sudo(fmt.Sprintf("%s systemd-sysext --json=short", sysextHierarchiesEnv))
 		Expect(err).ToNot(HaveOccurred(), out)
 		// marshall output to struct
 		var sysexts sysextStatus
 		err = json.Unmarshal([]byte(out), &sysexts)
 		Expect(err).ToNot(HaveOccurred())
 		// check if sysexts are loaded
+		var merged bool
 		for _, sysext := range sysexts {
-			if sysext.Hierarchy == "/usr/local/bin" {
+			if sysext.Hierarchy == mergedExtensionHierarchy {
 				Expect(sysext.Extensions).To(ContainElement("work"))
+				merged = true
 			}
 		}
+		Expect(merged).To(BeTrue(), "no %s hierarchy in %s", mergedExtensionHierarchy, out)
 	})
 	By("Checking that we can run a command from a sysext", func() {
-		out, err := vm.Sudo("hello.sh")
+		out, err := vm.Sudo(mergedExtensionCommand)
 		Expect(err).ToNot(HaveOccurred(), out)
-		Expect(out).To(ContainSubstring("Hello world"))
+		Expect(out).To(ContainSubstring(mergedExtensionOutput))
 	})
 
 }
