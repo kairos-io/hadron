@@ -1,0 +1,46 @@
+name: Assert a docker save archive is in the legacy format
+description: |
+  Fail in the job that wrote a `docker save` archive if the archive is not
+  the legacy docker-archive layout, instead of letting the job that reads it
+  fail with a message about something else.
+
+  go-containerregistry's tarball reader needs a top-level `manifest.json`.
+  The OCI layout the containerd image store emits has no such file. How that
+  is reported downstream depends on the reader: AuroraBoot's `docker:` source
+  fails loudly in the copy with `reading tar: archive/tar:`, while its
+  `ocifile://` source has no empty-extraction guard, so it builds a rootfs
+  with nothing in it and dies several minutes later on `No Kernel file found:
+  no file found with prefixes: [uImage Image zImage vmlinuz image]`.
+
+  Neither message names the producer, so assert it here.
+
+inputs:
+  archive:
+    description: Path to the gzipped tarball written by `docker save`.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Assert the archive is in the legacy docker-save format
+      shell: bash
+      env:
+        ARCHIVE: ${{ inputs.archive }}
+      run: |
+        set -euo pipefail
+        # Piping `tar -t` into a `grep -q`, which exits on its first match,
+        # leaves `tar` writing to a closed pipe; under `pipefail` whether that
+        # surfaces as a failure depends on how much the archive buffers, so
+        # the check would pass or fail by size. Collect the listing, then
+        # match it.
+        entries=$(gunzip -c "$ARCHIVE" | tar -t)
+        case "$entries" in
+          *manifest.json*) ;;
+          *)
+            echo "$ARCHIVE carries no top-level manifest.json, so it is an OCI"
+            echo "layout rather than a docker archive. AuroraBoot cannot read"
+            echo "it. Entries seen:"
+            printf '%s\n' "$entries" | head -20
+            exit 1
+            ;;
+        esac

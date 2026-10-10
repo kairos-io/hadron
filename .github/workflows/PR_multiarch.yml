@@ -1475,6 +1475,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # From 2026-10-19 the ubuntu-latest label is Ubuntu 26.04, whose runner
+      # image ships docker 29 on the containerd image store. The archive this
+      # job saves is read by go-containerregistry inside AuroraBoot, which
+      # needs the legacy layout, so ask for the classic store before anything
+      # here builds or saves an image.
+      - name: Use the classic image store
+        uses: ./.github/actions/classic-image-store
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
       - name: Download the image
@@ -1547,6 +1554,10 @@ jobs:
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }} | gzip > hadron-init-bios-amd64.tar.gz
+      - name: Assert the archive is in the legacy docker-save format
+        uses: ./.github/actions/assert-legacy-image-archive
+        with:
+          archive: hadron-init-bios-amd64.tar.gz
       - name: Upload the image
         uses: actions/upload-artifact@v7
         with:
@@ -1564,6 +1575,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # From 2026-10-19 the ubuntu-latest label is Ubuntu 26.04, whose runner
+      # image ships docker 29 on the containerd image store. The archive this
+      # job saves is read by go-containerregistry inside AuroraBoot, which
+      # needs the legacy layout, so ask for the classic store before anything
+      # here builds or saves an image.
+      - name: Use the classic image store
+        uses: ./.github/actions/classic-image-store
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
       - name: Download the image
@@ -1609,6 +1627,10 @@ jobs:
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-trusted:${{ github.sha }} | gzip > hadron-init-trusted.tar.gz
+      - name: Assert the archive is in the legacy docker-save format
+        uses: ./.github/actions/assert-legacy-image-archive
+        with:
+          archive: hadron-init-trusted.tar.gz
       - name: Upload the image
         uses: actions/upload-artifact@v7
         with:
@@ -1629,6 +1651,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # AuroraBoot resolves docker:<name> through the socket below, so this
+      # daemon exports the image as well as holding it, and the export has to
+      # be the legacy layout for the same reason the producer's save does.
+      # Before Set up Docker Buildx: restarting the daemon would strand a
+      # builder container started ahead of it.
+      - name: Use the classic image store
+        uses: ./.github/actions/classic-image-store
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1662,6 +1691,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # AuroraBoot resolves docker:<name> through the socket below, so this
+      # daemon exports the image as well as holding it, and the export has to
+      # be the legacy layout for the same reason the producer's save does.
+      # Before Set up Docker Buildx: restarting the daemon would strand a
+      # builder container started ahead of it.
+      - name: Use the classic image store
+        uses: ./.github/actions/classic-image-store
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master

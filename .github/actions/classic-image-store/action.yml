@@ -1,0 +1,57 @@
+name: Select the classic docker image store
+description: |
+  Point the runner's docker daemon at the classic (graphdriver) image store,
+  and fail if it will not go there.
+
+  `docker save`, and the image-export endpoint go-containerregistry reaches
+  through the docker socket, write whichever layout the daemon's store holds.
+  The containerd image store emits an OCI layout, which
+  `tarball.ImageFromPath` -- the reader behind both AuroraBoot's `docker:`
+  and its `ocifile://` source -- does not read. The classic store emits the
+  legacy docker-archive layout, which it does.
+
+  ubuntu-24.04 ships docker 28, which still defaults to the classic store.
+  ubuntu-26.04 ships docker 29, which defaults to the containerd store, so
+  every job that hands an image to AuroraBoot has to ask for the classic one
+  rather than inherit it from the runner image.
+
+  Use this in the job that writes such an archive and in the job that serves
+  the image to AuroraBoot over the socket. It is a no-op on a daemon that is
+  already on the classic store.
+
+runs:
+  using: composite
+  steps:
+    - name: Use the classic image store
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo mkdir -p /etc/docker
+        # The runner image ships its own /etc/docker/daemon.json, so merge the
+        # one setting in rather than replacing the file and dropping whatever
+        # else the image configured.
+        existing='{}'
+        if [ -s /etc/docker/daemon.json ]; then
+          existing=$(sudo cat /etc/docker/daemon.json)
+          echo "daemon.json before: $existing"
+        fi
+        printf '%s' "$existing" \
+          | jq '.features["containerd-snapshotter"] = false' \
+          | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+        for _ in $(seq 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+        # The classic store reports overlay2 and the containerd store reports
+        # overlayfs, so .Driver alone does not say which one is live. The
+        # containerd store is the only one that names a snapshotter in
+        # .DriverStatus, so that is what this reads.
+        echo "storage driver: $(docker info --format '{{.Driver}}')"
+        status=$(docker info --format '{{.DriverStatus}}')
+        echo "driver status: $status"
+        case "$status" in
+          *io.containerd.snapshotter*)
+            echo "The daemon is still on the containerd image store."
+            echo "Images saved or served from it are an OCI layout, which"
+            echo "AuroraBoot cannot read. Refusing to continue."
+            exit 1
+            ;;
+        esac
