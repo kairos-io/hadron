@@ -1646,7 +1646,7 @@ jobs:
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }} \
           docker:hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
       - name: Upload artifact
@@ -1681,7 +1681,7 @@ jobs:
           -v $PWD/tests/assets/keys:/keys \
           -v $PWD/build/:/output \
           -v $PWD/tests/assets/sysext/:/overlay \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-uki \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-uki \
           --output-dir /output/ --public-keys /keys \
           --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
           --sb-key /keys/db.key \
@@ -2054,6 +2054,39 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+      # ubuntu-26.04 ships docker 29, which keeps images in the containerd
+      # image store by default; ubuntu-24.04 ships docker 28, which still
+      # defaults to the classic store. `docker save` writes whichever layout
+      # its store holds, and the OCI layout the containerd store emits is not
+      # what go-containerregistry's `tarball.ImageFromPath` reads -- which is
+      # how build-grub-iso-arm64 consumes this artifact, via `ocifile://`.
+      #
+      # That is the whole of kairos-io/kairos#4946: the arm64 ISO job was
+      # pinned to ubuntu-24.04-arm not because of anything about the runner,
+      # but because a docker 28 daemon round-trip quietly rewrote the archive
+      # into the legacy format on the way through. Select the classic store
+      # here so the artifact is in that format to begin with, and the
+      # consumer needs no daemon at all.
+      - name: Use the classic image store
+        run: |
+          sudo mkdir -p /etc/docker
+          echo '{"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          for _ in $(seq 30); do docker info >/dev/null 2>&1 && break; sleep 1; done
+          # The classic store reports overlay2, the containerd store reports
+          # overlayfs, so .Driver alone does not say which one is live. The
+          # containerd store is the only one that lists a snapshotter in
+          # .DriverStatus, so that is what this checks.
+          echo "storage driver: $(docker info --format '{{.Driver}}')"
+          status=$(docker info --format '{{.DriverStatus}}')
+          echo "driver status: $status"
+          case "$status" in
+            *io.containerd.snapshotter*)
+              echo "daemon is still on the containerd image store; docker save"
+              echo "would emit an OCI layout build-grub-iso-arm64 cannot read."
+              exit 1
+              ;;
+          esac
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
       - name: Download the image
@@ -2100,6 +2133,34 @@ jobs:
       - name: Save the image as a tarball
         run: |
           docker save hadron-init-bios-arm64:${{ github.sha }} | gzip > hadron-init-bios-arm64.tar.gz
+      # build-grub-iso-arm64 reads this archive with go-containerregistry's
+      # tarball reader, which needs the legacy `manifest.json` at the root.
+      #
+      # Assert it here, because the consumer's own failure says nothing about
+      # the cause. The `ocifile://` branch has no empty-extraction guard, so
+      # an archive it cannot read becomes a rootfs with nothing in it and the
+      # job dies six minutes later on `No Kernel file found: no file found
+      # with prefixes: [uImage Image zImage vmlinuz image]` (run 38047819053).
+      # A producer that starts emitting an OCI layout again should fail in the
+      # job that wrote it, naming the reason.
+      - name: Assert the archive is in the legacy docker-save format
+        run: |
+          # `run:` steps execute under `bash -e -o pipefail`. Piping `tar -t`
+          # into a `grep -q`, which exits on its first match, leaves `tar`
+          # writing to a closed pipe; whether that surfaces as a pipefail
+          # failure depends on how much the archive buffers, so the check
+          # would pass or fail by size. Collect the listing, then match it.
+          entries=$(gunzip -c hadron-init-bios-arm64.tar.gz | tar -t)
+          case "$entries" in
+            *manifest.json*) ;;
+            *)
+              echo "hadron-init-bios-arm64.tar.gz carries no top-level manifest.json."
+              echo "go-containerregistry cannot read it, so build-grub-iso-arm64"
+              echo "would fail on ocifile:///source/image.tar. Entries seen:"
+              printf '%s\n' "$entries" | head -20
+              exit 1
+              ;;
+          esac
       - name: Upload the image
         uses: actions/upload-artifact@v7
         with:
@@ -2111,16 +2172,24 @@ jobs:
           compression-level: 0
 
   build-grub-iso-arm64:
-    # Pinned to 24.04 while the rest of the arm64 lane is on 26.04 (#630). This
-    # job hands a docker-daemon image to auroraboot, and on ubuntu-26.04-arm
-    # auroraboot reads it back as an empty tree: the copy into
-    # /output/temp-rootfs "finishes" in seconds, then os-release and the kernel
-    # are both missing and the ISO build dies with
-    # "No file found with prefixes: [uImage Image zImage vmlinuz image]".
-    # build-kairos-grub-arm64, which only builds and uploads that same image,
-    # is fine on 26.04 -- so it is the daemon read, not the image. Raise this
-    # back once auroraboot copes with the newer engine's image store.
-    runs-on: ubuntu-24.04-arm
+    # This job no longer hands auroraboot a docker-daemon image, which is why
+    # it can run on ubuntu-26.04-arm like the rest of the arm64 lane.
+    #
+    # `docker:<name>` was the reason for the ubuntu-24.04-arm pin (#630/#640,
+    # kairos-io/kairos#4946). On 26.04 the engine is docker 29.x on the
+    # containerd image store, and auroraboot reading an image back out of it
+    # gets an archive it cannot parse: an empty tree on auroraboot v0.21.0,
+    # and on v0.28.0, whose go-containerregistry v0.22.1 checks the manifest
+    # against the config, a hard "dumping the source image
+    # docker:hadron-init-bios-arm64 ...: reading tar: archive/tar:" (run
+    # 37816160453 on this PR). The auroraboot version is not the variable.
+    #
+    # build-kairos-grub-arm64 already uploads the image as a `docker save`
+    # archive, so there is no reason to load it into a daemon and then ask
+    # that daemon to write it out again. `ocifile://` points auroraboot at the
+    # archive on disk, which it reads with go-containerregistry's tarball
+    # reader, with no daemon and no docker socket in the path.
+    runs-on: ubuntu-26.04-arm
     needs:
       - build-kairos-grub-arm64
     steps:
@@ -2130,19 +2199,21 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: hadron-init-bios-arm64-image
-      - name: Load the image
+      # ocifile:// reads an uncompressed `docker save` archive. Unpacking it
+      # into its own directory keeps the bind mount below to a single path.
+      - name: Unpack the image archive
         run: |
-          gunzip -c hadron-init-bios-arm64.tar.gz | docker load
-      # AuroraBoot mounts the docker socket, so it resolves docker:<name> from
-      # the local image store that the load step above populated.
+          mkdir -p source
+          gunzip -c hadron-init-bios-arm64.tar.gz > source/image.tar
       - name: Build ISO
         run: |
           mkdir build
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=arm64 \
+          docker run --rm --platform=arm64 \
+          -v $PWD/source/:/source:ro \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios-arm64-${{ github.sha }} \
-          docker:hadron-init-bios-arm64:${{ github.sha }}
+          ocifile:///source/image.tar
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
