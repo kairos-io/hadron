@@ -4071,6 +4071,7 @@ RUN sh hack/gen-manifests.sh --format flat --out-dir /gen/components --quiet
 
 FROM scratch AS container
 ARG VERSION
+ARG ARCH
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
 ## Link sh to bash
@@ -4105,6 +4106,9 @@ RUN getfacl --version
 RUN setfacl --version
 RUN busybox --list
 RUN openssl version
+## /bin/ldd is a symlink to the musl loader for this architecture, so this
+## fails if the container stage did not read ARCH (kairos-io/kairos#5415).
+RUN ldd /bin/bash
 
 # full-image-merge-base is where we prepare stuff for the final image
 # more complete, this has systemd, sudo, openssh, iptables, kernel, etc..
