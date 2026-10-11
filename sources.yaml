@@ -749,7 +749,7 @@ packages:
 
   pkgconf:
     version_arg: PKGCONFIG_VERSION
-    sha256: c926ff491cbd9a331a589160811bd97ab1749b4d5198a519338f2cdfabe6940a
+    sha256: 943f0bc88bcaeceb630b00262e2a8ad5ea4fac3fba72a4267d8b9ec6b35d1194
     urls:
       - https://distfiles.dereferenced.org/pkgconf/pkgconf-${version}.tar.xz
     filename: pkgconf.tar.xz
