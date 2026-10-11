@@ -19,7 +19,7 @@ IMAGE_NAME ?= hadron:local
 # `make build` and `make build-scratch` feed build-kairos the same way.
 PULL_IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
 INIT_IMAGE_NAME ?= hadron-init
-AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.21.0-alpha.4
+AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.28.0
 TARGET ?= default
 JOBS ?= $(shell nproc)
 ## Optional load cap forwarded to make -l inside the build. Empty means no cap.

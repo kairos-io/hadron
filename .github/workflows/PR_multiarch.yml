@@ -1646,7 +1646,7 @@ jobs:
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-${{ github.sha }} \
           docker:hadron-init-bios${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
       - name: Upload artifact
@@ -1681,7 +1681,7 @@ jobs:
           -v $PWD/tests/assets/keys:/keys \
           -v $PWD/build/:/output \
           -v $PWD/tests/assets/sysext/:/overlay \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-uki \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-uki \
           --output-dir /output/ --public-keys /keys \
           --tpm-pcr-private-key /keys/tpm2-pcr-private.pem \
           --sb-key /keys/db.key \
@@ -2140,7 +2140,7 @@ jobs:
           mkdir build
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock --platform=arm64 \
           -v $PWD/build/:/output \
-          quay.io/kairos/auroraboot:v0.21.0-alpha.4 --debug build-iso --output /output/ \
+          quay.io/kairos/auroraboot:v0.28.0 --debug build-iso --output /output/ \
           --override-name kairos-hadron-bios-arm64-${{ github.sha }} \
           docker:hadron-init-bios-arm64:${{ github.sha }}
       - name: Upload artifact
