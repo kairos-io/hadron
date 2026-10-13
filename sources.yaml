@@ -770,7 +770,7 @@ packages:
 
   python:
     version_arg: PYTHON_VERSION
-    sha256: c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
+    sha256: ba4bed1ba346b916890b76d9e320451420aa69f6408997d33c66482eeae3d575
     urls:
       - https://www.python.org/ftp/python/${version}/Python-${version}.tar.xz
     filename: Python.tar.xz
@@ -814,7 +814,7 @@ packages:
 
   sqlite3:
     version_arg: SQLITE3_VERSION
-    sha256: 16bc1b2027ba2653e3d262e740376be23f67cad77865db814493267494326c3c
+    sha256: 9ab31e2b1064e8147ccbaf5ae8f4d679d5ed894a35ba7ac1cc21025ee02cf61f
     urls:
       - https://github.com/sqlite/sqlite/archive/refs/tags/version-${version}.tar.gz
     filename: sqlite3.tar.gz
