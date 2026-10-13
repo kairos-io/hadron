@@ -2087,7 +2087,6 @@ WORKDIR /sources
 RUN tar -xf linux.tar.xz && mv linux-* kernel
 
 # Apply kernel patches (sorted; ignore if none).
-# LP: #2137714 — virt: vmgenid: remap memory as decrypted (fixes SEV-SNP boot on AWS).
 # 0002 — resolve_btfids: copy BTF names before mutating BTF; fixes deterministic
 # segfault during vmlinux BTF generation on musl (glibc mremap hides the bug).
 # `set -e` is required: the exit status of a `for` loop is the status of its last
