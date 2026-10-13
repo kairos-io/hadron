@@ -48,7 +48,7 @@ make build
 To create an ISO, you can:
 
 ```
-make devel-iso
+make build-iso
 ```
 
 And you can run it in a VM with:
