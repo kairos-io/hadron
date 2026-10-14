@@ -12,10 +12,20 @@ concurrency:
 env:
   # Per-PR BuildKit cache. Each build job reads its own pr-<number>-* tag first
   # (warm from a prior push or an earlier job in this same run) and falls back to
-  # the shared main cache tag. Only same-repo PRs can WRITE it (fork PRs have no
-  # secrets) — they still read the public cache. Stale pr-* tags are reclaimed by
-  # pr-cache-cleanup.yml when the PR closes.
-  PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+  # the shared main cache tag. Only a run that can read repository secrets may
+  # WRITE it; the rest still read the public cache. Stale pr-* tags are reclaimed
+  # by pr-cache-cleanup.yml when the PR closes.
+  #
+  # Two kinds of run get no secrets, and both have to be excluded here. A run
+  # that is not excluded does not quietly skip the push: the login step fails
+  # with "Username and password required", which fails stage0 and skips every
+  # job that needs it, so the image is never built and never tested.
+  #
+  #   1. A pull request from a fork. Its head repository is not this one.
+  #   2. A pull request raised by dependabot. Its branch IS in this repository,
+  #      so the head check passes, but GitHub withholds secrets from a
+  #      pull_request event whose actor is dependabot. See kairos-io/kairos#5481.
+  PR_CACHE_WRITE: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]' }}
   PR_NUM: ${{ github.event.pull_request.number }}
   # Pinned commit, not a branch: see the matching comment on
   # KAIROS_DOCKERFILE_REF in the Makefile. Keep the two in sync.
@@ -78,6 +88,8 @@ jobs:
         run: make test-image-tags
       - name: Verify the source-cache probe retries a stalled connection
         run: make test-source-probe
+      - name: Verify the quay login gates exclude forks and dependabot
+        run: make test-workflow-gates
       - name: Verify the sources.yaml checksum refresher
         run: make test-source-checksums
       - name: Verify the component-manifest generator

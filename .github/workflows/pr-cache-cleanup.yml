@@ -26,9 +26,16 @@ env:
 
 jobs:
   purge-pr-cache:
-    # On PR close: drop just this PR's cache tags. Fork PRs never wrote cache
-    # (no access to secrets), so there is nothing to clean for them.
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    # On PR close: drop just this PR's cache tags. A PR that could not write
+    # the cache has nothing to clean, and running anyway means an empty
+    # `skopeo login`. Mirror the PR_CACHE_WRITE gate in PR_multiarch.yml: a
+    # fork PR, and a PR whose closing actor is dependabot, both get no secrets.
+    # A human closing a dependabot PR is the actor on that event, so that case
+    # does run and does clean up.
+    if: >-
+      ${{ github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Install skopeo

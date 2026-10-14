@@ -169,6 +169,10 @@ test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only b
 test-source-probe: ## Verify the source-cache probe retries a stalled connection
 	@./tests/list-missing-sources-retry.sh
 
+.PHONY: test-workflow-gates
+test-workflow-gates: ## Verify every pull_request job that logs into quay excludes forks and dependabot
+	@./tests/workflow-secret-gates.sh
+
 .PHONY: test-source-checksums
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
 	@sh ./hack/refresh-source-checksums_test.sh
