@@ -18,9 +18,11 @@ account    required                    pam_time.so
 # pam_pwquality enforces CIS Distribution Independent Linux v2.0.0 L1
 # section 5.4.1 password quality requirements via /etc/security/pwquality.conf.
 # `retry=3` gives the user three tries before pam_unix rejects the
-# change; use_authtok on pam_unix forwards the token pwquality already
-# validated rather than prompting a second time.
-password   requisite                   pam_pwquality.so     retry=3
+# change; try_first_pass reuses a password an earlier module already
+# collected, as the CIS 5.3.1 audit expects; use_authtok on pam_unix
+# forwards the token pwquality already validated rather than prompting a
+# second time.
+password   requisite                   pam_pwquality.so     try_first_pass retry=3
 password   required                    pam_unix.so          try_first_pass use_authtok nullok sha512 shadow
 password   optional                    pam_permit.so
 

@@ -347,13 +347,19 @@ func expectDefaultService(vm testVM) {
 			Expect(err).ToNot(HaveOccurred(), out)
 			Expect(out).Should(ContainSubstring("kairos-agent"))
 		} else {
-			// This is also run in the upgrade latest, so we need to check for both kairos-installer and kairos in case the service name changed
+			// This is also run in the upgrade latest, so we need to check for both kairos-installer and kairos in case the service name changed.
+			// kairos-interactive is the third name: AuroraBoot collapsed the three GRUB
+			// install entries into one that boots with install-mode-interactive, and
+			// 52_installer.yaml writes kairos-interactive.service for that keyword
+			// instead of kairos-installer.service. It is the same dispatcher, it runs
+			// AutoInstall first, so an auto config still installs unattended.
 			Eventually(func() string {
-				out, _ := vm.Sudo("systemctl status kairos-installer || systemctl status kairos")
+				out, _ := vm.Sudo("systemctl status kairos-installer || systemctl status kairos-interactive || systemctl status kairos")
 				return out
 			}, 3*time.Minute, 2*time.Second).Should(
 				Or(
 					ContainSubstring("loaded (/etc/systemd/system/kairos-installer.service; enabled;"),
+					ContainSubstring("loaded (/etc/systemd/system/kairos-interactive.service; enabled;"),
 					ContainSubstring("loaded (/etc/systemd/system/kairos.service; enabled;"),
 				))
 		}
