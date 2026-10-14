@@ -17,24 +17,51 @@ permissions:
   actions: "write"
 
 jobs:
+  discover:
+    # Only reads the tree; the write scopes above are for the bump job.
+    permissions:
+      contents: "read"
+    runs-on: "ubuntu-latest"
+    outputs:
+      configs: ${{ steps.list.outputs.configs }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: List the Updatecli manifests
+        id: list
+        # The matrix used to restate this directory by hand. It never
+        # listed updatecli.d/vm-tools.yaml, so for the four months that
+        # file existed qemu-guest-agent, glib, open-vm-tools and mspack
+        # were offered no bumps at all. Read the directory instead, so a
+        # new manifest is picked up by adding the file.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          names=()
+          for manifest in updatecli.d/*.yaml updatecli.d/*.yml; do
+            name=${manifest##*/}
+            name=${name%.yaml}
+            names+=("${name%.yml}")
+          done
+          # An empty matrix skips the job without failing it, which is
+          # the same silent nothing this change exists to remove.
+          if [ ${#names[@]} -eq 0 ]; then
+            echo "no manifests found in updatecli.d" >&2
+            exit 1
+          fi
+          configs=$(printf '%s\n' "${names[@]}" | jq -R . | jq -sc .)
+          echo "configs=${configs}" >> "${GITHUB_OUTPUT}"
+          echo "${configs}"
+
   updatecli:
+    needs: discover
     runs-on: "ubuntu-latest"
     strategy:
         # Each config is an independent bump group. Letting one failure cancel
-        # the rest hides which of the other nine groups had updates to offer.
+        # the rest hides which of the other groups had updates to offer.
         fail-fast: false
         matrix:
-            config:
-              - build-tools
-              - compiler-tools
-              - compression-tools
-              - core-system
-              - kernel-and-boot
-              - misc-tools
-              - network-tools
-              - security-tools
-              - storage-tools
-              - system-libraries
+            config: ${{ fromJSON(needs.discover.outputs.configs) }}
     steps:
       - name: Install Updatecli in the runner
         uses: updatecli/updatecli-action@v3.9.0
