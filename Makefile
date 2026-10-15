@@ -122,6 +122,7 @@ targets:
 	@echo "components: Generate components.json + components.md for the working tree"
 	@echo "test-components: Run the component-generator shell test"
 	@echo "test-source-checksums: Verify the sources.yaml checksum refresher the autobumper runs"
+	@echo "test-patch-headers: Verify every patch under patches/ carries a header"
 
 .PHONY: help
 help: targets
@@ -180,6 +181,10 @@ test-source-checksums: ## Verify the sources.yaml checksum refresher the autobum
 .PHONY: test-bump-pr-action
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
+
+.PHONY: test-patch-headers
+test-patch-headers: ## Verify every patch under patches/ carries a header
+	@sh ./hack/check-patch-headers_test.sh
 
 ## Component manifests for the working tree, written to gen/components/.
 ## The build does NOT need this: the Dockerfile's components-manifest stage

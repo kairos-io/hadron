@@ -94,6 +94,8 @@ jobs:
         run: make test-source-checksums
       - name: Verify the autobumper's pull request decision
         run: make test-bump-pr-action
+      - name: Verify every carried patch has a header
+        run: make test-patch-headers
       - name: Verify the component-manifest generator
         run: make test-components
       - name: Verify kernel configs are resolved against current kernel version

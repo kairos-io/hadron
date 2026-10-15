@@ -1,3 +1,42 @@
+Prototype getenv and getopt so make builds with GCC 15 against musl.
+
+make 4.4.1 still carries three K&R declarations that GCC 15 rejects.
+GCC 15 compiles C as gnu23 unless told otherwise (gcc/c-family/c-opts.cc:
+"The default for C is gnu23"), and in C23 an empty parameter list is a
+prototype that takes no arguments. GCC's own manual says so under
+-Wdeprecated-non-prototype: calling a function declared with an empty
+parameter list, or defining it with parameters afterwards, are "both cases
+errors in C23 and later dialects of C".
+
+lib/fnmatch.c and src/getopt.c declare
+
+    extern char *getenv ();
+
+and then call getenv with one argument, which is the first of those two
+errors. Prototyping the declaration to match stdlib.h is enough.
+
+src/getopt.h is the half that is specific to this target. The prototyped
+getopt declaration there sits behind #ifdef __GNU_LIBRARY__, with an
+unprototyped
+
+    extern int getopt ();
+
+in the #else arm, because the comment above it only wants a prototype for
+the GNU C library. glibc defines __GNU_LIBRARY__ unconditionally in
+features.h; musl does not define it at all. So a glibc build takes the
+prototyped arm and compiles, and a musl build takes the unprototyped one
+and then hits src/getopt.c defining getopt with three parameters, which is
+the second of the two C23 errors. Hadron builds everything against musl, so
+Hadron is where it fails. Deleting the conditional leaves the prototype the
+comment says the GNU C library wants, which is also the only declaration
+that matches the definition in this tarball.
+
+Not reported upstream from here. GNU make's tree still carries all three
+declarations, so the fix is wanted there and nobody has sent it; whoever
+picks this up should report it to bug-make@gnu.org. Drop this patch once a
+make release prototypes them, which is visible as the hunks below failing to
+apply.
+
 --- a/lib/fnmatch.c
 +++ b/lib/fnmatch.c
 @@ -121,7 +121,7 @@
