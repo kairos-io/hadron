@@ -93,16 +93,26 @@ jobs:
           git clone "https://x-access-token:${REPO_TOKEN}@github.com/kairos-io/hadron.git" repo
           cd repo
 
-          branch="bumps-${{ matrix.config }}-${{ github.sha }}"
+          # One branch per bump group, with no run identifier in the name.
+          # The name used to end in the sha of the run that created it, so the
+          # daily cron asked for a different branch every day and the "does a
+          # pull request already exist" lookup below could never find the one
+          # the previous run had left open. Every run opened a second pull
+          # request for a bump that already had one: #715 and #720 both carry
+          # glib 2.86.2 to 2.90.1, #674 and #679 both carry openssh 10.5p1 to
+          # 10.6p1 a day apart, and a human closed the loser each time.
+          branch="bumps-${{ matrix.config }}"
 
-          # The bump branches land in this repository now, so prune the ones
-          # whose pull request is finished. Branches carrying the sha of the
-          # run in progress belong to a sibling matrix job that may not have
-          # opened its pull request yet, and a branch with no pull request at
-          # all is left alone.
+          # Branches of the old `bumps-<group>-<run sha>` naming are left over
+          # in this repository. Nothing creates them any more, so deleting the
+          # finished ones cannot race with a sibling matrix job. A branch of
+          # the current naming is skipped: it belongs to a bump group, and
+          # that group's own job is what decides its fate.
           for stale in $(git ls-remote --heads origin 'bumps-*' | sed 's#.*refs/heads/##'); do
-            case "$stale" in
-              *-${{ github.sha }}) continue ;;
+            suffix=${stale##*-}
+            [ ${#suffix} -eq 40 ] || continue
+            case "$suffix" in
+              *[!0-9a-f]*) continue ;;
             esac
             state=$(gh pr list --head "$stale" --base main --repo kairos-io/hadron --state all --json state -q '.[0].state // ""')
             if [ "$state" = "MERGED" ] || [ "$state" = "CLOSED" ]; then
@@ -144,25 +154,17 @@ jobs:
           # Check if there are staged changes
           if git diff --cached --quiet; then
             echo "No changes to commit. Checking PR state."
-            PR_INFO=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
-            PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
-            PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
-            if [ -n "$PR_NUMBER" ]; then
-              if [ "$PR_STATE" = "CLOSED" ]; then
-                # Check if PR is merged
-                MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
-                if [ -z "$MERGED_AT" ]; then
-                  echo "PR #$PR_NUMBER is closed and not merged. Deleting remote '$branch' branch to allow clean recreation."
-                  git push origin --delete "$branch" || echo "Remote branch already deleted."
-                else
-                  echo "PR #$PR_NUMBER is merged. Nothing to do."
-                fi
-              else
-                echo "Open PR #$PR_NUMBER already exists. Nothing to do."
-              fi
-            else
-              echo "No PR found and no changes to commit. Nothing to do."
-            fi
+            decision=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state \
+              | .github/scripts/bump-pr-action.sh)
+            pr_state=${decision%% *}
+            pr_number=${decision#* }
+            case "$pr_state" in
+              open)   echo "PR #$pr_number is open and already carries this bump. Nothing to do." ;;
+              closed) echo "PR #$pr_number was closed without merging. Deleting remote '$branch' branch to allow clean recreation."
+                      git push origin --delete "$branch" || echo "Remote branch already deleted." ;;
+              merged) echo "PR #$pr_number is merged. Nothing to do." ;;
+              none)   echo "No PR found and no changes to commit. Nothing to do." ;;
+            esac
             exit 0
           fi
           
@@ -176,30 +178,30 @@ jobs:
           git push origin "$branch" --force
           PR_TITLE=$(cat /tmp/pr_title.txt)
           
-          # Check if PR already exists (open or closed)
-          PR_INFO=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state -q '.[0]')
-          PR_NUMBER=$(echo "$PR_INFO" | jq -r '.number // empty')
-          PR_STATE=$(echo "$PR_INFO" | jq -r '.state // empty')
-          if [ -n "$PR_NUMBER" ]; then
-            if [ "$PR_STATE" = "CLOSED" ]; then
-              # Check if PR is merged
-              MERGED_AT=$(gh pr view $PR_NUMBER --repo kairos-io/hadron --json mergedAt -q '.mergedAt')
-              if [ -z "$MERGED_AT" ]; then
-                echo "PR #$PR_NUMBER is closed and not merged. Attempting to reopen."
-                if ! gh pr reopen $PR_NUMBER --repo kairos-io/hadron; then
-                  echo "Failed to reopen PR. Creating a new one."
-                  gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
-                else
-                  gh pr edit $PR_NUMBER --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
-                fi
+          # The branch is reused by every bump of this group, so it can already
+          # carry a pull request. A merged one belongs to the previous bump and
+          # this run needs its own, which is why `merged` creates rather than
+          # edits.
+          decision=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state all --json number,state \
+            | .github/scripts/bump-pr-action.sh)
+          pr_state=${decision%% *}
+          pr_number=${decision#* }
+          case "$pr_state" in
+            open)
+              echo "PR #$pr_number is open. Updating title and body."
+              gh pr edit "$pr_number" --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
+              ;;
+            closed)
+              echo "PR #$pr_number was closed without merging. Attempting to reopen."
+              if gh pr reopen "$pr_number" --repo kairos-io/hadron; then
+                gh pr edit "$pr_number" --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
               else
-                echo "PR #$PR_NUMBER is merged. Nothing to do."
+                echo "Failed to reopen PR. Creating a new one."
+                gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
               fi
-            else
-              echo "PR #$PR_NUMBER already exists and is open. Updating title and body."
-              gh pr edit $PR_NUMBER --title "$PR_TITLE" --body-file /tmp/pr_body.md --repo kairos-io/hadron
-            fi
-          else
-            echo "No PR found. Creating a new one."
-            gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
-          fi
+              ;;
+            *)
+              echo "No open or closed PR carries this branch. Creating a new one."
+              gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
+              ;;
+          esac

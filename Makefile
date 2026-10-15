@@ -177,6 +177,10 @@ test-workflow-gates: ## Verify every pull_request job that logs into quay exclud
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
 	@sh ./hack/refresh-source-checksums_test.sh
 
+.PHONY: test-bump-pr-action
+test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
+	@sh ./tests/bump-pr-action_test.sh
+
 ## Component manifests for the working tree, written to gen/components/.
 ## The build does NOT need this: the Dockerfile's components-manifest stage
 ## generates the same files inside the build, so `docker build .` works on a
