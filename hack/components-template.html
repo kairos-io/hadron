@@ -389,7 +389,16 @@
         compCommit.textContent=m.commit?('commit '+m.commit):'';
         compCommit.style.display=m.commit?'':'none';
         compCount.textContent=componentsTotal(m)+' components';
-        compRaw.innerHTML='<a href="./'+ref+'.json">json</a><a href="./'+ref+'.md">markdown</a>';
+        compRaw.textContent='';
+        var encRef=encodeURIComponent(ref);
+        var jsonLink=document.createElement('a');
+        jsonLink.href='./'+encRef+'.json';
+        jsonLink.textContent='json';
+        var mdLink=document.createElement('a');
+        mdLink.href='./'+encRef+'.md';
+        mdLink.textContent='markdown';
+        compRaw.appendChild(jsonLink);
+        compRaw.appendChild(mdLink);
         componentsRender();
         writeHash('components',[ref]);
       })
