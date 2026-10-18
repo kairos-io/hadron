@@ -132,6 +132,21 @@ jobs:
             fi
           done
           exit $FAILED
+      - name: Verify every kernel with fbdev core provides /dev/fb*
+        run: |
+          # kairos-io/kairos#5526: fbcon and DRM fbdev emulation register fb0,
+          # but without FB_DEVICE there is no /dev/fb0 and no /sys/class/graphics/fb0.
+          FAILED=0
+          for cfg in files/kernel/*.config; do
+            grep -q '^CONFIG_FB_CORE=y' "$cfg" || continue
+            if ! grep -q '^CONFIG_FB_DEVICE=y' "$cfg"; then
+              echo "ERROR: $cfg has CONFIG_FB_CORE=y but not CONFIG_FB_DEVICE=y"
+              FAILED=1
+            else
+              echo "OK: $cfg has CONFIG_FB_DEVICE=y"
+            fi
+          done
+          exit $FAILED
 
   # ============================================================================
   # amd64 per-stage cache jobs (PR-scoped)
