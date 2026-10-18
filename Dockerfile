@@ -149,6 +149,7 @@ ARG TPM2_TSS_VERSION=4.2.0
 ARG UNIFONT_VERSION=16.0.04
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
+ARG WIRELESS_REGDB_VERSION=2026.09.03
 ARG XXHASH_VERSION=0.8.4
 ARG XZUTILS_VERSION=5.8.3
 ARG ZLIB_VERSION=1.3.2
@@ -380,6 +381,7 @@ FROM ${SOURCES_REPO}/glib:${GLIB_VERSION} AS glib-download
 FROM ${SOURCES_REPO}/qemu:${QEMU_AGENT_VERSION} AS qemu-download
 FROM ${SOURCES_REPO}/mspack:${MSPACK_VERSION} AS mspack-download
 FROM ${SOURCES_REPO}/open-vm-tools:${OPENVM_TOOLS_VERSION} AS open-vm-tools-download
+FROM ${SOURCES_REPO}/wireless-regdb:${WIRELESS_REGDB_VERSION} AS wireless-regdb-download
 FROM scratch AS sources-downloader
 COPY --from=curl-download /sources/downloads/curl.tar.gz /sources/downloads/
 COPY --from=rsync-download /sources/downloads/rsync.tar.gz /sources/downloads/
@@ -494,6 +496,7 @@ COPY --from=libbpf-download /sources/downloads/libbpf.tar.gz /sources/downloads/
 COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
 COPY --from=musl-obstack-download /sources/downloads/musl-obstack.tar.gz /sources/downloads/
 COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
+COPY --from=wireless-regdb-download /sources/downloads/wireless-regdb.tar.xz /sources/downloads/
 
 ########################################################
 #
@@ -2352,6 +2355,21 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/less && \
     rm -rf /less/usr/share/man
 
+## wireless-regdb: the signed regulatory database cfg80211 loads at runtime.
+## The kernel config sets CFG80211_REQUIRE_SIGNED_REGDB and
+## CFG80211_USE_KERNEL_REGDB_KEYS, so the kernel accepts regulatory.db only
+## with a regulatory.db.p7s signed by the wireless-regdb maintainer's key that
+## it carries built in. Without both files cfg80211 logs "failed to load
+## regulatory.db" and stays on the world domain (kairos-io/kairos#5529).
+## The release tarball ships the two files prebuilt and signed, so this only
+## copies them: no python, no db2fw, no CRDA regulatory.bin, no man pages.
+FROM rsync AS wireless-regdb
+COPY --from=sources-downloader /sources/downloads/wireless-regdb.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf wireless-regdb.tar.xz && mv wireless-regdb-* wireless-regdb && \
+    install -D -m 0644 wireless-regdb/regulatory.db /wireless-regdb/usr/lib/firmware/regulatory.db && \
+    install -D -m 0644 wireless-regdb/regulatory.db.p7s /wireless-regdb/usr/lib/firmware/regulatory.db.p7s
+
 ## libmnl
 FROM rsync AS libmnl
 ARG JOBS
@@ -4179,6 +4197,10 @@ COPY --from=openssh /openssh/ /skeleton/
 # pair a vmlinuz with modules signed by a different build's throwaway module signing key.
 COPY --from=kernel /kernel/ /skeleton/boot/
 COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
+
+# Signed wireless regulatory database for the cfg80211 module, installed into
+# /usr/lib/firmware where the kernel firmware loader finds it.
+COPY --from=wireless-regdb /wireless-regdb/ /skeleton/
 
 COPY --from=sudo-systemd /sudo/ /skeleton/
 

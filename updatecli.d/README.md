@@ -28,7 +28,7 @@ The configuration is organized into logical groups:
   - lvm2, multipath-tools, e2fsprogs, dosfstools, parted, urcu
 
 - **kernel-and-boot.yaml** - Kernel and boot-related packages
-  - kernel, kmod, dracut, grub, kbd
+  - kernel, kmod, dracut, grub, kbd, wireless-regdb
 
 - **network-tools.yaml** - Network utilities
   - iptables, open-iscsi, strace
