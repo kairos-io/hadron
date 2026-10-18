@@ -2595,7 +2595,9 @@ RUN mkdir -p /dosfstools
 WORKDIR /sources
 RUN tar -xf dosfstools.tar.gz && mv dosfstools-* dosfstools
 WORKDIR /sources/dosfstools
-RUN ./configure ${COMMON_CONFIGURE_ARGS}
+# --enable-compat-symlinks adds mkfs.vfat and fsck.vfat; kairos-agent
+# formats the EFI system partition with mkfs.vfat.
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-compat-symlinks
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/dosfstools
 
 FROM rsync AS libxml
@@ -3852,7 +3854,6 @@ FROM ${KERNEL_TYPE}-tools AS extra-tools
 # really needed in the system and the actual ones are too big:
 # tar
 # vi
-# mkfs.vfat
 FROM stage1 AS full-toolchain-merge
 ## Prepare rsync to work
 COPY --link --from=rsync /rsync /
@@ -4217,6 +4218,10 @@ RUN --mount=from=gcc-stage0,src=/sysroot/usr/lib,dst=/mnt,ro mkdir -p /skeleton/
 
 COPY --from=e2fsprogs /e2fsprogs/ /skeleton/
 
+## mkfs.vfat, mkfs.fat and fsck.vfat. The busybox applet always makes FAT32
+## and picks too few clusters on 4096-byte sectors, which UEFI then refuses.
+COPY --from=dosfstools /dosfstools/ /skeleton/
+
 ## NFS client userspace. Required by Longhorn RWX and any other in-cluster
 ## NFS storage. The nfs-utils build stage trims its install to the
 ## client-only binaries we actually use, so the runtime deps reduce to
@@ -4426,8 +4431,6 @@ RUN echo "en_US.UTF-8" > /etc/locale.conf
 RUN chmod 644 /etc/profile.d/locale.sh
 RUN chmod 644 /etc/bash.bashrc
 RUN busybox --install
-# mkfs.fat is a script that calls mkfs.vfat busybox applet with the proper name and pass all args for compatibility
-RUN echo -e '#!/bin/sh\nexec /bin/mkfs.vfat "$@"\n' > /bin/mkfs.fat && chmod +x /bin/mkfs.fat
 
 # preset all systemd services (the QEMU crash that used to require running this
 # natively no longer reproduces on qemu-user 10.2.2 — see the note above)
