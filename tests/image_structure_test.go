@@ -356,6 +356,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
 	})
 
+	It("lets an sshd_config.d drop-in override keywords the main file sets", func() {
+		skipUnlessFullImage()
+		// sshd keeps the first value it reads. The upstream sshd_config
+		// sets AuthorizedKeysFile, so the Include must come before it or
+		// a drop-in cannot change that keyword (kairos-io/kairos#5525).
+		out, code := shInImage(
+			"echo 'AuthorizedKeysFile /tmp/hadron-test/%u' > /etc/ssh/sshd_config.d/00-test.conf && " +
+				"sshd -G | grep -i '^authorizedkeysfile '")
+		Expect(code).To(Equal(0), out)
+		Expect(strings.ToLower(out)).To(Equal("authorizedkeysfile /tmp/hadron-test/%u"),
+			"the drop-in AuthorizedKeysFile must win over the main sshd_config")
+	})
+
 	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", func() {
 		skipUnlessFullImage()
 		// The only sshd drop-in a hadron image ships is

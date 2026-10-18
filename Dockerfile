@@ -1701,9 +1701,14 @@ COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.s
 # here except the FIPS crypto override (02-hadron-fips.conf, copied later
 # in the full-image-merge-fips target) so that FIPS images pin the
 # FIPS-validated crypto subset before kairos-init's non-FIPS list.
+# The Include must be the first line: sshd keeps the first value it reads,
+# and the upstream sshd_config sets AuthorizedKeysFile, so an Include at
+# the end lets the main file win over every drop-in for that keyword.
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
-RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
-RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
+RUN { echo "# Include drop-in configs from sshd_config.d directory"; \
+      echo "Include sshd_config.d/*.conf"; \
+      cat /openssh/etc/ssh/sshd_config; } > /tmp/sshd_config && \
+    cat /tmp/sshd_config > /openssh/etc/ssh/sshd_config && rm /tmp/sshd_config
 
 
 ## xz and liblzma
@@ -3130,7 +3135,8 @@ RUN if [ "${ARCH}" = "aarch64" ]; then \
 		-o /grub-efi/usr/lib/grub/${grub_format}/${grub_efi_name} \
 		loopback cat squash4 xzio gzio serial regexp part_gpt ext2 fat normal \
         boot configfile part_msdos linux echo search search_label search_fs_uuid \
-        search_fs_file chain loadenv gfxterm all_video iso9660 help test smbios
+        search_fs_file chain loadenv gfxterm all_video iso9660 help test smbios \
+        keystatus png gfxterm_background
 
 FROM grub-base AS grub-bios
 ARG JOBS
