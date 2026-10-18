@@ -91,6 +91,18 @@ sources:
     changelog:
       url: "https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=gdb/NEWS;hb=HEAD"
 
+  # IANA publishes tzcode and tzdata together, under one version, and tags the
+  # release in the eggert/tz mirror. Tags sort lexically in release order
+  # (2026d < 2026e), so the last match is the newest.
+  tzdata:
+    kind: gittag
+    spec:
+      url: https://github.com/eggert/tz.git
+      lsremote: true
+      versionfilter:
+        kind: regex
+        pattern: '^[0-9]{4}[a-z]$'
+
   bc:
     kind: gittag
     spec:
@@ -194,6 +206,26 @@ targets:
         keyword: ARG
         matcher: GDB_VERSION
     sourceid: gdb
+
+  tzcode:
+    name: TZCODE_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: TZCODE_VERSION
+    sourceid: tzdata
+
+  tzdata:
+    name: TZDATA_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: TZDATA_VERSION
+    sourceid: tzdata
 
   bc:
     name: BC_VERSION in Dockerfile

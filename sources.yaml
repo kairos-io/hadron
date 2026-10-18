@@ -856,6 +856,27 @@ packages:
       - https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz
     filename: tpm2-tss.tar.gz
 
+  # IANA time zone database (kairos-io/kairos#5528). tzcode carries zic, the
+  # compiler the tzdata stage builds to turn the tzdata sources into the
+  # /usr/share/zoneinfo tree. IANA releases both together under one version,
+  # but each keeps its own ARG so the component manifest lists both. The second
+  # url is the same release on IANA's ftp host, served over https.
+  tzcode:
+    version_arg: TZCODE_VERSION
+    sha256: cc3d27ca2a0d8399504551b920970d80af83bfb9c216e8082a15491921935d54
+    urls:
+      - https://data.iana.org/time-zones/releases/tzcode${version}.tar.gz
+      - https://ftp.iana.org/tz/releases/tzcode${version}.tar.gz
+    filename: tzcode.tar.gz
+
+  tzdata:
+    version_arg: TZDATA_VERSION
+    sha256: b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652
+    urls:
+      - https://data.iana.org/time-zones/releases/tzdata${version}.tar.gz
+      - https://ftp.iana.org/tz/releases/tzdata${version}.tar.gz
+    filename: tzdata.tar.gz
+
   # The precompiled BDF release, not the unifont source tarball: grub needs
   # the glyphs only, and building unifont from source would pull perl, GD,
   # bdftopcf and imagemagick into the toolchain for nothing. unifoundry is the

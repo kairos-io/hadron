@@ -146,6 +146,8 @@ ARG STRACE_VERSION=7.2
 ARG SUDO_VERSION=1.9.17p2
 ARG SYSTEMD_VERSION=262
 ARG TPM2_TSS_VERSION=4.2.0
+ARG TZCODE_VERSION=2026e
+ARG TZDATA_VERSION=2026e
 ARG UNIFONT_VERSION=16.0.04
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
@@ -380,6 +382,8 @@ FROM ${SOURCES_REPO}/glib:${GLIB_VERSION} AS glib-download
 FROM ${SOURCES_REPO}/qemu:${QEMU_AGENT_VERSION} AS qemu-download
 FROM ${SOURCES_REPO}/mspack:${MSPACK_VERSION} AS mspack-download
 FROM ${SOURCES_REPO}/open-vm-tools:${OPENVM_TOOLS_VERSION} AS open-vm-tools-download
+FROM ${SOURCES_REPO}/tzcode:${TZCODE_VERSION} AS tzcode-download
+FROM ${SOURCES_REPO}/tzdata:${TZDATA_VERSION} AS tzdata-download
 FROM scratch AS sources-downloader
 COPY --from=curl-download /sources/downloads/curl.tar.gz /sources/downloads/
 COPY --from=rsync-download /sources/downloads/rsync.tar.gz /sources/downloads/
@@ -494,6 +498,8 @@ COPY --from=libbpf-download /sources/downloads/libbpf.tar.gz /sources/downloads/
 COPY --from=argp-standalone-download /sources/downloads/argp-standalone.tar.gz /sources/downloads/
 COPY --from=musl-obstack-download /sources/downloads/musl-obstack.tar.gz /sources/downloads/
 COPY --from=elfutils-download /sources/downloads/elfutils.tar.bz2 /sources/downloads/
+COPY --from=tzcode-download /sources/downloads/tzcode.tar.gz /sources/downloads/
+COPY --from=tzdata-download /sources/downloads/tzdata.tar.gz /sources/downloads/
 
 ########################################################
 #
@@ -1315,6 +1321,31 @@ RUN cd /sources && \
     tar -xf grep.tar.xz && mv grep-* grep && \
     cd grep && mkdir -p /grep && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/grep && \
     make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/grep install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
+
+## tzdata: the IANA time zone database, compiled into /usr/share/zoneinfo.
+## zic comes from tzcode and runs only here, at build time; the image ships
+## the compiled zones and the zone tables, not zic. `-b fat` keeps the
+## pre-2019 TZif layout that readers which do not understand the slim format
+## need. `-L /dev/null` skips leap seconds, so no right/ zones. The zone
+## tables are what tzselect and the Kairos installer list zones from.
+## See kairos-io/kairos#5528.
+FROM stage1 AS tzdata
+ARG JOBS
+ARG MAX_LOAD
+ARG TZCODE_VERSION
+COPY --from=sources-downloader /sources/downloads/tzcode.tar.gz /sources/
+COPY --from=sources-downloader /sources/downloads/tzdata.tar.gz /sources/
+RUN mkdir -p /sources/tz && cd /sources/tz && \
+    tar -xf ../tzcode.tar.gz && tar -xf ../tzdata.tar.gz && \
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} CC=gcc VERSION=${TZCODE_VERSION} zic && \
+    mkdir -p /tzdata/usr/share/zoneinfo && \
+    for f in africa antarctica asia australasia europe northamerica \
+             southamerica etcetera backward factory; do \
+        ./zic -b fat -d /tzdata/usr/share/zoneinfo -L /dev/null "$f" || exit 1; \
+    done && \
+    cp zone1970.tab zone.tab iso3166.tab /tzdata/usr/share/zoneinfo/ && \
+    test -f /tzdata/usr/share/zoneinfo/Europe/Rome && \
+    test -f /tzdata/usr/share/zoneinfo/UTC
 
 ## ca-certificates
 FROM rsync AS ca-certificates
@@ -4010,6 +4041,9 @@ COPY --from=curl /curl/ /skeleton/
 
 ## ca-certificates
 COPY --from=ca-certificates /ca-certificates/ /skeleton/
+
+## time zone database (kairos-io/kairos#5528)
+COPY --from=tzdata /tzdata/ /skeleton/
 
 ## bash
 COPY --from=bash /bash /bash

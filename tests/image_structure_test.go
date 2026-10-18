@@ -211,6 +211,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
+	// The Kairos installer offers a timezone only when the zone database
+	// exists, and links /etc/localtime to a file under it; see
+	// kairos-io/kairos#5528.
+	It("ships the IANA time zone database", func() {
+		for _, zone := range []string{"UTC", "Europe/Rome", "America/New_York"} {
+			out, code := shInImage("head -c 4 /usr/share/zoneinfo/" + zone)
+			Expect(code).To(Equal(0), "zone %s missing: %s", zone, out)
+			Expect(out).To(Equal("TZif"), "zone %s is not a TZif file", zone)
+		}
+		out, code := shInImage("grep -c Europe/Rome /usr/share/zoneinfo/zone1970.tab")
+		Expect(code).To(Equal(0), "zone1970.tab missing or does not list Europe/Rome: %s", out)
+	})
+
 	It("resolves /bin/sh to bash", func() {
 		out, code := shInImage("readlink -f /bin/sh")
 		Expect(code).To(Equal(0), out)

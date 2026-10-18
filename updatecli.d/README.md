@@ -34,7 +34,7 @@ The configuration is organized into logical groups:
   - iptables, open-iscsi, strace
 
 - **misc-tools.yaml** - Miscellaneous tools
-  - python, sqlite3, tpm2-tss, pax-utils, ca-certificates, aports, gdb, bc, patch
+  - python, sqlite3, tpm2-tss, pax-utils, ca-certificates, aports, tzdata, tzcode, gdb, bc, patch
 
 - **vm-tools.yaml** - Virtualization / guest agent tools
   - qemu, glib, open-vm-tools, mspack
