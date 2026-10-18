@@ -1673,9 +1673,14 @@ COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.s
 # here except the FIPS crypto override (02-hadron-fips.conf, copied later
 # in the full-image-merge-fips target) so that FIPS images pin the
 # FIPS-validated crypto subset before kairos-init's non-FIPS list.
+# The Include must be the first line: sshd keeps the first value it reads,
+# and the upstream sshd_config sets AuthorizedKeysFile, so an Include at
+# the end lets the main file win over every drop-in for that keyword.
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
-RUN echo "# Include drop-in configs from sshd_config.d directory" >> /openssh/etc/ssh/sshd_config
-RUN echo "Include sshd_config.d/*.conf" >> /openssh/etc/ssh/sshd_config
+RUN { echo "# Include drop-in configs from sshd_config.d directory"; \
+      echo "Include sshd_config.d/*.conf"; \
+      cat /openssh/etc/ssh/sshd_config; } > /tmp/sshd_config && \
+    cat /tmp/sshd_config > /openssh/etc/ssh/sshd_config && rm /tmp/sshd_config
 
 
 ## xz and liblzma
