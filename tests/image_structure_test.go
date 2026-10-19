@@ -301,6 +301,22 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 				"/usr/local/lib/firmware must be a real directory, got: %s", out)
 			Expect(out).To(ContainSubstring("OK"))
 		})
+
+		// kairos-io/kairos#5529. The kernel builds cfg80211 with
+		// CFG80211_REQUIRE_SIGNED_REGDB, so it needs both the database and its
+		// detached signature. Without them it logs "failed to load
+		// regulatory.db" and keeps the world regulatory domain.
+		DescribeTable("ships the signed wireless regulatory database",
+			func(name string) {
+				out, code := shInImage("test -s /usr/lib/firmware/" + name +
+					" && ! test -L /usr/lib/firmware/" + name + " && echo OK")
+				Expect(code).To(Equal(0),
+					"/usr/lib/firmware/%s is missing, empty or a symlink: %s", name, out)
+				Expect(out).To(ContainSubstring("OK"))
+			},
+			Entry("regulatory.db", "regulatory.db"),
+			Entry("regulatory.db.p7s", "regulatory.db.p7s"),
+		)
 	})
 
 	Describe("grub fonts", Label("grub-fonts"), func() {
