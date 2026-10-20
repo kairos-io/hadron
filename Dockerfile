@@ -1335,7 +1335,7 @@ RUN cd /sources && \
 FROM stage1 AS tzdata
 ARG JOBS
 ARG MAX_LOAD
-ARG TZCODE_VERSION
+ARG TZCODE_VERSION=2026e
 COPY --from=sources-downloader /sources/downloads/tzcode.tar.gz /sources/
 COPY --from=sources-downloader /sources/downloads/tzdata.tar.gz /sources/
 RUN mkdir -p /sources/tz && cd /sources/tz && \
