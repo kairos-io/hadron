@@ -2,5 +2,12 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "matchManagers": ["dockerfile"],
+      "matchPackageNames": ["ghcr.io/kairos-io/hadron-sources/**"],
+      "enabled": false
+    }
   ]
 }
