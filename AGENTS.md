@@ -92,11 +92,11 @@ image, cutting a backport release. Prefer one over improvising.
 
 <!-- END GENERATED -->
 
-## Hadron-specific CI notes
+## Hadron CI
 
-- Fork pull requests skip Quay logins for cache writes and source-cache
-  publishing. Do not dismiss a failed fork build as an expected registry-secret
-  failure.
+- Fork pull requests skip Quay logins for cache writes in `PR_multiarch.yml` and
+  skip publishing source images in `populate-sources.yml`. A failed fork PR
+  build is a real failure, not an expected registry-login failure.
 - Hadron CI does not run `hadolint`. Run relevant checks such as
   `make test-render`, `make test-image-tags`, `make test-workflow-gates`,
   `make test-source-checksums`, and `make test-patch-headers`.
