@@ -91,3 +91,9 @@ image, cutting a backport release. Prefer one over improvising.
 - `hadolint` runs in CI. Run it locally before pushing.
 
 <!-- END GENERATED -->
+
+## Hadron CI
+
+- Fork pull requests skip Quay logins in `PR_multiarch.yml` and skip publishing
+  source images in `populate-sources.yml`. A red fork PR build is a real failure,
+  not an expected registry-login failure.
