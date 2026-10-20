@@ -91,3 +91,12 @@ image, cutting a backport release. Prefer one over improvising.
 - `hadolint` runs in CI. Run it locally before pushing.
 
 <!-- END GENERATED -->
+
+## Hadron-specific CI notes
+
+- Fork pull requests skip Quay logins for cache writes and source-cache
+  publishing. Do not dismiss a failed fork build as an expected registry-secret
+  failure.
+- Hadron CI does not run `hadolint`. Run relevant checks such as
+  `make test-render`, `make test-image-tags`, `make test-workflow-gates`,
+  `make test-source-checksums`, and `make test-patch-headers`.
