@@ -411,7 +411,7 @@ packages:
 
   libelf:
     version_arg: LIBELF_VERSION
-    sha256: 1e839a9926a90430e4302300168741719ae8ce096109e903e31ed8fce18a7517
+    sha256: d34a03e25d337a37580b80e1200dd16341766ccf25da8e6bca07312f74fb8da0
     urls:
       - https://github.com/arachsys/libelf/archive/refs/tags/v${version}.tar.gz
     filename: libelf.tar.gz
