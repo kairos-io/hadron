@@ -64,7 +64,7 @@ jobs:
             config: ${{ fromJSON(needs.discover.outputs.configs) }}
     steps:
       - name: Install Updatecli in the runner
-        uses: updatecli/updatecli-action@v3.9.0
+        uses: updatecli/updatecli-action@v3.10.0
       - name: commit and push changes
         env:
           # updatecli's github release sources, autobumper-changelog.rb and gh
