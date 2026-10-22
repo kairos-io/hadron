@@ -383,7 +383,7 @@ packages:
 
   less:
     version_arg: LESS_VERSION
-    sha256: 20a0b0a2bb2525fa53c7eee9beb854b4c9cf172eabb209af7020743547bfe9fb
+    sha256: d1008fb78dcae1323ddab664bcb352a61f022b1b131bd8018548e021d975ec7a
     urls:
       - https://www.greenwoodsoftware.com/less/less-${version}.tar.gz
     filename: less.tar.gz
@@ -661,7 +661,7 @@ packages:
 
   ncurses:
     version_arg: NCURSES_VERSION
-    sha256: 136d91bc269a9a5785e5f9e980bc76ab57428f604ce3e5a5a90cebc767971cc6
+    sha256: 355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
     urls:
       - https://ftpmirror.gnu.org/ncurses/ncurses-${version}.tar.gz
       - https://ftp.gnu.org/gnu/ncurses/ncurses-${version}.tar.gz
@@ -772,7 +772,7 @@ packages:
 
   procps-ng:
     version_arg: PROCPS_NG_VERSION
-    sha256: 67bea6fbc3a42a535a0230c9e891e5ddfb4d9d39422d46565a2990d1ace15216
+    sha256: 9d2021f47a4501c667862c9942a92d1953694b21d11bcd1702e83eb594e3d67d
     urls:
       - https://downloads.sourceforge.net/project/procps-ng/Production/procps-ng-${version}.tar.xz
     filename: procps-ng.tar.xz
