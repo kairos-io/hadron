@@ -863,6 +863,11 @@ WORKDIR /sources
 COPY --from=sources-downloader /sources/downloads/musl.tar.gz /sources
 RUN tar -xf musl.tar.gz && mv musl-* musl
 WORKDIR /sources/musl
+# CVE-2026-107891: integer overflows in regcomp, which can cause out-of-bounds
+# heap writes. All musl versions up to 1.2.6 are affected. Remove this patch
+# when MUSL_VERSION moves to 1.2.7, which contains the fix.
+COPY patches/0001-musl-regcomp-int-overflow-cve-2026-107891.patch /sources/musl/
+RUN patch -p1 < 0001-musl-regcomp-int-overflow-cve-2026-107891.patch
 # Special flags for musl as its a libc and behaves differently
 # drop lto and some optimizations that seems to break stuff
 # drop -ffunction-sections/-fdata-sections: limited benefit for libc, risky with linker GC
