@@ -106,7 +106,7 @@ ARG LIBTIRPC_VERSION=1.3.8
 ARG LIBTOOL_VERSION=2.5.4
 ARG LIBUCONTEXT_VERSION=1.5.2
 ARG LIBXML2_VERSION=2.15.4
-ARG KERNEL_VERSION=7.2.11
+ARG KERNEL_VERSION=7.3
 ARG LVM2_VERSION=2.03.43
 ARG LZ4_VERSION=1.10.0
 ARG M4_VERSION=1.4.21
@@ -135,7 +135,7 @@ ARG PERL_VERSION=5.44.0
 ARG PKGCONFIG_VERSION=3.0.10
 ARG POPT_VERSION=1.19
 ARG PROCPS_NG_VERSION=4.0.7
-ARG PYTHON_VERSION=3.15.0
+ARG PYTHON_VERSION=3.15.1
 ARG QEMU_AGENT_VERSION=10.1.5
 ARG READLINE_VERSION=8.3
 ARG RSYNC_VERSION=3.5.1
@@ -148,7 +148,7 @@ ARG SYSTEMD_VERSION=262.1
 ARG TPM2_TSS_VERSION=4.2.0
 ARG TZCODE_VERSION=2026e
 ARG TZDATA_VERSION=2026e
-ARG UNIFONT_VERSION=16.0.04
+ARG UNIFONT_VERSION=18.0.01
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
 ARG WIRELESS_REGDB_VERSION=2026.09.03
@@ -1892,7 +1892,21 @@ COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /source
 WORKDIR /sources
 RUN tar -xf argp-standalone.tar.gz && mv argp-standalone-* argp
 WORKDIR /sources/argp
+# This stage compiles the sources directly instead of running argp-standalone's
+# own configure, so nothing ever writes the config.h that the sources include
+# behind HAVE_CONFIG_H. Up to 1.4.1 that cost nothing. From 1.5.0 two of the
+# defines configure would have supplied are load-bearing:
+#   HAVE_UNISTD_H  argp-parse.c and argp-fmtstream.h moved their <unistd.h>
+#                  include behind this guard, and 1.4.1 included it
+#                  unconditionally. Without it getpid() and sleep() are
+#                  implicitly declared, which current gcc rejects.
+#   UNUSED         argp-parse.c:178 now writes `char* arg UNUSED` in a
+#                  parameter list. config.h defines the macro; with no
+#                  definition the declaration is a syntax error.
+# Pass both the way configure would. On 1.4.1 they are inert: it includes
+# <unistd.h> unconditionally and never names UNUSED.
 RUN gcc ${CFLAGS} -fPIC -I. \
+      -DHAVE_UNISTD_H=1 -DUNUSED='__attribute__((__unused__))' \
       -c argp-ba.c argp-eexst.c argp-fmtstream.c argp-help.c argp-parse.c argp-pv.c argp-pvh.c && \
     gcc-ar rcs libargp.a argp-ba.o argp-eexst.o argp-fmtstream.o argp-help.o argp-parse.o argp-pv.o argp-pvh.o && \
     mkdir -p /argp/usr/lib /argp/usr/include && \
