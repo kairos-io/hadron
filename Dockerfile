@@ -1892,7 +1892,21 @@ COPY --from=sources-downloader /sources/downloads/argp-standalone.tar.gz /source
 WORKDIR /sources
 RUN tar -xf argp-standalone.tar.gz && mv argp-standalone-* argp
 WORKDIR /sources/argp
+# This stage compiles the sources directly instead of running argp-standalone's
+# own configure, so nothing ever writes the config.h that the sources include
+# behind HAVE_CONFIG_H. Up to 1.4.1 that cost nothing. From 1.5.0 two of the
+# defines configure would have supplied are load-bearing:
+#   HAVE_UNISTD_H  argp-parse.c and argp-fmtstream.h moved their <unistd.h>
+#                  include behind this guard, and 1.4.1 included it
+#                  unconditionally. Without it getpid() and sleep() are
+#                  implicitly declared, which current gcc rejects.
+#   UNUSED         argp-parse.c:178 now writes `char* arg UNUSED` in a
+#                  parameter list. config.h defines the macro; with no
+#                  definition the declaration is a syntax error.
+# Pass both the way configure would. On 1.4.1 they are inert: it includes
+# <unistd.h> unconditionally and never names UNUSED.
 RUN gcc ${CFLAGS} -fPIC -I. \
+      -DHAVE_UNISTD_H=1 -DUNUSED='__attribute__((__unused__))' \
       -c argp-ba.c argp-eexst.c argp-fmtstream.c argp-help.c argp-parse.c argp-pv.c argp-pvh.c && \
     gcc-ar rcs libargp.a argp-ba.o argp-eexst.o argp-fmtstream.o argp-help.o argp-parse.o argp-pv.o argp-pvh.o && \
     mkdir -p /argp/usr/lib /argp/usr/include && \
