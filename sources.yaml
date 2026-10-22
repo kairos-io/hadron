@@ -548,7 +548,7 @@ packages:
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: fd0fc479f983a8c05313f13e9c36330fe6651cf725396748c40d5cd93fa1e6a4
+    sha256: 87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
@@ -885,7 +885,7 @@ packages:
   # complete the TLS handshake.
   unifont:
     version_arg: UNIFONT_VERSION
-    sha256: 4a1689c0065666ac70e1310420ce67d7fa3dcf83c1a2e1e6b2c115aa22deb3cf
+    sha256: 2989e0211030d8219fd931aba599fc95c86bc327ce1423848ef949783b208257
     urls:
       - https://unifoundry.com/pub/unifont/unifont-${version}/font-builds/unifont-${version}.bdf.gz
       - http://unifoundry.com/pub/unifont/unifont-${version}/font-builds/unifont-${version}.bdf.gz
