@@ -831,7 +831,7 @@ packages:
 
   strace:
     version_arg: STRACE_VERSION
-    sha256: 4bde6246926890dcee824f6e6ac42a06752f47d77e5097d86e3c0d6d4b709fe5
+    sha256: 529634c40910895a9a1f3c5c1e65da2ca9ed72fb158dfc4bcc89efdf05e39b72
     urls:
       - https://strace.io/files/${version}/strace-${version}.tar.xz
     filename: strace.tar.xz
