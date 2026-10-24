@@ -41,7 +41,7 @@ ARG SOURCES_REPO=ghcr.io/kairos-io/hadron-sources
 ## sources.yaml carries the matching urls + sha256 + filename metadata, keyed by version_arg.
 ## To bump a package: change the ARG default here AND update the sha256 in sources.yaml.
 ARG ACL_VERSION=2.4.0
-ARG APORTS_VERSION=3.24.1
+ARG APORTS_VERSION=3.24.3
 ARG ARGP_STANDALONE_VERSION=1.5.0
 ARG ATTR_VERSION=2.6.0
 ARG AUDIT_VERSION=4.2.1
@@ -128,7 +128,7 @@ ARG OPENSSL_VERSION=3.6.5
 ARG OPENSSL_FIPS_VERSION=3.1.2
 ARG PAM_VERSION=1.7.2
 ARG PARTED_VERSION=3.8
-ARG PATCH_VERSION=2.8
+ARG PATCH_VERSION=2.8.1
 ARG PAX_UTILS_VERSION=1.3.11
 ARG PCRE2_VERSION=10.49
 ARG PERL_VERSION=5.44.0

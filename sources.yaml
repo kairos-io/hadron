@@ -59,7 +59,7 @@ packages:
 
   aports:
     version_arg: APORTS_VERSION
-    sha256: 1873402d600d069aa4616e7eea115e070f77598a6f2ddef890e717585872be50
+    sha256: af0f98a06ac94d84316ade7fbb497407303eb8a145fbf5a43380f09319a92abb
     urls:
       - https://gitlab.alpinelinux.org/alpine/aports/-/archive/v${version}/aports-v${version}.tar.gz
     filename: aports.tar.gz
@@ -729,7 +729,7 @@ packages:
 
   patch:
     version_arg: PATCH_VERSION
-    sha256: 308a4983ff324521b9b21310bfc2398ca861798f02307c79eb99bb0e0d2bf980
+    sha256: 0f7b43c7ea450c5d3e9eaf8301177628bc0171d580b2bd6a72822409767144ff
     urls:
       - https://ftpmirror.gnu.org/patch/patch-${version}.tar.gz
       - https://ftp.gnu.org/gnu/patch/patch-${version}.tar.gz
