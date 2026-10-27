@@ -48,6 +48,20 @@ size_variant_ghcr() {
   return 1
 }
 
+# rootfs_bytes <image-ref>: print the uncompressed size of a local image as the
+# sum of its regular files (hardlinks counted once), read from `docker export`.
+# `docker image inspect .Size` is not used because its meaning depends on the
+# daemon's image store: with the containerd store (default on ubuntu-26.04
+# runners) a pulled image reports its compressed size while a `docker load`ed
+# one reports uncompressed, which made :main look ~70MB smaller than any PR.
+rootfs_bytes() {
+  local ctr sz
+  ctr="$(docker create "$1" /none)" || return 1
+  sz="$(docker export "$ctr" | tar -tvf - | awk '$1 ~ /^-/ { s += $3 } END { printf "%d\n", s }')"
+  docker rm -f "$ctr" >/dev/null
+  printf '%s\n' "$sz"
+}
+
 # human <bytes>: human-readable IEC size. A leading "-" is stripped so callers
 # control the sign themselves (matches the existing report formatting).
 human() {

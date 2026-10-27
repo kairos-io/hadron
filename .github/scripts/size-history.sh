@@ -10,7 +10,7 @@
 # source of truth and is meant to be committed to a long-lived branch so the
 # history survives log and step-summary purging.
 #
-# Sizes are uncompressed image sizes (docker image inspect .Size) of the :main
+# Sizes are uncompressed rootfs sizes (rootfs_bytes in size-history-lib.sh) of the :main
 # multi-arch manifest, measured on the host platform of the runner (amd64),
 # matching image-size-report.sh.
 #
@@ -51,7 +51,7 @@ csv_header() {
 image_size_bytes() {
   local img="$1"
   if docker pull -q "$img" >/dev/null 2>&1; then
-    docker image inspect "$img" --format '{{.Size}}' 2>/dev/null || true
+    rootfs_bytes "$img" 2>/dev/null || true
   fi
 }
 
@@ -233,7 +233,7 @@ render() {
   local md="$out/SIZE_HISTORY.md"
   {
     printf '# 📦 Image size history\n\n'
-    printf 'Uncompressed size (`docker image inspect .Size`, amd64) of each shipped\n'
+    printf 'Uncompressed rootfs size (sum of regular files, amd64) of each shipped\n'
     printf '`:main` image, recorded once per merge. The CSV (`size-history.csv`) is the\n'
     printf 'source of truth; this page and the chart are regenerated from it by\n'
     printf '`.github/scripts/size-history.sh`.\n\n'
