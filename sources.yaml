@@ -168,7 +168,7 @@ packages:
 
   cracklib:
     version_arg: CRACKLIB_VERSION
-    sha256: f3dcb54725d5604523f54a137b378c0427c1a0be3e91cfb8650281a485d10dae
+    sha256: 4f2d151a2930ab2644def5f9e0e4dad7446ccbd3f2dd41960e91398d93c3129e
     urls:
       - https://github.com/cracklib/cracklib/releases/download/v${version}/cracklib-${version}.tar.bz2
     filename: cracklib.tar.bz2
