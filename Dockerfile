@@ -146,8 +146,8 @@ ARG STRACE_VERSION=7.3
 ARG SUDO_VERSION=1.9.17p2
 ARG SYSTEMD_VERSION=262.1
 ARG TPM2_TSS_VERSION=4.2.0
-ARG TZCODE_VERSION=2026e
-ARG TZDATA_VERSION=2026e
+ARG TZCODE_VERSION=2026f
+ARG TZDATA_VERSION=2026f
 ARG UNIFONT_VERSION=18.0.01
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
@@ -1340,7 +1340,7 @@ RUN cd /sources && \
 FROM stage1 AS tzdata
 ARG JOBS
 ARG MAX_LOAD
-ARG TZCODE_VERSION=2026e
+ARG TZCODE_VERSION=2026f
 COPY --from=sources-downloader /sources/downloads/tzcode.tar.gz /sources/
 COPY --from=sources-downloader /sources/downloads/tzdata.tar.gz /sources/
 RUN mkdir -p /sources/tz && cd /sources/tz && \
