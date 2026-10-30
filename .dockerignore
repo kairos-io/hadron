@@ -2,6 +2,8 @@
 docs/
 examples/
 tests/
+# The Dockerfile test1 stage copies the gcc sanity check source.
+!tests/gcc/
 .git/
 
 .gitignore

@@ -186,6 +186,10 @@ test-bump-pr-action: ## Verify what the autobumper does with an existing bump pu
 test-image-size: ## Verify the size report measures pulled and loaded images the same way
 	@sh ./tests/size-rootfs-bytes.sh
 
+.PHONY: test-copy-context
+test-copy-context: ## Verify every Dockerfile COPY source survives .dockerignore
+	@./tests/dockerfile-copy-context.sh
+
 .PHONY: test-patch-headers
 test-patch-headers: ## Verify every patch under patches/ carries a header
 	@sh ./hack/check-patch-headers_test.sh
