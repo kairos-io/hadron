@@ -324,7 +324,7 @@ func assertLegacyNetDisabled(vm testVM) {
 			vm.Sudo("modprobe " + mod + " >/dev/null 2>&1 || true")
 			lsmod, err := vm.Sudo("lsmod")
 			Expect(err).ToNot(HaveOccurred(), lsmod)
-			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\\b`),
+			Expect(lsmod).ToNot(MatchRegexp("(?m)^"+mod+`\b`),
 				"module %s must not be loaded", mod)
 		}
 	})
