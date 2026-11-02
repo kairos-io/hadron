@@ -1846,6 +1846,11 @@ jobs:
       matrix:
         test:
           - "acceptance-trusted-generic"
+          # Breaks every boot of the active entry until systemd-boot's boot
+          # assessment fails over to passive (tests/assets/uki-assessment.yaml).
+          # It was selected by no job before, so it never ran
+          # (kairos-io/kairos#5742).
+          - "acceptance-trusted-boot-assessment"
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -1897,7 +1902,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: failure()
         with:
-          name: acceptance-trusted-${{github.sha}}.logs.zip
+          # One name per matrix cell: two failing cells uploading under the
+          # same name would make the second upload fail.
+          name: ${{ matrix.test }}-${{github.sha}}.logs.zip
           path: tests/**/logs/*
           if-no-files-found: warn
 
