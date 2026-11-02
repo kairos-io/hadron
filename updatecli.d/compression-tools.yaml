@@ -77,7 +77,7 @@ sources:
       command: |
         git ls-remote --refs --tags git://git.git.savannah.gnu.org/gzip.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
     changelog:

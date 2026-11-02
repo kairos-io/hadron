@@ -191,7 +191,7 @@ sources:
       command: |
         curl -fsSL --retry 3 https://ftp.gnu.org/gnu/ncurses/ \
         | grep -oE 'ncurses-[0-9]+\.[0-9]+\.tar\.gz' \
-        | sed -e 's/^ncurses-//' -e 's/\.tar\.gz$//' | sort -V | tail -n 1
+        | sed -e 's/^ncurses-//' -e 's/\.tar\.gz$//' | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://invisible-island.net/ncurses/NEWS.html"
 

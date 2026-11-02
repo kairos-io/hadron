@@ -103,6 +103,8 @@ jobs:
         run: make test-patch-headers
       - name: Verify every Dockerfile COPY source is in the build context
         run: make test-copy-context
+      - name: Verify every updatecli shell source fails on empty output
+        run: make test-updatecli-sources
       - name: Verify the component-manifest generator
         run: make test-components
       - name: Verify kernel configs are resolved against current kernel version

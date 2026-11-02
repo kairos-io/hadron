@@ -135,6 +135,19 @@ HADRON_ROOT="$GITROOT" GITHUB_STEP_SUMMARY="$WORK/summary" "$REFRESH" --changed 
     || fail "--changed with a step summary exited non-zero"
 grep -q 'gamma` 9.10' "$WORK/summary" || fail "step summary did not name the dropped bump"
 
+# An updatecli shell source that printed nothing leaves a bare `ARG X` (or
+# `ARG X=`). That must fail the run, not report "no packages to refresh".
+for blank in 'ARG BETA_VERSION' 'ARG BETA_VERSION='; do
+    git -C "$GITROOT" checkout -q -- Dockerfile sources.yaml
+    sed -i "s/^ARG BETA_VERSION=3.1\$/$blank/" "$GITROOT/Dockerfile"
+    grep -qx "$blank" "$GITROOT/Dockerfile" || fail "fixture did not blank BETA_VERSION"
+    if HADRON_ROOT="$GITROOT" "$REFRESH" --changed > "$WORK/out6" 2>&1; then
+        fail "--changed accepted '$blank': $(cat "$WORK/out6")"
+    fi
+    grep -q "have none now: BETA_VERSION" "$WORK/out6" || fail "lost default not named for '$blank': $(cat "$WORK/out6")"
+done
+git -C "$GITROOT" checkout -q -- Dockerfile sources.yaml
+
 # =====================================================================
 # 5. A package named on the command line that does not exist is an error
 # =====================================================================
