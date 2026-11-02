@@ -123,14 +123,16 @@ targets:
 	@echo "test-components: Run the component-generator shell test"
 	@echo "test-source-checksums: Verify the sources.yaml checksum refresher the autobumper runs"
 	@echo "test-patch-headers: Verify every patch under patches/ carries a header"
+	@echo "test-make-helpers: Verify make help, run-qemu's ISO pick, and that bump-deps is gone"
+	@echo "run-qemu: Boot the newest build/kairos-hadron-*.iso in QEMU. Set ISO_FILE to boot another one."
 
 .PHONY: help
 help: targets
 	@echo "------------------------------------------------------------------------"
-	@echo "The BOOTLOADER variable can be set to 'grub' or 'systemd'. The default is 'systemd' to build a Trusted Boot image."
+	@echo "The BOOTLOADER variable can be set to 'grub' or 'systemd'. The default is 'grub'. Set 'systemd' to build a Trusted Boot image."
 	@echo "The KERNEL_TYPE variable can be set to 'default' or 'cloud'. The default is 'default'."
 	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'."
-	@ECHO "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
+	@echo "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.0."
 	@echo "The IMAGE_NAME variable can be set to the local tag of the Hadron image that is built and that build-kairos uses as its base. The default is 'hadron:local' ('hadron-trusted:local' with BOOTLOADER=systemd)."
 	@echo "The PULL_IMAGE_NAME variable can be set to the published Hadron image that pull-image fetches. The default is 'ghcr.io/kairos-io/hadron:main' ('ghcr.io/kairos-io/hadron-trusted:main' with BOOTLOADER=systemd)."
@@ -189,6 +191,10 @@ test-image-size: ## Verify the size report measures pulled and loaded images the
 .PHONY: test-copy-context
 test-copy-context: ## Verify every Dockerfile COPY source survives .dockerignore
 	@./tests/dockerfile-copy-context.sh
+
+.PHONY: test-make-helpers
+test-make-helpers: ## Verify make help, run-qemu's ISO pick, and that bump-deps is gone
+	@./tests/make-helpers.sh
 
 .PHONY: test-patch-headers
 test-patch-headers: ## Verify every patch under patches/ carries a header
@@ -290,9 +296,18 @@ build-iso:
 
 
 MEMORY ?= 2096
-ISO_FILE ?= build/kairos-hadron-.iso
+## Defaults to the newest ISO grub-iso or trusted-iso wrote to build/.
+ISO_FILE ?= $(shell ls -t1 build/kairos-hadron-*.iso 2>/dev/null | head -n1)
 
 run-qemu:
+	@if [ -z "$(ISO_FILE)" ]; then \
+		echo "run-qemu: no build/kairos-hadron-*.iso found. Run 'make build-iso' first or set ISO_FILE." >&2; \
+		exit 1; \
+	fi
+	@if [ ! -e "$(ISO_FILE)" ]; then \
+		echo "run-qemu: ISO_FILE '$(ISO_FILE)' does not exist." >&2; \
+		exit 1; \
+	fi
 	@if [ ! -e disk.img ]; then \
 		qemu-img create -f qcow2 disk.img 40g; \
 	fi
@@ -353,11 +368,6 @@ update-kernel-configs:
 				cp .config /configs/$$cfg-riscv64.config; \
 			done'
 	@echo "Done. Review the diff and commit the updated configs."
-
-bump-deps:
-	@echo "Installing bump tool and updating dependencies..."
-	@go install github.com/wader/bump/cmd/bump@latest
-	@bump update
 
 .PHONY: components
 components: ## Generate components.json + components.md for the working tree

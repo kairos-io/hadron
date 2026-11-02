@@ -91,6 +91,8 @@ jobs:
         run: make test-render
       - name: Verify the local base image tag invariant
         run: make test-image-tags
+      - name: Verify make help, run-qemu and the removed bump-deps
+        run: make test-make-helpers
       - name: Verify the source-cache probe retries a stalled connection
         run: make test-source-probe
       - name: Verify the quay login gates exclude forks and dependabot
