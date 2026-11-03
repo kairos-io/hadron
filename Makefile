@@ -182,6 +182,10 @@ test-source-checksums: ## Verify the sources.yaml checksum refresher the autobum
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
 
+.PHONY: test-autobumper-changelog
+test-autobumper-changelog: ## Verify the release-notes excerpt in bump pull requests pings no one
+	@ruby ./tests/autobumper-changelog_test.rb
+
 .PHONY: test-bash-patch-level
 test-bash-patch-level: ## Verify the autobumper's bash patch level source
 	@sh ./tests/bash-patch-level_test.sh
