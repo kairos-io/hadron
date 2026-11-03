@@ -15,6 +15,10 @@ ARG KERNEL_VERSION=9.9.9
 ARG SYSTEMD_VERSION=260.2
 ARG MUSSEL_VERSION="abc123"
 ARG SOMETHING_ELSE=notaversion
+ARG TZCODE_VERSION=2026f
+ARG TZCODE_VERSION=2026f
+ARG DRIFT_VERSION=1.0
+ARG DRIFT_VERSION=2.0
 EOF
 cat > "$WORK/updatecli.d/kernel-and-boot.yaml" <<'EOF'
 targets:
@@ -57,6 +61,11 @@ grep -q 'something' "$JSON" && fail "SOMETHING_ELSE should be excluded"
 grep -q '### Kernel And Boot' "$MD" || fail "MD missing Kernel And Boot heading"
 grep -q '### Other' "$MD"           || fail "MD missing Other heading"
 grep -q '| kernel | 9.9.9 |' "$MD"  || fail "MD missing kernel row"
+
+# the same default declared twice is one row; two different defaults stay two
+[ "$(grep -c '| tzcode | 2026f |' "$MD")" = 1 ] || fail "MD lists tzcode more than once"
+[ "$(grep -c '"tzcode"' "$JSON")" = 1 ]          || fail "JSON lists tzcode more than once"
+[ "$(grep -c '| drift |' "$MD")" = 2 ]           || fail "MD hid a component declared with two versions"
 
 # JSON is valid if python3 is available
 if command -v python3 >/dev/null 2>&1; then

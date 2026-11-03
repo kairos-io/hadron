@@ -123,9 +123,12 @@ printf '%s\n' "$DOCKERFILE_CONTENT" \
       printf '%s\t%s\t%s\n' "$group" "$name" "$val" >> "$ROWS_TMP"
     done
 
-# Stable ordering: group, then component
+# Stable ordering: group, then component. A component declared twice with the
+# same version (a global ARG and the same default repeated inside the stage that
+# builds it) is one row; two different versions stay as two rows so the drift
+# shows.
 TAB="$(printf '\t')"
-sort -t"$TAB" -k1,1 -k2,2 "$ROWS_TMP" -o "$ROWS_TMP"
+sort -u -t"$TAB" -k1,1 -k2,2 -k3,3 "$ROWS_TMP" -o "$ROWS_TMP"
 
 # --- Optional: restrict to components actually shipped in given merge stage(s) ---
 # A component "ships" in a stage if that stage has a `COPY --from=<build-stage>`
