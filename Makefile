@@ -182,6 +182,10 @@ test-source-checksums: ## Verify the sources.yaml checksum refresher the autobum
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
 
+.PHONY: test-bash-patch-level
+test-bash-patch-level: ## Verify the autobumper's bash patch level source
+	@sh ./tests/bash-patch-level_test.sh
+
 .PHONY: test-image-size
 test-image-size: ## Verify the size report measures pulled and loaded images the same way
 	@sh ./tests/size-rootfs-bytes.sh
