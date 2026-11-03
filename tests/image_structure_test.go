@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -463,6 +464,25 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Expect(out).To(MatchRegexp(`(?m)^PASS_MAX_DAYS\s+60\b`), "PASS_MAX_DAYS should be 60")
 		Expect(out).To(MatchRegexp(`(?m)^LOG_OK_LOGINS\s+yes\b`), "LOG_OK_LOGINS should be yes")
 		Expect(out).To(MatchRegexp(`(?m)^UMASK\s+077\b`), "UMASK should be 077")
+	})
+
+	// useradd -m and pam_mail both use the mail directory; if it is missing
+	// every useradd prints "Creating mailbox file: No such file or directory".
+	It("points MAIL_DIR and pam_mail at a directory the image ships", func() {
+		skipUnlessFullImage()
+		out, code := shInImage("cat /etc/login.defs")
+		Expect(code).To(Equal(0), out)
+		m := regexp.MustCompile(`(?m)^MAIL_DIR\s+(\S+)`).FindStringSubmatch(out)
+		Expect(m).ToNot(BeNil(), "login.defs must set MAIL_DIR")
+		mailDir := m[1]
+
+		out, code = shInImage("test -d " + mailDir)
+		Expect(code).To(Equal(0), "MAIL_DIR %s must exist in the image: %s", mailDir, out)
+
+		out, code = shInImage("cat /etc/pam.d/system-login")
+		Expect(code).To(Equal(0), out)
+		Expect(out).To(MatchRegexp(`(?m)^session\s+optional\s+pam_mail\.so\s+dir=`+regexp.QuoteMeta(mailDir)+`\s`),
+			"pam_mail dir must match MAIL_DIR %s", mailDir)
 	})
 
 	// audit-userspace ships in the full image so kairos-init can drop the
