@@ -9,7 +9,7 @@ sources:
       command: |
         git ls-remote --refs --tags git://gcc.gnu.org/git/gcc.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E 'gcc-15\.*' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: gcc-
     changelog:
@@ -39,7 +39,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://gitlab.inria.fr/mpc/mpc.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://www.multiprecision.org/mpc/download.html"
 
@@ -50,7 +50,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://gitlab.inria.fr/mpfr/mpfr.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://www.mpfr.org/mpfr-current/"
 

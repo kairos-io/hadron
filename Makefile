@@ -184,6 +184,10 @@ test-source-checksums: ## Verify the sources.yaml checksum refresher the autobum
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
 
+.PHONY: test-bash-patch-level
+test-bash-patch-level: ## Verify the autobumper's bash patch level source
+	@sh ./tests/bash-patch-level_test.sh
+
 .PHONY: test-image-size
 test-image-size: ## Verify the size report measures pulled and loaded images the same way
 	@sh ./tests/size-rootfs-bytes.sh
@@ -195,6 +199,10 @@ test-copy-context: ## Verify every Dockerfile COPY source survives .dockerignore
 .PHONY: test-make-helpers
 test-make-helpers: ## Verify make help, run-qemu's ISO pick, and that bump-deps is gone
 	@./tests/make-helpers.sh
+
+.PHONY: test-updatecli-sources
+test-updatecli-sources: ## Verify every updatecli shell source fails when it finds no version
+	@./tests/updatecli-empty-source.sh
 
 .PHONY: test-patch-headers
 test-patch-headers: ## Verify every patch under patches/ carries a header

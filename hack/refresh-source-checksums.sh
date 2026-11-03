@@ -114,6 +114,15 @@ if [ "$changed_only" -eq 1 ]; then
         exit 1
     fi
     git show HEAD:Dockerfile | parse_args > "$work/args.head"
+    # An updatecli shell source that prints nothing rewrites `ARG X=1.2` to a
+    # bare `ARG X` (or `ARG X=`). parse_args then drops X or reads it empty,
+    # the comparison below sees no change, and the empty pin gets committed.
+    lost=$(awk 'NR == FNR { if ($2 != "") now[$1] = 1; next } $2 != "" && !($1 in now) { print $1 }' \
+        "$work/args" "$work/args.head")
+    if [ -n "$lost" ]; then
+        echo "error: these ARGs had a default at HEAD and have none now:" $lost >&2
+        exit 1
+    fi
     # An ARG whose default moved, or one that did not exist before.
     awk 'NR == FNR { old[$1] = $2; next } !($1 in old) || old[$1] != $2 { print $1 }' \
         "$work/args.head" "$work/args" | sort > "$work/changed-args"

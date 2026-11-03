@@ -34,7 +34,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/bison.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' \
-        | sort -V |tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -49,7 +49,7 @@ sources:
       command: |
         git ls-remote --refs --tags git://git.savannah.gnu.org/autoconf.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
-        | sort -V |tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -64,7 +64,7 @@ sources:
       command: |
         git ls-remote --refs --tags git://git.savannah.gnu.org/automake.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -V |tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -80,7 +80,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/libtool.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' \
-        | sort -V | grep -v "v2.6" |tail -n 1
+        | sort -V | grep -v "v2.6" | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -95,7 +95,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://github.com/Kitware/CMake.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sort -V |tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -138,7 +138,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/gawk.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^gawk-[0-9]+\.[0-9]+(\.[0-9]+)?' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: gawk-
     changelog:

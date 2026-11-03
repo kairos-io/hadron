@@ -191,7 +191,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/libiconv.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
@@ -246,7 +246,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://sourceware.org/git/elfutils.git \
         | awk -F/ '{print $NF}' | grep -E '^elfutils-[0-9]+\.[0-9]+$' \
-        | sed 's/^elfutils-//' | sort -V | tail -n 1
+        | sed 's/^elfutils-//' | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://sourceware.org/git/?p=elfutils.git;a=blob_plain;f=NEWS;hb=HEAD"
 
@@ -257,7 +257,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://gitlab.freedesktop.org/freetype/freetype.git \
         | awk -F/ '{print $NF}' | grep -E '^VER-[0-9]+-[0-9]+-[0-9]+$' \
-        | sed -e 's/^VER-//' -e 's/-/./g' | sort -V | tail -n 1
+        | sed -e 's/^VER-//' -e 's/-/./g' | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://gitlab.freedesktop.org/freetype/freetype/-/blob/master/docs/CHANGES"
 

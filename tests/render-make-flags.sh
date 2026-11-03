@@ -10,6 +10,9 @@
 #    BuildKit leaves it for /bin/sh, which expands it to a lone `-l`, and
 #    GNU make reads that as *removing* any load limit.
 # 3. No `make` invocation passes a literal bare `-l`, for the same reason.
+# 4. Every parallel call carries the cap: each `-j${JOBS}` is followed by
+#    ${MAX_LOAD:+-l${MAX_LOAD}}, and every ninja call has both. ninja with
+#    no -j runs nproc+2 jobs regardless of JOBS (kairos-io/kairos#5750).
 #
 # Checks the committed Dockerfile by default. Pass a path to check something
 # else. Do not render first: on this branch hack/render.sh rewrites the
@@ -71,6 +74,17 @@ index($0, "${MAX_LOAD") { uses[id] = 1 }
     if (unguarded > 0) raw[++nraw] = FNR ": " $0
 }
 
+# Every ninja call counts, not just the -j ones; the pip lines that install
+# ninja are not calls.
+{
+    uncapped = occurrences($0, "-j${JOBS}") \
+             - occurrences($0, "-j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}")
+    if ($0 !~ /pip3? install/)
+        uncapped += occurrences($0, "ninja ") \
+                  - occurrences($0, "ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} ")
+    if (uncapped > 0) nocap[++nnocap] = FNR ": " $0
+}
+
 # `make ... -l` with nothing after it. -lz and friends are linker flags and
 # do not match; the two standalone -l in the tree (mussel, attr) are not make.
 $0 ~ /(^|[^[:alnum:]_.\/-])make([ \t]|$)/ && $0 ~ /(^|[ \t])-l([ \t]|\\|$)/ {
@@ -105,7 +119,12 @@ END {
         for (i = 1; i <= nbare; i++) print "  " bare[i] > "/dev/stderr"
         fail = 1
     }
+    if (nnocap) {
+        print "error: " nnocap " line(s) with a parallel make or ninja call that ignores MAX_LOAD; write -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}:" > "/dev/stderr"
+        for (i = 1; i <= nnocap; i++) print "  " nocap[i] > "/dev/stderr"
+        fail = 1
+    }
     if (fail) exit 1
-    print "make-flags: " id " stages checked in " file "; MAX_LOAD in scope wherever it is used, every use guarded, no bare -l"
+    print "make-flags: " id " stages checked in " file "; MAX_LOAD in scope wherever it is used, every use guarded, no bare -l, every parallel make and ninja call capped"
 }
 ' "$dockerfile"
