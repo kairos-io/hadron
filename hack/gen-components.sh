@@ -144,7 +144,7 @@ sort -t"$TAB" -k1,1 -k2,2 "$ROWS_TMP" -o "$ROWS_TMP"
 if [ -n "$SHIPPED" ]; then
   ALLOWED_TMP="$(mktemp)"
   REFS_TMP="$(mktemp)"
-  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP" "$ALLOWED_TMP" "$REFS_TMP"' EXIT
+  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP" "$ALLOWED_TMP" "$REFS_TMP" "$ALLOWED_TMP.miss"' EXIT
   for st in $SHIPPED; do
     printf '%s\n' "$DOCKERFILE_CONTENT" | awk -v st="$st" '
       $0 ~ "^FROM .* AS "st"$" { inb=1; next }
