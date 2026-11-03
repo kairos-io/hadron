@@ -2294,21 +2294,11 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          {
-            echo
-            echo "## 📦 Shipped components"
-            echo
-            cat release.md
-          } > notes-append.md
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            # Append to the existing notes, preserving them.
-            gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
-            cat existing.md notes-append.md > final.md
-            gh release edit "$TAG" --notes-file final.md
-          else
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --generate-notes
-            gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
-            cat existing.md notes-append.md > final.md
-            gh release edit "$TAG" --notes-file final.md
           fi
+          # Keep the existing notes, replacing any components section a
+          # previous run of this job wrote.
+          gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
+          ./.github/scripts/release-notes-body.sh existing.md release.md > final.md
+          gh release edit "$TAG" --notes-file final.md
