@@ -683,7 +683,7 @@ RUN cd /sources && tar -xf musl.tar.gz && mv musl-* musl &&\
       --prefix=/usr \
       --disable-static \
       --target=${TARGET} && \
-      make -s -j${JOBS} && \
+      make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
       DESTDIR=/sysroot make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ###
@@ -776,7 +776,7 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi; make -s -j${JOBS} headers_install INSTALL_HDR_PATH=/linux-headers
+    fi; make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} headers_install INSTALL_HDR_PATH=/linux-headers
 
 ########################################################
 #
@@ -887,7 +887,7 @@ ENV LDFLAGS="-Wl,--hash-style=both"
 RUN ./configure --disable-warnings \
       --prefix=/usr \
       --disable-static && \
-      make -s -j${JOBS} && \
+      make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
       DESTDIR=/sysroot make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 # getent is not part of musl itself; Alpine ships it in musl-utils, built from
@@ -923,7 +923,7 @@ COPY --from=sources-downloader /sources/downloads/xxhash.tar.gz /sources/
 ENV CC="gcc"
 RUN mkdir -p /sources && cd /sources && tar -xf xxhash.tar.gz && mv xxHash-* xxhash && \
     cd xxhash && mkdir -p /xxhash && CC=gcc make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr DESTDIR=/xxhash && \
-    make -s -j${JOBS} prefix=/usr ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/xxhash install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr install
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr DESTDIR=/xxhash install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} prefix=/usr install
 
 ## zstd
 FROM xxhash AS zstd
@@ -1089,7 +1089,7 @@ COPY --from=sources-downloader /sources/downloads/readline.tar.gz /sources/
 RUN cd /sources && \
     tar -xf readline.tar.gz && mv readline-* readline && \
     cd readline && mkdir -p /readline && ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/readline && \
-    make -s -j${JOBS} DESTDIR=/readline install && make -s -j${JOBS} install
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/readline install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 ## flex
 FROM stage1 AS flex
 ARG JOBS
@@ -1142,7 +1142,7 @@ RUN cd /sources && \
        -Ud_fpos64_t \
        -Ud_off64_t \
        -Dusenm \
-       -Duse64bitint && make -s -j${JOBS} libperl.so && \
+       -Duse64bitint && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} libperl.so && \
         make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/perl && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/perl install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## bison
@@ -1196,7 +1196,7 @@ RUN CFLAGS="${CFLAGS}" ./configure --quiet ${COMMON_CONFIGURE_ARGS} \
     bash_cv_job_control_missing=nomissing \
     bash_cv_sys_named_pipes=nomissing \
     bash_cv_printf_a_format=yes
-RUN make -s -j${JOBS} y.tab.c && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} builtins/libbuiltins.a && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} y.tab.c && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} builtins/libbuiltins.a && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
 RUN mkdir -p /bash/etc/bash
 RUN install -Dm644  /sources/bashrc /bash/etc/bash.bashrc
 RUN install -Dm644  /sources/profile-bashrc.sh /bash/etc/profile.d/00-bashrc.sh
@@ -1233,8 +1233,8 @@ RUN ./Configure --prefix=/usr         \
     no-rc2 no-rc4 no-idea no-seed no-cast no-bf \
     no-tests no-unit-test no-external-tests no-docs \
     no-ui-console no-afalgeng no-capieng
-RUN make -s -j${JOBS} DESTDIR=/openssl 2>&1
-RUN make -s -j${JOBS} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install_sw install_ssldirs
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssl 2>&1
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssl install_sw install_ssldirs && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install_sw install_ssldirs
 
 FROM rsync AS openssl-fips
 
@@ -1327,7 +1327,7 @@ COPY --from=sources-downloader /sources/downloads/findutils.tar.xz /sources/
 RUN cd /sources && \
     tar -xf findutils.tar.xz && mv findutils-* findutils && \
     cd findutils && mkdir -p /findutils && ./configure ${COMMON_CONFIGURE_ARGS} --disable-nls --disable-dependency-tracking && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/findutils && \
-    make -s -j${JOBS} DESTDIR=/findutils install && make -s -j${JOBS} install
+    make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/findutils install && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## grep
 FROM stage1 AS grep
@@ -1620,7 +1620,7 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
-RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 
 # first pam build so we can build systemd against it
@@ -1643,7 +1643,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
-RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 
 
@@ -1763,7 +1763,7 @@ WORKDIR /sources/gzip
 RUN grep -q '^#include "gzip\.h"' gzip.c \
     && sed -i '/^#include "gzip\.h"/i #include <signal.h>' gzip.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking
-RUN make -j${JOBS}
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make install DESTDIR=/gzip
 
 
@@ -1789,7 +1789,7 @@ RUN tar -xf kmod.tar.gz && mv kmod-* kmod
 WORKDIR /sources/kmod
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dmanpages=false
-RUN DESTDIR=/kmod ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/kmod ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install && ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 
 ## autoconf
@@ -1891,8 +1891,8 @@ COPY --from=sources-downloader /sources/downloads/libelf.tar.gz /sources/
 WORKDIR /sources
 RUN tar -xf libelf.tar.gz && mv libelf-* libelf
 WORKDIR /sources/libelf
-RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf
-RUN make -j${JOBS} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} PREFIX=/usr DESTDIR=/libelf
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} PREFIX=/usr DESTDIR=/libelf install-headers install-shared
 
 
 ## argp-standalone — provides argp_parse for musl (required by elfutils configure)
@@ -1944,7 +1944,7 @@ COPY --from=sources-downloader /sources/downloads/musl-obstack.tar.gz /sources/
 RUN mkdir -p /sources && cd /sources && tar -xf musl-obstack.tar.gz && mv musl-obstack-* obstack && \
     cd obstack && ./bootstrap.sh && \
     ./configure ${COMMON_CONFIGURE_ARGS} --disable-dependency-tracking --prefix=/usr --localstatedir=/var --sysconfdir=/etc && \
-    make -j${JOBS} DESTDIR=/obstack install && make -j${JOBS} install
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/obstack install && make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install
 
 ## elfutils — provides libdw (DWARF library) and libelf needed by pahole/dwarves for BTF generation
 FROM fts AS elfutils
@@ -1970,15 +1970,15 @@ RUN ./configure ${COMMON_CONFIGURE_ARGS} \
     --disable-debuginfod \
     --disable-libdebuginfod \
     --disable-nls
-RUN make -j${JOBS} -C lib && \
-    make -j${JOBS} -C libelf && \
-    make -j${JOBS} -C libcpu && \
-    make -j${JOBS} -C libebl && \
-    make -j${JOBS} -C backends && \
-    make -j${JOBS} -C libdwelf && \
-    make -j${JOBS} -C libdwfl && \
-    make -j${JOBS} -C libdwfl_stacktrace && \
-    make -j${JOBS} -C libdw && \
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C lib && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libelf && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libcpu && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libebl && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C backends && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libdwelf && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libdwfl && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libdwfl_stacktrace && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C libdw && \
     make -C libelf install DESTDIR=/elfutils && \
     make -C backends install DESTDIR=/elfutils && \
     make -C libdw install DESTDIR=/elfutils && \
@@ -2067,7 +2067,7 @@ WORKDIR /sources
 RUN tar -xf libbpf.tar.gz && mv libbpf-* libbpf
 WORKDIR /sources/libbpf/src
 RUN mkdir -p /libbpf
-RUN make -j${JOBS} PREFIX=/usr LIBDIR=/usr/lib && \
+RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} PREFIX=/usr LIBDIR=/usr/lib && \
     make PREFIX=/usr LIBDIR=/usr/lib DESTDIR=/libbpf install && \
     make PREFIX=/usr LIBDIR=/usr/lib DESTDIR=/libbpf install_uapi_headers
 # Install into the build root too so pkg-config from the pahole stage finds it.
@@ -2097,7 +2097,7 @@ RUN cmake ../dwarves \
       -DLIBBPF_EMBEDDED=OFF \
       -D__LIB=lib \
       && \
-    make -j${JOBS} && \
+    make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && \
     make install DESTDIR=/pahole
 # Only pahole binary and its shared-library dependencies are needed at kernel build time.
 # Remove headers and static libs to keep the layer small.
@@ -2223,7 +2223,7 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} kernelrelease > /kernel/kernel-release ; make -s -j${JOBS} kernelversion > /kernel/kernel-version
+    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} kernelrelease > /kernel/kernel-release ; make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} kernelversion > /kernel/kernel-version
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
     elif [ ${ARCH} = "riscv64" ]; then \
@@ -2631,8 +2631,8 @@ RUN tar -xf pax-utils.tar.gz && mv pax-utils-* pax-utils
 WORKDIR /sources/pax-utils
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dtests=false -Duse_fuzzing=false
-RUN DESTDIR=/pax-utils ninja -j${JOBS} -C buildDir install
-RUN ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/pax-utils ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
+RUN ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 # Build URCU static as its only used by multipathd and never reused again, we can save space this way
 FROM rsync AS urcu
@@ -3325,7 +3325,7 @@ RUN mkdir -p /libucontext
 WORKDIR /sources
 RUN tar -xf libucontext.tar.gz && mv libucontext-* libucontext
 WORKDIR /sources/libucontext
-RUN make -s -j${JOBS} ARCH=${BUILD_ARCH}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} ARCH=${BUILD_ARCH}
 RUN make -s ARCH=${BUILD_ARCH} install DESTDIR=/libucontext
 
 ## systemd
@@ -3446,8 +3446,8 @@ RUN /usr/bin/meson setup buildDir \
       -D sbat-distro-url="hadron-linux.io" \
       -Dsbat-distro-summary="Hadron Linux" \
       -Dsbat-distro-version="${SBAT_DISTRO_VERSION}"
-RUN ninja -C buildDir
-RUN DESTDIR=/systemd ninja -C buildDir install
+RUN ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir
+RUN DESTDIR=/systemd ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 FROM rsync AS dracut
 ARG JOBS
@@ -3579,7 +3579,7 @@ RUN pip3 install meson ninja
 RUN tar -xf dbus.tar.xz && mv dbus-* dbus
 WORKDIR /sources/dbus
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
-RUN DESTDIR=/dbus ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/dbus ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 ## final build of pam with systemd support
 FROM python-build AS pam-systemd
@@ -3603,7 +3603,7 @@ RUN tar -xf pam.tar.xz && mv Linux-PAM-* linux-pam
 WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
-RUN DESTDIR=/pam ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/pam ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
 COPY files/shells /pam/etc/shells
@@ -3727,7 +3727,7 @@ WORKDIR /sources
 RUN tar -xf openscsi.tar.gz && mv open-iscsi-* openscsi
 WORKDIR /sources/openscsi
 RUN meson setup buildDir ${COMMON_MESON_FLAGS} --optimization 3 -D isns=disabled
-RUN DESTDIR=/openscsi ninja -j${JOBS} -C buildDir install && ninja -j${JOBS} -C buildDir install
+RUN DESTDIR=/openscsi ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install && ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 FROM rsync AS bc
 ARG JOBS
@@ -3748,8 +3748,8 @@ COPY --from=sources-downloader /sources/downloads/pcre2.tar.gz /sources/
 RUN tar -xf pcre2.tar.gz && mv pcre2-* pcre2
 WORKDIR /sources/pcre2
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --enable-utf --enable-unicode-properties --disable-dependency-tracking
-RUN make -s -j${JOBS}
-RUN make -s -j${JOBS} install DESTDIR=/pcre2
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/pcre2
 
 FROM python-build AS glib2
 ARG JOBS
@@ -3766,7 +3766,7 @@ RUN meson setup buildDir ${COMMON_MESON_FLAGS} -Dselinux=disabled -Dxattr=false 
     -Ddocumentation=false -Dtests=false -Dinstalled_tests=false -Dnls=disabled \
     -Dglib_debug=disabled -Dglib_assert=false -Dglib_checks=false -Dlibelf=disabled \
     -Dintrospection=disabled
-RUN DESTDIR=/glib2 ninja -C buildDir install
+RUN DESTDIR=/glib2 ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
 
 FROM automake AS libmspack
 ARG JOBS
@@ -3778,8 +3778,8 @@ RUN tar -xf mspack.tar.gz && mv libmspack-* mspack
 WORKDIR /sources/mspack/libmspack
 RUN autoreconf -i -W all -v
 RUN ./configure ${COMMON_CONFIGURE_ARGS}
-RUN make -s -j${JOBS}
-RUN make -s -j${JOBS} install DESTDIR=/libmspack
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/libmspack
 
 
 # On cloud images, build and ship open-vm-tools and qemu-guest-agent
@@ -3822,7 +3822,7 @@ RUN ./configure \
       --disable-install-blobs \
       --enable-fdt=disabled \
       --enable-guest-agent --disable-tcg
-RUN make -s -j${JOBS} qemu-ga
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} qemu-ga
 # Stage the binary + the upstream systemd unit into /output with the standard layout.
 RUN install -Dm755 build/qga/qemu-ga /output/usr/bin/qemu-ga
 RUN install -Dm644 contrib/systemd/qemu-guest-agent.service /output/usr/lib/systemd/system/qemu-guest-agent.service
@@ -3879,8 +3879,8 @@ RUN sed -i '/#define STR_OS_ARCH/a\#define STR_OS_HADRON              "Hadron"' 
 RUN sed -i '/{ "gentoo", *STR_OS_GENTOO, *HostinfoGenericSetShortName },/a\{ "hadron",              STR_OS_HADRON,             HostinfoGenericSetShortName },' lib/misc/hostinfoPosix.c
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --disable-glibc-check --disable-multimon --without-gtk4 --without-gtk3 --without-fuse --without-dnet \
     --without-xerces --without-icu --without-kernel-modules --without-pam --disable-werror --disable-containerinfo --without-x
-RUN make -s -j${JOBS}
-RUN make -s -j${JOBS} install DESTDIR=/output
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/output
 
 
 # riscv64 currently skips open-vm-tools; keep /output so downstream COPY works
