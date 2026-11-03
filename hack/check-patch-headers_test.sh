@@ -126,6 +126,42 @@ mkdir -p "$tmpdir/mail"
 } >"$tmpdir/mail/0002-mail-fields-and-body.patch"
 expect "mail fields followed by a reason pass" "$tmpdir/mail" 0 "0002-mail-fields-and-body.patch"
 
+# 5b. A commit with a subject and no body, as git format-patch writes it.
+#     The mbox `From <sha>` line, the `---` separator and the diffstat are
+#     mail framing, so this has no reason in it and must fail.
+mkdir -p "$tmpdir/fp-nobody"
+{
+	echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+	echo "From: Someone <someone@example.com>"
+	echo "Date: Tue, 3 Nov 2026 10:00:00 +0000"
+	echo "Subject: [PATCH] fix: subject only, no body"
+	echo
+	echo "---"
+	echo " src/getopt.c | 2 +-"
+	echo " 1 file changed, 1 insertion(+), 1 deletion(-)"
+	echo
+	diff_body
+} >"$tmpdir/fp-nobody/0001-subject-only.patch"
+expect "format-patch framing with no message body fails" "$tmpdir/fp-nobody" 1 "0001-subject-only.patch has no header"
+
+# 5c. The same framing around a real message body passes.
+mkdir -p "$tmpdir/fp-body"
+{
+	echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+	echo "From: Someone <someone@example.com>"
+	echo "Date: Tue, 3 Nov 2026 10:00:00 +0000"
+	echo "Subject: [PATCH] fix: getopt on gcc 15"
+	echo
+	echo "gcc 15 defaults to C23, where an empty parameter list means void."
+	echo
+	echo "---"
+	echo " src/getopt.c | 2 +-"
+	echo " 1 file changed, 1 insertion(+), 1 deletion(-)"
+	echo
+	diff_body
+} >"$tmpdir/fp-body/0001-with-body.patch"
+expect "format-patch framing around a message body passes" "$tmpdir/fp-body" 0 "0001-with-body.patch"
+
 # 6. One good patch does not excuse a bad one in the same directory.
 mkdir -p "$tmpdir/mixed"
 cp "$tmpdir/good/0001-with-header.patch" "$tmpdir/mixed/"

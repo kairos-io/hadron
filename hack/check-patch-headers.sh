@@ -47,6 +47,12 @@ diff_start='^(--- |[+][+][+] |[*][*][*] |diff |Index: |@@ )'
 # header is those fields has a title and no reason, which is not a header.
 meta_line='^[A-Za-z][A-Za-z-]*: '
 
+# What `git format-patch` adds around the message: the mbox `From <sha> ...`
+# line, the bare `---` that ends the message, the diffstat lines and the
+# `N files changed` summary. They are mail framing, not an explanation, so a
+# commit with a subject and no body must not pass because of them.
+format_patch_line='^(From [0-9a-f]+ |---$| [^ ].* [|] +[0-9]+|[ ]*[0-9]+ files? changed)'
+
 failures=0
 checked=0
 
@@ -76,9 +82,11 @@ for patch in $patches; do
 	# Everything above the first diff line.
 	header=$(awk -v start="$diff_start" '$0 ~ start { exit } { print }' "$patch")
 
-	# At least one line that is neither blank nor a mail header field.
+	# At least one line that is neither blank, a mail header field nor
+	# format-patch framing.
 	prose=$(printf '%s\n' "$header" |
-		awk -v meta="$meta_line" 'NF && $0 !~ meta { print; exit }')
+		awk -v meta="$meta_line" -v fp="$format_patch_line" \
+			'NF && $0 !~ meta && $0 !~ fp { print; exit }')
 
 	if [ -z "$prose" ]; then
 		fail "$name has no header. Say what breaks without this patch, why it breaks on this target and not on the others, where the fix went upstream, and when this file can be deleted. patches/0001-audit-syslog-plugin-include-unistd.patch is the model."
