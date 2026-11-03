@@ -129,12 +129,22 @@ sort -t"$TAB" -k1,1 -k2,2 "$ROWS_TMP" -o "$ROWS_TMP"
 
 # --- Optional: restrict to components actually shipped in given merge stage(s) ---
 # A component "ships" in a stage if that stage has a `COPY --from=<build-stage>`
-# whose name maps to it. Build-stage names are normalized the same way as ARG
-# names (lowercase, `_`->`-`), with a few suffix rules for two-pass / variant
-# stages (`pam-systemd`->`pam`, `grub-efi`->`grub`, `kernel-modules`->`kernel`).
+# whose name resolves to one of the rows above, under the row's own name.
+# Two-pass / variant suffixes are stripped first (`pam-systemd`->`pam`,
+# `grub-efi`->`grub`, `ncurses-runtime`->`ncurses`). Each candidate is then
+# tried, in order, as:
+#   1. a row name as-is (`libseccomp`, `libnetfilter_conntrack` from sources.yaml)
+#   2. the same with `_`->`-` (rows from the naïve ARG mapping)
+#   3. the row of ARG <CANDIDATE>_VERSION, so a stage named after the ARG
+#      reaches the sources.yaml package name (`kernel`->KERNEL_VERSION->`linux`,
+#      `jsonc`->JSONC_VERSION->`json-c`)
+#   4. a legacy alias, for a Dockerfile without sources.yaml where rows carry
+#      the naïve ARG names (`libseccomp`->`seccomp`, `xz`->`xzutils`,
+#      `openscsi`->`open-scsi`, `kernel-modules`->`kernel`)
 if [ -n "$SHIPPED" ]; then
   ALLOWED_TMP="$(mktemp)"
-  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP" "$ALLOWED_TMP"' EXIT
+  REFS_TMP="$(mktemp)"
+  trap 'rm -f "$GROUPS_TMP" "$ROWS_TMP" "$ARG2NAME_TMP" "$ALLOWED_TMP" "$REFS_TMP"' EXIT
   for st in $SHIPPED; do
     printf '%s\n' "$DOCKERFILE_CONTENT" | awk -v st="$st" '
       $0 ~ "^FROM .* AS "st"$" { inb=1; next }
@@ -142,11 +152,38 @@ if [ -n "$SHIPPED" ]; then
       inb && /^[ \t]*COPY --from=/ {
         line=$0; sub(/.*--from=/, "", line); sub(/[ \t].*/, "", line); print line
       }'
-  done \
-    | tr 'A-Z_' 'a-z-' \
-    | sed -E 's/-systemd$//; s/-final$//; s/-build$//; s/-efi$//; s/-bios$//; s/-stage0$//; s/^kernel-modules$/kernel/' \
-    | sed -E 's/^libseccomp$/seccomp/; s/^xz$/xzutils/; s/^openscsi$/open-scsi/' \
-    | sort -u > "$ALLOWED_TMP"
+  done | sort -u > "$REFS_TMP"
+
+  awk -F'\t' -v arg2name="$ARG2NAME_TMP" -v rows="$ROWS_TMP" '
+    function strip(s) {
+      s = tolower(s)
+      sub(/-systemd$/, "", s); sub(/-final$/, "", s); sub(/-build$/, "", s)
+      sub(/-efi$/, "", s); sub(/-bios$/, "", s); sub(/-stage0$/, "", s)
+      sub(/-runtime$/, "", s)
+      return s
+    }
+    function lookup(c,   d, arg) {
+      if (c in have) return c
+      d = c; gsub(/_/, "-", d)
+      if (d in have) return d
+      arg = toupper(c); gsub(/-/, "_", arg); arg = arg "_VERSION"
+      if ((arg in a2n) && (a2n[arg] in have)) return a2n[arg]
+      return ""
+    }
+    BEGIN {
+      while ((getline l < arg2name) > 0) { split(l, f, "\t"); a2n[f[1]] = f[2] }
+      while ((getline l < rows) > 0) { split(l, f, "\t"); have[f[2]] = 1 }
+      legacy["libseccomp"] = "seccomp"; legacy["xz"] = "xzutils"
+      legacy["openscsi"] = "open-scsi"; legacy["kernel-modules"] = "kernel"
+    }
+    {
+      c = strip($0)
+      n = lookup(c)
+      if (n == "" && (c in legacy)) n = lookup(legacy[c])
+      if (n != "") print n
+      else print c > "/dev/stderr"
+    }
+  ' "$REFS_TMP" 2>"$ALLOWED_TMP.miss" | sort -u > "$ALLOWED_TMP"
 
   # Keep only rows whose component name is in the allowed (shipped) set.
   FILTERED_TMP="$(mktemp)"
@@ -154,10 +191,10 @@ if [ -n "$SHIPPED" ]; then
   mv "$FILTERED_TMP" "$ROWS_TMP"
 
   # Log shipped names that had no matching *_VERSION ARG (mapping gaps / inter-stage refs).
-  awk -F'\t' 'NR==FNR { have[$2]=1; next } !($1 in have) { print $1 }' "$ROWS_TMP" "$ALLOWED_TMP" \
-    | while IFS= read -r miss; do
-        echo "note: shipped stage ref '$miss' has no *_VERSION ARG (skipped)" >&2
-      done
+  sort -u "$ALLOWED_TMP.miss" | while IFS= read -r miss; do
+    echo "note: shipped stage ref '$miss' has no *_VERSION ARG (skipped)" >&2
+  done
+  rm -f "$ALLOWED_TMP.miss"
 fi
 
 # --- Version overrides: "component=ARG_NAME" pairs ---
