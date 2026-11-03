@@ -89,6 +89,70 @@ grep -q '"curl": "8.20.0"'   "$OJSON" || fail "--override disturbed unrelated co
 HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$WORK" "$GEN" --shipped "stage2-merge" --format flat --name noovr --out-dir "$WORK"
 grep -q '"openssl": "3.6.3"' "$WORK/noovr.json" || fail "default openssl version should be 3.6.3"
 
+# --- with sources.yaml, rows take the package name (linux, json-c, libseccomp,
+#     xz, openscsi, libnetfilter_conntrack, ncurses). A shipped stage must keep
+#     its row under that same name, whatever the stage itself is called. ---
+SRC="$WORK/with-sources"
+mkdir -p "$SRC/updatecli.d"
+cat > "$SRC/Dockerfile" <<'EOF'
+ARG CURL_VERSION=8.20.0
+ARG KERNEL_VERSION=7.1.1
+ARG JSONC_VERSION=0.19
+ARG SECCOMP_VERSION=2.6.0
+ARG XZUTILS_VERSION=5.8.3
+ARG OPEN_SCSI_VERSION=2.1.11
+ARG LIBNETFILTER_CONNTRACK_VERSION=1.1.1
+ARG NCURSES_VERSION=6.6
+ARG PAM_VERSION=1.7.0
+ARG BASH_VERSION=5.3
+
+FROM scratch AS full-image-merge-base
+COPY --from=curl /curl /curl
+COPY --from=kernel /kernel/ /skeleton/boot/
+COPY --from=jsonc /jsonc /jsonc
+COPY --from=libseccomp /libseccomp /libseccomp
+COPY --from=xz /xz /xz
+COPY --from=openscsi /openscsi /openscsi
+COPY --from=libnetfilter_conntrack /lnc /lnc
+COPY --from=ncurses-runtime /usr/lib/ /usr/lib/
+COPY --from=pam-systemd /pam /pam
+COPY --from=bash /bash /bash
+EOF
+cat > "$SRC/sources.yaml" <<'EOF'
+packages:
+  curl:
+    version_arg: CURL_VERSION
+  json-c:
+    version_arg: JSONC_VERSION
+  libnetfilter_conntrack:
+    version_arg: LIBNETFILTER_CONNTRACK_VERSION
+  libseccomp:
+    version_arg: SECCOMP_VERSION
+  linux:
+    version_arg: KERNEL_VERSION
+  ncurses:
+    version_arg: NCURSES_VERSION
+  openscsi:
+    version_arg: OPEN_SCSI_VERSION
+  pam:
+    version_arg: PAM_VERSION
+  xz:
+    version_arg: XZUTILS_VERSION
+EOF
+
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$SRC" "$GEN" --format flat --name all --out-dir "$SRC"
+HADRON_MIN_VERSION_ARGS=1 HADRON_ROOT="$SRC" "$GEN" --shipped "full-image-merge-base" --format flat \
+  --name shipped --out-dir "$SRC"
+
+for row in '"curl": "8.20.0"' '"linux": "7.1.1"' '"json-c": "0.19"' '"libseccomp": "2.6.0"' \
+           '"xz": "5.8.3"' '"openscsi": "2.1.11"' '"libnetfilter_conntrack": "1.1.1"' \
+           '"ncurses": "6.6"' '"pam": "1.7.0"' '"bash": "5.3"'; do
+  grep -qF "$row" "$SRC/all.json"     || fail "unfiltered manifest missing $row"
+  grep -qF "$row" "$SRC/shipped.json" || fail "shipped manifest dropped $row (named differently from the unfiltered one)"
+done
+cmp -s "$SRC/all.json" "$SRC/shipped.json" \
+  || fail "shipped manifest differs from unfiltered one although every component ships"
+
 # --- flat JSON is a valid, flat object if python3 is available ---
 if command -v python3 >/dev/null 2>&1; then
   python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert all(isinstance(v,str) for v in d.values())' "$FJSON" \
