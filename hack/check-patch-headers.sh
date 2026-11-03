@@ -48,10 +48,13 @@ diff_start='^(--- |[+][+][+] |[*][*][*] |diff |Index: |@@ )'
 meta_line='^[A-Za-z][A-Za-z-]*: '
 
 # What `git format-patch` adds around the message: the mbox `From <sha> ...`
-# line, the bare `---` that ends the message, the diffstat lines and the
-# `N files changed` summary. They are mail framing, not an explanation, so a
-# commit with a subject and no body must not pass because of them.
-format_patch_line='^(From [0-9a-f]+ |---$| [^ ].* [|] +[0-9]+|[ ]*[0-9]+ files? changed)'
+# line, the bare `---` that ends the message, the diffstat lines (a binary
+# file shows `Bin X -> Y bytes` where a text file shows a count), the
+# `N files changed` summary and the summary lines that follow it for a created,
+# deleted, renamed, copied or mode-changed file. They are mail framing, not an
+# explanation, so a commit with a subject and no body must not pass because of
+# them.
+format_patch_line='^(From [0-9a-f]+ |---$| [^ ].* [|] +([0-9]+|Bin )|[ ]*[0-9]+ files? changed| (create|delete) mode [0-7]+ | mode change [0-7]+ => | (rename|copy) .*[(][0-9]+%[)])'
 
 failures=0
 checked=0
@@ -82,11 +85,19 @@ for patch in $patches; do
 	# Everything above the first diff line.
 	header=$(awk -v start="$diff_start" '$0 ~ start { exit } { print }' "$patch")
 
-	# At least one line that is neither blank, a mail header field nor
-	# format-patch framing.
+	# At least one line that is neither blank, a mail header field, a folded
+	# continuation of one nor format-patch framing. format-patch folds a
+	# subject longer than about 75 characters onto a following line that
+	# starts with whitespace. That line belongs to the field above it, and
+	# only counts as a continuation while the mail header block lasts, which
+	# is up to the first blank line.
 	prose=$(printf '%s\n' "$header" |
-		awk -v meta="$meta_line" -v fp="$format_patch_line" \
-			'NF && $0 !~ meta && $0 !~ fp { print; exit }')
+		awk -v meta="$meta_line" -v fp="$format_patch_line" '
+			NR == 1 { inhdr = 1 }
+			!NF { inhdr = 0 }
+			inhdr && /^[ \t]/ && prevmeta { next }
+			{ prevmeta = ($0 ~ meta) || (prevmeta && inhdr && /^[ \t]/) }
+			NF && $0 !~ meta && $0 !~ fp { print; exit }')
 
 	if [ -z "$prose" ]; then
 		fail "$name has no header. Say what breaks without this patch, why it breaks on this target and not on the others, where the fix went upstream, and when this file can be deleted. patches/0001-audit-syslog-plugin-include-unistd.patch is the model."
