@@ -38,7 +38,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://git.savannah.gnu.org/git/grub.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^grub-[0-9]+\.[0-9]+$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: grub-
     changelog:
@@ -90,7 +90,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://git.kernel.org/pub/scm/linux/kernel/git/wens/wireless-regdb.git \
         | awk -F/ '{print $NF}' | grep -E '^master-[0-9]{4}-[0-9]{2}-[0-9]{2}$' \
-        | sed -e 's/^master-//' -e 's/-/./g' | sort -V | tail -n 1
+        | sed -e 's/^master-//' -e 's/-/./g' | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://git.kernel.org/pub/scm/linux/kernel/git/wens/wireless-regdb.git/log/"
 
@@ -114,7 +114,7 @@ sources:
       command: |
         curl -fsSL --retry 3 https://unifoundry.com/pub/unifont/ \
         | grep -oE 'unifont-[0-9]+\.[0-9]+\.[0-9]+/' \
-        | sed -e 's/^unifont-//' -e 's#/$##' | sort -V | tail -n 1
+        | sed -e 's/^unifont-//' -e 's#/$##' | sort -V | tail -n 1 | grep .
     changelog:
       url: "https://unifoundry.com/unifont/index.html"
 

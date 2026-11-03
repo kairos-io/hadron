@@ -194,6 +194,10 @@ test-image-size: ## Verify the size report measures pulled and loaded images the
 test-copy-context: ## Verify every Dockerfile COPY source survives .dockerignore
 	@./tests/dockerfile-copy-context.sh
 
+.PHONY: test-updatecli-sources
+test-updatecli-sources: ## Verify every updatecli shell source fails when it finds no version
+	@./tests/updatecli-empty-source.sh
+
 .PHONY: test-patch-headers
 test-patch-headers: ## Verify every patch under patches/ carries a header
 	@sh ./hack/check-patch-headers_test.sh

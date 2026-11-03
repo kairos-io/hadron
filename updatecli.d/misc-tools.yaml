@@ -79,7 +79,7 @@ sources:
       command: |
         git ls-remote --refs --tags git://sourceware.org/git/binutils-gdb.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^gdb-[0-9]+\.[0-9]+(\.[0-9]+)?-release$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: gdb-
       - trimsuffix: -release
@@ -118,7 +118,7 @@ sources:
       command: |
         git ls-remote --refs --tags https://https.git.savannah.gnu.org/git/patch.git | grep -v '\^{}' \
         | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?$' \
-        | sort -V | tail -n 1
+        | sort -V | tail -n 1 | grep .
     transformers:
       - trimprefix: v
       - sort:
