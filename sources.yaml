@@ -386,7 +386,7 @@ packages:
 
   kmod:
     version_arg: KMOD_VERSION
-    sha256: d60a79fb12a85feab75674ce5b86b2c8bae1714f775f481eae926bd2657b2ffe
+    sha256: 98956a3ebc368d301aaac6a49b37bbb07f355ce5c5d369599a12da55015f6ce6
     urls:
       - https://www.kernel.org/pub/linux/utils/kernel/kmod/kmod-${version}.tar.gz
     filename: kmod.tar.gz
@@ -558,7 +558,7 @@ packages:
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: 87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953
+    sha256: fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
