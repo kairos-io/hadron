@@ -1575,7 +1575,9 @@ jobs:
       # is an ephemeral overlay, not persistent, so a file written at runtime
       # does not survive a reboot and is not visible to another boot mode. The
       # UKI path uses --overlay-iso for this; the BIOS path has no equivalent,
-      # so the fixture goes in as a layer here.
+      # so the fixture goes in as a layer here. It is the verity-only image
+      # from tests/assets/sysext-recovery, because a GRUB boot skips a signed
+      # extension (kairos-io/kairos#5004).
       - name: Add the recovery extension fixture
         run: |
           # The repository .dockerignore excludes tests/, so the fixture cannot
@@ -1583,7 +1585,7 @@ jobs:
           # staged into its own small context instead. Relaxing .dockerignore
           # would pull test files into every hadron image build.
           mkdir -p build/sysext-ctx
-          cp tests/assets/sysext/work.sysext.raw build/sysext-ctx/
+          cp tests/assets/sysext-recovery/work.sysext.raw build/sysext-ctx/
           cat > build/sysext-ctx/Dockerfile <<'DOCKERFILE'
           ARG SOURCE_IMAGE
           FROM ${SOURCE_IMAGE}
