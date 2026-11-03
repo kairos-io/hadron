@@ -229,6 +229,46 @@ def fetch_gitlab_release(bump)
   end
 end
 
+FENCE = /\A {0,3}(`{3,}|~{3,})/
+
+# Wrap @mentions and bare issue references (#123, GH-123) in backticks so the
+# excerpt neither notifies upstream users nor links to this repository's own
+# issues. Text already inside inline code spans is left alone.
+def defang_line(line)
+  line.split(/(`[^`\n]*`)/, -1).each_with_index.map do |part, index|
+    next part if index.odd?
+
+    part.gsub(%r{(?<![\w`/])@[A-Za-z0-9][A-Za-z0-9-]*(?:/[A-Za-z0-9][\w.-]*)?}) { "`#{Regexp.last_match(0)}`" }
+        .gsub(/(?<![\w&`\/])(?:#|GH-)\d+\b/i) { "`#{Regexp.last_match(0)}`" }
+  end.join
+end
+
+# Defang every line outside fenced code blocks and close a fence the excerpt
+# leaves open, so the closing </details> is not swallowed into a code block.
+def sanitize_notes(text)
+  open_fence = nil
+  lines = text.lines.map do |line|
+    marker = line[FENCE, 1]
+    if open_fence.nil?
+      if marker
+        open_fence = marker
+        line
+      else
+        defang_line(line)
+      end
+    else
+      if marker && marker[0] == open_fence[0] && marker.length >= open_fence.length && line.strip == marker
+        open_fence = nil
+      end
+      line
+    end
+  end
+
+  result = lines.join
+  result << "\n#{open_fence}" if open_fence
+  result
+end
+
 def format_notes(notes, limit: 1200, max_lines: 25)
   text = notes.to_s.gsub("\r\n", "\n").strip
   return nil if text.empty?
@@ -241,7 +281,7 @@ def format_notes(notes, limit: 1200, max_lines: 25)
     truncated = true
   end
 
-  [excerpt, truncated]
+  [sanitize_notes(excerpt), truncated]
 end
 
 # Render the release notes excerpt block (folded <details>) or a short status
@@ -326,6 +366,8 @@ def changelog_lines(bump, token)
   lines << "- Notes: unavailable for this source type\n"
   lines
 end
+
+return unless __FILE__ == $PROGRAM_NAME
 
 manifest = YAML.safe_load(File.read(ENV.fetch("UPDATECLI_MANIFEST")), aliases: false)
 targets = manifest.fetch("targets", {})
