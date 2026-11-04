@@ -1190,7 +1190,44 @@ jobs:
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
+      # BuildKit sometimes loses its own content store while it imports
+      # the large registry cache layers in parallel ("failed commit on ref",
+      # "UtimesNanoAt ... no such file or directory"). That is builder
+      # state, not the build, so try once more on the same builder.
       - name: Build and push
+        id: build
+        continue-on-error: true
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          target: default
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            BOOTLOADER=grub
+            KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
+      - name: Build and push (retry)
+        if: steps.build.outcome == 'failure'
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
