@@ -214,6 +214,10 @@ on where the source is hosted:
 - When none of the above apply, the body falls back to the upstream source URL
   and notes that release notes are unavailable for that source type.
 
+Release-notes excerpts are upstream text, so `@user` mentions and bare `#123` /
+`GH-123` references outside code are wrapped in backticks (no pings, no links to
+this repository's issues), and a code fence left open by the cut is closed.
+
 Because GitHub and GitLab coordinates are derived directly from `spec.url`, any
 new `gittag` source added on those forges gets changelog links for free with no
 extra configuration.

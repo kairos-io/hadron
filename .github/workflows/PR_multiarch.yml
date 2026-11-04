@@ -99,6 +99,8 @@ jobs:
         run: make test-source-checksums
       - name: Verify the autobumper's pull request decision
         run: make test-bump-pr-action
+      - name: Verify the autobumper's release-notes excerpt
+        run: make test-autobumper-changelog
       - name: Verify the release notes keep one components section
         run: make test-release-notes
       - name: Verify the bash patch level source
