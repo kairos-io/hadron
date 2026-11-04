@@ -186,6 +186,10 @@ test-bump-pr-action: ## Verify what the autobumper does with an existing bump pu
 test-autobumper-changelog: ## Verify the release-notes excerpt in bump pull requests pings no one
 	@ruby ./tests/autobumper-changelog_test.rb
 
+.PHONY: test-release-notes
+test-release-notes: ## Verify a re-run of the release-notes job keeps one components section
+	@sh ./tests/release-notes-body_test.sh
+
 .PHONY: test-bash-patch-level
 test-bash-patch-level: ## Verify the autobumper's bash patch level source
 	@sh ./tests/bash-patch-level_test.sh

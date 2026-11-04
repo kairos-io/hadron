@@ -3,7 +3,7 @@ LOG_OK_LOGINS		yes
 SYSLOG_SU_ENAB		yes
 SYSLOG_SG_ENAB		yes
 SU_NAME		su
-MAIL_DIR	/var/spool/mail
+MAIL_DIR	/var/mail
 HUSHLOGIN_FILE	.hushlogin
 ENV_SUPATH	PATH=/sbin:/bin:/usr/sbin:/usr/bin
 ENV_PATH	PATH=/bin:/usr/bin

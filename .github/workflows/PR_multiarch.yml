@@ -101,6 +101,8 @@ jobs:
         run: make test-bump-pr-action
       - name: Verify the autobumper's release-notes excerpt
         run: make test-autobumper-changelog
+      - name: Verify the release notes keep one components section
+        run: make test-release-notes
       - name: Verify the bash patch level source
         run: make test-bash-patch-level
       - name: Verify every carried patch has a header

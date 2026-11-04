@@ -126,6 +126,119 @@ mkdir -p "$tmpdir/mail"
 } >"$tmpdir/mail/0002-mail-fields-and-body.patch"
 expect "mail fields followed by a reason pass" "$tmpdir/mail" 0 "0002-mail-fields-and-body.patch"
 
+# 5b. A commit with a subject and no body, as git format-patch writes it.
+#     The mbox `From <sha>` line, the `---` separator and the diffstat are
+#     mail framing, so this has no reason in it and must fail.
+mkdir -p "$tmpdir/fp-nobody"
+{
+	echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+	echo "From: Someone <someone@example.com>"
+	echo "Date: Tue, 3 Nov 2026 10:00:00 +0000"
+	echo "Subject: [PATCH] fix: subject only, no body"
+	echo
+	echo "---"
+	echo " src/getopt.c | 2 +-"
+	echo " 1 file changed, 1 insertion(+), 1 deletion(-)"
+	echo
+	diff_body
+} >"$tmpdir/fp-nobody/0001-subject-only.patch"
+expect "format-patch framing with no message body fails" "$tmpdir/fp-nobody" 1 "0001-subject-only.patch has no header"
+
+# 5c. The same framing around a real message body passes.
+mkdir -p "$tmpdir/fp-body"
+{
+	echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+	echo "From: Someone <someone@example.com>"
+	echo "Date: Tue, 3 Nov 2026 10:00:00 +0000"
+	echo "Subject: [PATCH] fix: getopt on gcc 15"
+	echo
+	echo "gcc 15 defaults to C23, where an empty parameter list means void."
+	echo
+	echo "---"
+	echo " src/getopt.c | 2 +-"
+	echo " 1 file changed, 1 insertion(+), 1 deletion(-)"
+	echo
+	diff_body
+} >"$tmpdir/fp-body/0001-with-body.patch"
+expect "format-patch framing around a message body passes" "$tmpdir/fp-body" 0 "0001-with-body.patch"
+
+# 5d. More shapes of format-patch output with no message body. Each one wraps
+#     the same diff in the framing git writes for that kind of commit, so each
+#     must fail. `fp_nobody <name> <subject-lines> <stat-lines>` writes one.
+#     The stat text is the verbatim summary git prints for the change.
+fp_nobody() {
+	name=$1
+	subject=$2
+	stat=$3
+	mkdir -p "$tmpdir/$name"
+	{
+		echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+		echo "From: Someone <someone@example.com>"
+		echo "Date: Tue, 3 Nov 2026 10:00:00 +0000"
+		printf '%s\n' "$subject"
+		echo
+		echo "---"
+		printf '%s\n' "$stat"
+		echo
+		diff_body
+	} >"$tmpdir/$name/0001-$name.patch"
+	expect "format-patch no body, $name, fails" "$tmpdir/$name" 1 "0001-$name.patch has no header"
+}
+
+# A subject over about 75 characters is folded onto a line that starts with a
+# space. That line is part of the Subject field.
+fp_nobody folded-subject "Subject: [PATCH] fix: a subject long enough that git folds it onto the
+ next line of the header" " src/getopt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)"
+
+# Two folded lines.
+fp_nobody folded-twice "Subject: [PATCH] fix: a subject long enough that git folds it onto the
+ next line of the header and then goes on for long enough to fold a second
+ time as well" " src/getopt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)"
+
+fp_nobody new-file "Subject: [PATCH] add a file" " src/new.c | 3 +++
+ 1 file changed, 3 insertions(+)
+ create mode 100644 src/new.c"
+
+fp_nobody deleted-file "Subject: [PATCH] drop a file" " src/old.c | 3 ---
+ 1 file changed, 3 deletions(-)
+ delete mode 100644 src/old.c"
+
+fp_nobody mode-change "Subject: [PATCH] make it executable" " run.sh | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ mode change 100644 => 100755 run.sh"
+
+fp_nobody rename "Subject: [PATCH] move a file" " src/{a.c => b.c} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename src/{a.c => b.c} (100%)"
+
+fp_nobody copy "Subject: [PATCH] copy a file" " src/{a.c => b.c} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ copy src/{a.c => b.c} (100%)"
+
+fp_nobody binary "Subject: [PATCH] replace an image" " logo.png | Bin 120 -> 340 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)"
+
+# A folded subject followed by a real body still passes: the body is prose.
+mkdir -p "$tmpdir/fp-folded-body"
+{
+	echo "From 0123456789abcdef0123456789abcdef01234567 Mon Sep 17 00:00:00 2001"
+	echo "From: Someone <someone@example.com>"
+	echo "Subject: [PATCH] fix: a subject long enough that git folds it onto the"
+	echo " next line of the header"
+	echo
+	echo "gcc 15 defaults to C23, where an empty parameter list means void."
+	echo
+	echo "---"
+	echo " src/new.c | 3 +++"
+	echo " 1 file changed, 3 insertions(+)"
+	echo " create mode 100644 src/new.c"
+	echo
+	diff_body
+} >"$tmpdir/fp-folded-body/0001-folded-body.patch"
+expect "a folded subject followed by a message body passes" "$tmpdir/fp-folded-body" 0 "0001-folded-body.patch"
+
 # 6. One good patch does not excuse a bad one in the same directory.
 mkdir -p "$tmpdir/mixed"
 cp "$tmpdir/good/0001-with-header.patch" "$tmpdir/mixed/"
