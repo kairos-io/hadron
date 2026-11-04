@@ -490,6 +490,26 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	// builds with `--disable-legacy-actions --without-libcap-ng
 	// --without-io_uring --without-apparmor --without-golang
 	// --without-python3` and installs to /sbin + /etc + /usr/lib.
+	// Desktops ask org.freedesktop.locale1 for the system language and
+	// keyboard layout (GNOME and COSMIC settings, their first-run setup), and
+	// `localectl` is how a user changes them.
+	Describe("locale daemon", Label("localed"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		It("ships systemd-localed, its D-Bus service and localectl", func() {
+			for _, path := range []string{
+				"/usr/lib/systemd/systemd-localed",
+				"/usr/lib/systemd/system/systemd-localed.service",
+				"/usr/share/dbus-1/system-services/org.freedesktop.locale1.service",
+			} {
+				out, code := shInImage("test -e " + path)
+				Expect(code).To(Equal(0), "%s missing from image: %s", path, out)
+			}
+			out, code := shInImage("command -v localectl")
+			Expect(code).To(Equal(0), "localectl missing from image: %s", out)
+		})
+	})
+
 	Describe("audit userspace", Label("audit"), func() {
 		BeforeEach(skipUnlessFullImage)
 

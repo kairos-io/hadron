@@ -3406,7 +3406,6 @@ RUN /usr/bin/meson setup buildDir \
       -D rpmmacrosdir=no      \
       -D gshadow=false        \
       -D idn=false            \
-      -D localed=false        \
       -D nss-myhostname=false  \
       -D nss-systemd=false     \
       -D userdb=false         \
@@ -3434,7 +3433,6 @@ RUN /usr/bin/meson setup buildDir \
       -D portabled=false \
       -D storagetm=false \
       -D nsresourced=false \
-      -D localed=false \
       -D pstore=false \
       -D sysupdated=disabled \
       -D importd=false \
