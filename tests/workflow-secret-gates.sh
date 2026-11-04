@@ -27,6 +27,7 @@ workflows=.github/workflows
 
 head_check="github.event.pull_request.head.repo.full_name == github.repository"
 bot_check="github.actor != 'dependabot[bot]'"
+env_gate="env.PR_CACHE_WRITE == 'true'"
 
 failures=0
 
@@ -48,41 +49,138 @@ flatten() {
 	tr '\n\t' '  ' <"$1" | tr -s ' '
 }
 
-# Write one `name|needs|disabled|reads_credential|schedule_only` record per
-# job. Job keys are the 2-space indented mapping keys under the top level
-# `jobs:`, and everything indented further belongs to the job above it.
+# Write one `name|needs|disabled|reads_credential|schedule_only|gate|where`
+# record per job. Job keys are the 2-space indented mapping keys under the top
+# level `jobs:`, and everything indented further belongs to the job above it.
 #
 # `schedule_only` is deliberately a single literal rather than an expression
 # evaluator: the only way this tree says "not on a pull request" is
 # `github.event_name == 'schedule'`. Anything subtler is not recognised, so a
 # job gets held to the rule rather than waved through, which is the safe
 # direction to be wrong in.
+#
+# `gate` is the weakest guard in front of any credential the job reads, and
+# `where` names the step it was found in (or `job` for a credential outside
+# any step). A credential is guarded by the job `if:` or by the `if:` of the
+# step that reads it, whichever is stronger:
+#
+#   inline  the `if:` carries both $head_check and $bot_check itself
+#   env     the `if:` is `env.PR_CACHE_WRITE == 'true'`, so it is only as good
+#           as the workflow level PR_CACHE_WRITE, which is checked on its own
+#   nobot   the `if:` checks the head repository but not the actor
+#   none    nothing in front of the credential at all
+#
+# Every job is judged on its own `if:` lines rather than on the workflow text
+# as a whole, so one remaining gate cannot vouch for a login that lost its own.
+# An `if: >-` folded over several lines is joined back into one before it is
+# matched.
 job_records() {
-	awk '
+	awk -v head="$head_check" -v bot="$bot_check" -v envgate="$env_gate" '
+		function indent(s) {
+			match(s, /^ */)
+			return RLENGTH
+		}
+		function kind(g) {
+			gsub(/[[:space:]]+/, " ", g)
+			if (index(g, head) && index(g, bot)) return 0
+			if (index(g, envgate)) return 1
+			if (index(g, head)) return 2
+			return 3
+		}
+		function close_step() {
+			if (in_step && step_cred) {
+				n++
+				cred_kind[n] = kind(step_if)
+				cred_where[n] = step_name == "" ? "unnamed step" : step_name
+			}
+			in_step = 0; step_cred = 0; step_if = ""; step_name = ""
+		}
+		function close_job(   jk, k, worst, where, i) {
+			close_step()
+			if (job == "") return
+			jk = kind(job_if)
+			worst = 0; where = ""
+			if (job_cred) {
+				worst = jk; where = "job"
+			}
+			for (i = 1; i <= n; i++) {
+				k = cred_kind[i] < jk ? cred_kind[i] : jk
+				if (where == "" || k > worst) {
+					worst = k; where = cred_where[i]
+				}
+			}
+			split("inline env nobot none", names, " ")
+			print job "|" needs "|" disabled "|" cred "|" sched "|" names[worst + 1] "|" where
+		}
+		/^[[:space:]]*$/ { next }
 		/^jobs:[[:space:]]*$/ { in_jobs = 1; next }
-		/^[^[:space:]#]/      { in_jobs = 0 }
+		/^[^[:space:]#]/      { close_job(); job = ""; in_jobs = 0 }
 		in_jobs && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ {
-			if (job != "") print job "|" needs "|" disabled "|" cred "|" sched
+			close_job()
 			job = $1; sub(/:$/, "", job)
 			needs = ""; disabled = 0; cred = 0; sched = 0
+			job_if = ""; job_cred = 0; n = 0; in_steps = 0; cap = ""
 			next
 		}
 		in_jobs && job != "" {
-			if ($0 ~ /^    if:[[:space:]]*\$\{\{[[:space:]]*false[[:space:]]*\}\}[[:space:]]*$/)
+			line = $0
+			if (cap != "" && indent(line) > cap_indent) {
+				if (cap == "job") job_if = job_if " " line
+				else step_if = step_if " " line
+				next
+			}
+			cap = ""
+
+			if (line ~ /^    [^[:space:]#]/) {
+				close_step()
+				in_steps = (line ~ /^    steps:/)
+			}
+			if (in_steps && line ~ /^      - /) {
+				close_step()
+				in_step = 1
+				sub(/^      - /, "        ", line)
+			}
+
+			if (line ~ /^    if:[[:space:]]*\$\{\{[[:space:]]*false[[:space:]]*\}\}[[:space:]]*$/)
 				disabled = 1
-			if ($0 ~ /QUAY_IO_(USERNAME|PASSWORD)/)
+			if (line ~ /QUAY_IO_(USERNAME|PASSWORD)/) {
 				cred = 1
-			if ($0 ~ /^    if:.*github\.event_name == .schedule./)
+				if (in_step) step_cred = 1
+				else job_cred = 1
+			}
+			if (line ~ /^    if:.*github\.event_name == .schedule./)
 				sched = 1
-			if ($0 ~ /^    needs:/) {
-				line = $0
+			if (line ~ /^    if:/) {
+				job_if = line; cap = "job"; cap_indent = 4
+			}
+			if (in_step && line ~ /^        if:/) {
+				step_if = line; cap = "step"; cap_indent = 8
+			}
+			if (in_step && line ~ /^        name:/) {
+				step_name = line
+				sub(/^        name:[[:space:]]*/, "", step_name)
+				gsub(/\|/, "/", step_name)
+			}
+			if (line ~ /^    needs:/) {
 				sub(/^    needs:[[:space:]]*/, "", line)
 				gsub(/[][,]/, " ", line)
 				needs = needs " " line
 			}
 		}
-		END { if (job != "") print job "|" needs "|" disabled "|" cred "|" sched }
+		END { close_job() }
 	' "$1" >"$2"
+}
+
+# The workflow level `PR_CACHE_WRITE:` entry under the top level `env:`, folded
+# to one line, or nothing when the workflow does not define it.
+pr_cache_write_env() {
+	awk '
+		/^env:[[:space:]]*$/ { in_env = 1; next }
+		/^[^[:space:]#]/     { in_env = 0; grab = 0 }
+		in_env && grab && /^   / { printf " %s", $0; next }
+		{ grab = 0 }
+		in_env && /^  PR_CACHE_WRITE:/ { printf "%s", $0; grab = 1 }
+	' "$1" | tr '\t' ' ' | tr -s ' '
 }
 
 # A job switched off with `if: ${{ false }}` cannot reach the login, and
@@ -150,9 +248,31 @@ check_workflow() {
 		return
 	fi
 
+	# A workflow that defines PR_CACHE_WRITE is checked on that line whether or
+	# not a job uses it yet, so the gate is right before anything leans on it.
+	env_ok=0
+	env_line=$(pr_cache_write_env "$file")
+	if [ -n "$env_line" ]; then
+		case "$env_line" in
+		*"$head_check"*"$bot_check"* | *"$bot_check"*"$head_check"*)
+			env_ok=1
+			pass "$1 PR_CACHE_WRITE excludes both forks and dependabot"
+			;;
+		*"$head_check"*)
+			fail "$1 PR_CACHE_WRITE gates on the head repository but not on the
+	actor, so a dependabot PR reaches the registry login with no secrets and
+	fails the job. Add: && $bot_check"
+			;;
+		*)
+			fail "$1 PR_CACHE_WRITE has no fork check. Expected: $head_check
+	&& $bot_check"
+			;;
+		esac
+	fi
+
 	unreachable=$(unreachable_jobs "$recfile")
 
-	while IFS='|' read -r job _needs _disabled cred sched; do
+	while IFS='|' read -r job _needs _disabled cred sched gate where; do
 		[ "$cred" = "1" ] || continue
 
 		case "$unreachable" in
@@ -167,23 +287,28 @@ check_workflow() {
 			continue
 		fi
 
-		case "$text" in
-		*"$head_check"*) ;;
-		*)
-			fail "$1 / $job reads a quay credential on a pull_request and the
-	workflow has no fork check. Expected: $head_check"
-			continue
-			;;
-		esac
-
-		case "$text" in
-		*"$bot_check"*)
+		case "$gate" in
+		inline)
 			pass "$1 / $job excludes both forks and dependabot"
 			;;
+		env)
+			if [ "$env_ok" -eq 1 ]; then
+				pass "$1 / $job excludes both forks and dependabot through PR_CACHE_WRITE"
+			else
+				fail "$1 / $job ($where) gates on $env_gate, but the
+	workflow level PR_CACHE_WRITE is missing or does not exclude both forks and
+	dependabot"
+			fi
+			;;
+		nobot)
+			fail "$1 / $job ($where) gates on the head repository but not on the
+	actor, so a dependabot PR reaches the registry login with no secrets and
+	fails the job. Add: && $bot_check"
+			;;
 		*)
-			fail "$1 / $job gates on the head repository but not on the actor,
-	so a dependabot PR reaches the registry login with no secrets and fails the
-	job. Add: && $bot_check"
+			fail "$1 / $job ($where) reads a quay credential on a pull_request with
+	no fork and dependabot gate on the job or on that step. Expected: if:
+	\${{ $env_gate }}, or $head_check && $bot_check"
 			;;
 		esac
 	done <"$recfile"
