@@ -54,9 +54,14 @@ for fips in no-fips fips; do
     override=""
     [ "$fips" = "fips" ] && override="--override openssl=OPENSSL_FIPS_VERSION"
     for bootloader in grub systemd; do
+        # The filter only reads the direct COPY lines of each listed stage.
+        # full-image-pre-grub takes grub, shim, gawk, fts and dracut as one
+        # COPY of dracut-final, so that stage has to be listed for grub.
+        extra=""
+        [ "$bootloader" = "grub" ] && extra="dracut-final"
         # shellcheck disable=SC2086 # $override is either empty or two words
         sh "$GEN" \
-            --shipped "stage2-merge full-image-merge-base full-image-merge-${fips} full-image-pre-${bootloader} full-image-final" \
+            --shipped "stage2-merge full-image-merge-base full-image-merge-${fips} full-image-pre-${bootloader} ${extra} full-image-final" \
             $override \
             --format "$FORMAT" \
             --name "full-image-${fips}-${bootloader}" \
