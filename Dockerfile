@@ -4639,6 +4639,16 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
 ARG FIPS
 ARG BOOTLOADER
 COPY --from=components-manifest /gen/components/full-image-${FIPS}-${BOOTLOADER}.json /usr/lib/hadron/components.json
+## Per-package post-install steps, the equivalent of a distro package's
+## post-install hook: file modes, ownership and similar fixups that the
+## upstream install does not do. One script per package under
+## files/post-install/, run in name order on the final root filesystem, so
+## nothing copied or merged later can undo them. The scripts are bind mounted
+## and do not end up in the image.
+RUN --mount=type=bind,source=files/post-install,target=/tmp/post-install \
+    for script in /tmp/post-install/*.sh; do \
+        echo "post-install: ${script##*/}" && bash -eu "$script" || exit 1; \
+    done
 
 ## final image with debug
 FROM full-image-final AS debug
