@@ -657,6 +657,18 @@ printf 'Initial-Pass-4821\nZq7!vLm2#Rt9xWp\nZq7!vLm2#Rt9xWp\n' | su alice -s /bi
 			Expect(out).To(ContainSubstring("password updated successfully"))
 		})
 
+		It("lets a non-root user check their own password", func() {
+			// Screen lockers run as the user, and pam_unix asks the
+			// setuid unix_chkpwd helper to read /etc/shadow for them.
+			// Without the setuid bit the helper exits 9
+			// (PAM_AUTHINFO_UNAVAIL) and no locked screen can be unlocked.
+			out, code := shInImage(`useradd -M bob >/dev/null 2>&1 &&
+echo 'bob:Initial-Pass-4821' | chpasswd 2>&1 &&
+su bob -s /bin/sh -c "printf 'Initial-Pass-4821\0' | /usr/sbin/unix_chkpwd bob nullok" 2>&1 &&
+! su bob -s /bin/sh -c "printf 'Wrong-Pass-1234\0' | /usr/sbin/unix_chkpwd bob nullok" 2>&1`)
+			Expect(code).To(Equal(0), "unix_chkpwd cannot check a non-root user's password: %s", out)
+		})
+
 		It("wires pam_faillock into the auth stack of system-auth", func() {
 			out, code := shInImage("cat /etc/pam.d/system-auth")
 			Expect(code).To(Equal(0), out)

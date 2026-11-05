@@ -3602,6 +3602,11 @@ WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/pam ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
+## pam_unix runs unix_chkpwd to check a password when the caller cannot read
+## /etc/shadow. A screen locker runs as the user, so without the setuid bit
+## every unlock fails with "Authentication service cannot retrieve
+## authentication info". The meson install does not set it.
+RUN chmod 4755 /pam/usr/sbin/unix_chkpwd
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
 COPY files/shells /pam/etc/shells
