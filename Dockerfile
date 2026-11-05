@@ -1711,8 +1711,8 @@ RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/openssh install
 ## Provide the proper files and dirs for sshd to run properly with systemd
 COPY files/systemd/sshd.service /openssh/usr/lib/systemd/system/sshd.service
 COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.service
-# Add sshd_config.d dir for dropping extra configs. Hardening (UsePAM,
-# PrintMotd, PermitRootLogin, Ciphers/MACs/KexAlgorithms/HostKeyAlgorithms,
+# Add sshd_config.d dir for dropping extra configs. Hardening (PrintMotd,
+# PermitRootLogin, Ciphers/MACs/KexAlgorithms/HostKeyAlgorithms,
 # session/login policy, banner) is owned by kairos-init's
 # /etc/ssh/sshd_config.d/05-kairos-hardening.conf. Hadron ships nothing
 # here except the FIPS crypto override (02-hadron-fips.conf, copied later
@@ -1721,11 +1721,16 @@ COPY files/systemd/sshkeygen.service /openssh/usr/lib/systemd/system/sshkeygen.s
 # The Include must be the first line: sshd keeps the first value it reads,
 # and the upstream sshd_config sets AuthorizedKeysFile, so an Include at
 # the end lets the main file win over every drop-in for that keyword.
+# UsePAM yes is the default in sshd_config; drop-ins may override. sshd is
+# built --with-pam but upstream defaults to UsePAM no, so without this PAM
+# only runs on images where kairos-init adds its own drop-in.
 RUN mkdir -p /openssh/etc/ssh/sshd_config.d
 RUN { echo "# Include drop-in configs from sshd_config.d directory"; \
       echo "Include sshd_config.d/*.conf"; \
       cat /openssh/etc/ssh/sshd_config; } > /tmp/sshd_config && \
-    cat /tmp/sshd_config > /openssh/etc/ssh/sshd_config && rm /tmp/sshd_config
+    cat /tmp/sshd_config > /openssh/etc/ssh/sshd_config && rm /tmp/sshd_config && \
+    sed -i 's/^#UsePAM no$/UsePAM yes/' /openssh/etc/ssh/sshd_config && \
+    grep -qx 'UsePAM yes' /openssh/etc/ssh/sshd_config
 
 
 ## xz and liblzma
