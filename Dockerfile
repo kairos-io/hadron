@@ -3602,11 +3602,6 @@ WORKDIR /sources/linux-pam
 RUN pip3 install meson ninja
 RUN meson setup buildDir ${COMMON_MESON_FLAGS}
 RUN DESTDIR=/pam ninja -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} -C buildDir install
-## pam_unix runs unix_chkpwd to check a password when the caller cannot read
-## /etc/shadow. A screen locker runs as the user, so without the setuid bit
-## every unlock fails with "Authentication service cannot retrieve
-## authentication info". The meson install does not set it.
-RUN chmod 4755 /pam/usr/sbin/unix_chkpwd
 COPY files/pam/* /pam/etc/pam.d/
 ## We are using the pam_shells.so module in a few places, so we need a proper /etc/shells file
 COPY files/shells /pam/etc/shells
@@ -4644,6 +4639,16 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
 ARG FIPS
 ARG BOOTLOADER
 COPY --from=components-manifest /gen/components/full-image-${FIPS}-${BOOTLOADER}.json /usr/lib/hadron/components.json
+## Per-package post-install steps, the equivalent of a distro package's
+## post-install hook: file modes, ownership and similar fixups that the
+## upstream install does not do. One script per package under
+## files/post-install/, run in name order on the final root filesystem, so
+## nothing copied or merged later can undo them. The scripts are bind mounted
+## and do not end up in the image.
+RUN --mount=type=bind,source=files/post-install,target=/tmp/post-install \
+    for script in /tmp/post-install/*.sh; do \
+        echo "post-install: ${script##*/}" && bash -eu "$script" || exit 1; \
+    done
 
 ## final image with debug
 FROM full-image-final AS debug
