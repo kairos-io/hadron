@@ -394,4 +394,5 @@ test-components: ## Run the component-generator shell tests
 	sh ./hack/gen-components_test.sh
 	sh ./hack/gen-components_shipped_test.sh
 	sh ./hack/gen-manifests_context_test.sh
+	sh ./hack/gen-manifests_shipped_test.sh
 	node ./hack/components-template_test.js
