@@ -8,7 +8,8 @@
 # `git ls-remote` or `curl` upstream of it goes unnoticed.
 #
 # This runs each source command with git, curl and wget replaced by stubs that
-# print nothing and fail, the way an unreachable mirror looks, and expects a
+# print nothing and fail, the way an unreachable mirror looks (git still
+# answers `rev-parse --show-toplevel`), and expects a
 # non-zero exit and empty stdout from every one.
 set -eu
 
@@ -21,6 +22,14 @@ for tool in git curl wget; do
     printf '#!/bin/sh\nexit 1\n' > "$WORK/bin/$tool"
     chmod +x "$WORK/bin/$tool"
 done
+# Sources that call a repo script find it through `git rev-parse
+# --show-toplevel`. Keep that one call working, or the script is never run and
+# the check passes on a missing path instead of on the script's own failure.
+cat > "$WORK/bin/git" <<STUB
+#!/bin/sh
+[ "\$*" = "rev-parse --show-toplevel" ] && { echo "$ROOT"; exit 0; }
+exit 1
+STUB
 
 # One file per shell source, named <manifest>.<source>. A command block is
 # every line indented deeper than its `command: |` key.
