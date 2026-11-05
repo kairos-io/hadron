@@ -572,7 +572,7 @@ packages:
 
   lz4:
     version_arg: LZ4_VERSION
-    sha256: 537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
+    sha256: 247e5fa64da5f7b75ee3dd3bed484076396c9ebe8254d9ccf693eb62800c5e26
     urls:
       - https://github.com/lz4/lz4/archive/v${version}.tar.gz
     filename: lz4.tar.gz
