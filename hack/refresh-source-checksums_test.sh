@@ -98,6 +98,38 @@ grep -q "no URL served gamma-9.9" "$WORK/out4" || fail "gamma skip not reported:
 grep -q "1 skipped" "$WORK/out4" || fail "summary did not count the skip: $(cat "$WORK/out4")"
 
 # =====================================================================
+# 3b. An empty, bare or missing sha256 is refreshed like a stale one, and
+#     the fields after it (filename, urls) are still read correctly
+# =====================================================================
+for shaline in 'sha256: ""' 'sha256:' '' "sha256: $sha_alpha_1"; do
+    {
+        echo 'packages:'
+        echo '  alpha:'
+        echo '    version_arg: ALPHA_VERSION'
+        [ -n "$shaline" ] && echo "    $shaline"
+        echo '    urls:'
+        echo "      - file://$TARS/alpha-\${version}.tar.gz"
+        echo '    filename: alpha.tar.gz'
+        echo ''
+        echo '  beta:'
+        echo '    version_arg: BETA_VERSION'
+        echo "    sha256: $sha_beta_3"
+        echo '    urls:'
+        echo "      - file://$TARS/beta-\${version}.tar.gz"
+        echo '    filename: beta.tar.gz'
+    } > "$ROOT/sources.yaml"
+    HADRON_ROOT="$ROOT" "$REFRESH" alpha > "$WORK/out-sha" 2>&1 \
+        || fail "refresh alpha with '$shaline' exited non-zero: $(cat "$WORK/out-sha")"
+    [ "$(grep -c "^    sha256: $sha_alpha_2\$" "$ROOT/sources.yaml")" -eq 1 ] \
+        || fail "alpha with '$shaline' did not get exactly one 2.0 sha256 line: $(cat "$ROOT/sources.yaml")"
+    [ "$(grep -c '^    sha256:' "$ROOT/sources.yaml")" -eq 2 ] \
+        || fail "alpha with '$shaline' left a stray sha256 line: $(cat "$ROOT/sources.yaml")"
+    grep -q "^    sha256: $sha_beta_3\$" "$ROOT/sources.yaml" || fail "beta checksum touched with alpha '$shaline'"
+    grep -q '^    filename: alpha.tar.gz' "$ROOT/sources.yaml" || fail "alpha filename line lost with '$shaline'"
+    grep -q "refreshed 1 checksum" "$WORK/out-sha" || fail "alpha with '$shaline' not reported as refreshed: $(cat "$WORK/out-sha")"
+done
+
+# =====================================================================
 # 4. --changed picks exactly the packages whose ARG moved, and reverts
 #    the ones no URL serves
 # =====================================================================

@@ -52,13 +52,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 # One flat record per package: pkg, version_arg, sha256, filename, urls.
-# Tab separated because a URL may not contain a tab but the url list is
-# space separated.
+# Separated by the ASCII unit separator, not a tab: the url list is space
+# separated, and `read` collapses runs of a whitespace IFS, so an empty
+# field such as a blank sha256 would shift every field after it.
+us=$(printf '\037')
 parse_sources() {
     awk '
         function flush(   ) {
             if (pkg != "")
-                printf "%s\t%s\t%s\t%s\t%s\n", pkg, va, sha, fn, urls
+                printf "%s\037%s\037%s\037%s\037%s\n", pkg, va, sha, fn, urls
         }
         function unquote(s) { gsub(/^"|"$/, "", s); return s }
         /^  [a-z0-9._-]+:$/ {
@@ -68,7 +70,7 @@ parse_sources() {
             next
         }
         /^    version_arg:[ \t]/ { va = unquote($2); inurls = 0; next }
-        /^    sha256:[ \t]/      { sha = unquote($2); inurls = 0; next }
+        /^    sha256:([ \t]|$)/  { sha = unquote($2); inurls = 0; next }
         /^    filename:[ \t]/    { fn = unquote($2); inurls = 0; next }
         /^    urls:[ \t]*$/      { inurls = 1; next }
         /^      - / {
@@ -126,8 +128,8 @@ if [ "$changed_only" -eq 1 ]; then
     # An ARG whose default moved, or one that did not exist before.
     awk 'NR == FNR { old[$1] = $2; next } !($1 in old) || old[$1] != $2 { print $1 }' \
         "$work/args.head" "$work/args" | sort > "$work/changed-args"
-    # -F tab suits both files: changed-args has a single field per line.
-    awk -F'	' 'NR == FNR { want[$1] = 1; next } $2 in want { print $1 }' \
+    # -F "$us" suits both files: changed-args has a single field per line.
+    awk -F "$us" 'NR == FNR { want[$1] = 1; next } $2 in want { print $1 }' \
         "$work/changed-args" "$work/packages" | sort > "$work/selected"
 elif [ $# -gt 0 ]; then
     # Validate before building the list: a `for` loop piped into `sort` runs
@@ -135,7 +137,7 @@ elif [ $# -gt 0 ]; then
     # script reporting "no packages to refresh" for a typo.
     : > "$work/selected.raw"
     for pkg in "$@"; do
-        if ! awk -F'	' -v p="$pkg" '$1 == p { found = 1 } END { exit !found }' "$work/packages"; then
+        if ! awk -F "$us" -v p="$pkg" '$1 == p { found = 1 } END { exit !found }' "$work/packages"; then
             echo "error: package '$pkg' is not in sources.yaml" >&2
             exit 1
         fi
@@ -143,7 +145,7 @@ elif [ $# -gt 0 ]; then
     done
     sort "$work/selected.raw" > "$work/selected"
 else
-    cut -f1 "$work/packages" | sort > "$work/selected"
+    cut -d "$us" -f1 "$work/packages" | sort > "$work/selected"
 fi
 
 : > "$work/skipped"
@@ -256,7 +258,7 @@ if [ ! -s "$work/selected" ] && [ "$patches_selected" -eq 0 ]; then
     exit 0
 fi
 
-while IFS='	' read -r pkg va sha fn urls; do
+while IFS="$us" read -r pkg va sha fn urls; do
     grep -qx "$pkg" "$work/selected" || continue
 
     if [ -z "$va" ] || [ -z "$fn" ] || [ -z "$urls" ]; then
@@ -300,20 +302,32 @@ while IFS='	' read -r pkg va sha fn urls; do
         continue
     fi
 
-    # Rewrite the `sha256:` line inside this package's block only. Every
-    # other line of the 900-odd line file, comments included, is copied
-    # through byte for byte.
+    # Rewrite the `sha256:` line inside this package's block only, or add
+    # one under the package name when the block has none. Every other line
+    # of the 900-odd line file, comments included, is copied through byte
+    # for byte.
     awk -v pkg="  $pkg:" -v new="$actual" '
-        $0 == pkg { inpkg = 1; print; next }
+        NR == FNR {
+            if ($0 == pkg) { scan = 1; next }
+            if (/^  [a-z0-9._-]+:$/) scan = 0
+            if (scan && /^    sha256:([ \t]|$)/) has = 1
+            next
+        }
+        $0 == pkg {
+            print
+            if (has) inpkg = 1
+            else { print "    sha256: " new; done = 1 }
+            next
+        }
         /^  [a-z0-9._-]+:$/ { inpkg = 0 }
-        inpkg && /^    sha256:[ \t]/ {
+        inpkg && /^    sha256:([ \t]|$)/ {
             sub(/^    sha256:[ \t]*[^ \t]*/, "    sha256: " new)
             inpkg = 0
             done = 1
         }
         { print }
         END { if (!done) exit 1 }
-    ' sources.yaml > "$work/sources.new" || {
+    ' sources.yaml sources.yaml > "$work/sources.new" || {
         echo "error: package '$pkg' has no sha256 line to rewrite" >&2
         exit 1
     }
