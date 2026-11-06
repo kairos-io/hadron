@@ -127,6 +127,12 @@ jobs:
           
           updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
 
+          # updatecli writes whatever its source returns, older or not. Put
+          # back any version it moved backwards before anything else reads the
+          # Dockerfile, so no bump pull request ever downgrades a package
+          # (#814 took openssh from 10.6p2 to 10.6p1).
+          sh .github/scripts/revert-version-downgrades.sh
+
           # updatecli moves the version ARG and nothing else, but the matching
           # sha256 lives in sources.yaml and still describes the previous
           # release. Both consumers of that field then reject the new tarball:
