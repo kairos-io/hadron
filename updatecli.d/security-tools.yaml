@@ -17,20 +17,19 @@ sources:
       - trimprefix: openssl-
 
   openssh:
-    kind: gittag
+    # Read the release tarballs, not the openssh-portable git tags. The tags
+    # can lag the release: 10.6p2 was on the CDN while the newest tag was still
+    # V_10_6_P1, and the tag source took the pin back to 10.6p1 (#814). The
+    # Dockerfile downloads from this same directory, so a version listed here
+    # is one we can fetch.
+    kind: shell
     spec:
-      url: https://github.com/openssh/openssh-portable.git
-      versionfilter:
-        kind: regex
-        pattern: '^V_[0-9]+_[0-9]+_P[0-9]+$'
-    transformers:
-      - trimprefix: V_
-      - replacer: { from: "_P", to: "p" }
-      - replacer: { from: "_",  to: "." }
-      # IMPORTANT: sort must happen on something sortable.
-      # 10.2p1 is not semver, so use lexical/alphanum sort.
-      - sort:
-          method: alphanum
+      command: |
+        curl -fsSL --retry 3 https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/ \
+        | grep -oE 'openssh-[0-9]+\.[0-9]+p[0-9]+\.tar\.gz' \
+        | sed -e 's/^openssh-//' -e 's/\.tar\.gz$//' | sort -uV | tail -n 1 | grep .
+    changelog:
+      url: "https://www.openssh.com/releasenotes.html"
 
   sudo:
     kind: githubrelease

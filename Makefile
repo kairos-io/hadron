@@ -180,6 +180,10 @@ test-workflow-gates: ## Verify every pull_request job that logs into quay exclud
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
 	@sh ./hack/refresh-source-checksums_test.sh
 
+.PHONY: test-version-downgrades
+test-version-downgrades: ## Verify the autobumper never moves a version backwards
+	@sh ./tests/revert-version-downgrades_test.sh
+
 .PHONY: test-bump-pr-action
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
