@@ -854,7 +854,7 @@ packages:
 
   systemd:
     version_arg: SYSTEMD_VERSION
-    sha256: 100fc873b848b9b0297d8a705e8e2ed326256c8483d9960ee1ffe264c8a5c3e3
+    sha256: 116432ee9dce9bfef4c7da7963c6de41899ab44197f2876ee99545707a5c7c1f
     urls:
       - https://github.com/systemd/systemd/archive/refs/tags/v${version}.tar.gz
     filename: systemd.tar.gz
