@@ -558,7 +558,7 @@ packages:
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231
+    sha256: 79c66dde66cd96877fcde8f7d36aec946b1f423d2b97b5a7b1751b75c764f3d1
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
