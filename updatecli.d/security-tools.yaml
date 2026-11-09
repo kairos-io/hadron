@@ -54,6 +54,9 @@ sources:
     spec:
       owner: shadow-maint
       repository: shadow
+      versionfilter:
+        kind: semver
+        pattern: '>=4.20.0'
 
   cryptsetup:
     kind: gittag
