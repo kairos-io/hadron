@@ -27,8 +27,8 @@ package hadron_test
 //	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main CONTAINER_RUNTIME=podman \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 //
-// Specs that only apply to the full image carry a second label so CI can run
-// them against the full image alone (see "firmware-layout").
+// Specs that only apply to the full image carry the "full-image" label so CI
+// can run them against the full image alone.
 
 import (
 	"encoding/json"
@@ -59,6 +59,16 @@ var crashSignalExitCodes = map[int]string{
 	133: "SIGTRAP",
 	136: "SIGFPE",
 	138: "SIGBUS",
+}
+
+// missingBinaryExitCodes are the exit codes the container runtime returns
+// when it cannot start the entrypoint at all.
+//
+//	126 = found but not executable
+//	127 = not found
+var missingBinaryExitCodes = map[int]string{
+	126: "not executable",
+	127: "not found",
 }
 
 var _ = Describe("hadron container image structure", Label("image-structure"), func() {
@@ -96,6 +106,23 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		out, code, err := runInImage("sh", "-c", script)
 		Expect(err).ToNot(HaveOccurred(), "failed to invoke %q: %s", runtime, out)
 		return strings.TrimSpace(out), code
+	}
+
+	// runsWithoutCrashing fails when bin is missing from the image or is
+	// killed by a crash signal. Any other exit code passes: the table only
+	// cares that the binary loads and runs.
+	runsWithoutCrashing := func(bin string, args ...string) {
+		out, code, err := runInImage(bin, args...)
+		Expect(err).ToNot(HaveOccurred(),
+			"failed to invoke %q: %s", runtime, out)
+		if reason, missing := missingBinaryExitCodes[code]; missing {
+			Fail(fmt.Sprintf("%s could not run: %s (exit code %d):\n%s",
+				bin, reason, code, out))
+		}
+		if sig, crashed := crashSignalExitCodes[code]; crashed {
+			Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
+				bin, sig, code, out))
+		}
 	}
 
 	// skipUnlessFullImage skips specs that assert on bootable-OS hardening files
@@ -179,21 +206,11 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	DescribeTable("core binaries run without crashing",
-		func(bin string, args ...string) {
-			out, code, err := runInImage(bin, args...)
-			Expect(err).ToNot(HaveOccurred(),
-				"failed to invoke %q: %s", runtime, out)
-			if sig, crashed := crashSignalExitCodes[code]; crashed {
-				Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
-					bin, sig, code, out))
-			}
-		},
+		runsWithoutCrashing,
 		Entry("bash", "bash", "--version"),
 		Entry("busybox", "busybox", "--help"),
 		Entry("openssl", "openssl", "version"),
 		Entry("curl", "curl", "--version"),
-		Entry("systemctl", "systemctl", "--version"),
-		Entry("sshd", "sshd", "-V"),
 		Entry("rsync", "rsync", "--version"),
 		Entry("grep", "grep", "--version"),
 		Entry("find", "find", "--version"),
@@ -201,10 +218,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("nslookup", "nslookup", "localhost"),
 	)
 
+	// systemd and openssh ship in the full image only.
+	Describe("full-image binaries", Label("full-image"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		DescribeTable("run without crashing",
+			runsWithoutCrashing,
+			Entry("systemctl", "systemctl", "--version"),
+			Entry("sshd", "sshd", "-V"),
+		)
+	})
+
 	// Third-party provisioning scripts (k3s installers and friends) assume
-	// these classic utilities exist. The crash table above cannot detect a
-	// missing binary (the runtime's "not found" exit code is not a crash
-	// signal), so pin their presence explicitly.
+	// these classic utilities exist, so pin their presence explicitly.
 	It("ships utilities third-party scripts expect", func() {
 		for _, bin := range []string{"getent", "flock", "hostname", "nslookup"} {
 			out, code := shInImage("command -v " + bin)
@@ -266,7 +292,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	// full-image-final stage), so these specs skip on the minimal container
 	// base. The full image is what downstream consumers pull, so a regression
 	// here is worth catching without booting anything.
-	Describe("firmware layout", Label("firmware-layout"), func() {
+	Describe("firmware layout", Label("firmware-layout", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("keeps /usr/lib/firmware a real directory", func() {
@@ -320,7 +346,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		)
 	})
 
-	Describe("grub fonts", Label("grub-fonts"), func() {
+	Describe("grub fonts", Label("grub-fonts", "full-image"), func() {
 		// kairos-io/kairos#5334. grub only emits .pf2 files when its configure
 		// found both a unifont source and a usable freetype, and a miss is not
 		// a build error: the image shipped fontless for as long as the fonts
@@ -360,7 +386,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	It("ships a valid sshd config that parses cleanly", func() {
+	It("ships a valid sshd config that parses cleanly", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// sshd policy hardening is owned by kairos-init's
 		// 05-kairos-hardening.conf, not hadron. This test only verifies
@@ -373,7 +399,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
 	})
 
-	It("lets an sshd_config.d drop-in override keywords the main file sets", func() {
+	It("lets an sshd_config.d drop-in override keywords the main file sets", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// sshd keeps the first value it reads. The upstream sshd_config
 		// sets AuthorizedKeysFile, so the Include must come before it or
@@ -386,7 +412,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			"the drop-in AuthorizedKeysFile must win over the main sshd_config")
 	})
 
-	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", func() {
+	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// The only sshd drop-in a hadron image ships is
 		// 02-hadron-fips.conf, and only in FIPS builds. Non-FIPS builds
@@ -407,7 +433,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships the STIG sysctl hardening drop-in", func() {
+	It("ships the STIG sysctl hardening drop-in", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
 		Expect(code).To(Equal(0), out)
@@ -422,7 +448,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("sysctl hardening drop-in omits keys that break Kubernetes", func() {
+	It("sysctl hardening drop-in omits keys that break Kubernetes", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// Forwarding, rp_filter, bridge-nf and user namespaces are owned by the
 		// CNI/kubelet; shipping STIG's restrictive values for them breaks a k8s
@@ -447,7 +473,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships the legacy-network-protocol blacklist", func() {
+	It("ships the legacy-network-protocol blacklist", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/modprobe.d/disable-legacy-net-protocols.conf")
 		Expect(code).To(Equal(0), out)
@@ -457,7 +483,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships STIG-hardened login.defs", func() {
+	It("ships STIG-hardened login.defs", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/login.defs")
 		Expect(code).To(Equal(0), out)
@@ -468,7 +494,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 
 	// useradd -m and pam_mail both use the mail directory; if it is missing
 	// every useradd prints "Creating mailbox file: No such file or directory".
-	It("points MAIL_DIR and pam_mail at a directory the image ships", func() {
+	It("points MAIL_DIR and pam_mail at a directory the image ships", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/login.defs")
 		Expect(code).To(Equal(0), out)
@@ -493,7 +519,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	// Desktops ask org.freedesktop.locale1 for the system language and
 	// keyboard layout (GNOME and COSMIC settings, their first-run setup), and
 	// `localectl` is how a user changes them.
-	Describe("locale daemon", Label("localed"), func() {
+	Describe("locale daemon", Label("localed", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("ships systemd-localed, its D-Bus service and localectl", func() {
@@ -510,7 +536,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	Describe("audit userspace", Label("audit"), func() {
+	Describe("audit userspace", Label("audit", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		// The crash-signal table below cannot detect a missing binary: a
@@ -601,7 +627,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	Describe("PAM password quality and lockout", Label("pam"), func() {
+	Describe("PAM password quality and lockout", Label("pam", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("ships pam_pwquality.so for CIS L1 5.4.1", func() {
