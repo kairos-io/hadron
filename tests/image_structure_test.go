@@ -61,6 +61,16 @@ var crashSignalExitCodes = map[int]string{
 	138: "SIGBUS",
 }
 
+// missingBinaryExitCodes are the exit codes the container runtime returns
+// when it cannot start the entrypoint at all.
+//
+//	126 = found but not executable
+//	127 = not found
+var missingBinaryExitCodes = map[int]string{
+	126: "not executable",
+	127: "not found",
+}
+
 var _ = Describe("hadron container image structure", Label("image-structure"), func() {
 	var (
 		image   string
@@ -96,6 +106,23 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		out, code, err := runInImage("sh", "-c", script)
 		Expect(err).ToNot(HaveOccurred(), "failed to invoke %q: %s", runtime, out)
 		return strings.TrimSpace(out), code
+	}
+
+	// runsWithoutCrashing fails when bin is missing from the image or is
+	// killed by a crash signal. Any other exit code passes: the table only
+	// cares that the binary loads and runs.
+	runsWithoutCrashing := func(bin string, args ...string) {
+		out, code, err := runInImage(bin, args...)
+		Expect(err).ToNot(HaveOccurred(),
+			"failed to invoke %q: %s", runtime, out)
+		if reason, missing := missingBinaryExitCodes[code]; missing {
+			Fail(fmt.Sprintf("%s could not run: %s (exit code %d):\n%s",
+				bin, reason, code, out))
+		}
+		if sig, crashed := crashSignalExitCodes[code]; crashed {
+			Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
+				bin, sig, code, out))
+		}
 	}
 
 	// skipUnlessFullImage skips specs that assert on bootable-OS hardening files
@@ -179,21 +206,11 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	})
 
 	DescribeTable("core binaries run without crashing",
-		func(bin string, args ...string) {
-			out, code, err := runInImage(bin, args...)
-			Expect(err).ToNot(HaveOccurred(),
-				"failed to invoke %q: %s", runtime, out)
-			if sig, crashed := crashSignalExitCodes[code]; crashed {
-				Fail(fmt.Sprintf("%s crashed with %s (exit code %d):\n%s",
-					bin, sig, code, out))
-			}
-		},
+		runsWithoutCrashing,
 		Entry("bash", "bash", "--version"),
 		Entry("busybox", "busybox", "--help"),
 		Entry("openssl", "openssl", "version"),
 		Entry("curl", "curl", "--version"),
-		Entry("systemctl", "systemctl", "--version"),
-		Entry("sshd", "sshd", "-V"),
 		Entry("rsync", "rsync", "--version"),
 		Entry("grep", "grep", "--version"),
 		Entry("find", "find", "--version"),
@@ -201,10 +218,19 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Entry("nslookup", "nslookup", "localhost"),
 	)
 
+	// systemd and openssh ship in the full image only.
+	Describe("full-image binaries", Label("full-image"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		DescribeTable("run without crashing",
+			runsWithoutCrashing,
+			Entry("systemctl", "systemctl", "--version"),
+			Entry("sshd", "sshd", "-V"),
+		)
+	})
+
 	// Third-party provisioning scripts (k3s installers and friends) assume
-	// these classic utilities exist. The crash table above cannot detect a
-	// missing binary (the runtime's "not found" exit code is not a crash
-	// signal), so pin their presence explicitly.
+	// these classic utilities exist, so pin their presence explicitly.
 	It("ships utilities third-party scripts expect", func() {
 		for _, bin := range []string{"getent", "flock", "hostname", "nslookup"} {
 			out, code := shInImage("command -v " + bin)
