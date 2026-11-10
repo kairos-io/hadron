@@ -31,6 +31,9 @@ sources:
     spec:
       owner: tpm2-software
       repository: tpm2-tss
+      versionfilter:
+        kind: semver
+        pattern: '>=4.2.0'
 
   libucontext:
     kind: gittag
