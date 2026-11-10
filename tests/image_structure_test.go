@@ -27,8 +27,8 @@ package hadron_test
 //	CONTAINER_IMAGE=ghcr.io/kairos-io/hadron:main CONTAINER_RUNTIME=podman \
 //	  go run github.com/onsi/ginkgo/v2/ginkgo --label-filter image-structure ./tests/
 //
-// Specs that only apply to the full image carry a second label so CI can run
-// them against the full image alone (see "firmware-layout").
+// Specs that only apply to the full image carry the "full-image" label so CI
+// can run them against the full image alone.
 
 import (
 	"encoding/json"
@@ -266,7 +266,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	// full-image-final stage), so these specs skip on the minimal container
 	// base. The full image is what downstream consumers pull, so a regression
 	// here is worth catching without booting anything.
-	Describe("firmware layout", Label("firmware-layout"), func() {
+	Describe("firmware layout", Label("firmware-layout", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("keeps /usr/lib/firmware a real directory", func() {
@@ -320,7 +320,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		)
 	})
 
-	Describe("grub fonts", Label("grub-fonts"), func() {
+	Describe("grub fonts", Label("grub-fonts", "full-image"), func() {
 		// kairos-io/kairos#5334. grub only emits .pf2 files when its configure
 		// found both a unifont source and a usable freetype, and a miss is not
 		// a build error: the image shipped fontless for as long as the fonts
@@ -360,7 +360,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	It("ships a valid sshd config that parses cleanly", func() {
+	It("ships a valid sshd config that parses cleanly", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// sshd policy hardening is owned by kairos-init's
 		// 05-kairos-hardening.conf, not hadron. This test only verifies
@@ -373,7 +373,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		Expect(code).To(Equal(0), "sshd -G failed to parse the sshd config:\n%s", out)
 	})
 
-	It("lets an sshd_config.d drop-in override keywords the main file sets", func() {
+	It("lets an sshd_config.d drop-in override keywords the main file sets", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// sshd keeps the first value it reads. The upstream sshd_config
 		// sets AuthorizedKeysFile, so the Include must come before it or
@@ -386,7 +386,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			"the drop-in AuthorizedKeysFile must win over the main sshd_config")
 	})
 
-	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", func() {
+	It("ships no non-FIPS sshd drop-in (kairos-init owns hardening)", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// The only sshd drop-in a hadron image ships is
 		// 02-hadron-fips.conf, and only in FIPS builds. Non-FIPS builds
@@ -407,7 +407,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships the STIG sysctl hardening drop-in", func() {
+	It("ships the STIG sysctl hardening drop-in", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/sysctl.d/60-hadron-hardening.conf")
 		Expect(code).To(Equal(0), out)
@@ -422,7 +422,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("sysctl hardening drop-in omits keys that break Kubernetes", func() {
+	It("sysctl hardening drop-in omits keys that break Kubernetes", Label("full-image"), func() {
 		skipUnlessFullImage()
 		// Forwarding, rp_filter, bridge-nf and user namespaces are owned by the
 		// CNI/kubelet; shipping STIG's restrictive values for them breaks a k8s
@@ -447,7 +447,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships the legacy-network-protocol blacklist", func() {
+	It("ships the legacy-network-protocol blacklist", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/modprobe.d/disable-legacy-net-protocols.conf")
 		Expect(code).To(Equal(0), out)
@@ -457,7 +457,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		}
 	})
 
-	It("ships STIG-hardened login.defs", func() {
+	It("ships STIG-hardened login.defs", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/login.defs")
 		Expect(code).To(Equal(0), out)
@@ -468,7 +468,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 
 	// useradd -m and pam_mail both use the mail directory; if it is missing
 	// every useradd prints "Creating mailbox file: No such file or directory".
-	It("points MAIL_DIR and pam_mail at a directory the image ships", func() {
+	It("points MAIL_DIR and pam_mail at a directory the image ships", Label("full-image"), func() {
 		skipUnlessFullImage()
 		out, code := shInImage("cat /etc/login.defs")
 		Expect(code).To(Equal(0), out)
@@ -493,7 +493,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 	// Desktops ask org.freedesktop.locale1 for the system language and
 	// keyboard layout (GNOME and COSMIC settings, their first-run setup), and
 	// `localectl` is how a user changes them.
-	Describe("locale daemon", Label("localed"), func() {
+	Describe("locale daemon", Label("localed", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("ships systemd-localed, its D-Bus service and localectl", func() {
@@ -510,7 +510,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	Describe("audit userspace", Label("audit"), func() {
+	Describe("audit userspace", Label("audit", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		// The crash-signal table below cannot detect a missing binary: a
@@ -601,7 +601,7 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
-	Describe("PAM password quality and lockout", Label("pam"), func() {
+	Describe("PAM password quality and lockout", Label("pam", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 
 		It("ships pam_pwquality.so for CIS L1 5.4.1", func() {

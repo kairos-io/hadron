@@ -1347,14 +1347,15 @@ jobs:
           cache: false
       - name: Run full-image structure tests
         env:
-          # container-amd64 structure-tests the minimal base. The firmware
-          # layout exists only in the full image, which is also what
-          # downstream consumers pull, so assert it here.
+          # container-amd64 structure-tests the minimal base. Specs labelled
+          # full-image (sshd, sysctl, PAM, firmware layout and the rest)
+          # skip there, and the full image is also what downstream
+          # consumers pull, so assert them here.
           CONTAINER_IMAGE: hadron${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64:${{ github.sha }}
         run: |
           cp tests/go.* .
           go mod download
-          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "firmware-layout || audit || grub-fonts" ./tests/
+          go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "full-image" ./tests/
       - name: Save the image as a tarball
         # The file name carries the variant: this artifact and its siblings
         # (other kernel/fips combos) are all downloaded into one workspace by
