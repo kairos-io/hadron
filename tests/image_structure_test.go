@@ -662,6 +662,17 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 				"system-auth password stack missing pam_pwquality line: %s", out)
 		})
 
+		// systemd is built with -D pamconfdir=no, so it installs no PAM
+		// files of its own. Without /etc/pam.d/systemd-run0, PAM falls back to
+		// `other` (pam_deny) and every run0 call fails with status 224/PAM;
+		// see kairos-io/kairos#5987.
+		It("ships a PAM service for run0", func() {
+			out, code := shInImage("cat /etc/pam.d/systemd-run0")
+			Expect(code).To(Equal(0), "run0 needs /etc/pam.d/systemd-run0: %s", out)
+			Expect(out).To(MatchRegexp(`(?m)^session\s+include\s+system-auth\b`),
+				"systemd-run0 must set up a PAM session: %s", out)
+		})
+
 		It("ships the compiled cracklib dictionary", func() {
 			out, code := shInImage(
 				"ls /usr/share/cracklib/pw_dict.pwd* /usr/share/cracklib/pw_dict.pwi /usr/share/cracklib/pw_dict.hwm 2>&1")
