@@ -3122,6 +3122,10 @@ COPY --from=sources-downloader /sources/downloads/grub.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf grub.tar.xz && mv grub-* grub
 WORKDIR /sources/grub
+# flex 2.6.5 sizes scanner reads with BUFSIZ, which -nostdinc grub-core lacks
+COPY --from=patch /patch/ /
+COPY patches/0001-grub-flex-bufsiz-nostdinc.patch .
+RUN patch -p1 < 0001-grub-flex-bufsiz-nostdinc.patch
 #RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
 FROM grub-base AS grub-efi
