@@ -431,9 +431,12 @@ bumps = parse_bumps(`git diff --cached -U0 -- Dockerfile`).map do |bump|
   enriched
 end
 
+# Titles and commit subjects are Conventional Commits (`chore(deps): ...`):
+# the PR title check (.github/workflows/pr-title.yaml) rejects anything else,
+# and the squashed subject is what lands on main.
 if bumps.empty?
-  File.write("/tmp/pr_title.txt", "Automatic version bumps")
-  File.write("/tmp/commit_msg.txt", "Automatic version bumps")
+  File.write("/tmp/pr_title.txt", "chore(deps): automatic version bumps")
+  File.write("/tmp/commit_msg.txt", "chore(deps): automatic version bumps")
   File.write("/tmp/pr_body.md", "No version metadata was collected for this update.")
   exit 0
 end
@@ -444,13 +447,13 @@ title_names = bumps.first(8).map { |bump| bump["name"] }
 overflow = bumps.length - title_names.length
 title_suffix = overflow.positive? ? " and #{overflow} more" : ""
 joined_names = title_names.join(", ")
-pr_title = "Automatic version bumps for #{joined_names}#{title_suffix}"
+pr_title = "chore(deps): bump #{joined_names}#{title_suffix}"
 
 summary_lines = bumps.map do |bump|
   "- #{bump["name"]} was updated #{bump["old_version"]} -> #{bump["new_version"]}"
 end
 
-commit_msg = +"Automatic bumps for #{joined_names}#{title_suffix}\n\n"
+commit_msg = +"#{pr_title}\n\n"
 commit_msg << summary_lines.join("\n")
 
 body = +"## Summary\n\n"
