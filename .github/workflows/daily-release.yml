@@ -1,0 +1,90 @@
+name: Daily release
+
+# Once a day, releases the newest green main commit when something landed
+# since the last release. The version comes from the commits, following
+# Conventional Commits and SemVer (.github/scripts/next-release.sh):
+# a breaking change is a major release, `feat` a minor one, anything else a
+# patch. This job only pushes the tag; the tag push starts "Build main and
+# release images", which builds the images and creates the GitHub release.
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print what would be tagged"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: daily-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          # A tag pushed with GITHUB_TOKEN does not start other workflows,
+          # so push with the PAT to get the release build going.
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Pick commit and version, then tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          last=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          if [ -z "${last}" ]; then
+            echo "No vMAJOR.MINOR.PATCH tag to release from" >&2
+            exit 1
+          fi
+          echo "Last release: ${last}"
+
+          # Release the newest main commit whose image build passed, not
+          # just HEAD, so a red main never gets tagged.
+          sha=$(gh run list --repo "${GITHUB_REPOSITORY}" \
+            --workflow build-multiarch-images.yml --branch main --event push \
+            --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -z "${sha}" ]; then
+            echo "No green main build found, skipping"
+            exit 0
+          fi
+          echo "Newest green main commit: ${sha}"
+
+          if git merge-base --is-ancestor "${sha}" "${last}"; then
+            echo "No changes since ${last}, skipping"
+            exit 0
+          fi
+
+          next=$(.github/scripts/next-release.sh "${last}" "${sha}")
+          if [ -z "${next}" ]; then
+            echo "No changes since ${last}, skipping"
+            exit 0
+          fi
+          if git rev-parse -q --verify "refs/tags/${next}" >/dev/null; then
+            echo "${next} already exists, skipping" >&2
+            exit 0
+          fi
+
+          echo "Changes since ${last}:"
+          git log --oneline "${last}..${sha}"
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run: would tag ${sha} as ${next}"
+            exit 0
+          fi
+
+          git tag "${next}" "${sha}"
+          git push origin "refs/tags/${next}"
+          echo "Tagged ${sha} as ${next} (from ${last})" >> "$GITHUB_STEP_SUMMARY"
