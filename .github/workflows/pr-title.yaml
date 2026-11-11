@@ -1,0 +1,55 @@
+name: PR title
+
+# Fails a pull request whose title is not a Conventional Commit subject.
+# Pull requests are squash-merged with the title as the commit subject, so
+# this keeps every commit on main typed: `feat` is a minor change, a `!` or a
+# `BREAKING CHANGE:` footer is a major one, everything else is a patch.
+# .github/scripts/semver-bump.sh holds the rule; it is a copy of the kairos
+# one.
+#
+# `edited` re-runs the check when the title changes, which the default
+# pull_request types do not. That is why this is its own workflow and not a
+# job in PR_multiarch.yml: a title edit there would restart the image builds.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Keyed by pull request number: branch names collide across forks (two
+# `patch-1` branches), and a shared group would let one fork's run cancel
+# another's.
+concurrency:
+  group: ci-pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  conventional-title:
+    name: conventional-title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test the bump script
+        run: .github/scripts/semver-bump_test.sh
+      - name: Check the title
+        # The title is read from the API when the job runs, not from the
+        # event payload: a manual re-run reuses the old payload, so a re-run
+        # of an older run would check the title as it was then.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          TITLE="$(gh api "repos/${REPO}/pulls/${PR}" --jq .title)"
+          if bump="$(.github/scripts/semver-bump.sh "$TITLE")"; then
+            echo "Title '$TITLE' asks for a $bump change." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error title=PR title::'$TITLE' is not a Conventional Commit subject: 'type(scope): description', see https://www.conventionalcommits.org/en/v1.0.0/"
+            exit 1
+          fi
