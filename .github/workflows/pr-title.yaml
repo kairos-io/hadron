@@ -37,6 +37,8 @@ jobs:
           persist-credentials: false
       - name: Test the bump script
         run: .github/scripts/semver-bump_test.sh
+      - name: Test the release version script
+        run: .github/scripts/next-release_test.sh
       - name: Check the title
         # The title is read from the API when the job runs, not from the
         # event payload: a manual re-run reuses the old payload, so a re-run
