@@ -266,7 +266,9 @@ func gatherLog(s logSink, outDir, remotePath string) {
 	fmt.Printf("File %s copied!\n", remotePath)
 }
 
-// return the PID of the swtpm (to be killed later) and the state directory
+// emulateTPM starts a software TPM listening on a socket inside stateDir and
+// stops it again when the spec that asked for it ends. Call it from a spec
+// node (BeforeEach or an It), since the cleanup goes through DeferCleanup.
 func emulateTPM(stateDir string) {
 	t := path.Join(stateDir, "tpm")
 	err := os.MkdirAll(t, os.ModePerm)
@@ -276,12 +278,17 @@ func emulateTPM(stateDir string) {
 		"socket",
 		"--tpmstate", fmt.Sprintf("dir=%s", t),
 		"--ctrl", fmt.Sprintf("type=unixio,path=%s/swtpm-sock", t),
-		"--tpm2", "--log", "level=20")
+		"--tpm2", "--log", "level=20", "--terminate")
 	err = cmd.Start()
 	Expect(err).ToNot(HaveOccurred())
 
-	err = os.WriteFile(path.Join(t, "pid"), []byte(strconv.Itoa(cmd.Process.Pid)), 0744)
-	Expect(err).ToNot(HaveOccurred())
+	// Nothing else holds on to the process, so without this every spec
+	// would leave a swtpm behind. Kill is a no-op error if --terminate
+	// already made it exit once QEMU disconnected; Wait reaps it either way.
+	DeferCleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
 }
 
 // testVM is peg's VM plus the machine it was built from.
@@ -412,8 +419,11 @@ func defaultVMOptsNoDrives(stateDir string) []types.MachineOption {
 
 	vmName := uuid.New().String()
 
-	// Always setup a tpm emulator
-	emulateTPM(stateDir)
+	// QEMU only gets the TPM when EMULATE_TPM is set (see the machine
+	// options below), so only start swtpm then.
+	if os.Getenv("EMULATE_TPM") != "" {
+		emulateTPM(stateDir)
+	}
 
 	sshPort, err = getFreePort()
 	Expect(err).ToNot(HaveOccurred())
