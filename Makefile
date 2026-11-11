@@ -16,8 +16,11 @@
 #     need them isolated.
 IMAGE_NAME ?= hadron:local
 # The published base `pull-image` fetches, retagged to IMAGE_NAME so that
-# `make build` and `make build-scratch` feed build-kairos the same way.
-PULL_IMAGE_NAME ?= ghcr.io/kairos-io/hadron:main
+# `make build` and `make build-scratch` feed build-kairos the same way. The
+# name follows the images CI publishes: hadron[-cloud][-fips][-trusted], from
+# KERNEL_TYPE, FIPS and BOOTLOADER. Recursive on purpose, so it reads those
+# three after the whole Makefile and the command line have set them.
+PULL_IMAGE_NAME ?= ghcr.io/kairos-io/hadron$(if $(filter cloud,$(KERNEL_TYPE)),-cloud)$(if $(filter fips,$(FIPS)),-fips)$(if $(filter systemd,$(BOOTLOADER)),-trusted):main
 INIT_IMAGE_NAME ?= hadron-init
 AURORA_IMAGE ?= quay.io/kairos/auroraboot:v0.28.0
 TARGET ?= default
@@ -81,17 +84,14 @@ else
 $(error "Architecture $(ARCH) is not supported. Please use 'amd64', 'arm64', or 'riscv64'.")
 endif
 
-# Adjust the image names based on BOOTLOADER.
+# Adjust the local image name based on BOOTLOADER.
 # If we are building with systemd (Trusted Boot), we switch to the trusted
-# variant of the Hadron image. If the user has overridden either name, we
-# respect that.
+# variant of the local Hadron image. If the user has overridden the name, we
+# respect that. PULL_IMAGE_NAME picks its variant above.
 # If we are building with grub, we do nothing.
 ifeq ($(BOOTLOADER),systemd)
 	ifeq ($(IMAGE_NAME),hadron:local)
           IMAGE_NAME := hadron-trusted:local
-	endif
-	ifeq ($(PULL_IMAGE_NAME),ghcr.io/kairos-io/hadron:main)
-          PULL_IMAGE_NAME := ghcr.io/kairos-io/hadron-trusted:main
 	endif
 endif
 
@@ -135,7 +135,7 @@ help: targets
 	@echo "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.0."
 	@echo "The IMAGE_NAME variable can be set to the local tag of the Hadron image that is built and that build-kairos uses as its base. The default is 'hadron:local' ('hadron-trusted:local' with BOOTLOADER=systemd)."
-	@echo "The PULL_IMAGE_NAME variable can be set to the published Hadron image that pull-image fetches. The default is 'ghcr.io/kairos-io/hadron:main' ('ghcr.io/kairos-io/hadron-trusted:main' with BOOTLOADER=systemd)."
+	@echo "The PULL_IMAGE_NAME variable can be set to the published Hadron image that pull-image fetches. The default is 'ghcr.io/kairos-io/hadron:main', with '-cloud' for KERNEL_TYPE=cloud, '-fips' for FIPS=fips and '-trusted' for BOOTLOADER=systemd added to the image name (for example 'ghcr.io/kairos-io/hadron-cloud-fips-trusted:main')."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
 	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
