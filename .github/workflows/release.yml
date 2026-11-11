@@ -1,14 +1,16 @@
-name: Daily release
+name: Release
 
-# Once a day, releases the newest green main commit when something landed
-# since the last release. The version comes from the commits, following
+# Every Monday and Thursday, releases the newest green main commit when
+# something landed since the last release. The version comes from the
+# commits, following
 # Conventional Commits and SemVer (.github/scripts/next-release.sh):
 # a breaking change is a major release, `feat` a minor one, anything else a
 # patch. This job only pushes the tag; the tag push starts "Build main and
 # release images", which builds the images and creates the GitHub release.
 on:
   schedule:
-    - cron: "0 4 * * *"
+    # 04:00 UTC on Monday and Thursday.
+    - cron: "0 4 * * 1,4"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -21,7 +23,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: daily-release
+  group: release
   cancel-in-progress: false
 
 jobs:
