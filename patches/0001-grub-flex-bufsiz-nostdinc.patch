@@ -1,0 +1,30 @@
+Define BUFSIZ for the freestanding grub script lexer so flex 2.6.5 works.
+
+flex 2.6.5 changed the scanner skeleton to read in stdio-sized chunks:
+
+    #define YY_READ_BUF_SIZE BUFSIZ
+
+flex 2.6.4 used a fixed 8192 there. grub builds grub-core with -nostdinc,
+so BUFSIZ is never declared and grub_script.yy.c stops compiling:
+
+    grub_script.yy.c:1222:26: error: 'BUFSIZ' undeclared
+
+yylex.l already carries "flex hacks for -nostdinc" for stdin, stdout,
+fprintf and exit under #ifndef GRUB_UTIL. Add BUFSIZ there, set to the
+8192 that flex 2.6.4 used, so the module build reads the same amount it
+did before. GRUB_UTIL builds keep the libc value. With flex 2.6.4 the
+define is unused, so the patch is safe on either version.
+
+--- a/grub-core/script/yylex.l
++++ b/grub-core/script/yylex.l
+@@ -93,6 +93,10 @@
+ 
+ #define fprintf(...) (void)0
+ #define exit(...) grub_fatal("fatal error in lexer")
++/* flex 2.6.5 reads in BUFSIZ chunks, and BUFSIZ comes from stdio.h.  */
++#ifndef BUFSIZ
++#define BUFSIZ 8192
++#endif
+ #endif
+ 
+ }

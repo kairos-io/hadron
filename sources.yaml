@@ -558,7 +558,7 @@ packages:
 
   linux:
     version_arg: KERNEL_VERSION
-    sha256: 79c66dde66cd96877fcde8f7d36aec946b1f423d2b97b5a7b1751b75c764f3d1
+    sha256: b11b6df8295e8e991ff040b71aaa4994a8b55caa23b6b092907f195b5840fd1f
     urls:
       - https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-${version}.tar.xz
     filename: linux.tar.xz
@@ -572,7 +572,7 @@ packages:
 
   lz4:
     version_arg: LZ4_VERSION
-    sha256: 247e5fa64da5f7b75ee3dd3bed484076396c9ebe8254d9ccf693eb62800c5e26
+    sha256: 683fed08a844ad012196381e40badf80c0bbe4962959761416d41c9e67d77ec7
     urls:
       - https://github.com/lz4/lz4/archive/v${version}.tar.gz
     filename: lz4.tar.gz

@@ -107,9 +107,9 @@ ARG LIBTIRPC_VERSION=1.3.8
 ARG LIBTOOL_VERSION=2.5.4
 ARG LIBUCONTEXT_VERSION=1.5.2
 ARG LIBXML2_VERSION=2.15.4
-ARG KERNEL_VERSION=7.3.3
+ARG KERNEL_VERSION=7.3.4
 ARG LVM2_VERSION=2.03.44
-ARG LZ4_VERSION=1.11.0
+ARG LZ4_VERSION=1.11.1
 ARG M4_VERSION=1.4.21
 ARG MAKE_VERSION=4.4.1
 ARG MPC_VERSION=1.4.1
@@ -3122,6 +3122,10 @@ COPY --from=sources-downloader /sources/downloads/grub.tar.xz /sources/
 WORKDIR /sources
 RUN tar -xf grub.tar.xz && mv grub-* grub
 WORKDIR /sources/grub
+# flex 2.6.5 sizes scanner reads with BUFSIZ, which -nostdinc grub-core lacks
+COPY --from=patch /patch/ /
+COPY patches/0001-grub-flex-bufsiz-nostdinc.patch .
+RUN patch -p1 < 0001-grub-flex-bufsiz-nostdinc.patch
 #RUN echo depends bli part_gpt > grub-core/extra_deps.lst
 
 FROM grub-base AS grub-efi
