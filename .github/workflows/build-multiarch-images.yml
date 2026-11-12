@@ -82,6 +82,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -129,6 +130,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -177,6 +179,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -226,6 +229,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -288,6 +292,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -348,6 +353,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -401,6 +407,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -468,6 +475,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -518,6 +526,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -569,6 +578,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -621,6 +631,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -677,6 +688,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -731,6 +743,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -784,6 +797,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -838,6 +852,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -900,6 +915,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1008,6 +1024,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1072,6 +1089,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1185,6 +1203,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1295,6 +1314,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1416,6 +1436,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1489,6 +1510,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1620,6 +1642,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1670,6 +1693,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1721,6 +1745,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1773,6 +1798,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1829,6 +1855,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1884,6 +1911,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1937,6 +1965,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -1990,6 +2019,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -2057,6 +2087,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
@@ -2159,6 +2190,7 @@ jobs:
         id: buildx
         uses: docker/setup-buildx-action@master
         with:
+          cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
               max-parallelism = 4
