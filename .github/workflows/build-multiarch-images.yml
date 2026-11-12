@@ -5,6 +5,11 @@ on:
       - main
     tags:
       - 'v*'
+  # release.yml starts the release build this way on the tag it pushes,
+  # because a tag pushed with GITHUB_TOKEN starts no workflow. A run on a
+  # tag ref behaves like a tag push: every job decides by github.ref. The
+  # populate-sources job refuses any other ref.
+  workflow_dispatch:
 
 # Read-only by default. A job that needs more (packages, attestations,
 # id-token, pull-requests) asks for it in its own permissions block.
@@ -26,6 +31,10 @@ jobs:
   # docker/build-push-action so ghcr source images are populated
   # before FROM lines try to resolve.
   populate-sources:
+    # A workflow_dispatch run builds only a release tag. Every build job
+    # depends on this one, so on any other ref the whole run is skipped
+    # instead of pushing images named after that ref.
+    if: github.event_name == 'push' || startsWith(github.ref, 'refs/tags/v')
     uses: ./.github/workflows/populate-sources.yml
     permissions:
       contents: read

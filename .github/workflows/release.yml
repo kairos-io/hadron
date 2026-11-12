@@ -5,8 +5,12 @@ name: Release
 # commits, following
 # Conventional Commits and SemVer (.github/scripts/next-release.sh):
 # a breaking change is a major release, `feat` a minor one, anything else a
-# patch. This job only pushes the tag; the tag push starts "Build main and
-# release images", which builds the images and creates the GitHub release.
+# patch. This job pushes the tag and then starts "Build main and release
+# images" on it, which builds the images and creates the GitHub release.
+#
+# It uses only the workflow's GITHUB_TOKEN. A tag pushed with that token
+# starts no workflow, but GitHub does let the token start one with
+# workflow_dispatch, so the build is started explicitly.
 on:
   schedule:
     # 04:00 UTC on Monday and Thursday.
@@ -29,15 +33,17 @@ concurrency:
 jobs:
   tag:
     runs-on: ubuntu-latest
+    permissions:
+      # git push of the release tag.
+      contents: write
+      # gh workflow run of the release build.
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
-          # A tag pushed with GITHUB_TOKEN does not start other workflows,
-          # so push with the PAT to get the release build going.
-          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Pick commit and version, then tag
         env:
@@ -89,4 +95,5 @@ jobs:
 
           git tag "${next}" "${sha}"
           git push origin "refs/tags/${next}"
-          echo "Tagged ${sha} as ${next} (from ${last})" >> "$GITHUB_STEP_SUMMARY"
+          gh workflow run build-multiarch-images.yml --repo "${GITHUB_REPOSITORY}" --ref "${next}"
+          echo "Tagged ${sha} as ${next} (from ${last}) and started the release build" >> "$GITHUB_STEP_SUMMARY"
