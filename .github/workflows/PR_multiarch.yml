@@ -188,7 +188,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   rsync-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-26.04-16-64-x86
     needs: [stage1-amd64]
     permissions:
       contents: read
@@ -342,7 +342,7 @@ jobs:
             FIPS=no-fips
 
   systemd-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -395,7 +395,7 @@ jobs:
             FIPS=no-fips
 
   python-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-26.04-24-96-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -445,7 +445,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-python-build-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   toolchain-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
@@ -510,7 +510,7 @@ jobs:
           target: toolchain
 
   container-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs:
       - toolchain-amd64
     permissions:
@@ -619,7 +619,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   hadron-bios-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     permissions:
@@ -739,7 +739,7 @@ jobs:
           compression-level: 0
 
   hadron-trusted-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     permissions:
