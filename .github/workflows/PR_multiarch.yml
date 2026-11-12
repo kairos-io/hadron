@@ -619,7 +619,7 @@ jobs:
           go run github.com/onsi/ginkgo/v2/ginkgo -v -r --label-filter "image-structure" ./tests/
 
   hadron-bios-amd64:
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-32-128-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     permissions:
@@ -739,7 +739,7 @@ jobs:
           compression-level: 0
 
   hadron-trusted-amd64:
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-32-128-x86
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
     permissions:
