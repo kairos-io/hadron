@@ -309,6 +309,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build kernel-misc
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -331,6 +332,21 @@ jobs:
           build-args: |
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      # Stages that stage0 and stage1 already cached should never run here.
+      # This turns a silent rebuild (the kernel taking an hour inside an image
+      # job) into a warning on the run summary.
+      - name: Warn about rebuilt upstream stages
+        if: ${{ !cancelled() }}
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+          BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+            echo "No build record to check"
+            exit 0
+          fi
+          ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0)$'
 
   systemd-amd64:
     runs-on: cncf-ubuntu-16-64-x86
@@ -875,6 +891,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -898,6 +915,21 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+      # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
+      # This turns a silent rebuild (the kernel taking an hour inside an image
+      # job) into a warning on the run summary.
+      - name: Warn about rebuilt upstream stages
+        if: ${{ !cancelled() }}
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+          BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+            echo "No build record to check"
+            exit 0
+          fi
+          ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   toolchain-arm64:
     runs-on: cncf-ubuntu-16-64-arm
     needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
@@ -1047,6 +1079,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1071,6 +1104,21 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+      # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
+      # This turns a silent rebuild (the kernel taking an hour inside an image
+      # job) into a warning on the run summary.
+      - name: Warn about rebuilt upstream stages
+        if: ${{ !cancelled() }}
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+          BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+            echo "No build record to check"
+            exit 0
+          fi
+          ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   container-arm64:
     runs-on: cncf-ubuntu-16-64-arm
     needs:
@@ -1262,6 +1310,7 @@ jobs:
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
       - name: Build and push (retry)
+        id: build-retry
         if: steps.build.outcome == 'failure'
         uses: docker/build-push-action@v7
         env:
@@ -1292,6 +1341,21 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
+      # This turns a silent rebuild (the kernel taking an hour inside an image
+      # job) into a warning on the run summary.
+      - name: Warn about rebuilt upstream stages
+        if: ${{ !cancelled() }}
+        env:
+          METADATA: ${{ steps.build-retry.outputs.metadata || steps.build.outputs.metadata }}
+          BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+            echo "No build record to check"
+            exit 0
+          fi
+          ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-bios-arm64:
     runs-on: cncf-ubuntu-8-32-arm
     needs:
@@ -1459,6 +1523,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1488,6 +1553,21 @@ jobs:
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
+      # This turns a silent rebuild (the kernel taking an hour inside an image
+      # job) into a warning on the run summary.
+      - name: Warn about rebuilt upstream stages
+        if: ${{ !cancelled() }}
+        env:
+          METADATA: ${{ steps.build.outputs.metadata }}
+          BUILDER: ${{ steps.buildx.outputs.name }}
+        run: |
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+            echo "No build record to check"
+            exit 0
+          fi
+          ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-trusted-arm64:
     runs-on: cncf-ubuntu-8-32-arm
     needs:
