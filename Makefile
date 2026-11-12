@@ -220,6 +220,10 @@ test-updatecli-sources: ## Verify every updatecli shell source fails when it fin
 test-patch-headers: ## Verify every patch under patches/ carries a header
 	@sh ./hack/check-patch-headers_test.sh
 
+.PHONY: test-cache-tag-cleanup
+test-cache-tag-cleanup: ## Verify the PR cache cleanup never deletes a manifest a kept tag shares
+	@bash ./.github/scripts/delete-cache-tags_test.sh
+
 ## Component manifests for the working tree, written to gen/components/.
 ## The build does NOT need this: the Dockerfile's components-manifest stage
 ## generates the same files inside the build, so `docker build .` works on a
