@@ -107,12 +107,22 @@ jobs:
         # populate-sources publishes it on a pull request from this
         # repository and on main, never on a fork, so a missing
         # hadron-sources tag is only a warning. Any other error fails.
+        #
+        # BuildKit stops at the first FROM it cannot resolve, so a missing
+        # source tag hides every error after it. On a merge group every source
+        # was already published by the pull request, and this check is the
+        # only one that runs there, so a missing tag fails it too.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           rc=0
           docker buildx build --check -f Dockerfile . > dockerfile-check.log 2>&1 || rc=$?
           cat dockerfile-check.log
           if [ "$rc" -eq 0 ]; then
             exit 0
+          fi
+          if [ "$EVENT_NAME" = "merge_group" ]; then
+            exit 1
           fi
           other=$(grep '^ERROR:' dockerfile-check.log | grep -v 'hadron-sources/[^ ]*: not found' || true)
           if [ -n "$other" ]; then
