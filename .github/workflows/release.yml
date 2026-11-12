@@ -75,6 +75,17 @@ jobs:
             exit 0
           fi
 
+          # GitHub refuses a GITHUB_TOKEN push of a tag whose workflow files
+          # differ from main ("refusing to allow a GitHub App to create or
+          # update workflow"), and the dispatched build would run the old
+          # workflow anyway. Wait until a main commit with the current
+          # workflows has a green build.
+          if ! git diff --quiet "${sha}" "${GITHUB_SHA}" -- .github/workflows; then
+            echo "::notice::${sha} has older workflow files than main, skipping until main at ${GITHUB_SHA} has a green build"
+            git diff --stat "${sha}" "${GITHUB_SHA}" -- .github/workflows
+            exit 0
+          fi
+
           next=$(.github/scripts/next-release.sh "${last}" "${sha}")
           if [ -z "${next}" ]; then
             echo "No changes since ${last}, skipping"
