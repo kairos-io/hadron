@@ -10,8 +10,14 @@ name: PR title
 # `edited` re-runs the check when the title changes, which the default
 # pull_request types do not. That is why this is its own workflow and not a
 # job in PR_multiarch.yml: a title edit there would restart the image builds.
+#
+# merge_group: a queued pull request already passed this check, and a merge
+# queue run has no title to check, so the job reports success without
+# checking anything. It still has to run, because a required check that
+# never reports holds the queue until it times out.
 
 on:
+  merge_group:
   pull_request:
     types: [opened, edited, reopened, synchronize]
 
@@ -23,7 +29,7 @@ permissions:
 # `patch-1` branches), and a shared group would let one fork's run cancel
 # another's.
 concurrency:
-  group: ci-pr-title-${{ github.event.pull_request.number }}
+  group: ci-pr-title-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -32,14 +38,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Test the bump script
+        if: github.event_name == 'pull_request'
         run: .github/scripts/semver-bump_test.sh
       - name: Test the release version script
+        if: github.event_name == 'pull_request'
         run: .github/scripts/next-release_test.sh
       - name: Check the title
+        if: github.event_name == 'pull_request'
         # The title is read from the API when the job runs, not from the
         # event payload: a manual re-run reuses the old payload, so a re-run
         # of an older run would check the title as it was then.
