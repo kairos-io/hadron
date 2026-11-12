@@ -163,7 +163,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,{0}', env.CACHE_TO) || '' }}
 
   rsync-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-26.04-16-64-x86
     needs: [stage1-amd64]
     permissions:
       packages: write
@@ -349,7 +349,7 @@ jobs:
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0)$'
 
   systemd-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     strategy:
       matrix:
         # See kernel-amd64: systemd links openssl, so FIPS needs its own graph.
@@ -407,7 +407,7 @@ jobs:
             FIPS=${{ matrix.fips }}
 
   python-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-26.04-24-96-x86
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -852,7 +852,7 @@ jobs:
 
 
   toolchain-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
@@ -1039,7 +1039,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   container-amd64:
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs:
       - toolchain
     permissions:
@@ -1230,7 +1230,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-bios-amd64:
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1357,7 +1357,7 @@ jobs:
           fi
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-bios-arm64:
-    runs-on: cncf-ubuntu-8-32-arm
+    runs-on: cncf-ubuntu-32-128-arm
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1479,7 +1479,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-trusted-amd64:
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1569,7 +1569,7 @@ jobs:
           fi
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-trusted-arm64:
-    runs-on: cncf-ubuntu-8-32-arm
+    runs-on: cncf-ubuntu-32-128-arm
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -2250,7 +2250,7 @@ jobs:
   # full-image-final for why the split (and the native riscv64 runner it
   # needed) is gone.
   hadron-bios-riscv64:
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs: [container-riscv64]
     timeout-minutes: 360
     strategy:
