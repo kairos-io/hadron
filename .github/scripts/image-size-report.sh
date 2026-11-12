@@ -104,21 +104,22 @@ details=""
 for v in "${VARIANTS[@]}"; do
   IFS='|' read -r name pr_img main_img <<<"$v"
 
+  # PR image was docker-loaded locally by the workflow before this script
+  # runs (see image-size-report-amd64 in PR_multiarch.yml), so this checks
+  # local presence rather than pulling. A pull request builds only the default
+  # kernel variants; the cloud ones are built on main alone, so a variant with
+  # no local PR image is left out of the report rather than pulling its :main
+  # baseline for nothing.
+  if ! docker image inspect "$pr_img" >/dev/null 2>&1; then
+    continue
+  fi
+
   # Baseline may legitimately not exist yet (brand new image variant).
   if ! docker pull -q "$main_img" >/dev/null 2>&1; then
     summary_rows+="| \`${name}\` | _not on main yet_ | — | — |"$'\n'
     continue
   fi
   main_sz=$(rootfs_bytes "$main_img")
-
-  # PR image was docker-loaded locally by the workflow before this script
-  # runs (see image-size-report-amd64 in PR_multiarch.yml), so this checks
-  # local presence rather than pulling. Skip rather than aborting the whole
-  # report with no output if it is somehow missing (e.g. a build job failed).
-  if ! docker image inspect "$pr_img" >/dev/null 2>&1; then
-    summary_rows+="| \`${name}\` | $(human "$main_sz") | _PR image not found_ | — |"$'\n'
-    continue
-  fi
 
   pr_sz=$(rootfs_bytes "$pr_img")
   delta=$((pr_sz - main_sz))
