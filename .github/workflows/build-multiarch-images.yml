@@ -23,9 +23,16 @@ env:
 
 # Tags should not save the cache as they wont be ever reused for further builds
 # so we only set the cache save on branch builds
+#
+# A main build is never cancelled. BuildKit writes the cache only when a
+# build finishes, and the default kernel takes about an hour, so cancelling
+# on every merge threw that hour away and the next run started the kernel
+# from scratch again. With cancel-in-progress off, GitHub keeps one run
+# going and one pending per ref, and replaces the pending run with the
+# newest push, so the queue does not grow.
 concurrency:
   group: ci-image-${{ github.ref_name }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.ref_name == 'main' }} # Only cancel in-progress for branch builds, never for tags
+  cancel-in-progress: false
 jobs:
   # See populate-sources.yml for details. Gates every downstream
   # docker/build-push-action so ghcr source images are populated

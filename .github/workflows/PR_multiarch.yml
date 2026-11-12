@@ -76,91 +76,10 @@ jobs:
       packages: write
     secrets: inherit
 
-  # Kernel config version + BTF checks are arch-independent (they read the
-  # single linux version pinned in the Dockerfile), so run them once for
-  # all four config files: x86_64 (cloud.config, default.config) and
-  # arm64 (cloud-arm64.config, default-arm64.config).
+  # The static checks live in quick-checks.yml so the merge queue runs the
+  # same list.
   check-kernel-configs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Install PyYAML
-        run: sudo apt-get update && sudo apt-get install -y python3-yaml
-      - name: Verify fork-PR upstream source rewrite
-        run: make test-render
-      - name: Verify the local base image tag invariant
-        run: make test-image-tags
-      - name: Verify make help, run-qemu and the removed bump-deps
-        run: make test-make-helpers
-      - name: Verify the source-cache probe retries a stalled connection
-        run: make test-source-probe
-      - name: Verify the quay login gates exclude forks and dependabot
-        run: make test-workflow-gates
-      - name: Verify the sources.yaml checksum refresher
-        run: make test-source-checksums
-      - name: Verify the autobumper's pull request decision
-        run: make test-bump-pr-action
-      - name: Verify the autobumper never downgrades a version
-        run: make test-version-downgrades
-      - name: Verify the autobumper's release-notes excerpt
-        run: make test-autobumper-changelog
-      - name: Verify the release notes keep one components section
-        run: make test-release-notes
-      - name: Verify the bash patch level source
-        run: make test-bash-patch-level
-      - name: Verify every carried patch has a header
-        run: make test-patch-headers
-      - name: Verify every Dockerfile COPY source is in the build context
-        run: make test-copy-context
-      - name: Verify every updatecli shell source fails on empty output
-        run: make test-updatecli-sources
-      - name: Verify the component-manifest generator
-        run: make test-components
-      - name: Verify kernel configs are resolved against current kernel version
-        run: |
-          KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)
-          [[ "$KERNEL_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && KERNEL_VERSION="${KERNEL_VERSION}.0"
-          FAILED=0
-          for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
-            CONFIG_VERSION=$(grep '^# Linux/' "$cfg" | grep -oP '\d+\.\d+(\.\d+)?' || true)
-            [[ "$CONFIG_VERSION" =~ ^[0-9]+\.[0-9]+$ ]] && CONFIG_VERSION="${CONFIG_VERSION}.0"
-            if [ "$CONFIG_VERSION" != "$KERNEL_VERSION" ]; then
-              echo "ERROR: $cfg is stale (generated for $CONFIG_VERSION, current kernel is $KERNEL_VERSION)"
-              echo "Run 'make update-kernel-configs' and commit the result."
-              FAILED=1
-            else
-              echo "OK: $cfg matches kernel $KERNEL_VERSION"
-            fi
-          done
-          exit $FAILED
-      - name: Verify BTF is enabled in all kernel configs
-        run: |
-          FAILED=0
-          for cfg in files/kernel/cloud.config files/kernel/default.config files/kernel/cloud-arm64.config files/kernel/default-arm64.config; do
-            if ! grep -q '^CONFIG_DEBUG_INFO_BTF=y' "$cfg"; then
-              echo "ERROR: $cfg is missing CONFIG_DEBUG_INFO_BTF=y"
-              FAILED=1
-            else
-              echo "OK: $cfg has CONFIG_DEBUG_INFO_BTF=y"
-            fi
-          done
-          exit $FAILED
-      - name: Verify every kernel with fbdev core provides /dev/fb*
-        run: |
-          # kairos-io/kairos#5526: fbcon and DRM fbdev emulation register fb0,
-          # but without FB_DEVICE there is no /dev/fb0 and no /sys/class/graphics/fb0.
-          FAILED=0
-          for cfg in files/kernel/*.config; do
-            grep -q '^CONFIG_FB_CORE=y' "$cfg" || continue
-            if ! grep -q '^CONFIG_FB_DEVICE=y' "$cfg"; then
-              echo "ERROR: $cfg has CONFIG_FB_CORE=y but not CONFIG_FB_DEVICE=y"
-              FAILED=1
-            else
-              echo "OK: $cfg has CONFIG_FB_DEVICE=y"
-            fi
-          done
-          exit $FAILED
+    uses: ./.github/workflows/quick-checks.yml
 
   # ============================================================================
   # amd64 per-stage cache jobs (PR-scoped)
@@ -2393,3 +2312,32 @@ jobs:
 #          name: ${{ matrix.test }}-arm64-${{github.sha}}.logs.zip
 #          path: tests/**/logs/*
 #          if-no-files-found: warn
+
+  # One check to require on main instead of every test leg by name. It fails
+  # unless every job it needs succeeded, so a skipped or cancelled leg counts
+  # as a failure, not as a pass. The merge queue reports a check with the
+  # same name from merge-queue.yml, which runs only the quick checks: this
+  # pipeline already passed on the pull request, and running it again on the
+  # queue branch would add hours to every merge.
+  hadron-ci:
+    name: hadron-ci
+    if: always()
+    needs:
+      - check-kernel-configs
+      - hadron-trusted-amd64
+      - hadron-grub-arm64
+      - tests-bios-amd64
+      - tests-trusted-amd64
+      - tests-bios-fips-amd64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every required job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "::error title=hadron-ci::Not every required job passed: ${failed}"
+            exit 1
+          fi

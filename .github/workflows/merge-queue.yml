@@ -1,0 +1,49 @@
+name: Merge queue
+
+# The checks the merge queue waits for on its temporary branch
+# (gh-readonly-queue/main/...). Every check required on main has to report
+# there too, or the queued pull request is dropped when the queue times out.
+#
+# The full image pipeline does not run here. It takes hours, and it already
+# passed on the pull request. This runs the quick checks on the merged result
+# instead, which catch a merge that breaks the Dockerfile or one of the
+# repository's checks in a few minutes. Changes that only fail once they are
+# built together are caught by the main build, which runs once per merged
+# batch, and the release only tags a main commit whose build passed.
+#
+# A merge_group run gets a read-write token and the repository secrets, but it
+# only runs code that was reviewed and queued, and nothing here pushes or logs
+# in to a registry.
+
+on:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: merge-queue-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-kernel-configs:
+    uses: ./.github/workflows/quick-checks.yml
+
+  # Same name as the hadron-ci job in PR_multiarch.yml, so one required check
+  # covers both the pull request and the queue branch.
+  hadron-ci:
+    name: hadron-ci
+    if: always()
+    needs:
+      - check-kernel-configs
+    runs-on: ubuntu-latest
+    steps:
+      - name: The quick checks passed
+        env:
+          RESULT: ${{ needs.check-kernel-configs.result }}
+        run: |
+          echo "check-kernel-configs: ${RESULT}"
+          if [ "$RESULT" != "success" ]; then
+            echo "::error title=hadron-ci::The quick checks did not pass: ${RESULT}"
+            exit 1
+          fi
