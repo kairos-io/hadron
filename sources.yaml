@@ -861,7 +861,7 @@ packages:
 
   tpm2-tss:
     version_arg: TPM2_TSS_VERSION
-    sha256: d4aadbc1610876385a370494bbfd7d994356f446dff60cd09eea5933befb1471
+    sha256: bd4efc89ee01aca8ff771cae268d84333b7594c2d4afee50bb13b859f1113c3f
     urls:
       - https://github.com/tpm2-software/tpm2-tss/releases/download/${version}/tpm2-tss-${version}.tar.gz
     filename: tpm2-tss.tar.gz
