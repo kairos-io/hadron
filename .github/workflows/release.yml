@@ -8,8 +8,7 @@ name: Release
 # patch. This job creates the tag and release, then starts "Build main and release
 # images" on it, which builds the images and adds the component list to the release notes.
 #
-# The commit is the one the newest finished main build passed on
-# (.github/scripts/green-commit.sh); a red build skips the run. It uses
+# The commit is the newest one whose main build passed. It uses
 # only the workflow's GITHUB_TOKEN. The tag is created with the releases
 # API, which GitHub accepts even when the commit's workflow files differ
 # from main (a git push of the tag is refused). A tag made with that token
@@ -17,7 +16,7 @@ name: Release
 # workflow_dispatch, so the build is started explicitly.
 #
 # It posts to Slack (the SLACK_RELEASE_WEBHOOK secret) when it starts a
-# release and when it skips because the newest main build is red or unfinished. With
+# release and when it skips because main has no green build. With
 # no secret set, or on a dry run, the message is only printed as a
 # warning, and a failed post never fails the run.
 on:
@@ -84,32 +83,16 @@ jobs:
           fi
           echo "Last release: ${last}"
 
-          # The newest finished main build decides, as in kairos. A red
-          # build skips the week and never falls back to an older green
-          # commit; cancelled and in-progress runs have no verdict.
-          gh run list --repo "${GITHUB_REPOSITORY}" \
+          # Release the newest main commit whose image build passed, not
+          # just HEAD, so a red main never gets tagged. A red newest build
+          # does not block the release: the newest green one is used.
+          sha=$(gh run list --repo "${GITHUB_REPOSITORY}" \
             --workflow build-multiarch-images.yml --branch main --event push \
-            --limit 50 --json headSha,status,conclusion,url,createdAt > runs.json
-          set +e
-          out="$(.github/scripts/green-commit.sh runs.json)"
-          rc=$?
-          set -e
-          get() { sed -n "s/^$1=//p" <<<"${out}"; }
-          case "${rc}" in
-            0) sha="$(get sha)" ;;
-            2)
-              notify "Hadron release skipped: the main build finished with $(get conclusion) on \`$(get sha | cut -c1-7)\`, $(get url)"
-              exit 0
-              ;;
-            3)
-              notify "Hadron release skipped: none of the last 50 main builds has finished."
-              exit 0
-              ;;
-            *)
-              echo "green-commit.sh failed with exit status ${rc}" >&2
-              exit 1
-              ;;
-          esac
+            --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -z "${sha}" ]; then
+            notify "Hadron release skipped: no green main build found."
+            exit 0
+          fi
           echo "Newest green main commit: ${sha}"
 
           if git merge-base --is-ancestor "${sha}" "${last}"; then
