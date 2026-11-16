@@ -341,8 +341,13 @@ jobs:
           METADATA: ${{ steps.build.outputs.metadata }}
           BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
-          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
-          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+          # `${METADATA:-{}}` would end at the first `}` and append a stray one
+          # whenever METADATA is set, which breaks jq.
+          meta="${METADATA:-}"
+          [ -n "${meta}" ] || meta='{}'
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${meta}")
+          # `history logs` writes the log to stderr.
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log" 2>&1; then
             echo "No build record to check"
             exit 0
           fi
@@ -924,8 +929,13 @@ jobs:
           METADATA: ${{ steps.build.outputs.metadata }}
           BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
-          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
-          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+          # `${METADATA:-{}}` would end at the first `}` and append a stray one
+          # whenever METADATA is set, which breaks jq.
+          meta="${METADATA:-}"
+          [ -n "${meta}" ] || meta='{}'
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${meta}")
+          # `history logs` writes the log to stderr.
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log" 2>&1; then
             echo "No build record to check"
             exit 0
           fi
@@ -1113,8 +1123,13 @@ jobs:
           METADATA: ${{ steps.build.outputs.metadata }}
           BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
-          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
-          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+          # `${METADATA:-{}}` would end at the first `}` and append a stray one
+          # whenever METADATA is set, which breaks jq.
+          meta="${METADATA:-}"
+          [ -n "${meta}" ] || meta='{}'
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${meta}")
+          # `history logs` writes the log to stderr.
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log" 2>&1; then
             echo "No build record to check"
             exit 0
           fi
@@ -1350,8 +1365,13 @@ jobs:
           METADATA: ${{ steps.build-retry.outputs.metadata || steps.build.outputs.metadata }}
           BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
-          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
-          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+          # `${METADATA:-{}}` would end at the first `}` and append a stray one
+          # whenever METADATA is set, which breaks jq.
+          meta="${METADATA:-}"
+          [ -n "${meta}" ] || meta='{}'
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${meta}")
+          # `history logs` writes the log to stderr.
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log" 2>&1; then
             echo "No build record to check"
             exit 0
           fi
@@ -1562,8 +1582,13 @@ jobs:
           METADATA: ${{ steps.build.outputs.metadata }}
           BUILDER: ${{ steps.buildx.outputs.name }}
         run: |
-          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${METADATA:-{}}")
-          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log"; then
+          # `${METADATA:-{}}` would end at the first `}` and append a stray one
+          # whenever METADATA is set, which breaks jq.
+          meta="${METADATA:-}"
+          [ -n "${meta}" ] || meta='{}'
+          ref=$(jq -r '."buildx.build.ref" // empty' <<< "${meta}")
+          # `history logs` writes the log to stderr.
+          if [ -z "${ref}" ] || ! docker buildx history logs --builder "${BUILDER}" "${ref##*/}" > "${RUNNER_TEMP}/build.log" 2>&1; then
             echo "No build record to check"
             exit 0
           fi

@@ -23,6 +23,7 @@ case $1 in
     list-tags)
         python3 -c 'import json, os, sys; print(json.dumps({"Tags": sorted(os.listdir(sys.argv[1]))}))' "${dir}" ;;
     inspect)
+        [ "${tag}" != "${STUB_FAIL_TAG:-}" ] || { echo "registry error" >&2; exit 1; }
         [ -f "${dir}/${tag}" ] || { echo "manifest unknown" >&2; exit 1; }
         cat "${dir}/${tag}" ;;
     delete)
@@ -64,6 +65,18 @@ expect_absent pr-840-rsync-arm64
 
 if [ "${failed}" -ne 0 ]; then
     cat "${work}/out" >&2
+    exit 1
+fi
+# A kept tag that cannot be read stops the cleanup before any delete
+put pr-841-rsync-amd64 'manifest-pr-841'
+if printf '%s\n' pr-841-rsync-amd64 \
+    | STUB_FAIL_TAG=rsync-amd64 STUB_TAGS="${work}/tags" SKOPEO="${work}/skopeo" "${SCRIPT}" quay.io/kairos/hadron-build-cache > "${work}/out2" 2>&1; then
+    echo "FAIL: cleanup went on although a kept tag was unreadable" >&2
+    failed=1
+fi
+expect_present pr-841-rsync-amd64
+if [ "${failed}" -ne 0 ]; then
+    cat "${work}/out2" >&2
     exit 1
 fi
 echo "delete-cache-tags: ok"

@@ -42,16 +42,25 @@ done
 
 # Digest of every tag that stays, so a shared manifest is never deleted.
 declare -A kept=()
+unreadable=0
 while IFS= read -r tag; do
     [ -n "${tag}" ] || continue
     [ -z "${deleting[${tag}]:-}" ] || continue
     if d=$(digest "${tag}"); then
         kept[${d}]=${tag}
     else
-        echo "WARN: could not read ${tag}; it is not protected"
+        echo "WARN: could not read ${tag}; its manifest may be shared with a tag to delete"
+        unreadable=1
     fi
 done < <("${skopeo}" list-tags "docker://${repo}" \
     | python3 -c "import sys, json; print('\n'.join(json.load(sys.stdin).get('Tags', [])))")
+
+# A tag we could not read might share a manifest with a tag to delete, so
+# delete nothing; the next run tries again.
+if [ "${unreadable}" -ne 0 ]; then
+    echo "Refusing to delete anything: a kept tag could not be read." >&2
+    exit 1
+fi
 
 for tag in "${doomed[@]}"; do
     if ! d=$(digest "${tag}"); then
