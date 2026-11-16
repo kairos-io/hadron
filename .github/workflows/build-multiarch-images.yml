@@ -2387,3 +2387,30 @@ jobs:
           gh release view "$TAG" --json body --jq .body > existing.md || : > existing.md
           ./.github/scripts/release-notes-body.sh existing.md release.md > final.md
           gh release edit "$TAG" --notes-file final.md
+
+  # Tells Slack when a release build fails. It runs only for a release tag,
+  # not for main builds, and not when the run was cancelled. A dispatched
+  # run on a tag has no "failure" of its own, so this watches every job.
+  notify-release-failure:
+    name: Tell Slack the release build failed
+    runs-on: ubuntu-latest
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    needs: [populate-sources, stage0-amd64, stage1-amd64, rsync-amd64, cmake-amd64, kernel-amd64, systemd-amd64, python-amd64, stage0-arm64, stage1-arm64, rsync-arm64, cmake-arm64, kernel-arm64, systemd-arm64, python-arm64, toolchain-amd64, toolchain-arm64, toolchain, container-amd64, container-arm64, container, hadron-bios-amd64, hadron-bios-arm64, hadron-bios, hadron-trusted-amd64, hadron-trusted-arm64, hadron-trusted, stage0-riscv64, stage1-riscv64, rsync-riscv64, cmake-riscv64, kernel-riscv64, systemd-riscv64, python-riscv64, toolchain-riscv64, container-riscv64, hadron-bios-riscv64, size-history, release-notes]
+    permissions:
+      contents: read
+    steps:
+      - name: Post to Slack
+        env:
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          TAG: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${SLACK_RELEASE_WEBHOOK:-}" ]; then
+            echo "::warning::Hadron ${TAG} release build failed: ${RUN_URL}"
+            exit 0
+          fi
+          if ! curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "$(jq -n --arg t "Hadron \`${TAG}\` release build failed." --arg u "${RUN_URL}" '{text:$t,url:$u}')" \
+            "${SLACK_RELEASE_WEBHOOK}"; then
+            echo "::warning::Slack post failed for ${TAG}"
+          fi
