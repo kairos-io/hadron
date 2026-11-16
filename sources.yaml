@@ -615,7 +615,7 @@ packages:
 
   mspack:
     version_arg: MSPACK_VERSION
-    sha256: 284e0e51fee991c40e8cbbc0f5e635f99722796a3642a14397989fc00b862f72
+    sha256: e9941cbfdab991af2afdd16ac746d3e194012838d81c80ce14d6a61bc69f78ce
     urls:
       - https://github.com/kyz/libmspack/archive/refs/tags/v${version}.tar.gz
     filename: mspack.tar.gz
