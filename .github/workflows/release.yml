@@ -5,12 +5,21 @@ name: Release
 # commits, following
 # Conventional Commits and SemVer (.github/scripts/next-release.sh):
 # a breaking change is a major release, `feat` a minor one, anything else a
-# patch. This job pushes the tag and then starts "Build main and release
-# images" on it, which builds the images and creates the GitHub release.
+# patch. This job creates the tag and release, then starts "Build main and release
+# images" on it, which builds the images and adds the component list to the release notes.
 #
-# It uses only the workflow's GITHUB_TOKEN. A tag pushed with that token
+# The commit is the newest one whose main build passed. It uses
+# only the workflow's GITHUB_TOKEN. The tag is created with the releases
+# API, which GitHub accepts even when the commit's workflow files differ
+# from main (a git push of the tag is refused). A tag made with that token
 # starts no workflow, but GitHub does let the token start one with
 # workflow_dispatch, so the build is started explicitly.
+#
+# It posts to Slack (the SLACK_RELEASE_WEBHOOK secret) when it starts a
+# release and when it skips because main has no green build. The post
+# carries `text` and `url`: the release link when a release starts, this
+# run otherwise. With no secret set, or on a dry run, the message is only
+# printed as a warning, and a failed post never fails the run.
 on:
   schedule:
     # 04:00 UTC on Monday and Thursday.
@@ -34,7 +43,7 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     permissions:
-      # git push of the release tag.
+      # gh release create makes the tag and the release.
       contents: write
       # gh workflow run of the release build.
       actions: write
@@ -49,8 +58,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
         run: |
           set -euo pipefail
+
+          # notify <text> [url]: the url defaults to this run.
+          notify() {
+            local url="${2:-${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}}"
+            if [ "${DRY_RUN}" = "true" ]; then
+              echo "::notice::Dry run, not posted to Slack: $1"
+              return 0
+            fi
+            if [ -z "${SLACK_RELEASE_WEBHOOK:-}" ]; then
+              echo "::warning::$1"
+              return 0
+            fi
+            if ! curl -fsS -X POST -H 'Content-Type: application/json' \
+              --data "$(jq -n --arg t "$1" --arg u "${url}" '{text:$t,url:$u}')" "${SLACK_RELEASE_WEBHOOK}"; then
+              echo "::warning::Slack post failed: $1"
+            fi
+          }
 
           last=$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
           if [ -z "${last}" ]; then
@@ -60,29 +87,19 @@ jobs:
           echo "Last release: ${last}"
 
           # Release the newest main commit whose image build passed, not
-          # just HEAD, so a red main never gets tagged.
+          # just HEAD, so a red main never gets tagged. A red newest build
+          # does not block the release: the newest green one is used.
           sha=$(gh run list --repo "${GITHUB_REPOSITORY}" \
             --workflow build-multiarch-images.yml --branch main --event push \
             --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
           if [ -z "${sha}" ]; then
-            echo "No green main build found, skipping"
+            notify "Hadron release skipped: no green main build found."
             exit 0
           fi
           echo "Newest green main commit: ${sha}"
 
           if git merge-base --is-ancestor "${sha}" "${last}"; then
             echo "No changes since ${last}, skipping"
-            exit 0
-          fi
-
-          # GitHub refuses a GITHUB_TOKEN push of a tag whose workflow files
-          # differ from main ("refusing to allow a GitHub App to create or
-          # update workflow"), and the dispatched build would run the old
-          # workflow anyway. Wait until a main commit with the current
-          # workflows has a green build.
-          if ! git diff --quiet "${sha}" "${GITHUB_SHA}" -- .github/workflows; then
-            echo "::notice::${sha} has older workflow files than main, skipping until main at ${GITHUB_SHA} has a green build"
-            git diff --stat "${sha}" "${GITHUB_SHA}" -- .github/workflows
             exit 0
           fi
 
@@ -104,7 +121,28 @@ jobs:
             exit 0
           fi
 
-          git tag "${next}" "${sha}"
-          git push origin "refs/tags/${next}"
+          # The tag is made through the releases API on exactly the green
+          # commit. Unlike a git push of the tag, this is not refused when
+          # the commit's workflow files differ from main.
+          gh release create "${next}" --repo "${GITHUB_REPOSITORY}" --target "${sha}" \
+            --title "${next}" --generate-notes
           gh workflow run build-multiarch-images.yml --repo "${GITHUB_REPOSITORY}" --ref "${next}"
           echo "Tagged ${sha} as ${next} (from ${last}) and started the release build" >> "$GITHUB_STEP_SUMMARY"
+          notify "Hadron \`${next}\` is building (tagged ${sha:0:7}, from ${last})." \
+            "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${next}"
+
+      - name: Tell Slack the release job failed
+        if: failure() && inputs.dry_run != true
+        env:
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${SLACK_RELEASE_WEBHOOK:-}" ]; then
+            echo "::warning::Hadron release job failed: ${RUN_URL}"
+            exit 0
+          fi
+          if ! curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "$(jq -n --arg u "${RUN_URL}" '{text:"Hadron release job failed.",url:$u}')" \
+            "${SLACK_RELEASE_WEBHOOK}"; then
+            echo "::warning::Slack post failed for the release job failure"
+          fi
