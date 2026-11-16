@@ -154,7 +154,7 @@ packages:
 
   cmake:
     version_arg: CMAKE_VERSION
-    sha256: a0c54c88abb8078dd8eccadb717fc6bb194bf18e7d44c86309910288886e04e2
+    sha256: 424352d6133e8455e020da787008e8dc67abb18820af3532572ab35657e49213
     urls:
       - https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}.tar.gz
     filename: cmake.tar.gz
@@ -265,7 +265,7 @@ packages:
 
   flex:
     version_arg: FLEX_VERSION
-    sha256: 08bcef9017db7522465360626341a2eecf1268b930e9be41d9f1e0e254b55beb
+    sha256: ba38801d12d38782e36f2ddd66c118aa9ed3cbed9849194c4e68d9894cd739d9
     urls:
       - https://github.com/westes/flex/releases/download/v${version}/flex-${version}.tar.gz
     filename: flex.tar.gz
@@ -768,7 +768,7 @@ packages:
 
   pkgconf:
     version_arg: PKGCONFIG_VERSION
-    sha256: 9371b2f6372da574d4c6dc96fe9b1463037bcf6afcb6671c1555afde7b17e2de
+    sha256: d0cd841bc8e55b9da888106c00dc256d05b7d1d8e5a46f4be4eb4c5125bd2dc4
     urls:
       - https://distfiles.dereferenced.org/pkgconf/pkgconf-${version}.tar.xz
     filename: pkgconf.tar.xz
