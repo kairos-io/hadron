@@ -38,6 +38,13 @@ jobs:
       && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     steps:
+      # The default branch's copy of the delete helper, never the PR's: this
+      # job holds the quay credentials.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
       - name: Install skopeo
         run: |
           sudo apt-get update
@@ -63,13 +70,7 @@ jobs:
 
           echo "Deleting cache tags for PR #${PR_NUM}:"
           echo "${tags}"
-          while IFS= read -r tag; do
-            [ -n "${tag}" ] || continue
-            echo "==> deleting ${CACHE_REPO}:${tag}"
-            # Non-fatal: a missing tag or a transient registry error must not fail
-            # the cleanup for the remaining tags.
-            skopeo delete "docker://${CACHE_REPO}:${tag}" || echo "WARN: could not delete ${tag} (continuing)"
-          done <<< "${tags}"
+          .github/scripts/delete-cache-tags.sh "${CACHE_REPO}" <<< "${tags}"
 
   sweep-stale-pr-cache:
     # Weekly backstop: delete pr-<n>-* tags whose PR number is NOT currently open.
@@ -78,6 +79,12 @@ jobs:
     if: ${{ github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     steps:
+      # For .github/scripts/delete-cache-tags.sh.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
       - name: Install skopeo
         run: |
           sudo apt-get update
@@ -115,6 +122,9 @@ jobs:
               echo "keep (PR #${n} open): ${tag}"
               continue
             fi
-            echo "==> deleting stale ${CACHE_REPO}:${tag} (PR #${n} not open)"
-            skopeo delete "docker://${CACHE_REPO}:${tag}" || echo "WARN: could not delete ${tag} (continuing)"
+            echo "stale (PR #${n} not open): ${tag}"
+            echo "${tag}" >> stale-tags.txt
           done <<< "${tags}"
+
+          touch stale-tags.txt
+          .github/scripts/delete-cache-tags.sh "${CACHE_REPO}" < stale-tags.txt
