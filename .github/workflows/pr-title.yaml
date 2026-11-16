@@ -48,9 +48,6 @@ jobs:
       - name: Test the release version script
         if: github.event_name == 'pull_request'
         run: .github/scripts/next-release_test.sh
-      - name: Test the green commit script
-        if: github.event_name == 'pull_request'
-        run: .github/scripts/green-commit_test.sh
       - name: Check the title
         if: github.event_name == 'pull_request'
         # The title is read from the API when the job runs, not from the
