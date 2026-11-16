@@ -130,3 +130,19 @@ jobs:
           echo "Tagged ${sha} as ${next} (from ${last}) and started the release build" >> "$GITHUB_STEP_SUMMARY"
           notify "Hadron \`${next}\` is building (tagged ${sha:0:7}, from ${last})." \
             "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${next}"
+
+      - name: Tell Slack the release job failed
+        if: failure() && inputs.dry_run != true
+        env:
+          SLACK_RELEASE_WEBHOOK: ${{ secrets.SLACK_RELEASE_WEBHOOK }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${SLACK_RELEASE_WEBHOOK:-}" ]; then
+            echo "::warning::Hadron release job failed: ${RUN_URL}"
+            exit 0
+          fi
+          if ! curl -fsS -X POST -H 'Content-Type: application/json' \
+            --data "$(jq -n --arg u "${RUN_URL}" '{text:"Hadron release job failed.",url:$u}')" \
+            "${SLACK_RELEASE_WEBHOOK}"; then
+            echo "::warning::Slack post failed for the release job failure"
+          fi
