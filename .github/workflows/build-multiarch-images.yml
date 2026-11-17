@@ -308,7 +308,11 @@ jobs:
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
-      - name: Build kernel-misc
+      # kernel-artifacts is everything the image stages take from the kernel:
+      # the kernel and modules (with the FIPS HMAC on a FIPS leg), kernel-misc
+      # and the headers. The cache tag keeps its kernel-misc-* name so the
+      # tags main has already published stay in use.
+      - name: Build kernel-artifacts
         id: build
         uses: docker/build-push-action@v7
         env:
@@ -319,15 +323,12 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          target: kernel-misc
-          # The last cache-from entry seeds from main's full-image cache for the
-          # same leg, until the per-leg kernel tag above has been published once.
+          target: kernel-artifacts
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}{2}-amd64,{0}', env.CACHE_TO, matrix.kernel, matrix.fips == 'fips' && '-fips' || '') || '' }}
           build-args: |
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -406,7 +407,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-cloud-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:systemd{1}-amd64,{0}', env.CACHE_TO, matrix.fips == 'fips' && '-fips' || '') || '' }}
           build-args: |
             FIPS=${{ matrix.fips }}
@@ -725,7 +725,9 @@ jobs:
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
-      - name: Build kernel-misc
+      # See kernel-amd64 for what kernel-artifacts holds and why the cache tag
+      # keeps its kernel-misc-* name.
+      - name: Build kernel-artifacts
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -735,7 +737,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/arm64
           labels: ${{ steps.meta.outputs.labels }}
-          target: kernel-misc
+          target: kernel-artifacts
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
@@ -744,6 +746,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}-arm64,{0}', env.CACHE_TO, matrix.kernel) || '' }}
           build-args: |
             KERNEL_TYPE=${{ matrix.kernel }}
+            FIPS=${{ matrix.fips }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
 
@@ -914,7 +917,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
@@ -997,7 +999,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
@@ -1107,7 +1108,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
@@ -1192,7 +1192,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-arm64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
@@ -1560,7 +1559,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
@@ -1731,7 +1730,11 @@ jobs:
   #                                                                          hadron-bios-riscv64 (x86+QEMU)
 
   stage0-riscv64:
-    if: ${{ false }}
+    # The riscv64 pipeline is off. Every other riscv64 job needs this one, so it
+    # is switched here, by the HADRON_RISCV64 repository variable, which is not
+    # set. This replaces `if: ${{ false }}`, which actionlint rejects as a
+    # constant condition.
+    if: vars.HADRON_RISCV64 == 'true'
     runs-on: cncf-ubuntu-32-128-x86
     permissions:
       packages: write
@@ -1976,7 +1979,7 @@ jobs:
         with:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
-      - name: Build kernel + modules (kernel-misc target)
+      - name: Build kernel + modules (kernel-artifacts target)
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1986,13 +1989,12 @@ jobs:
           file: ./Dockerfile
           platforms: linux/riscv64
           labels: ${{ steps.meta.outputs.labels }}
-          target: kernel-misc
+          target: kernel-artifacts
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{0}-riscv64,{1}', matrix.kernel, env.CACHE_TO) || '' }}
           build-args: |
             ARCH=riscv64
@@ -2164,9 +2166,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
@@ -2232,9 +2232,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
@@ -2258,9 +2256,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
@@ -2336,7 +2332,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max

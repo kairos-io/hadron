@@ -522,7 +522,11 @@ COPY --from=wireless-regdb-download /sources/downloads/wireless-regdb.tar.xz /so
 # Creates the system skeleton
 # dirs, minimum files, symlinks, etc.
 FROM stage0 AS skeleton
-ARG VERSION
+# No ARG VERSION here. Nothing in this stage uses it, but a declared ARG enters
+# the environment of every RUN below it, so a different VERSION (the image jobs
+# pass VERSION=main, the stage jobs pass none) gave skeleton, and every stage
+# built on it, a different cache key. That included the kernel. VERSION is set
+# at the end, in `toolchain` and `container`.
 SHELL ["/bin/bash", "-c"]
 RUN mkdir -p /sysroot
 WORKDIR /sysroot
@@ -836,9 +840,23 @@ ENV RANLIB="gcc-ranlib"
 ENV COMMON_CONFIGURE_ARGS="--quiet --prefix=/usr --host=${TARGET} --build=${TARGET} --enable-lto --enable-shared --disable-static"
 ENV COMMON_MESON_FLAGS="--prefix=/usr --libdir=lib --buildtype=minsize -Dstrip=true"
 # Standard aggressive size optimization flags
-ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -flto=auto"
-ENV LDFLAGS="-Wl,--gc-sections -Wl,--as-needed -flto=auto"
+# -frandom-seed: with -flto, gcc names the sections of every object file after a random
+# number (.gnu.lto_.profile.<number>), and the objects inside every static library built
+# that way. Left alone it is different on every build, so libcrypto.a, libbpf.a, liby.a
+# and libpython.a came out different every time.
+ENV CFLAGS="-Os -pipe -fomit-frame-pointer -fno-unroll-loops -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -flto=auto -frandom-seed=hadron"
+ENV LDFLAGS="-Wl,--gc-sections -Wl,--as-needed -flto=auto -frandom-seed=hadron"
 # TODO: we should set -march=x86-64-v2 to avoid compiling for old CPUs. Save space and its faster.
+# A fixed build date for everything built on top of this stage. Without it, the
+# same source built twice gives different bytes: gcc puts the build time in
+# __DATE__/__TIME__ (Python, OpenSSL), `ar` stamps its members (liby.a, libelf.a,
+# libbpf.a, libcrypto.a) and Python writes the source mtime into every .pyc.
+# Stages that copy those outputs, the kernel build among them, key their COPY on
+# the content of what they copy, so output that changes on every build changes
+# the key on every build and the cache never hits. The value is arbitrary; it only
+# has to be constant. The SOURCE_DATE_EPOCH build arg the CI passes does not reach
+# the RUN steps, only the timestamps of the image layers.
+ENV SOURCE_DATE_EPOCH=1735689600
 
 COPY --from=stage1-merge /skeleton /
 RUN --mount=type=bind,from=kernel-headers-stage0,source=/linux-headers,target=/khdr \
@@ -1104,6 +1122,12 @@ RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
 RUN make -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} DESTDIR=/flex install
 
 ## perl
+## Configure writes the time it ran into config.h, Config_heavy.pl and perlbug, taking it
+## from `date` with no way to override it, so the sed below pins it. Without it perl came
+## out different on every build. It also records who ran it and where: the user, the
+## host and domain name (the domain comes from the resolv.conf of the machine running
+## the build), and `uname -a` / `uname -r` of the build machine's kernel. Those differ
+## between CI runners, so they are pinned with -D as well.
 FROM m4 AS perl
 ARG JOBS
 ARG MAX_LOAD
@@ -1114,6 +1138,8 @@ COPY --from=sources-downloader /sources/downloads/perl.tar.gz /sources/
 RUN cd /sources && \
     tar -xf perl.tar.gz && mv perl5-* perl && \
     cd perl && \
+       sed -i 's|^cf_time=.*\$date.*|cf_time="Wed Jan  1 00:00:00 UTC 2025"|' Configure && \
+       grep -q '^cf_time="Wed Jan  1 00:00:00 UTC 2025"$' Configure && sh -n Configure && \
        ln -s /usr/bin/gcc /usr/bin/cc && ./Configure -s -des -Dprefix=/usr -Dcccdlflags='-fPIC' \
        -Dccdlflags='-rdynamic' \
        -Dprivlib=/usr/share/perl5/core_perl \
@@ -1138,6 +1164,11 @@ RUN cd /sources && \
        -Dman3ext='3pm' \
        -Dcf_by='hadron' \
        -Dcf_email='mudler@kairos.io' \
+       -Dperladmin='mudler@kairos.io' \
+       -Dmyhostname='hadron' \
+       -Dmydomain='.hadron' \
+       -Dmyuname='linux hadron' \
+       -Dosvers='hadron' \
        -Ud_csh \
        -Ud_fpos64_t \
        -Ud_off64_t \
@@ -1482,6 +1513,12 @@ COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=libffi /libffi/ /
 
 COPY --from=sources-downloader /sources/downloads/Python.tar.xz /sources/
+
+# The install step compiles every .py into a .pyc with the python it just built. A
+# .pyc stores sets and frozensets in iteration order, which follows the string hash,
+# and that hash is seeded at random on every start, so the same source gave
+# different .pyc bytes on every build. A fixed seed makes them reproducible.
+ENV PYTHONHASHSEED=0
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh && mkdir -p /sources && cd /sources && tar -xf Python.tar.xz && mv Python-* python && \
     cd python && mkdir -p /python
@@ -2109,11 +2146,44 @@ RUN cmake ../dwarves \
 RUN rm -rf /pahole/usr/include
 
 ## kernel
-FROM rsync AS kernel-base
-ARG JOBS
-ARG MAX_LOAD
-COPY --from=bash /bash /bash
-RUN rsync -aHAX --keep-dirlinks  /bash/. /
+
+# Makes tools/lib/bpf/bpf_helper_defs.h for the kernel build, see kernel-base. It
+# is made from the unpatched files; kernel-base checks that the patched tree still has
+# the same ones, so a kernel patch that touches either file fails the build instead
+# of getting a stale header.
+# It is stage1 plus a copy of the python install, not a stage on top of python-build,
+# for the reason given at kernel-base: python-build sits on the rsync line, so building
+# on it ties this stage to every package in that line, while a COPY --from is keyed on
+# the bytes of the python it copies.
+FROM stage1 AS kernel-bpf-helper-defs
+COPY --from=python-build /python/ /
+COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
+WORKDIR /sources
+RUN tar -xf linux.tar.xz && mv linux-* kernel
+WORKDIR /sources/kernel
+RUN mkdir -p /out && \
+    python3 scripts/bpf_doc.py --header --file tools/include/uapi/linux/bpf.h > /out/bpf_helper_defs.h && \
+    sha256sum scripts/bpf_doc.py tools/include/uapi/linux/bpf.h > /out/inputs.sha256
+
+# The kernel build environment is stage1, the toolchain, plus the outputs of the tools
+# the build runs, each one copied in with COPY --from. It is not built on rsync, as
+# most stages are. Everything under `FROM rsync` is chained to the whole line
+# xxhash > zstd > lz4 > attr > acl > zlib > gawk > rsync, so a new lz4 or zlib changed
+# the key of the kernel build although the kernel never touches either. A COPY --from
+# is keyed on the content of what it copies and not on the stage it comes from, so a
+# tool that is rebuilt to the same bytes leaves the kernel cached.
+# Of that line the tools here need only zlib and zstd, for libz and libzstd (readelf -d
+# on every ELF file the copies bring in; musl's libc comes from stage1), and the zstd
+# binary that compresses the modules. bash is merged by path because stage1's /bin is a
+# symlink to usr/bin.
+FROM stage1 AS kernel-base
+COPY --from=bash /bash/bin/ /usr/bin/
+COPY --from=bash /bash/usr/ /usr/
+COPY --from=bash /bash/etc/ /etc/
+
+COPY --from=zlib /zlib/ /
+
+COPY --from=zstd /zstd/ /
 
 COPY --from=readline /readline/ /
 
@@ -2146,18 +2216,15 @@ COPY --from=grep /grep/ /
 # pahole and its runtime dependencies (libbpf, musl-obstack, argp-standalone, musl-fts).
 # Kernel Kconfig probes pahole --version at build time; missing libs would leave
 # CONFIG_PAHOLE_VERSION empty and silently disable DEBUG_INFO_BTF.
-# python3 is needed by kernel's tools/bpf/resolve_btfids build (bpf_helper_defs.h generation).
+# There is no python here. The kernel build needs python3 for one file, see
+# kernel-bpf-helper-defs below.
 COPY --from=libbpf /libbpf/ /
 COPY --from=obstack /obstack/ /
 COPY --from=argp /argp/ /
 COPY --from=fts /fts/ /
-COPY --from=python-build /python /
 COPY --from=pahole /pahole/ /
 
 COPY --from=sources-downloader /sources/downloads/linux.tar.xz /sources/
-
-RUN mkdir -p /sources/kernel-configs
-COPY ./files/kernel/* /sources/kernel-configs/
 
 RUN mkdir -p /kernel && mkdir -p /modules
 
@@ -2181,29 +2248,58 @@ RUN set -e; \
         patch -p1 < "$p"; \
     done
 
+# tools/bpf/resolve_btfids, which kbuild builds for BTF, generates
+# bpf_helper_defs.h with scripts/bpf_doc.py, the only thing in the kernel build that
+# needs python3. Python is not part of this stage: it is a big, fast-moving build
+# (its own version, libffi, zlib, readline, openssl and more), and every change to it
+# changed the bytes copied in here and so rebuilt every kernel. The header is made
+# from the same two files in kernel-bpf-helper-defs and put in the place make looks
+# for it. It is plain text that depends on bpf.h and bpf_doc.py only, so the copy
+# below is keyed on the same content whichever python made it.
+COPY --from=kernel-bpf-helper-defs /out /sources/bpf-helper-defs
+RUN set -e; \
+    cd /sources/kernel; \
+    sha256sum -c /sources/bpf-helper-defs/inputs.sha256; \
+    mkdir -p tools/bpf/resolve_btfids/libbpf; \
+    cp /sources/bpf-helper-defs/bpf_helper_defs.h tools/bpf/resolve_btfids/libbpf/bpf_helper_defs.h; \
+    touch tools/bpf/resolve_btfids/libbpf/bpf_helper_defs.h
+
+
+# The kernel configs, one stage per architecture. kernel-cloud and kernel-default
+# below copy only their own file out of it with COPY --from, and that copy is keyed
+# on the content of that one file. Editing default-arm64.config therefore re-keys
+# the arm64 default kernel and nothing else. Copying the whole directory into
+# kernel-base, as this file used to, rebuilt all kernels, for every architecture, on
+# any config edit.
+FROM scratch AS kernel-configs-amd64
+COPY files/kernel/cloud.config /cloud.config
+COPY files/kernel/default.config /default.config
+
+FROM scratch AS kernel-configs-arm64
+COPY files/kernel/cloud-arm64.config /cloud.config
+COPY files/kernel/default-arm64.config /default.config
+
+FROM scratch AS kernel-configs-riscv64
+COPY files/kernel/cloud-riscv64.config /cloud.config
+COPY files/kernel/default-riscv64.config /default.config
+
+FROM kernel-configs-${TARGETARCH} AS kernel-configs
 
 FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
-RUN if [ ${ARCH} = "aarch64" ] ; then \
-    cp -rfv /sources/kernel-configs/cloud-arm64.config .config ; \
-    elif [ ${ARCH} = "riscv64" ] ; then \
-    cp -rfv /sources/kernel-configs/cloud-riscv64.config .config ; \
-    else \
-    cp -rfv /sources/kernel-configs/cloud.config .config ; \
-    fi
+COPY --from=kernel-configs /cloud.config .config
 
 FROM kernel-base AS kernel-default
 WORKDIR /sources/kernel
-RUN if [ ${ARCH} = "aarch64" ] ; then \
-    cp -rfv /sources/kernel-configs/default-arm64.config .config ; \
-    elif [ ${ARCH} = "riscv64" ] ; then \
-    cp -rfv /sources/kernel-configs/default-riscv64.config .config ; \
-    else \
-    cp -rfv /sources/kernel-configs/default.config .config ; \
-    fi
+COPY --from=kernel-configs /default.config .config
 
 FROM kernel-${KERNEL_TYPE} AS kernel-build
-ARG JOBS
+# The kernel build uses every CPU of the machine it runs on, `nproc`, unless
+# KERNEL_JOBS is given. It does not use JOBS: that is a build arg and part of the
+# cache key, and the CI runners that build the kernel have more cores than the
+# ones that read it from the cache, so a per-runner JOBS would split the cache.
+# `nproc` is evaluated when the step runs and is not part of the key.
+ARG KERNEL_JOBS
 ARG MAX_LOAD
 WORKDIR /sources/kernel
 # This only builds the kernel
@@ -2214,13 +2310,13 @@ WORKDIR /sources/kernel
 RUN hcflags='-D__attribute_const__=' && \
     if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 make olddefconfig; \
-    ARCH=arm64 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
+    ARCH=arm64 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
     elif [ ${ARCH} = "riscv64" ]; then \
     ARCH=riscv make olddefconfig; \
-    ARCH=riscv make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
+    ARCH=riscv make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
     else \
     ARCH=x86_64 make olddefconfig; \
-    ARCH=x86_64 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" bzImage; \
+    ARCH=x86_64 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" bzImage; \
     fi
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
@@ -2228,7 +2324,7 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} kernelrelease > /kernel/kernel-release ; make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} kernelversion > /kernel/kernel-version
+    fi;  make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} kernelrelease > /kernel/kernel-release ; make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} kernelversion > /kernel/kernel-version
 RUN if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 kver=$(cat /kernel/kernel-release) && cp arch/$ARCH/boot/Image /kernel/vmlinuz-${kver}; \
     elif [ ${ARCH} = "riscv64" ]; then \
@@ -2248,6 +2344,7 @@ RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-release) /kernel/vmlinuz
 # algorithm it loads. Keeping one linear chain, kernel-build -> kernel-modules -> kernel,
 # means the cache cannot serve the two halves from different builds.
 FROM kernel-build AS kernel-modules
+ARG KERNEL_JOBS
 # This builds the modules
 RUN hcflags='-D__attribute_const__=' && \
     if [ ${ARCH} = "aarch64" ]; then \
@@ -2256,22 +2353,31 @@ RUN hcflags='-D__attribute_const__=' && \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
+    fi;  make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     elif [ ${ARCH} = "riscv64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
+    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
 
-FROM kernel-modules AS kernel-no-fips
-# Nothing to do here, just a placeholder
+# What the rest of the build takes from the kernel is /kernel and /modules, a few
+# hundred MB. kernel-modules, which holds them, is more than 20 GB of layers: the
+# build tree, the tools and the toolchain. A stage that runs a command or copies from
+# it needs all of them on the machine, so a job that only wants the kernel would
+# download them all. These stages are scratch plus a copy of the two directories,
+# and kernel is the one the image stages use.
+FROM scratch AS kernel-no-fips
+COPY --from=kernel-modules /kernel /kernel
+COPY --from=kernel-modules /modules /modules
 
-
-# This will generate the needed FIPS HMAC for the kernel so dracut can verify it
-FROM kernel-modules AS kernel-fips
+# This will generate the needed FIPS HMAC for the kernel so dracut can verify it.
+# It runs on stage1 plus the kernel image, not on kernel-modules, for the reason above,
+# and writes only the checkfile to /hmac. kernel-fips below adds it to the copies.
+FROM stage1 AS kernel-fips-hmac
 WORKDIR /sources/
+COPY --from=kernel-modules /kernel /kernel
 # Generate the FIPS integrity HMAC for the kernel. libkcapi/sha512hmac can only reach the
 # kernel crypto API through AF_ALG, which Docker's default seccomp profile blocks at build
 # time (socket(AF_ALG) -> EPERM). Instead compute the HMAC with the FIPS OpenSSL (the
@@ -2286,17 +2392,32 @@ RUN kver=$(cat /kernel/kernel-release) && \
 RUN kver=$(cat /kernel/kernel-release) && \
     hmac=$(openssl dgst -sha512 -hmac "FIPS-FTW-RHT2009" "/kernel/vmlinuz-${kver}" | awk '{print $NF}') && \
     [ -n "${hmac}" ] || { echo "ERROR: computed kernel HMAC is empty" >&2; exit 1; } && \
-    printf '%s  /boot/vmlinuz-%s\n' "${hmac}" "${kver}" > "/kernel/.vmlinuz-${kver}.hmac"
+    mkdir -p /hmac && \
+    printf '%s  /boot/vmlinuz-%s\n' "${hmac}" "${kver}" > "/hmac/.vmlinuz-${kver}.hmac"
 # Make sure the checkfile was actually written, then set the permissions dracut expects.
 RUN kver=$(cat /kernel/kernel-release) && \
-    [ -s "/kernel/.vmlinuz-${kver}.hmac" ] || { echo "ERROR: generated /kernel/.vmlinuz-${kver}.hmac is empty" >&2; exit 1; } && \
-    chmod 0644 "/kernel/.vmlinuz-${kver}.hmac"
+    [ -s "/hmac/.vmlinuz-${kver}.hmac" ] || { echo "ERROR: generated /hmac/.vmlinuz-${kver}.hmac is empty" >&2; exit 1; } && \
+    chmod 0644 "/hmac/.vmlinuz-${kver}.hmac"
+
+FROM scratch AS kernel-fips
+COPY --from=kernel-modules /kernel /kernel
+COPY --from=kernel-modules /modules /modules
+COPY --from=kernel-fips-hmac /hmac/ /kernel/
 
 FROM kernel-${FIPS} AS kernel
 
 FROM kernel-base AS kernel-headers
-ARG JOBS
+ARG KERNEL_JOBS
 ARG MAX_LOAD
+# headers_install copies the headers with rsync, which kernel-base does not have.
+# rsync and the libraries it links (libacl, libattr, liblz4, libxxhash; libz and
+# libzstd are already there) are added here only, so a change to any of them
+# re-runs this quick step and leaves the kernel build alone.
+COPY --from=xxhash /xxhash/ /
+COPY --from=lz4 /lz4/ /
+COPY --from=attr /attr/ /
+COPY --from=acl /acl/ /
+COPY --from=rsync /rsync/ /
 WORKDIR /sources/kernel
 # This installs the headers
 RUN if [ ${ARCH} = "aarch64" ]; then \
@@ -2305,17 +2426,30 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi; make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} headers_install INSTALL_HDR_PATH=/linux-headers
+    fi; make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} headers_install INSTALL_HDR_PATH=/linux-headers
 
-FROM kernel-modules AS kernel-misc
-WORKDIR /output/
 # This copies some extra stuff from the kernel, like the kernel version and config, that we can use in the toolchain if needed
-RUN cp /kernel/kernel-version /output/kernel-version
-RUN cp /kernel/kernel-release /output/kernel-release
-RUN cp /sources/kernel/.config /output/kernel-config
-# This is useful to build out-of-tree modules against our kernel, it contains the exported symbols from the kernel that modules can use
 # This way we dont have to rebuild the kernel or the modules
-RUN cp /sources/kernel/Module.symvers /output/Module.symvers
+# Module.symvers is useful to build out-of-tree modules against our kernel, it contains the
+# exported symbols from the kernel that modules can use.
+# Scratch plus copies, not a stage on top of kernel-modules, for the reason given at kernel-no-fips.
+FROM scratch AS kernel-misc
+COPY --from=kernel-modules /kernel/kernel-version /output/kernel-version
+COPY --from=kernel-modules /kernel/kernel-release /output/kernel-release
+COPY --from=kernel-modules /sources/kernel/.config /output/kernel-config
+COPY --from=kernel-modules /sources/kernel/Module.symvers /output/Module.symvers
+
+# Everything the rest of the build takes from the kernel stages, in one target: the
+# kernel and modules as the image stages copy them (kernel, so the FIPS HMAC is part
+# of it on a FIPS build), kernel-misc and the installed headers. The CI kernel jobs
+# build this target, so their cache holds every one of those steps and the image jobs
+# find them there instead of building the HMAC or the headers themselves. Nothing
+# copies from this stage.
+FROM scratch AS kernel-artifacts
+COPY --from=kernel /kernel /kernel
+COPY --from=kernel /modules /modules
+COPY --from=kernel-misc /output /kernel-misc
+COPY --from=kernel-headers /linux-headers /linux-headers
 
 ## kbd for setting the console keymap and font
 FROM rsync AS kbd
@@ -4041,7 +4175,6 @@ COPY --from=tpm2-tss /tpm2-tss /merge
 COPY --from=hadron-splash /hadron-splash/hadron-splash /merge/bin/hadron-splash
 
 FROM scratch AS toolchain
-ARG VERSION
 # These are the default values for the toolchain
 # Set them so anything using the toolchain will use the default values
 ARG VENDOR="hadron"
@@ -4074,6 +4207,10 @@ RUN if [ "${BUILD_ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
+# Declared here, not at the top of the stage: a declared ARG enters the environment
+# of every RUN below it, so a different VERSION would change the cache key of all
+# the steps above.
+ARG VERSION
 RUN echo "VERSION_ID=\"${VERSION}\"" >> /etc/os-release
 CMD ["/bin/bash", "-l"]
 
@@ -4226,7 +4363,6 @@ RUN sh hack/gen-manifests.sh --format flat --out-dir /gen/components --quiet
 
 
 FROM scratch AS container
-ARG VERSION
 ARG ARCH
 COPY --from=stage2-merge /skeleton /
 SHELL ["/bin/bash", "-c"]
@@ -4240,7 +4376,10 @@ RUN if [ "${ARCH}" == "aarch64" ]; then \
     else \
     ln -s /lib/ld-musl-x86_64.so.1 /bin/ldd; \
     fi
-# Set the version here as otherwise its easy to invalidate the cache with a version change
+# Set the version here as otherwise its easy to invalidate the cache with a version change.
+# It is declared here, not at the top of the stage, for the same reason: a declared ARG
+# enters the environment of every RUN below it.
+ARG VERSION
 RUN echo "VERSION_ID=\"${VERSION}\"" >> etc/os-release
 # Per-image component manifest (generated by the components-manifest stage).
 COPY --from=components-manifest /gen/components/container.json /usr/lib/hadron/components.json
@@ -4485,7 +4624,6 @@ COPY --from=full-image-pre-systemd /skeleton /
 # rest of the pipeline.
 FROM full-image-${BOOTLOADER} AS full-image-final
 SHELL ["/bin/bash", "-c"]
-ARG VERSION
 ARG BUILD_ARCH
 ## Cleanup first
 # We don't need headers

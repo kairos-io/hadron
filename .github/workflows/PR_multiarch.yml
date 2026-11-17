@@ -313,7 +313,10 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_IO_USERNAME }}
           password: ${{ secrets.QUAY_IO_PASSWORD }}
-      - name: Build kernel-misc
+      # kernel-artifacts is everything the image stages take from the kernel:
+      # the kernel and modules, kernel-misc and the headers. The cache tags keep
+      # their kernel-misc-* names so the ones main has published stay in use.
+      - name: Build kernel-artifacts
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -323,9 +326,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           labels: ${{ steps.meta.outputs.labels }}
-          target: kernel-misc
-          # The last cache-from entry seeds from main's full-image cache for the
-          # same leg, until the per-leg kernel tag above has been published once.
+          target: kernel-artifacts
           cache-from: |
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-rsync-amd64,mode=max
@@ -335,7 +336,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-no-fips-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-kernel-misc-default-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             KERNEL_TYPE=default
@@ -389,7 +389,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-no-fips-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-systemd-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             FIPS=no-fips
@@ -501,7 +500,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
@@ -569,7 +567,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-cloud-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
@@ -688,7 +685,6 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-no-fips-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-bios-default-no-fips-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             BOOTLOADER=grub
