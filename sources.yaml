@@ -935,6 +935,7 @@ packages:
     sha256: 3d3a1b973af218114f4f889bbaa2f4c037deaae0c8e815eec381c3d546b974a0
     urls:
       - https://tukaani.org/xz/xz-${version}.tar.gz
+      - https://github.com/tukaani-project/xz/releases/download/v${version}/xz-${version}.tar.gz
     filename: xz.tar.gz
 
   # zlib.net refuses or drops connections from the CI runners, so the
