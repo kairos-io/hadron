@@ -43,6 +43,7 @@ sources:
     kind: gittag
     spec:
       url: https://github.com/linux-pam/linux-pam.git
+      lsremote: true
       versionfilter:
         kind: semver
         pattern: '*'
