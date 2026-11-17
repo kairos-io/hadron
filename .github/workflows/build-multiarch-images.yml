@@ -746,7 +746,6 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}-arm64,{0}', env.CACHE_TO, matrix.kernel) || '' }}
           build-args: |
             KERNEL_TYPE=${{ matrix.kernel }}
-            FIPS=${{ matrix.fips }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
 
