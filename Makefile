@@ -320,6 +320,9 @@ build-iso:
 
 
 MEMORY ?= 2096
+# UEFI firmware for run-qemu ARCH=arm64. The path differs per distro (Debian's
+# qemu-efi-aarch64 ships AAVMF_CODE.fd, Fedora and Arch use edk2).
+ARM64_FIRMWARE ?= /usr/share/AAVMF/AAVMF_CODE.fd
 ## Defaults to the newest ISO grub-iso or trusted-iso wrote to build/.
 ISO_FILE ?= $(shell ls -t1 build/kairos-hadron-*.iso 2>/dev/null | head -n1)
 
@@ -347,6 +350,20 @@ ifeq ($(ARCH),riscv64)
 		-device virtio-blk-device,drive=hd0 \
 		-drive file=disk.img,format=qcow2,id=hd0 \
 		-device virtio-blk-device,drive=cd0 \
+		-drive file=$(ISO_FILE),format=raw,id=cd0,if=none
+else ifneq (,$(filter arm64 aarch64,$(ARCH)))
+	qemu-system-aarch64 \
+		-machine virt \
+		-cpu max \
+		-m $(MEMORY) \
+		-smp cores=2 \
+		-nographic \
+		-serial mon:stdio \
+		-rtc base=utc,clock=rt \
+		-bios $(ARM64_FIRMWARE) \
+		-device virtio-blk-pci,drive=hd0 \
+		-drive file=disk.img,format=qcow2,id=hd0,if=none \
+		-device virtio-blk-pci,drive=cd0 \
 		-drive file=$(ISO_FILE),format=raw,id=cd0,if=none
 else
 	qemu-system-x86_64 \

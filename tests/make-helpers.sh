@@ -80,10 +80,20 @@ fi
 mkdir build
 touch -t 202601010000 build/kairos-hadron-old.iso
 touch -t 202602010000 build/kairos-hadron-new.iso
-for arch in amd64 riscv64; do
+for arch in amd64 arm64 riscv64; do
 	dry=$(make --no-print-directory -n -f "$makefile" run-qemu ARCH=$arch 2>&1)
 	contains "run-qemu ($arch) boots the newest ISO" "$dry" "build/kairos-hadron-new.iso"
 	lacks "run-qemu ($arch) does not boot an older ISO" "$dry" "build/kairos-hadron-old.iso"
+done
+# 2a. each arch boots with its own qemu binary, aarch64 is an alias of arm64
+for pair in amd64:qemu-system-x86_64 arm64:qemu-system-aarch64 aarch64:qemu-system-aarch64 riscv64:qemu-system-riscv64; do
+	arch=${pair%%:*}
+	bin=${pair#*:}
+	dry=$(make --no-print-directory -n -f "$makefile" run-qemu ARCH=$arch 2>&1)
+	contains "run-qemu ($arch) launches $bin" "$dry" "$bin "
+	if [ "$bin" != "qemu-system-x86_64" ]; then
+		lacks "run-qemu ($arch) does not launch qemu-system-x86_64" "$dry" "qemu-system-x86_64"
+	fi
 done
 dry=$(make --no-print-directory -n -f "$makefile" run-qemu ISO_FILE=build/kairos-hadron-old.iso 2>&1)
 contains "run-qemu honours ISO_FILE" "$dry" "file=build/kairos-hadron-old.iso"
