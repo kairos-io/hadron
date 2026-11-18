@@ -20,6 +20,17 @@ description: |
 runs:
   using: composite
   steps:
+    # BuildKit puts the mode of every build-context file into the cache key of
+    # the COPY that reads it. Runners do not agree on the umask (the self-hosted
+    # pools check files out as 664, other images as 644), so the same commit
+    # gave a job on one runner image a different key from the job that
+    # cached the stage on another, and everything below that COPY rebuilt.
+    # Make the group-writable bit the same everywhere. 664 is what the cache
+    # already holds.
+    - name: Normalize file modes for the build cache
+      shell: bash
+      run: find . -path ./.git -prune -o \( -type f -o -type d \) -exec chmod g+w {} +
+
     - name: Detect fork PR and select packages to fetch
       id: source-mode
       shell: bash
