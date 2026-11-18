@@ -98,7 +98,7 @@ jobs:
   # to help once anything mid-way is edited.
 
   stage0-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: populate-sources
     permissions:
       contents: read
@@ -142,7 +142,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage0-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   stage1-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: [stage0-amd64]
     permissions:
       contents: read
@@ -188,7 +188,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-stage1-merge-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   rsync-amd64:
-    runs-on: cncf-ubuntu-4-16-x86
+    runs-on: ubuntu-latest-4-cores
     needs: [stage1-amd64]
     permissions:
       contents: read
@@ -394,7 +394,7 @@ jobs:
             FIPS=no-fips
 
   python-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -508,7 +508,7 @@ jobs:
           target: toolchain
 
   container-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-8-cores
     needs:
       - toolchain-amd64
     permissions:
@@ -1357,3 +1357,29 @@ jobs:
             echo "::error title=hadron-ci::Not every required job passed: ${failed}"
             exit 1
           fi
+
+  # How long every job waited for a runner and how long it ran, on the run
+  # summary and as an artifact, so changes to runners and caching can be
+  # compared run to run.
+  timing-report:
+    if: ${{ always() && !cancelled() }}
+    needs:
+      - hadron-ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: hack
+      - name: Report job timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./hack/ci-timing-report.sh timings.json
+      - uses: actions/upload-artifact@v7
+        if: ${{ hashFiles('timings.json') != '' }}
+        with:
+          name: ci-timings
+          path: timings.json
+          retention-days: 30

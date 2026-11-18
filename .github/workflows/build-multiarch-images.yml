@@ -66,7 +66,7 @@ jobs:
   #                                                                          container-amd64
 
   stage0-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: populate-sources
     permissions:
       packages: write
@@ -114,7 +114,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,{0}', env.CACHE_TO) || '' }}
 
   stage1-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: [stage0-amd64]
     permissions:
       packages: write
@@ -163,7 +163,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,{0}', env.CACHE_TO) || '' }}
 
   rsync-amd64:
-    runs-on: cncf-ubuntu-4-16-x86
+    runs-on: ubuntu-latest-4-cores
     needs: [stage1-amd64]
     permissions:
       packages: write
@@ -412,7 +412,7 @@ jobs:
             FIPS=${{ matrix.fips }}
 
   python-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-16-cores
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -1049,7 +1049,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   container-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: ubuntu-latest-8-cores
     needs:
       - toolchain
     permissions:
@@ -2456,6 +2456,32 @@ jobs:
           echo "Could not push history after retries" >&2
           exit 1
 
+  # How long every job waited for a runner and how long it ran, on the run
+  # summary and as an artifact, so changes to runners and caching can be
+  # compared run to run.
+  timing-report:
+    if: ${{ always() && !cancelled() }}
+    needs:
+      - hadron-bios
+      - hadron-trusted
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: hack
+      - name: Report job timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./hack/ci-timing-report.sh timings.json
+      - uses: actions/upload-artifact@v7
+        if: ${{ hashFiles('timings.json') != '' }}
+        with:
+          name: ci-timings
+          path: timings.json
+          retention-days: 30
   release-notes:
     name: Update release notes with component manifest
     runs-on: ubuntu-latest
