@@ -211,3 +211,18 @@ jobs:
               gh pr create --title "$PR_TITLE" --body-file /tmp/pr_body.md --head "$branch" --base main --repo kairos-io/hadron
               ;;
           esac
+
+          # Put the bump on the org QA board so it gets QA'd like any other
+          # card. The branch is reused, so this also runs when the PR was only
+          # updated: new content on the branch needs a fresh QA. Failing to
+          # reach the board must not fail the bump.
+          pr_url=$(gh pr list --head "$branch" --base main --repo kairos-io/hadron --state open --json url --jq '.[0].url')
+          if [ -n "$pr_url" ]; then
+            item_id=$(gh project item-add 1 --owner kairos-io --url "$pr_url" --format json --jq '.id') \
+              && gh project item-edit \
+                --project-id PVT_kwDOBrVfSM4AGI3D \
+                --id "$item_id" \
+                --field-id PVTSSF_lADOBrVfSM4AGI3DzgDia1k \
+                --single-select-option-id 3f5385f2 \
+              || echo "::warning::could not add $pr_url to the QA board (does PAT_TOKEN have the project scope?)"
+          fi
