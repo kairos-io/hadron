@@ -66,7 +66,7 @@ jobs:
   #                                                                          container-amd64
 
   stage0-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: populate-sources
     permissions:
       packages: write
@@ -114,7 +114,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,{0}', env.CACHE_TO) || '' }}
 
   stage1-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [stage0-amd64]
     permissions:
       packages: write
@@ -163,7 +163,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,{0}', env.CACHE_TO) || '' }}
 
   rsync-amd64:
-    runs-on: cncf-ubuntu-24-96-x86
+    runs-on: cncf-ubuntu-4-16-x86
     needs: [stage1-amd64]
     permissions:
       packages: write
@@ -480,7 +480,7 @@ jobs:
   #                                                                          container-arm64
 
   stage0-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-8-32-arm
     needs: populate-sources
     permissions:
       packages: write
@@ -531,7 +531,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   stage1-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-8-32-arm
     needs: [stage0-arm64]
     permissions:
       packages: write
@@ -583,7 +583,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   rsync-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-4-16-arm
     needs: [stage1-arm64]
     permissions:
       packages: write
@@ -750,7 +750,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   systemd-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-8-32-arm
     needs: [rsync-arm64]
     permissions:
       packages: write
@@ -804,7 +804,7 @@ jobs:
             BUILD_ARCH=aarch64
 
   python-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-8-32-arm
     needs: [rsync-arm64]
     permissions:
       packages: write
@@ -942,7 +942,7 @@ jobs:
           fi
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   toolchain-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-24-96-arm
     needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
@@ -1134,7 +1134,7 @@ jobs:
           fi
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   container-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-8-32-arm
     needs:
       - toolchain
     permissions:
@@ -1243,7 +1243,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-bios-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1497,7 +1497,7 @@ jobs:
             ^${{ github.ref_name }}-amd64$
             ^${{ github.ref_name }}-arm64$
   hadron-trusted-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
@@ -1592,7 +1592,7 @@ jobs:
           fi
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-trusted-arm64:
-    runs-on: cncf-ubuntu-32-128-arm
+    runs-on: cncf-ubuntu-24-96-arm
     needs:
       - container  # Take advantage of cached layers from the container build
     strategy:
