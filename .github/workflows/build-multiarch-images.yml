@@ -213,7 +213,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,{0}', env.CACHE_TO) || '' }}
 
   cmake-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -264,7 +264,7 @@ jobs:
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,{0}', env.CACHE_TO) || '' }}
 
   kernel-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     strategy:
       matrix:
         kernel: [cloud, default]

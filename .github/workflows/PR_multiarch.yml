@@ -236,7 +236,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-rsync-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   cmake-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
@@ -286,7 +286,7 @@ jobs:
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-cmake-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
 
   kernel-amd64:
-    runs-on: cncf-ubuntu-32-128-x86
+    runs-on: cncf-ubuntu-24-96-x86
     needs: [rsync-amd64]
     permissions:
       contents: read
