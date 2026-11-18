@@ -1,11 +1,17 @@
 name: PR title
 
 # Fails a pull request whose title is not a Conventional Commit subject.
-# Pull requests are squash-merged with the title as the commit subject, so
-# this keeps every commit on main typed: `feat` is a minor change, a `!` or a
-# `BREAKING CHANGE:` footer is a major one, everything else is a patch.
-# .github/scripts/semver-bump.sh holds the rule; it is a copy of the kairos
-# one.
+# Pull requests are squash-merged, and that commit on main decides the next
+# release: `feat` is a minor change, a `!` or a `BREAKING CHANGE:` footer is a
+# major one, everything else is a patch. .github/scripts/semver-bump.sh holds
+# the rule; it is a copy of the kairos one.
+#
+# A pull request with several commits is squashed with the title as the
+# subject. A pull request with one commit is squashed with that commit's own
+# message instead, and .github/scripts/next-release.sh reads the whole
+# message, body included. So for a single commit the job also checks the
+# commit message, and fails if it is not a Conventional Commit or asks for a
+# different bump than the title (.github/scripts/pr-commit-check.sh).
 #
 # `edited` re-runs the check when the title changes, which the default
 # pull_request types do not. That is why this is its own workflow and not a
@@ -48,6 +54,9 @@ jobs:
       - name: Test the release version script
         if: github.event_name == 'pull_request'
         run: .github/scripts/next-release_test.sh
+      - name: Test the commit check script
+        if: github.event_name == 'pull_request'
+        run: .github/scripts/pr-commit-check_test.sh
       - name: Check the title
         if: github.event_name == 'pull_request'
         # The title is read from the API when the job runs, not from the
@@ -63,5 +72,25 @@ jobs:
             echo "Title '$TITLE' asks for a $bump change." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             echo "::error title=PR title::'$TITLE' is not a Conventional Commit subject: 'type(scope): description', see https://www.conventionalcommits.org/en/v1.0.0/"
+            exit 1
+          fi
+      - name: Check the commit of a single-commit pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          COMMITS="$(gh api "repos/${REPO}/pulls/${PR}" --jq .commits)"
+          if [ "$COMMITS" != 1 ]; then
+            echo "$COMMITS commits: the title is the squashed commit subject." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          TITLE="$(gh api "repos/${REPO}/pulls/${PR}" --jq .title)"
+          MESSAGE="$(gh api "repos/${REPO}/pulls/${PR}/commits" --jq '.[0].commit.message')"
+          if out="$(.github/scripts/pr-commit-check.sh "$TITLE" "$MESSAGE" 2>&1)"; then
+            echo "The only commit asks for a $out change, same as the title." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error title=PR commit::$out"
             exit 1
           fi
