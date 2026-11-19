@@ -174,6 +174,10 @@ test-render: ## Verify cache and fork source rendering, and the make -l flags
 test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
 	@./tests/make-image-tags.sh
 
+.PHONY: test-kernel-config-toolchain
+test-kernel-config-toolchain: ## Verify update-kernel-configs resolves arm64 and riscv64 with a cross gcc
+	@./tests/kernel-config-cross-compile.sh
+
 .PHONY: test-source-probe
 test-source-probe: ## Verify the source-cache probe retries a stalled connection
 	@./tests/list-missing-sources-retry.sh
@@ -386,12 +390,19 @@ else
 endif
 
 
+# Kconfig probes the compiler and assembler it will build with, so arm64 and riscv64
+# are resolved with a cross gcc for that target. The host gcc would drop options
+# (ARM64_MTE, ARM64_SME, RISCV_ISA_V, ...) that the real build brings back with its
+# own olddefconfig, and a pinned option would not stay pinned. alpine:3.23 is used
+# because its cross gcc is 15.x, like GCC_VERSION in the Dockerfile.
 update-kernel-configs:
 	@echo "Running olddefconfig for kernel $(KERNEL_VERSION)..."
 	@docker run --rm \
 		-v $(PWD)/files/kernel:/configs \
-		alpine:3 sh -c ' \
-			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
+		alpine:3.23 sh -c ' \
+			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev \
+				gcc-aarch64-none-elf binutils-aarch64-none-elf \
+				gcc-riscv-none-elf binutils-riscv-none-elf 2>/dev/null && \
 			printf '"'"'#!/bin/sh\necho "v$(DWARVES_VERSION)"\n'"'"' > /usr/local/bin/pahole && chmod +x /usr/local/bin/pahole && \
 			wget https://cdn.kernel.org/pub/linux/kernel/v$$(echo $(KERNEL_VERSION) | cut -d. -f1).x/linux-$(KERNEL_VERSION).tar.xz && \
 			tar xf linux-$(KERNEL_VERSION).tar.xz && \
@@ -405,13 +416,13 @@ update-kernel-configs:
 			for cfg in cloud default; do \
 				echo "==> $$cfg-arm64.config (arm64)" && \
 				cp /configs/$$cfg-arm64.config .config && \
-				make ARCH=arm64 olddefconfig && \
+				make ARCH=arm64 CROSS_COMPILE=aarch64-none-elf- olddefconfig && \
 				cp .config /configs/$$cfg-arm64.config; \
 			done && \
 			for cfg in cloud default; do \
 				echo "==> $$cfg-riscv64.config (riscv)" && \
 				cp /configs/$$cfg-riscv64.config .config && \
-				make ARCH=riscv olddefconfig && \
+				make ARCH=riscv CROSS_COMPILE=riscv-none-elf- olddefconfig && \
 				cp .config /configs/$$cfg-riscv64.config; \
 			done'
 	@echo "Done. Review the diff and commit the updated configs."
