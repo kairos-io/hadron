@@ -394,7 +394,9 @@ endif
 # are resolved with a cross gcc for that target. The host gcc would drop options
 # (ARM64_MTE, ARM64_SME, RISCV_ISA_V, ...) that the real build brings back with its
 # own olddefconfig, and a pinned option would not stay pinned. alpine:3.23 is used
-# because its cross gcc is 15.x, like GCC_VERSION in the Dockerfile.
+# because its cross gcc is 15.x, like GCC_VERSION in the Dockerfile. The only cross gcc
+# alpine ships is bare-metal (-none-elf), which cannot link, so CC_CAN_LINK stays unset
+# here and comes back at build time. It is derived and no pinnable option depends on it.
 update-kernel-configs:
 	@echo "Running olddefconfig for kernel $(KERNEL_VERSION)..."
 	@docker run --rm \
