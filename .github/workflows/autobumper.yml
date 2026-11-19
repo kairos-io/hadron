@@ -124,8 +124,37 @@ jobs:
           # attempt on the same branch has nothing to contribute: always start
           # from main.
           git checkout -B "$branch" origin/main
-          
-          updatecli apply --config updatecli.d/${{ matrix.config }}.yaml
+
+          # updatecli exits 0 when a source fails. It prints "Something went
+          # wrong", counts the group as succeeded and moves on, so for weeks
+          # this job stayed green while the git sources could not clone the
+          # mirror (kairos-io/kairos#6138). Keep its output and read it.
+          #
+          # The log lives outside the clone so `git add` can never pick it
+          # up. pipefail keeps updatecli's own exit code: without it the
+          # pipeline reports tee's, and a manifest updatecli cannot even load
+          # would pass.
+          set -o pipefail
+          updatecli_log="${RUNNER_TEMP}/updatecli-${{ matrix.config }}.log"
+          check_log="$PWD/.github/scripts/updatecli-check-log.sh"
+          updatecli apply --config updatecli.d/${{ matrix.config }}.yaml 2>&1 | tee "$updatecli_log"
+
+          # Most failures are the mirror answering 502 or cutting a clone
+          # short, and a second try a little later gets through. The targets
+          # only edit files in this tree, so the retry runs on top of what the
+          # first attempt already bumped and keeps those bumps.
+          if ! sh "$check_log" "$updatecli_log" > /dev/null; then
+            echo "updatecli reported a failure, retrying in 30 seconds"
+            sleep 30
+            updatecli apply --config updatecli.d/${{ matrix.config }}.yaml 2>&1 | tee "$updatecli_log"
+          fi
+
+          # A failure that survives the retry must not stop the bumps that
+          # worked from shipping, so the rest of this step still runs and the
+          # verdict is given on the way out, on every exit path including the
+          # early "No changes to commit" one. The check prints one annotation
+          # per failing source or target.
+          trap 'rc=$?; sh "$check_log" "$updatecli_log" || rc=1; exit $rc' EXIT
 
           # updatecli writes whatever its source returns, older or not. Put
           # back any version it moved backwards before anything else reads the

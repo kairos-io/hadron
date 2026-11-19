@@ -40,6 +40,8 @@ jobs:
         run: make test-source-checksums
       - name: Verify the autobumper's pull request decision
         run: make test-bump-pr-action
+      - name: Verify the autobumper fails on an updatecli source error
+        run: make test-updatecli-log
       - name: Verify the autobumper never downgrades a version
         run: make test-version-downgrades
       - name: Verify the autobumper's release-notes excerpt

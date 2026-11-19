@@ -194,6 +194,10 @@ test-version-downgrades: ## Verify the autobumper never moves a version backward
 test-bump-pr-action: ## Verify what the autobumper does with an existing bump pull request
 	@sh ./tests/bump-pr-action_test.sh
 
+.PHONY: test-updatecli-log
+test-updatecli-log: ## Verify the autobumper fails when updatecli reports a source error
+	@sh ./tests/updatecli-check-log_test.sh
+
 .PHONY: test-autobumper-changelog
 test-autobumper-changelog: ## Verify the release-notes excerpt in bump pull requests pings no one
 	@ruby ./tests/autobumper-changelog_test.rb
