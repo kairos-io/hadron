@@ -796,7 +796,7 @@ packages:
 
   qemu:
     version_arg: QEMU_AGENT_VERSION
-    sha256: 1f1209b4db82e6c4417eaf6e7e0b073563572a042d9fb7492b084ba65a9c0693
+    sha256: 5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22
     urls:
       - https://download.qemu.org/qemu-${version}.tar.xz
     filename: qemu.tar.xz
