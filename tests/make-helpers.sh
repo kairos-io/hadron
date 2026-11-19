@@ -6,14 +6,15 @@
 #      real BOOTLOADER default;
 #   2. run-qemu boots the newest build/kairos-hadron-*.iso, and fails with a
 #      clear message, before creating disk.img, when there is none;
-#   3. bump-deps, which ran the removed Bumpfile, is gone.
+#   3. bump-deps, which ran the removed Bumpfile, is gone;
+#   4. FIPS=fips stops with a clear message on riscv64 and only there.
 #
 # make runs from a scratch directory with -f pointing at the tree, so build/
 # and disk.img resolve there and no qemu is ever started.
 
 set -eu
 
-unset BOOTLOADER ARCH ISO_FILE || true
+unset BOOTLOADER ARCH FIPS ISO_FILE || true
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 makefile="$repo_root/Makefile"
@@ -104,6 +105,22 @@ if out=$(make --no-print-directory -n -f "$makefile" bump-deps 2>&1); then
 else
 	pass "bump-deps is gone"
 fi
+
+# 4. FIPS=fips is refused on riscv64, before any build target runs
+for target in build-hadron build-kairos build; do
+	if out=$(make --no-print-directory -n -f "$makefile" $target ARCH=riscv64 FIPS=fips 2>&1); then
+		fail "$target ARCH=riscv64 FIPS=fips exited 0: $out"
+	else
+		contains "$target refuses FIPS on riscv64" "$out" "FIPS=fips is not supported on riscv64"
+	fi
+done
+for combo in "ARCH=riscv64 FIPS=no-fips" "ARCH=riscv64" "ARCH=amd64 FIPS=fips" "ARCH=arm64 FIPS=fips"; do
+	if out=$(make --no-print-directory -n -f "$makefile" build-hadron $combo 2>&1); then
+		lacks "build-hadron $combo is not refused" "$out" "not supported on riscv64"
+	else
+		fail "build-hadron $combo exited non-zero: $out"
+	fi
+done
 
 if [ "$failures" -ne 0 ]; then
 	echo "$failures check(s) failed" >&2

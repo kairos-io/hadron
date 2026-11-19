@@ -84,6 +84,12 @@ else
 $(error "Architecture $(ARCH) is not supported. Please use 'amd64', 'arm64', or 'riscv64'.")
 endif
 
+# The riscv64 kernel configs cannot enable CONFIG_CRYPTO_FIPS, so a FIPS
+# image for riscv64 would ship without kernel FIPS mode.
+ifeq ($(ARCH)$(filter fips,$(FIPS)),riscv64fips)
+$(error "FIPS=fips is not supported on riscv64. Please use FIPS=no-fips or ARCH=amd64/arm64.")
+endif
+
 # Adjust the local image name based on BOOTLOADER.
 # If we are building with systemd (Trusted Boot), we switch to the trusted
 # variant of the local Hadron image. If the user has overridden the name, we
@@ -131,7 +137,7 @@ help: targets
 	@echo "------------------------------------------------------------------------"
 	@echo "The BOOTLOADER variable can be set to 'grub' or 'systemd'. The default is 'grub'. Set 'systemd' to build a Trusted Boot image."
 	@echo "The KERNEL_TYPE variable can be set to 'default' or 'cloud'. The default is 'default'."
-	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'."
+	@echo "The FIPS variable can be set to 'fips' to build with FIPS support, or 'no-fips' to build without FIPS support. The default is 'no-fips'. FIPS is not available on riscv64."
 	@echo "The ARCH variable can be set to 'amd64', 'arm64', or 'riscv64'. The default is 'amd64'. It will build for x86-64, aarch64, or riscv64 respectively."
 	@echo "The VERSION variable can be set to the version of the generated kairos+hadrond image. The default is v0.0.0."
 	@echo "The IMAGE_NAME variable can be set to the local tag of the Hadron image that is built and that build-kairos uses as its base. The default is 'hadron:local' ('hadron-trusted:local' with BOOTLOADER=systemd)."
