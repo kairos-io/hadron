@@ -56,6 +56,15 @@ KAIROS_DOCKERFILE_REF ?= c2426c11c34198fcb50bfe4d43e827619292e26f
 # does not carry a duplicate value.
 KERNEL_VERSION ?= $(shell awk -F= '/^ARG KERNEL_VERSION=/{print $$2; exit}' Dockerfile)
 DWARVES_VERSION ?= $(shell awk -F= '/^ARG DWARVES_VERSION=/{print $$2; exit}' Dockerfile)
+# Major of GCC_VERSION, for the toolchain update-kernel-configs resolves with.
+KERNEL_CONFIG_GCC ?= $(shell awk -F= '/^ARG GCC_VERSION=/{split($$2, v, "."); print v[1]; exit}' Dockerfile)
+KERNEL_CONFIG_IMAGE ?= debian:forky
+KERNEL_CONFIG_PACKAGES ?= make perl bc flex bison wget xz-utils ca-certificates libc6-dev \
+	binutils gcc-$(KERNEL_CONFIG_GCC) gcc-$(KERNEL_CONFIG_GCC)-plugin-dev \
+	binutils-aarch64-linux-gnu gcc-$(KERNEL_CONFIG_GCC)-aarch64-linux-gnu \
+	gcc-$(KERNEL_CONFIG_GCC)-plugin-dev-aarch64-linux-gnu libc6-dev-arm64-cross \
+	binutils-riscv64-linux-gnu gcc-$(KERNEL_CONFIG_GCC)-riscv64-linux-gnu \
+	gcc-$(KERNEL_CONFIG_GCC)-plugin-dev-riscv64-linux-gnu libc6-dev-riscv64-cross
 # Docker architecture settings + build defaults derived from this
 ARCH ?= amd64
 # Build architecture settings
@@ -174,6 +183,10 @@ test-render: ## Verify cache and fork source rendering, and the make -l flags
 .PHONY: test-image-tags
 test-image-tags: ## Verify build-hadron and build-kairos agree on a local-only base tag
 	@./tests/make-image-tags.sh
+
+.PHONY: test-kernel-config-toolchain
+test-kernel-config-toolchain: ## Verify update-kernel-configs resolves with a toolchain as new as the build, cross for arm64 and riscv64
+	@./tests/kernel-config-cross-compile.sh
 
 .PHONY: test-source-probe
 test-source-probe: ## Verify the source-cache probe retries a stalled connection
@@ -395,12 +408,23 @@ else
 endif
 
 
+# Kconfig probes the compiler and assembler it will build with, so every config is
+# resolved with a gcc for its target. A host gcc would drop arm64 and riscv64 options
+# (ARM64_MTE, ARM64_SME, RISCV_ISA_V, ...) that the real build brings back with its own
+# olddefconfig, and a pinned option would not stay pinned. The assembler matters too:
+# ARM64_LSUI needs binutils 2.45 or newer. So the gcc here has the major of GCC_VERSION,
+# its binutils is not older than BINUTILS_VERSION, and the arm64 and riscv64 cross
+# toolchains are full linux-gnu ones that can link (CC_CAN_LINK, INT128). Debian ships
+# versioned gcc and cross gcc packages, so the gcc major follows the Dockerfile.
+# tests/kernel-config-cross-compile.sh checks these versions.
 update-kernel-configs:
 	@echo "Running olddefconfig for kernel $(KERNEL_VERSION)..."
 	@docker run --rm \
 		-v $(PWD)/files/kernel:/configs \
-		alpine:3 sh -c ' \
-			apk add --no-cache make perl bash bc flex bison wget xz gcc musl-dev 2>/dev/null && \
+		$(KERNEL_CONFIG_IMAGE) sh -c ' \
+			apt-get update -qq && \
+			DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+				$(KERNEL_CONFIG_PACKAGES) >/dev/null && \
 			printf '"'"'#!/bin/sh\necho "v$(DWARVES_VERSION)"\n'"'"' > /usr/local/bin/pahole && chmod +x /usr/local/bin/pahole && \
 			wget https://cdn.kernel.org/pub/linux/kernel/v$$(echo $(KERNEL_VERSION) | cut -d. -f1).x/linux-$(KERNEL_VERSION).tar.xz && \
 			tar xf linux-$(KERNEL_VERSION).tar.xz && \
@@ -408,19 +432,19 @@ update-kernel-configs:
 			for cfg in cloud default; do \
 				echo "==> $$cfg.config (x86_64)" && \
 				cp /configs/$$cfg.config .config && \
-				make ARCH=x86_64 olddefconfig && \
+				make ARCH=x86_64 HOSTCC=gcc-$(KERNEL_CONFIG_GCC) CC=gcc-$(KERNEL_CONFIG_GCC) olddefconfig && \
 				cp .config /configs/$$cfg.config; \
 			done && \
 			for cfg in cloud default; do \
 				echo "==> $$cfg-arm64.config (arm64)" && \
 				cp /configs/$$cfg-arm64.config .config && \
-				make ARCH=arm64 olddefconfig && \
+				make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- HOSTCC=gcc-$(KERNEL_CONFIG_GCC) CC=aarch64-linux-gnu-gcc-$(KERNEL_CONFIG_GCC) olddefconfig && \
 				cp .config /configs/$$cfg-arm64.config; \
 			done && \
 			for cfg in cloud default; do \
 				echo "==> $$cfg-riscv64.config (riscv)" && \
 				cp /configs/$$cfg-riscv64.config .config && \
-				make ARCH=riscv olddefconfig && \
+				make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- HOSTCC=gcc-$(KERNEL_CONFIG_GCC) CC=riscv64-linux-gnu-gcc-$(KERNEL_CONFIG_GCC) olddefconfig && \
 				cp .config /configs/$$cfg-riscv64.config; \
 			done'
 	@echo "Done. Review the diff and commit the updated configs."
