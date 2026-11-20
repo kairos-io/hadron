@@ -30,7 +30,7 @@ jobs:
         run: make test-render
       - name: Verify the local base image tag invariant
         run: make test-image-tags
-      - name: Verify the kernel configs are resolved with a cross gcc
+      - name: Verify the kernel configs are resolved with the build toolchain versions
         run: make test-kernel-config-toolchain
       - name: Verify make help, run-qemu and the removed bump-deps
         run: make test-make-helpers
