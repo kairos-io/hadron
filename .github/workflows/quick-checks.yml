@@ -56,6 +56,8 @@ jobs:
         run: make test-cache-tag-cleanup
       - name: Verify every Dockerfile COPY source is in the build context
         run: make test-copy-context
+      - name: Verify the image-input skip list matches what the build reads
+        run: make test-image-inputs
       - name: Verify every updatecli shell source fails on empty output
         run: make test-updatecli-sources
       - name: Verify the component-manifest generator
