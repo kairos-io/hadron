@@ -1,0 +1,96 @@
+---
+name: 'riscv64 native build timing'
+
+# One-off measurement. Builds the same Dockerfile targets that PR_riscv64.yml
+# builds under QEMU on an x86 VM (cmake, systemd, python-build, kernel), but
+# natively on a RISE riscv64 runner, so the two can be compared.
+#
+# It pushes nothing and writes no cache, so it cannot affect any other
+# pipeline. It only runs when this file changes, or when started by hand.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/riscv64-native-timing.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: riscv64-native-timing-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-riscv
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      # One at a time, so the jobs do not compete for the same runner and the
+      # numbers stay comparable.
+      max-parallel: 1
+      matrix:
+        include:
+          - name: cmake
+            target: cmake
+            kernel_type: ''
+          - name: python
+            target: python-build
+            kernel_type: ''
+          - name: systemd
+            target: systemd
+            kernel_type: ''
+          - name: kernel
+            target: kernel-artifacts
+            kernel_type: default
+    name: build ${{ matrix.name }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Render Dockerfile
+        uses: ./.github/actions/render-dockerfile
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
+      - name: Record runner
+        run: |
+          {
+            echo "### ${{ matrix.name }}"
+            echo "- runner: \`${{ runner.name }}\`"
+            echo "- arch: \`$(uname -m)\`, cpus: \`$(nproc)\`, memory: \`$(free -g | awk '/Mem:/ {print $2}') GB\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Start timer
+        run: echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Build ${{ matrix.target }}
+        uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: ./
+          file: ./Dockerfile
+          platforms: linux/riscv64
+          target: ${{ matrix.target }}
+          # Read the shared stage caches so the cross-toolchain chain is not
+          # rebuilt in every job, but never the target's own cache, so the
+          # target itself builds cold. Nothing is written back.
+          cache-from: |
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
+          build-args: |
+            ARCH=riscv64
+            BUILD_ARCH=riscv64
+            ${{ matrix.kernel_type != '' && format('KERNEL_TYPE={0}', matrix.kernel_type) || '' }}
+      - name: Report build time
+        if: always()
+        run: |
+          secs=$(( $(date +%s) - BUILD_START ))
+          echo "- build step: **$(( secs / 60 )) min $(( secs % 60 )) s**" >> "$GITHUB_STEP_SUMMARY"
