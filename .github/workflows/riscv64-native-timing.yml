@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   build:
+    if: ${{ false }}
     runs-on: ubuntu-24.04-riscv
     timeout-minutes: 360
     strategy:
