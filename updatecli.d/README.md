@@ -143,12 +143,10 @@ transformers:
 
 
 ### GCC Version
-Constrained to version 14:
-```yaml
-versionfilter:
-  kind: semver
-  constraint: '^14'
-```
+The `gcc` source in `compiler-tools.yaml` is a shell source. It lists the tags
+of the GCC git repository, keeps the `gcc-15.*` ones and takes the newest, so
+the version is held to major 15. There is no `versionfilter`. Moving to a new
+major means editing the `grep -E 'gcc-15\.*'` pattern in that source.
 
 ### OpenSSL FIPS Version
 `OPENSSL_FIPS_VERSION` builds the whole of openssl in FIPS images, fips provider
