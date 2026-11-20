@@ -463,7 +463,7 @@ jobs:
           cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 2
+              max-parallelism = 4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -528,7 +528,7 @@ jobs:
           cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 2
+              max-parallelism = 4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -541,6 +541,8 @@ jobs:
           password: ${{ secrets.QUAY_IO_PASSWORD }}
       - name: Build PR
         uses: docker/build-push-action@v7
+        env:
+          SOURCE_DATE_EPOCH: 0
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: ./
@@ -636,7 +638,7 @@ jobs:
           cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 2
+              max-parallelism = 4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -685,6 +687,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:bios-default-no-fips-amd64,mode=max
           cache-to: ${{ env.PR_CACHE_WRITE == 'true' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:pr-{0}-bios-default-no-fips-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', env.PR_NUM) || '' }}
           build-args: |
             BOOTLOADER=grub
@@ -755,7 +758,7 @@ jobs:
           cleanup: false
           buildkitd-config-inline: |
             [worker.oci]
-              max-parallelism = 2
+              max-parallelism = 4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
