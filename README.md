@@ -63,8 +63,8 @@ There is some args that you can pass to the make command to customize the build:
 - `KERNEL_TYPE`: Choose between `default` or `cloud`. Cloud is a minimal kernel built for VM/cloud environments. Default is a more generic kernel with more drivers included.
 - `KUBERNETES_DISTRO`: Choose between `k3s`, `k0s` or leave empty for no Kubernetes distribution
 - `KUBERNETES_VERSION`: Specify the Kubernetes version to install (if `KUBERNETES_DISTRO` is set)
-- `VERSION`: Specify the version tag for the built image (default is `latest`)
-- `ARCH`: Specify the target architecture (default is `amd64`, choices are `amd64` or `arm64`)
+- `VERSION`: Specify the version tag for the built image (default is `v0.0.0`)
+- `ARCH`: Specify the target architecture (default is `amd64`, choices are `amd64`, `arm64` or `riscv64`)
 - `FIPS`: Set to `fips` to build with FIPS support (default is `no-fips`)
 
 ### Building Kairos Images
@@ -96,7 +96,7 @@ make pull-image build-kairos BOOTLOADER=systemd VERSION=v0.0.1
 ```
 
 This will:
-- Fetch the latest Dockerfile from the kairos repository
+- Fetch the kairos Dockerfile pinned by `KAIROS_DOCKERFILE_REF` (set `KAIROS_DOCKERFILE_REF=master` to test against the tip of the kairos repository)
 - Build a core Kairos image named `hadron-init` based on the Hadron base image
 - Use the specified bootloader (grub or systemd) and version
 
