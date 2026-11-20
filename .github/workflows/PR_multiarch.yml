@@ -62,6 +62,46 @@ env:
   KAIROS_INIT_OVERRIDE_TAG: master-scratch
 
 jobs:
+  # Shadow run of the path gate. It reads the files the pull request changes and
+  # says, on the run summary, whether any of them can reach the image build or
+  # the boot tests (.github/scripts/image-inputs.sh). It gates nothing: no job
+  # below waits for it and hadron-ci does not list it, so a failure here cannot
+  # fail a pull request. It is there to compare its answer with what each run
+  # really needed before any job is skipped on it. About ten seconds on a hosted
+  # runner, no secrets, the same for a pull request from a fork.
+  changes:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The merge commit and both its parents: enough to diff the pull
+          # request against the base it merges into.
+          fetch-depth: 2
+      - name: Can the change reach the image?
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          image=true
+          if [ "$EVENT_NAME" = "pull_request" ] \
+             && git diff --name-only --no-renames HEAD^1 HEAD > changed-files.txt; then
+            image=$(sh .github/scripts/image-inputs.sh < changed-files.txt)
+          else
+            : > changed-files.txt
+          fi
+          if [ "$image" = false ]; then
+            echo "::notice title=path gate (shadow)::Every changed file is on the skip list, so the image build would be skipped. Nothing is skipped yet."
+          fi
+          {
+            echo "Image build needed: **${image}** (shadow, nothing is skipped on it)"
+            echo
+            sed 's/^/- /' changed-files.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # This is the light pass. A pull request builds and boot-tests two flavors,
   # both amd64, default kernel, no FIPS: the bios (grub) image and the trusted
   # (systemd-boot) image. arm64, the cloud kernel and the FIPS flavors are
