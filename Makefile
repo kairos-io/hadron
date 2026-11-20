@@ -127,6 +127,7 @@ targets:
 	@echo "trusted-iso: Build the Trusted Boot ISO image. Expects the Hadron+Kairos OCI images to be built already."
 	@echo "components: Generate components.json + components.md for the working tree"
 	@echo "test-components: Run the component-generator shell test"
+	@echo "test-image-inputs: Verify the path gate's skip list against the Dockerfile and PR_multiarch.yml"
 	@echo "test-source-checksums: Verify the sources.yaml checksum refresher the autobumper runs"
 	@echo "test-patch-headers: Verify every patch under patches/ carries a header"
 	@echo "test-make-helpers: Verify make help, run-qemu's ISO pick, and that bump-deps is gone"
@@ -181,6 +182,10 @@ test-source-probe: ## Verify the source-cache probe retries a stalled connection
 .PHONY: test-workflow-gates
 test-workflow-gates: ## Verify every pull_request job that logs into quay excludes forks and dependabot
 	@./tests/workflow-secret-gates.sh
+
+.PHONY: test-image-inputs
+test-image-inputs: ## Verify the path gate's skip list against the Dockerfile and PR_multiarch.yml
+	@sh ./tests/image-inputs_test.sh
 
 .PHONY: test-source-checksums
 test-source-checksums: ## Verify the sources.yaml checksum refresher the autobumper runs
