@@ -23,6 +23,9 @@ trap 'cleanup; trap - HUP; kill -HUP $$' HUP
 mkdir -p "$tmp/bin"
 # hack/render.sh needs a `yaml` module. On a runner without PyYAML installed,
 # fall back to a minimal loader that understands just the shape of sources.yaml.
+# PYTHONPATH is searched before the system packages, so the stand-in goes on it
+# only when `import yaml` fails. With PyYAML installed the test then runs
+# against the same parser the real render uses.
 cat > "$tmp/yaml.py" <<'PY'
 def safe_load(stream):
     packages = {}
@@ -49,6 +52,11 @@ def safe_load(stream):
             packages[current][list_key].append(text[2:])
     return {'packages': packages}
 PY
+if python3 -c 'import yaml' 2>/dev/null; then
+    yaml_path=${PYTHONPATH:-}
+else
+    yaml_path=$tmp${PYTHONPATH:+:$PYTHONPATH}
+fi
 
 cd "$repo_root"
 
@@ -59,10 +67,10 @@ cd "$repo_root"
 render() {
     cp "$snapshot" Dockerfile
     if [ "$#" -ge 1 ]; then
-        PYTHONPATH="$tmp" HADRON_UPSTREAM_PACKAGES="$1" \
+        PYTHONPATH="$yaml_path" HADRON_UPSTREAM_PACKAGES="$1" \
             ./hack/render.sh >/dev/null
     else
-        PYTHONPATH="$tmp" ./hack/render.sh >/dev/null
+        PYTHONPATH="$yaml_path" ./hack/render.sh >/dev/null
     fi
 }
 
@@ -71,7 +79,7 @@ render() {
 # defaults alone are enough, so nothing may be left pointing at the cache.
 render
 
-PYTHONPATH="$tmp" python3 - <<'PY'
+PYTHONPATH="$yaml_path" python3 - <<'PY'
 from pathlib import Path
 import re, yaml
 
@@ -180,7 +188,7 @@ PY
 # host answering at all.
 render libkcapi
 
-PYTHONPATH="$tmp" python3 - <<'PY'
+PYTHONPATH="$yaml_path" python3 - <<'PY'
 from pathlib import Path
 
 dockerfile = Path('Dockerfile').read_text()
@@ -238,7 +246,7 @@ grep -q '^FROM \${SOURCES_REPO}/libkcapi:\${LIBKCAPI_VERSION} AS libkcapi-downlo
 # expand to the empty string and the trusted build would pull an unpinned
 # floating tag. hack/render.sh scans the whole file with re.MULTILINE and would
 # not catch that regression, so guard it here on the committed Dockerfile.
-PYTHONPATH="$tmp" python3 - <<'PY'
+PYTHONPATH="$yaml_path" python3 - <<'PY'
 import re, sys
 from pathlib import Path
 
