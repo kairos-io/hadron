@@ -1050,8 +1050,11 @@ jobs:
             ^${{ github.ref_name }}-arm64$
   container-amd64:
     runs-on: ubuntu-latest-8-cores
-    needs:
-      - toolchain
+    # Takes the compiled trees from the per-tree jobs, not from the toolchain
+    # job: nothing in the container build reads the toolchain image, and the
+    # toolchain job waits for the kernel. The toolchain still gates publishing
+    # through the `container` job below.
+    needs: [cmake-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
       contents: read
@@ -1135,8 +1138,11 @@ jobs:
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   container-arm64:
     runs-on: cncf-ubuntu-8-32-arm
-    needs:
-      - toolchain
+    # Takes the compiled trees from the per-tree jobs, not from the toolchain
+    # job: nothing in the container build reads the toolchain image, and the
+    # toolchain job waits for the kernel. The toolchain still gates publishing
+    # through the `container` job below.
+    needs: [cmake-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
       contents: read
@@ -1204,6 +1210,7 @@ jobs:
     needs:
       - container-amd64
       - container-arm64
+      - toolchain  # a broken toolchain still stops the release
       # - container-riscv64
     runs-on: ubuntu-26.04
     permissions:
@@ -1245,7 +1252,9 @@ jobs:
   hadron-bios-amd64:
     runs-on: cncf-ubuntu-24-96-x86
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-amd64  # Take advantage of cached layers from the container build
+      - kernel-amd64     # and from the kernel legs, so the kernel is not built again here
+      - systemd-amd64
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
@@ -1377,7 +1386,9 @@ jobs:
   hadron-bios-arm64:
     runs-on: cncf-ubuntu-32-128-arm
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-arm64  # Take advantage of cached layers from the container build
+      - kernel-arm64     # and from the kernel legs, so the kernel is not built again here
+      - systemd-arm64
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
@@ -1454,6 +1465,7 @@ jobs:
     needs:
       - hadron-bios-amd64
       - hadron-bios-arm64
+      - toolchain
       # - hadron-bios-riscv64
     runs-on: ubuntu-26.04
     permissions:
@@ -1499,7 +1511,9 @@ jobs:
   hadron-trusted-amd64:
     runs-on: cncf-ubuntu-26.04-32-128-x86
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-amd64  # Take advantage of cached layers from the container build
+      - kernel-amd64     # and from the kernel legs, so the kernel is not built again here
+      - systemd-amd64
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
@@ -1594,7 +1608,9 @@ jobs:
   hadron-trusted-arm64:
     runs-on: cncf-ubuntu-24-96-arm
     needs:
-      - container  # Take advantage of cached layers from the container build
+      - container-arm64  # Take advantage of cached layers from the container build
+      - kernel-arm64     # and from the kernel legs, so the kernel is not built again here
+      - systemd-arm64
     strategy:
       matrix:
         kernel: [ "cloud", "default" ]
@@ -1671,6 +1687,7 @@ jobs:
     needs:
       - hadron-trusted-amd64
       - hadron-trusted-arm64
+      - toolchain
     runs-on: ubuntu-26.04
     permissions:
       packages: write
