@@ -155,7 +155,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Expose the GitHub cache runtime to BuildKit
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -207,7 +207,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Expose the GitHub cache runtime to BuildKit
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -257,7 +257,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Expose the GitHub cache runtime to BuildKit
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -361,7 +361,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Expose the GitHub cache runtime to BuildKit
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
@@ -476,7 +476,7 @@ jobs:
             [worker.oci]
               max-parallelism = 4
       - name: Expose the GitHub cache runtime to BuildKit
-        uses: crazy-max/ghaction-github-runtime@v3
+        uses: crazy-max/ghaction-github-runtime@v4
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v6
