@@ -367,6 +367,52 @@ def changelog_lines(bump, token)
   lines
 end
 
+# Dockerfile ARGs whose version jumps can change what runs on top of Hadron
+# (userspace tools, the agent, AuroraBoot), and how many leading numeric
+# components of the version make up a release that counts. The kernel and
+# systemd are named by their first component (7.x, 262), musl, bash and
+# openssh by their first two (1.2, 5.3, 10.6). A jump in any other package
+# only changes how Hadron is built or what is inside it, and stays a `chore`.
+CRITICAL_ARGS = {
+  "KERNEL_VERSION" => 1,
+  "SYSTEMD_VERSION" => 1,
+  "MUSL_VERSION" => 2,
+  "BASH_VERSION" => 2,
+  "OPENSSH_VERSION" => 2
+}.freeze
+
+# Leading numeric components of a version: "10.6p2" -> [10, 6], "7.3.5" ->
+# [7, 3, 5]. A component with a suffix is read up to the suffix. Returns nil
+# when the version does not start with a number.
+def version_parts(version)
+  parts = []
+  version.to_s.split(".").each do |piece|
+    m = piece.match(/\A(\d+)/)
+    break unless m
+
+    parts << m[1].to_i
+    break unless piece.match?(/\A\d+\z/)
+  end
+  parts.empty? ? nil : parts
+end
+
+# True when the bump of a critical ARG changes the part of its version that
+# counts as a release, and goes up. Downgrades and versions that cannot be
+# read are never a release.
+def critical_release_bump?(bump)
+  depth = CRITICAL_ARGS[bump["matcher"]]
+  return false unless depth
+
+  old_parts = version_parts(bump["old_version"])
+  new_parts = version_parts(bump["new_version"])
+  return false unless old_parts && new_parts
+
+  # 5.3 and 5.3.0 are the same release: pad a short version with zeros.
+  old_head = Array.new(depth) { |i| old_parts[i] || 0 }
+  new_head = Array.new(depth) { |i| new_parts[i] || 0 }
+  (new_head <=> old_head) == 1
+end
+
 return unless __FILE__ == $PROGRAM_NAME
 
 manifest = YAML.safe_load(File.read(ENV.fetch("UPDATECLI_MANIFEST")), aliases: false)
@@ -431,7 +477,8 @@ bumps = parse_bumps(`git diff --cached -U0 -- Dockerfile`).map do |bump|
   enriched
 end
 
-# Titles and commit subjects are Conventional Commits (`chore(deps): ...`):
+# Titles and commit subjects are Conventional Commits (`chore(deps): ...`, or
+# `feat(deps): ...` when critical_release_bump? says so):
 # the PR title check (.github/workflows/pr-title.yaml) rejects anything else,
 # and the squashed subject is what lands on main.
 if bumps.empty?
@@ -447,7 +494,10 @@ title_names = bumps.first(8).map { |bump| bump["name"] }
 overflow = bumps.length - title_names.length
 title_suffix = overflow.positive? ? " and #{overflow} more" : ""
 joined_names = title_names.join(", ")
-pr_title = "chore(deps): bump #{joined_names}#{title_suffix}"
+# A release of a package that userspace depends on is a feature of Hadron
+# (minor release); everything else is a patch.
+pr_type = bumps.any? { |bump| critical_release_bump?(bump) } ? "feat" : "chore"
+pr_title = "#{pr_type}(deps): bump #{joined_names}#{title_suffix}"
 
 summary_lines = bumps.map do |bump|
   "- #{bump["name"]} was updated #{bump["old_version"]} -> #{bump["new_version"]}"
