@@ -1,0 +1,4 @@
+# Units from the base tools stay off by default. Without this file
+# `systemctl preset-all` enables every unit that has an [Install] section.
+disable nftables.service
+disable wg-quick.target

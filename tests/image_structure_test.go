@@ -536,6 +536,56 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
+	// wireguard-tools, nftables and cifs-utils ship in the default image only.
+	// Cloud images do not carry them.
+	Describe("base tools", Label("base-tools", "full-image"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		DescribeTable("run and print their version",
+			func(want string, bin string, args ...string) {
+				out, code, err := runInImage(bin, args...)
+				Expect(err).ToNot(HaveOccurred(),
+					"failed to invoke %q: %s", runtime, out)
+				Expect(code).To(Equal(0), "%s %v failed: %s", bin, args, out)
+				Expect(out).To(ContainSubstring(want))
+			},
+			Entry("wg", "wireguard-tools", "wg", "--version"),
+			Entry("nft", "nftables", "nft", "--version"),
+			Entry("mount.cifs", "mount.cifs", "mount.cifs", "-V"),
+		)
+
+		It("ships wg-quick", func() {
+			out, code := shInImage("command -v wg-quick")
+			Expect(code).To(Equal(0), "wg-quick missing from image: %s", out)
+		})
+
+		It("ships mount.cifs where mount(8) looks for helpers", func() {
+			out, code := shInImage("test -x /sbin/mount.cifs && test -x /usr/sbin/mount.smb3 && echo OK")
+			Expect(code).To(Equal(0), "mount.cifs or mount.smb3 missing: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("ships libnftables and the libraries nft links against", func() {
+			out, code := shInImage(
+				"ls /usr/lib/libnftables.so.1 /usr/lib/libnftnl.so.* /usr/lib/libmnl.so.* /usr/lib/libtalloc.so.2 2>&1")
+			Expect(code).To(Equal(0), "shared libraries missing: %s", out)
+		})
+
+		It("ships the nftables and wg-quick units", func() {
+			out, code := shInImage(
+				"cat /usr/lib/systemd/system/nftables.service /usr/lib/systemd/system/wg-quick@.service")
+			Expect(code).To(Equal(0), "units missing: %s", out)
+			Expect(out).To(ContainSubstring("ExecStart="))
+		})
+
+		It("leaves nftables.service disabled", func() {
+			out, code := shInImage(
+				"! ls /etc/systemd/system/*.wants/nftables.service /etc/systemd/system/*.wants/wg-quick.target 2>/dev/null | grep -q . && echo OK")
+			Expect(code).To(Equal(0), "a base tool service is enabled: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+	})
+
 	Describe("audit userspace", Label("audit", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 

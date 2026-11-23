@@ -53,6 +53,7 @@ ARG BINUTILS_VERSION=2.47
 ARG BISON_VERSION=3.8.2
 ARG BUSYBOX_VERSION=1.38.0
 ARG CA_CERTIFICATES_VERSION=20261020
+ARG CIFS_UTILS_VERSION=7.9
 ARG CMAKE_VERSION=4.5.1
 ARG CONNTRACK_TOOLS_VERSION=1.4.9
 ARG COREUTILS_VERSION=9.12
@@ -122,6 +123,7 @@ ARG MUSL_OBSTACK_VERSION=1.2.3
 ARG MUSL_TOOLCHAIN_VERSION=1.2.5
 ARG NCURSES_VERSION=6.6
 ARG NFS_UTILS_VERSION=3.2.1
+ARG NFTABLES_VERSION=1.1.7
 ARG OPENVM_TOOLS_VERSION=13.1.0
 ARG OPEN_SCSI_VERSION=2.1.13
 ARG OPENSSH_VERSION=10.6p2
@@ -146,12 +148,14 @@ ARG SQLITE3_VERSION=3.54.1
 ARG STRACE_VERSION=7.3
 ARG SUDO_VERSION=1.9.17p2
 ARG SYSTEMD_VERSION=262.2
+ARG TALLOC_VERSION=2.5.0
 ARG TPM2_TSS_VERSION=4.2.2
 ARG TZCODE_VERSION=2026f
 ARG TZDATA_VERSION=2026f
 ARG UNIFONT_VERSION=18.0.01
 ARG URCU_VERSION=0.15.7
 ARG UTIL_LINUX_VERSION=2.42.4
+ARG WIREGUARD_TOOLS_VERSION=1.0.20260223
 ARG WIRELESS_REGDB_VERSION=2026.09.03
 ARG XXHASH_VERSION=0.8.4
 ARG XZUTILS_VERSION=5.8.4
@@ -275,6 +279,10 @@ FROM ${SOURCES_REPO}/kbd:${KBD_VERSION} AS kbd-download
 FROM ${SOURCES_REPO}/iptables:${IPTABLES_VERSION} AS iptables-download
 FROM ${SOURCES_REPO}/libmnl:${LIBMNL_VERSION} AS libmnl-download
 FROM ${SOURCES_REPO}/libnftnl:${LIBNFTNL_VERSION} AS libnftnl-download
+FROM ${SOURCES_REPO}/nftables:${NFTABLES_VERSION} AS nftables-download
+FROM ${SOURCES_REPO}/wireguard-tools:${WIREGUARD_TOOLS_VERSION} AS wireguard-tools-download
+FROM ${SOURCES_REPO}/talloc:${TALLOC_VERSION} AS talloc-download
+FROM ${SOURCES_REPO}/cifs-utils:${CIFS_UTILS_VERSION} AS cifs-utils-download
 FROM ${SOURCES_REPO}/libnfnetlink:${LIBNFNETLINK_VERSION} AS libnfnetlink-download
 FROM ${SOURCES_REPO}/libnetfilter_conntrack:${LIBNETFILTER_CONNTRACK_VERSION} AS libnetfilter_conntrack-download
 FROM ${SOURCES_REPO}/libnetfilter_cttimeout:${LIBNETFILTER_CTTIMEOUT_VERSION} AS libnetfilter_cttimeout-download
@@ -426,6 +434,10 @@ COPY --from=kbd-download /sources/downloads/kbd.tar.gz /sources/downloads/
 COPY --from=iptables-download /sources/downloads/iptables.tar.xz /sources/downloads/
 COPY --from=libmnl-download /sources/downloads/libmnl.tar.bz2 /sources/downloads/
 COPY --from=libnftnl-download /sources/downloads/libnftnl.tar.xz /sources/downloads/
+COPY --from=nftables-download /sources/downloads/nftables.tar.xz /sources/downloads/
+COPY --from=wireguard-tools-download /sources/downloads/wireguard-tools.tar.xz /sources/downloads/
+COPY --from=talloc-download /sources/downloads/talloc.tar.gz /sources/downloads/
+COPY --from=cifs-utils-download /sources/downloads/cifs-utils.tar.bz2 /sources/downloads/
 COPY --from=linux-download /sources/downloads/linux.tar.xz /sources/downloads/
 COPY --from=flex-download /sources/downloads/flex.tar.gz /sources/downloads/
 COPY --from=bison-download /sources/downloads/bison.tar.xz /sources/downloads/
@@ -2620,6 +2632,73 @@ RUN sed -i '/^[[:space:]]*#include[[:space:]]*<linux\/if_ether\.h>/d' extensions
 RUN ./configure ${COMMON_CONFIGURE_ARGS} --with-xtlibdir=/usr/lib/xtables --enable-nftables  --disable-legacy-utils --disable-bpf-compiler --disable-nfs --disable-libipq
 RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/iptables
 
+## nftables - the nft CLI and libnftables, built on the libmnl and libnftnl above.
+## --with-mini-gmp uses the bundled big-number code, so there is no gmp dependency.
+## --without-cli drops the interactive prompt, which needs readline or editline.
+## nftables.service is upstream's. It only runs when /etc/nftables/rules/main.nft
+## exists, and the image presets it disabled (files/systemd/80-hadron-base-tools.preset).
+FROM rsync AS nftables
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=libmnl /libmnl/ /
+COPY --from=libnftnl /libnftnl/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/nftables.tar.xz /sources/
+RUN mkdir -p /nftables
+WORKDIR /sources
+RUN tar -xf nftables.tar.xz && mv nftables-* nftables
+WORKDIR /sources/nftables
+RUN ./configure ${COMMON_CONFIGURE_ARGS} --sysconfdir=/etc --with-mini-gmp --without-cli --without-json --without-xtables --disable-python --disable-man-doc --with-unitdir=/usr/lib/systemd/system
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} && make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} install DESTDIR=/nftables
+
+## wireguard-tools - wg and wg-quick (a bash script) plus the wg-quick@ unit.
+## The kernel side (CONFIG_WIREGUARD) is already in the kernel config.
+FROM rsync AS wireguard-tools
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=sources-downloader /sources/downloads/wireguard-tools.tar.xz /sources/
+RUN mkdir -p /wireguard-tools
+WORKDIR /sources
+RUN tar -xf wireguard-tools.tar.xz && mv wireguard-tools-* wireguard-tools
+WORKDIR /sources/wireguard-tools/src
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s install DESTDIR=/wireguard-tools PREFIX=/usr WITH_WGQUICK=yes WITH_SYSTEMDUNITS=yes WITH_BASHCOMPLETION=no
+
+## talloc - only needed by mount.cifs from cifs-utils. Built with waf, so it
+## needs the python-build stage. No python bindings.
+FROM python-build AS talloc
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=sources-downloader /sources/downloads/talloc.tar.gz /sources/
+WORKDIR /sources
+RUN tar -xf talloc.tar.gz && mv talloc-* talloc
+WORKDIR /sources/talloc
+RUN ./configure --prefix=/usr --disable-python --disable-rpath --disable-rpath-install --bundled-libraries=NONE --builtin-libraries=replace
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s install DESTDIR=/talloc
+
+## cifs-utils - only mount.cifs (and its mount.smb3 link). The Kerberos, keyring,
+## ACL, idmap and PAM helpers are off, so there is no krb5 or PAM dependency.
+## libcap is off too: mount.cifs only uses it to drop privileges when it is setuid,
+## and the image ships it as a plain root-only helper.
+## ROOTSBINDIR puts the helper in /usr/sbin, which /sbin links to.
+FROM rsync AS cifs-utils
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=talloc /talloc/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/cifs-utils.tar.bz2 /sources/
+RUN mkdir -p /cifs-utils
+WORKDIR /sources
+RUN tar -xf cifs-utils.tar.bz2 && mv cifs-utils-* cifs-utils
+WORKDIR /sources/cifs-utils
+RUN ./configure --quiet --prefix=/usr --host=${TARGET} --build=${TARGET} --disable-cifsupcall --disable-cifscreds --disable-cifsidmap --disable-cifsacl --disable-smbinfo --disable-pythontools --disable-pam --disable-systemd --disable-man --without-libcap --with-libcap-ng=no ROOTSBINDIR=/usr/sbin
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}}
+RUN make -s install DESTDIR=/cifs-utils ROOTSBINDIR=/usr/sbin
+# mount.cifs links libtalloc.so.2, so ship the library next to it.
+COPY --from=talloc /talloc /talloc
+RUN mkdir -p /cifs-utils/usr/lib && cp -a /talloc/usr/lib/libtalloc.so* /cifs-utils/usr/lib/
+
 ## libnfnetlink (low-level netlink helper used by the libnetfilter_* libs)
 FROM rsync AS libnfnetlink
 ARG JOBS
@@ -4054,7 +4133,13 @@ RUN rsync -aHAX --keep-dirlinks  /pcre2/. /tools
 FROM scratch AS default-tools
 # create the dir at least so the copy doesnt fail
 WORKDIR /tools
-# no-op
+# Base system tools for default images. Cloud images do not get these.
+# libmnl and libnftnl (nft's libraries) are copied into the image directly.
+COPY --from=nftables /nftables/ /tools/
+COPY --from=wireguard-tools /wireguard-tools/ /tools/
+COPY --from=cifs-utils /cifs-utils/ /tools/
+# Keep the services of these tools off until an operator enables them.
+COPY files/systemd/80-hadron-base-tools.preset /tools/usr/lib/systemd/system-preset/80-hadron-base-tools.preset
 
 # Target to copy from
 FROM ${KERNEL_TYPE}-tools AS extra-tools

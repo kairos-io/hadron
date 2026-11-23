@@ -31,7 +31,7 @@ The configuration is organized into logical groups:
   - kernel, kmod, dracut, grub, kbd, wireless-regdb, shim, unifont, dwarves, libbpf
 
 - **network-tools.yaml** - Network utilities
-  - iptables, open-iscsi, strace, conntrack-tools, libnetfilter_conntrack, libnetfilter_cthelper, libnetfilter_cttimeout, libnetfilter_queue, libnfnetlink
+  - iptables, nftables, wireguard-tools, cifs-utils, talloc, open-iscsi, strace, conntrack-tools, libnetfilter_conntrack, libnetfilter_cthelper, libnetfilter_cttimeout, libnetfilter_queue, libnfnetlink
 
 - **misc-tools.yaml** - Miscellaneous tools
   - python, sqlite3, tpm2-tss, pax-utils, ca-certificates, aports, tzdata, tzcode, gdb, bc, patch
