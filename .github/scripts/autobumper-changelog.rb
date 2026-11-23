@@ -369,16 +369,32 @@ end
 
 # Dockerfile ARGs whose version jumps can change what runs on top of Hadron
 # (userspace tools, the agent, AuroraBoot), and how many leading numeric
-# components of the version make up a release that counts. The kernel and
-# systemd are named by their first component (7.x, 262), musl, bash and
-# openssh by their first two (1.2, 5.3, 10.6). A jump in any other package
-# only changes how Hadron is built or what is inside it, and stays a `chore`.
+# components of the version make up a release that counts. Projects that
+# number every feature release with one integer (kernel 7.x, systemd 262, kmod
+# 34, dracut 113) and openssl 3.x are named by their first component, the
+# others by their first two (musl 1.2, bash 5.3, busybox 1.38). A jump in any
+# other package only changes how Hadron is built, or is too frequent to mean a
+# release (coreutils, curl), and stays a `chore`.
 CRITICAL_ARGS = {
   "KERNEL_VERSION" => 1,
   "SYSTEMD_VERSION" => 1,
+  "KMOD_VERSION" => 1,
+  "DRACUT_VERSION" => 1,
+  "OPENSSL_VERSION" => 1,
   "MUSL_VERSION" => 2,
   "BASH_VERSION" => 2,
-  "OPENSSH_VERSION" => 2
+  "BUSYBOX_VERSION" => 2,
+  "OPENSSH_VERSION" => 2,
+  "UTIL_LINUX_VERSION" => 2,
+  "PARTED_VERSION" => 2,
+  "E2FSPROGS_VERSION" => 2,
+  "LVM2_VERSION" => 2,
+  "CRYPTSETUP_VERSION" => 2,
+  "GRUB_VERSION" => 2,
+  "IPTABLES_VERSION" => 2,
+  "SHADOW_VERSION" => 2,
+  "PAM_VERSION" => 2,
+  "DBUS_VERSION" => 2
 }.freeze
 
 # Leading numeric components of a version: "10.6p2" -> [10, 6], "7.3.5" ->
