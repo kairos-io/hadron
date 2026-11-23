@@ -363,6 +363,14 @@ packages:
       - https://mirror.netcologne.de/gnu/gzip/gzip-${version}.tar.xz
     filename: gzip.tar.xz
 
+  iproute2:
+    version_arg: IPROUTE2_VERSION
+    sha256: 5c1789d290bba048a6135ed1ab81b0402dd0fb528d1f1421765c42b1fc3d6289
+    urls:
+      - https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-${version}.tar.xz
+      - https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-${version}.tar.xz
+    filename: iproute2.tar.xz
+
   iptables:
     version_arg: IPTABLES_VERSION
     sha256: 1afcd33da9e8f913ace6a2126788162e207e26f5d5e29c6573c0e581ffc58b99

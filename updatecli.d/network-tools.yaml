@@ -229,6 +229,16 @@ sources:
       - sort:
           method: semver
 
+  iproute2:
+    kind: gittag
+    spec:
+      url: https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
 targets:
   iptables:
     name: IPTABLES_VERSION in Dockerfile
@@ -389,3 +399,13 @@ targets:
         keyword: ARG
         matcher: TALLOC_VERSION
     sourceid: talloc
+
+  iproute2:
+    name: IPROUTE2_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: IPROUTE2_VERSION
+    sourceid: iproute2

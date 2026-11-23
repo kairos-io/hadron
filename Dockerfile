@@ -80,6 +80,7 @@ ARG GPERF_VERSION=3.3
 ARG GREP_VERSION=3.12
 ARG GRUB_VERSION=2.14
 ARG GZIP_VERSION=1.15
+ARG IPROUTE2_VERSION=7.3.0
 ARG IPTABLES_VERSION=1.8.13
 ARG JSONC_VERSION=0.19
 ARG KBD_VERSION=2.10.0
@@ -283,6 +284,7 @@ FROM ${SOURCES_REPO}/nftables:${NFTABLES_VERSION} AS nftables-download
 FROM ${SOURCES_REPO}/wireguard-tools:${WIREGUARD_TOOLS_VERSION} AS wireguard-tools-download
 FROM ${SOURCES_REPO}/talloc:${TALLOC_VERSION} AS talloc-download
 FROM ${SOURCES_REPO}/cifs-utils:${CIFS_UTILS_VERSION} AS cifs-utils-download
+FROM ${SOURCES_REPO}/iproute2:${IPROUTE2_VERSION} AS iproute2-download
 FROM ${SOURCES_REPO}/libnfnetlink:${LIBNFNETLINK_VERSION} AS libnfnetlink-download
 FROM ${SOURCES_REPO}/libnetfilter_conntrack:${LIBNETFILTER_CONNTRACK_VERSION} AS libnetfilter_conntrack-download
 FROM ${SOURCES_REPO}/libnetfilter_cttimeout:${LIBNETFILTER_CTTIMEOUT_VERSION} AS libnetfilter_cttimeout-download
@@ -438,6 +440,7 @@ COPY --from=nftables-download /sources/downloads/nftables.tar.xz /sources/downlo
 COPY --from=wireguard-tools-download /sources/downloads/wireguard-tools.tar.xz /sources/downloads/
 COPY --from=talloc-download /sources/downloads/talloc.tar.gz /sources/downloads/
 COPY --from=cifs-utils-download /sources/downloads/cifs-utils.tar.bz2 /sources/downloads/
+COPY --from=iproute2-download /sources/downloads/iproute2.tar.xz /sources/downloads/
 COPY --from=linux-download /sources/downloads/linux.tar.xz /sources/downloads/
 COPY --from=flex-download /sources/downloads/flex.tar.gz /sources/downloads/
 COPY --from=bison-download /sources/downloads/bison.tar.xz /sources/downloads/
@@ -2699,6 +2702,26 @@ RUN make -s install DESTDIR=/cifs-utils ROOTSBINDIR=/usr/sbin
 COPY --from=talloc /talloc /talloc
 RUN mkdir -p /cifs-utils/usr/lib && cp -a /talloc/usr/lib/libtalloc.so* /cifs-utils/usr/lib/
 
+## iproute2 - the full ip, ss, bridge and tc. The BusyBox ip applet cannot parse
+## `ip rule add not fwmark ...`, which wg-quick uses for a full tunnel. Installed
+## into /usr/sbin, the same path as the applet link, so the file replaces the link
+## when the image is merged (/sbin and /bin link into /usr). Built on libmnl.
+## Only the tools Hadron needs are built: the rest (devlink, rdma, tipc, vdpa,
+## dcb, genl) pull in more headers and are not needed.
+FROM rsync AS iproute2
+ARG JOBS
+ARG MAX_LOAD
+COPY --from=libmnl /libmnl/ /
+COPY --from=pkgconfig /pkgconfig/ /
+COPY --from=sources-downloader /sources/downloads/iproute2.tar.xz /sources/
+RUN mkdir -p /iproute2
+WORKDIR /sources
+RUN tar -xf iproute2.tar.xz && mv iproute2-* iproute2
+WORKDIR /sources/iproute2
+RUN ./configure --libbpf_force off
+RUN make -s -j${JOBS} ${MAX_LOAD:+-l${MAX_LOAD}} SUBDIRS="lib ip tc bridge misc netem" SBINDIR=/usr/sbin
+RUN make -s install DESTDIR=/iproute2 SUBDIRS="lib ip tc bridge misc netem" SBINDIR=/usr/sbin PREFIX=/usr
+
 ## libnfnetlink (low-level netlink helper used by the libnetfilter_* libs)
 FROM rsync AS libnfnetlink
 ARG JOBS
@@ -4138,6 +4161,7 @@ WORKDIR /tools
 COPY --from=nftables /nftables/ /tools/
 COPY --from=wireguard-tools /wireguard-tools/ /tools/
 COPY --from=cifs-utils /cifs-utils/ /tools/
+COPY --from=iproute2 /iproute2/ /tools/
 # Keep the services of these tools off until an operator enables them.
 COPY files/systemd/80-hadron-base-tools.preset /tools/usr/lib/systemd/system-preset/80-hadron-base-tools.preset
 

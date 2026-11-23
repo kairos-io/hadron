@@ -552,7 +552,30 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 			Entry("wg", "wireguard-tools", "wg", "--version"),
 			Entry("nft", "nftables", "nft", "--version"),
 			Entry("mount.cifs", "mount.cifs", "mount.cifs", "-V"),
+			// The BusyBox applets print no iproute2 banner, so these also
+			// prove the real tools won over the applet links.
+			Entry("ip", "iproute2", "ip", "-V"),
+			Entry("ss", "iproute2", "ss", "-V"),
+			Entry("tc", "iproute2", "tc", "-V"),
+			Entry("bridge", "bridge utility", "bridge", "-V"),
 		)
+
+		It("resolves ip to iproute2, not to the BusyBox applet", func() {
+			out, code := shInImage(
+				"for p in /usr/sbin/ip /sbin/ip; do test -f \"$p\" && ! test -L \"$p\" || exit 1; done; command -v ip")
+			Expect(code).To(Equal(0), "ip is not a regular file from iproute2: %s", out)
+			Expect(out).To(MatchRegexp(`/(usr/)?sbin/ip$`))
+		})
+
+		It("parses the ip rule wg-quick adds for a full tunnel", func() {
+			// The BusyBox applet fails here with "invalid argument 'not'".
+			// Without CAP_NET_ADMIN the kernel refuses the rule, and that
+			// refusal comes after parsing, so it proves the syntax is known.
+			out, _, err := runInImage("ip", "rule", "add", "not", "fwmark", "51820", "table", "51820")
+			Expect(err).ToNot(HaveOccurred(), "failed to invoke %q: %s", runtime, out)
+			Expect(out).ToNot(ContainSubstring("invalid argument"), out)
+			Expect(out).ToNot(ContainSubstring("Command line is not complete"), out)
+		})
 
 		It("ships wg-quick", func() {
 			out, code := shInImage("command -v wg-quick")
