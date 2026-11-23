@@ -64,6 +64,8 @@ jobs:
         run: make test-updatecli-sources
       - name: Verify the component-manifest generator
         run: make test-components
+      - name: Verify the Dockerfile check tells an unpublished source from a real error
+        run: make test-dockerfile-check-errors
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)
@@ -114,7 +116,10 @@ jobs:
         # seconds. A source image a change adds can be missing for now:
         # populate-sources publishes it on a pull request from this
         # repository and on main, never on a fork, so a missing
-        # hadron-sources tag is only a warning. Any other error fails.
+        # hadron-sources tag is only a warning. ghcr answers "not found" for
+        # a missing tag, and 403 Forbidden for a package that does not exist
+        # yet; .github/scripts/dockerfile-check-errors.sh treats both as
+        # missing. Any other error fails.
         #
         # BuildKit stops at the first FROM it cannot resolve, so a missing
         # source tag hides every error after it. On a merge group every source
@@ -132,7 +137,7 @@ jobs:
           if [ "$EVENT_NAME" = "merge_group" ]; then
             exit 1
           fi
-          other=$(grep '^ERROR:' dockerfile-check.log | grep -v 'hadron-sources/[^ ]*: not found' || true)
+          other=$(.github/scripts/dockerfile-check-errors.sh dockerfile-check.log)
           if [ -n "$other" ]; then
             exit 1
           fi
