@@ -536,6 +536,79 @@ var _ = Describe("hadron container image structure", Label("image-structure"), f
 		})
 	})
 
+	// wireguard-tools, nftables and cifs-utils ship in the default image only.
+	// Cloud images do not carry them.
+	Describe("base tools", Label("base-tools", "full-image"), func() {
+		BeforeEach(skipUnlessFullImage)
+
+		DescribeTable("run and print their version",
+			func(want string, bin string, args ...string) {
+				out, code, err := runInImage(bin, args...)
+				Expect(err).ToNot(HaveOccurred(),
+					"failed to invoke %q: %s", runtime, out)
+				Expect(code).To(Equal(0), "%s %v failed: %s", bin, args, out)
+				Expect(out).To(ContainSubstring(want))
+			},
+			Entry("wg", "wireguard-tools", "wg", "--version"),
+			Entry("nft", "nftables", "nft", "--version"),
+			Entry("mount.cifs", "mount.cifs", "mount.cifs", "-V"),
+			// The BusyBox applets print no iproute2 banner, so these also
+			// prove the real tools won over the applet links.
+			Entry("ip", "iproute2", "ip", "-V"),
+			Entry("ss", "iproute2", "ss", "-V"),
+			Entry("tc", "iproute2", "tc", "-V"),
+			Entry("bridge", "bridge utility", "bridge", "-V"),
+		)
+
+		It("resolves ip to iproute2, not to the BusyBox applet", func() {
+			out, code := shInImage(
+				"for p in /usr/sbin/ip /sbin/ip; do test -f \"$p\" && ! test -L \"$p\" || exit 1; done; command -v ip")
+			Expect(code).To(Equal(0), "ip is not a regular file from iproute2: %s", out)
+			Expect(out).To(MatchRegexp(`/(usr/)?sbin/ip$`))
+		})
+
+		It("parses the ip rule wg-quick adds for a full tunnel", func() {
+			// The BusyBox applet fails here with "invalid argument 'not'".
+			// Without CAP_NET_ADMIN the kernel refuses the rule, and that
+			// refusal comes after parsing, so it proves the syntax is known.
+			out, _, err := runInImage("ip", "rule", "add", "not", "fwmark", "51820", "table", "51820")
+			Expect(err).ToNot(HaveOccurred(), "failed to invoke %q: %s", runtime, out)
+			Expect(out).ToNot(ContainSubstring("invalid argument"), out)
+			Expect(out).ToNot(ContainSubstring("Command line is not complete"), out)
+		})
+
+		It("ships wg-quick", func() {
+			out, code := shInImage("command -v wg-quick")
+			Expect(code).To(Equal(0), "wg-quick missing from image: %s", out)
+		})
+
+		It("ships mount.cifs where mount(8) looks for helpers", func() {
+			out, code := shInImage("test -x /sbin/mount.cifs && test -x /usr/sbin/mount.smb3 && echo OK")
+			Expect(code).To(Equal(0), "mount.cifs or mount.smb3 missing: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+
+		It("ships libnftables and the libraries nft links against", func() {
+			out, code := shInImage(
+				"ls /usr/lib/libnftables.so.1 /usr/lib/libnftnl.so.* /usr/lib/libmnl.so.* /usr/lib/libtalloc.so.2 2>&1")
+			Expect(code).To(Equal(0), "shared libraries missing: %s", out)
+		})
+
+		It("ships the nftables and wg-quick units", func() {
+			out, code := shInImage(
+				"cat /usr/lib/systemd/system/nftables.service /usr/lib/systemd/system/wg-quick@.service")
+			Expect(code).To(Equal(0), "units missing: %s", out)
+			Expect(out).To(ContainSubstring("ExecStart="))
+		})
+
+		It("leaves nftables.service disabled", func() {
+			out, code := shInImage(
+				"! ls /etc/systemd/system/*.wants/nftables.service /etc/systemd/system/*.wants/wg-quick.target 2>/dev/null | grep -q . && echo OK")
+			Expect(code).To(Equal(0), "a base tool service is enabled: %s", out)
+			Expect(out).To(ContainSubstring("OK"))
+		})
+	})
+
 	Describe("audit userspace", Label("audit", "full-image"), func() {
 		BeforeEach(skipUnlessFullImage)
 

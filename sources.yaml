@@ -152,6 +152,15 @@ packages:
       - https://distfiles.alpinelinux.org/distfiles/edge/ca-certificates-${version}.tar.bz2
     filename: ca-certificates.tar.bz2
 
+  cifs-utils:
+    version_arg: CIFS_UTILS_VERSION
+    sha256: 9f3750f402520b15c2c8eb52fd485df6ea77e5e66fe5e39ce8ac4386c32c0296
+    urls:
+      - https://download.samba.org/pub/linux-cifs/cifs-utils/cifs-utils-${version}.tar.bz2
+      - https://deb.debian.org/debian/pool/main/c/cifs-utils/cifs-utils_${version}.orig.tar.bz2
+      - https://distfiles.alpinelinux.org/distfiles/edge/cifs-utils-${version}.tar.bz2
+    filename: cifs-utils.tar.bz2
+
   cmake:
     version_arg: CMAKE_VERSION
     sha256: a79bf33cbe05686fdf79c2bbbcfe5e8e62ad16d3d540fa737cbedfeed41fb69e
@@ -355,6 +364,14 @@ packages:
       - https://ftp.gnu.org/gnu/gzip/gzip-${version}.tar.xz
       - https://mirror.netcologne.de/gnu/gzip/gzip-${version}.tar.xz
     filename: gzip.tar.xz
+
+  iproute2:
+    version_arg: IPROUTE2_VERSION
+    sha256: 5c1789d290bba048a6135ed1ab81b0402dd0fb528d1f1421765c42b1fc3d6289
+    urls:
+      - https://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-${version}.tar.xz
+      - https://mirrors.edge.kernel.org/pub/linux/utils/net/iproute2/iproute2-${version}.tar.xz
+    filename: iproute2.tar.xz
 
   iptables:
     version_arg: IPTABLES_VERSION
@@ -685,6 +702,14 @@ packages:
       - https://www.kernel.org/pub/linux/utils/nfs-utils/${version}/nfs-utils-${version}.tar.xz
     filename: nfs-utils.tar.xz
 
+  nftables:
+    version_arg: NFTABLES_VERSION
+    sha256: a6fbf060d8d4fff001517a2b94f356bb4366bfbf0ba366366f9d27cc38caa58f
+    urls:
+      - https://www.netfilter.org/projects/nftables/files/nftables-${version}.tar.xz
+      - https://ftp.netfilter.org/pub/nftables/nftables-${version}.tar.xz
+    filename: nftables.tar.xz
+
   open-vm-tools:
     version_arg: OPENVM_TOOLS_VERSION
     sha256: 2fed62074256ff5031609722f666b17921742a98dbec73f1b11121a301d6315b
@@ -859,6 +884,14 @@ packages:
       - https://github.com/systemd/systemd/archive/refs/tags/v${version}.tar.gz
     filename: systemd.tar.gz
 
+  talloc:
+    version_arg: TALLOC_VERSION
+    sha256: 55e47994018c13743485544e7206780ffbb3c8495e704a99636503e6e77abf59
+    urls:
+      - https://download.samba.org/pub/talloc/talloc-${version}.tar.gz
+      - https://distfiles.alpinelinux.org/distfiles/edge/talloc-${version}.tar.gz
+    filename: talloc.tar.gz
+
   tpm2-tss:
     version_arg: TPM2_TSS_VERSION
     sha256: bd4efc89ee01aca8ff771cae268d84333b7594c2d4afee50bb13b859f1113c3f
@@ -914,6 +947,13 @@ packages:
     urls:
       - https://www.kernel.org/pub/linux/utils/util-linux/v${version_major_minor}/util-linux-${version}.tar.xz
     filename: util-linux.tar.xz
+
+  wireguard-tools:
+    version_arg: WIREGUARD_TOOLS_VERSION
+    sha256: af459827b80bfd31b83b08077f4b5843acb7d18ad9a33a2ef532d3090f291fbf
+    urls:
+      - https://git.zx2c4.com/wireguard-tools/snapshot/wireguard-tools-${version}.tar.xz
+    filename: wireguard-tools.tar.xz
 
   wireless-regdb:
     version_arg: WIRELESS_REGDB_VERSION

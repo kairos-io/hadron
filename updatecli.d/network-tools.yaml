@@ -182,6 +182,63 @@ sources:
       url: "https://git.netfilter.org/libnfnetlink/tree/"
       compare: "https://git.netfilter.org/libnfnetlink/diff/?id={new_tag}&id2={old_tag}"
 
+  nftables:
+    kind: gittag
+    spec:
+      url: git://git.netfilter.org/nftables
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+    changelog:
+      url: "https://git.netfilter.org/nftables/tree/"
+      compare: "https://git.netfilter.org/nftables/diff/?id={new_tag}&id2={old_tag}"
+
+  wireguard_tools:
+    kind: gittag
+    spec:
+      url: https://git.zx2c4.com/wireguard-tools
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
+  cifs_utils:
+    kind: gittag
+    spec:
+      url: https://git.samba.org/cifs-utils.git
+      versionfilter:
+        kind: regex
+        pattern: '^cifs-utils-[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: cifs-utils-
+      - sort:
+          method: semver
+
+  talloc:
+    kind: gittag
+    spec:
+      url: https://gitlab.com/samba-team/samba.git
+      versionfilter:
+        kind: regex
+        pattern: '^talloc-[0-9]+\.[0-9]+\.[0-9]+$'
+    transformers:
+      - trimprefix: talloc-
+      - sort:
+          method: semver
+
+  iproute2:
+    kind: gittag
+    spec:
+      url: https://git.kernel.org/pub/scm/network/iproute2/iproute2.git
+      versionfilter:
+        kind: semver
+        pattern: '*'
+    transformers:
+      - trimprefix: v
+
 targets:
   iptables:
     name: IPTABLES_VERSION in Dockerfile
@@ -302,3 +359,53 @@ targets:
         keyword: ARG
         matcher: LIBNFNETLINK_VERSION
     sourceid: libnfnetlink
+
+  nftables:
+    name: NFTABLES_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: NFTABLES_VERSION
+    sourceid: nftables
+
+  wireguard_tools:
+    name: WIREGUARD_TOOLS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: WIREGUARD_TOOLS_VERSION
+    sourceid: wireguard_tools
+
+  cifs_utils:
+    name: CIFS_UTILS_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: CIFS_UTILS_VERSION
+    sourceid: cifs_utils
+
+  talloc:
+    name: TALLOC_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: TALLOC_VERSION
+    sourceid: talloc
+
+  iproute2:
+    name: IPROUTE2_VERSION in Dockerfile
+    kind: dockerfile
+    spec:
+      file: Dockerfile
+      instruction:
+        keyword: ARG
+        matcher: IPROUTE2_VERSION
+    sourceid: iproute2
