@@ -71,7 +71,7 @@ check false CURL_VERSION        8.23.0 9.0.0
 check false KERNEL_VERSION  7.0    6.18.2
 check false SYSTEMD_VERSION abc    263
 check false FLEX_VERSION    2.6.4  3.0.0
-check false BUSYBOX_VERSION 1.38.0 2.0.0
+check false GCC_VERSION     15.3.0 16.1.0
 
 echo "$passed passed, $failed failed"
 [ "$failed" -eq 0 ]
