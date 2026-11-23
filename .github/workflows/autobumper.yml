@@ -139,15 +139,20 @@ jobs:
           check_log="$PWD/.github/scripts/updatecli-check-log.sh"
           updatecli apply --config updatecli.d/${{ matrix.config }}.yaml 2>&1 | tee "$updatecli_log"
 
-          # Most failures are the mirror answering 502 or cutting a clone
-          # short, and a second try a little later gets through. The targets
-          # only edit files in this tree, so the retry runs on top of what the
-          # first attempt already bumped and keeps those bumps.
-          if ! sh "$check_log" "$updatecli_log" > /dev/null; then
-            echo "updatecli reported a failure, retrying in 30 seconds"
-            sleep 30
+          # Most failures are an upstream git host answering 502 or 418, or
+          # cutting a clone short, and a later try gets through. Retry up to
+          # three more times with a growing pause. The targets only edit files
+          # in this tree, so each retry runs on top of what the earlier
+          # attempts already bumped and keeps those bumps.
+          for attempt in 1 2 3; do
+            if sh "$check_log" "$updatecli_log" > /dev/null; then
+              break
+            fi
+            wait=$((attempt * 30))
+            echo "updatecli reported a failure, retry ${attempt}/3 in ${wait} seconds"
+            sleep "$wait"
             updatecli apply --config updatecli.d/${{ matrix.config }}.yaml 2>&1 | tee "$updatecli_log"
-          fi
+          done
 
           # A failure that survives the retry must not stop the bumps that
           # worked from shipping, so the rest of this step still runs and the
