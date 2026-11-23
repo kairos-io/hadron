@@ -224,6 +224,10 @@ test-autobumper-changelog: ## Verify the release-notes excerpt in bump pull requ
 test-release-notes: ## Verify a re-run of the release-notes job keeps one components section
 	@sh ./tests/release-notes-body_test.sh
 
+.PHONY: test-dockerfile-check-errors
+test-dockerfile-check-errors: ## Verify the Dockerfile check tells an unpublished source from a real error
+	@sh ./.github/scripts/dockerfile-check-errors_test.sh
+
 .PHONY: test-bash-patch-level
 test-bash-patch-level: ## Verify the autobumper's bash patch level source
 	@sh ./tests/bash-patch-level_test.sh
