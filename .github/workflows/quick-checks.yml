@@ -66,6 +66,8 @@ jobs:
         run: make test-components
       - name: Verify the Dockerfile check tells an unpublished source from a real error
         run: make test-dockerfile-check-errors
+      - name: Verify the size report measures pulled and loaded images the same way
+        run: make test-image-size
       - name: Verify kernel configs are resolved against current kernel version
         run: |
           KERNEL_VERSION=$(awk -F= '/^ARG KERNEL_VERSION=/{print $2; exit}' Dockerfile)
