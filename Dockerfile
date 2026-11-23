@@ -2712,7 +2712,8 @@ FROM rsync AS iproute2
 ARG JOBS
 ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
-# tc builds its ematch parser with flex and bison.
+# tc builds its ematch parser with flex and bison, and both run m4.
+COPY --from=m4 /m4/ /
 COPY --from=flex /flex/ /
 COPY --from=bison /bison/ /
 COPY --from=pkgconfig /pkgconfig/ /
