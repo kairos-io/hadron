@@ -221,7 +221,7 @@ packages:
 
   dracut:
     version_arg: DRACUT_VERSION
-    sha256: 839d21eb4bd27bb0ee40d74c9da46df088c2e1425fcd8c3ea62b7e3a3dd28a91
+    sha256: a476ed20c8675ab6fd760a8210b2393afca0321d411747f3976f54fbb4b436b3
     urls:
       - https://github.com/dracut-ng/dracut-ng/archive/refs/tags/${version}.tar.gz
     filename: dracut.tar.gz
