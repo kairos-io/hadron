@@ -2712,6 +2712,9 @@ FROM rsync AS iproute2
 ARG JOBS
 ARG MAX_LOAD
 COPY --from=libmnl /libmnl/ /
+# tc builds its ematch parser with flex and bison.
+COPY --from=flex /flex/ /
+COPY --from=bison /bison/ /
 COPY --from=pkgconfig /pkgconfig/ /
 COPY --from=sources-downloader /sources/downloads/iproute2.tar.xz /sources/
 RUN mkdir -p /iproute2
