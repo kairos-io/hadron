@@ -57,6 +57,9 @@ jobs:
       - name: Test the commit check script
         if: github.event_name == 'pull_request'
         run: .github/scripts/pr-commit-check_test.sh
+      - name: Test the autobumper bump classifier
+        if: github.event_name == 'pull_request'
+        run: .github/scripts/autobumper-changelog_test.sh
       - name: Check the title
         if: github.event_name == 'pull_request'
         # The title is read from the API when the job runs, not from the
