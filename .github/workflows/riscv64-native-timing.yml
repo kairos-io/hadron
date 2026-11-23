@@ -23,9 +23,8 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ false }}
     runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 360
+    timeout-minutes: 600
     strategy:
       fail-fast: false
       # One at a time, so the jobs do not compete for the same runner and the
@@ -33,18 +32,11 @@ jobs:
       max-parallel: 1
       matrix:
         include:
-          - name: cmake
-            target: cmake
-            kernel_type: ''
+          # Cheapest component only. The cross-toolchain is not prebuilt, so
+          # this is a cold native build of the toolchain plus python.
           - name: python
             target: python-build
             kernel_type: ''
-          - name: systemd
-            target: systemd
-            kernel_type: ''
-          - name: kernel
-            target: kernel-artifacts
-            kernel_type: default
     name: build ${{ matrix.name }}
     permissions:
       contents: read
