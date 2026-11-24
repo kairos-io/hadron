@@ -240,7 +240,19 @@ cp "$work/mod.o" "$work/unsigned/lib/modules/1.0/kernel/a.ko"
 expect_fail "check fails an unsigned module" "not signed" sh "$checker" "$work/unsigned" "$work/release.pem"
 
 # ---- The workflows: every main and release build that reaches the kernel gets
-# the key, and the jobs that need the release key run in its environment.
+# the key, and the jobs that need the release key run in its environment. The
+# riscv64 jobs are the exception: the riscv64 kernel configs do not sign modules
+# (kernel-module-signing writes "unsigned" and install does nothing), so those
+# jobs never use a key and must not fail for want of one. They get no
+# environment, no key step, no secret and no fingerprint, as before the key.
+
+for cfg in "$repo"/files/kernel/*riscv64.config; do
+	if grep -q '^CONFIG_MODULE_SIG=y' "$cfg"; then
+		not_ok "$(basename "$cfg") signs modules, so the riscv64 jobs need the module signing key"
+	else
+		ok "$(basename "$cfg") does not sign modules"
+	fi
+done
 
 python3 - "$repo" <<'EOF' > "$work/wf" 2>&1 && ok "workflows pass the key to every kernel build" || { not_ok "workflows pass the key to every kernel build"; cat "$work/wf"; }
 import sys, yaml
@@ -253,6 +265,13 @@ for name, job in wf["jobs"].items():
     builds = [s for s in steps if str(s.get("uses", "")).startswith("docker/build-push-action")
               and s.get("with", {}).get("target") in kernel_targets]
     if not builds:
+        continue
+    if "riscv64" in name:
+        # The riscv64 kernel does not sign modules, see above.
+        if "module-signing" in str(job.get("environment", "")):
+            errors.append(f"{name}: riscv64 does not sign modules, it needs no module-signing environment")
+        if "MODULE_SIGNING" in str(job) or "modsign" in str(job):
+            errors.append(f"{name}: riscv64 does not sign modules, it must not ask for the module signing key")
         continue
     if job.get("environment") != "module-signing":
         errors.append(f"{name}: no environment: module-signing")
@@ -267,7 +286,7 @@ for name, job in wf["jobs"].items():
             errors.append(f"{name}/{s.get('name')}: no module-signing-key secret")
         if "MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}" not in str(w.get("build-args")):
             errors.append(f"{name}/{s.get('name')}: no MODULE_SIGNING_CERT_FPR build arg")
-    if any(s["with"].get("target") == "default" for s in builds) and "riscv64" not in name:
+    if any(s["with"].get("target") == "default" for s in builds):
         if not any(s.get("uses") == "./.github/actions/check-module-signer" for s in steps):
             errors.append(f"{name}: no check-module-signer step")
 for wfname in ("PR_multiarch.yml", "PR_riscv64.yml"):

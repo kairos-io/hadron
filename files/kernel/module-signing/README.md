@@ -40,6 +40,13 @@ trusts the release certificate and not the CI one, and that every module is
 signed with the release key. `PR_multiarch.yml` runs the same check against the
 CI key.
 
+The riscv64 kernel configs do not set `CONFIG_MODULE_SIG`, so riscv64 needs no
+key. Its jobs in `build-multiarch-images.yml` run outside the `module-signing`
+environment and pass neither the secret nor `MODULE_SIGNING_CERT_FPR`; the
+Dockerfile records the riscv64 kernel as unsigned and installs no key.
+`make test-module-signing` fails if a riscv64 config starts signing modules
+before those jobs get the key.
+
 ## How the key gets into the build
 
 The Dockerfile reads the key from the BuildKit secret `module-signing-key`. It

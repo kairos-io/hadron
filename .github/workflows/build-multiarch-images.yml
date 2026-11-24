@@ -2114,9 +2114,6 @@ jobs:
 
   kernel-riscv64:
     runs-on: cncf-ubuntu-32-128-x86
-    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
-    # release tags may use. See files/kernel/module-signing/README.md.
-    environment: module-signing
     needs: [rsync-riscv64]
     strategy:
       matrix:
@@ -2131,12 +2128,6 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
-      - name: Select the kernel module signing key
-        id: modsign
-        uses: ./.github/actions/module-signing-key
-        with:
-          key: ${{ secrets.MODULE_SIGNING_KEY }}
-          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -2174,10 +2165,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-riscv64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{0}-riscv64,{1}', matrix.kernel, env.CACHE_TO) || '' }}
-          secret-files: |
-            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
-            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             ARCH=riscv64
             BUILD_ARCH=riscv64
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -2292,9 +2280,6 @@ jobs:
 
   toolchain-riscv64:
     runs-on: cncf-ubuntu-16-64-x86
-    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
-    # release tags may use. See files/kernel/module-signing/README.md.
-    environment: module-signing
     needs: [cmake-riscv64, kernel-riscv64, systemd-riscv64, python-riscv64]
     permissions:
       packages: write
@@ -2306,12 +2291,6 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
-      - name: Select the kernel module signing key
-        id: modsign
-        uses: ./.github/actions/module-signing-key
-        with:
-          key: ${{ secrets.MODULE_SIGNING_KEY }}
-          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -2361,10 +2340,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-riscv64,{0}', env.CACHE_TO) || '' }}
-          secret-files: |
-            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
-            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             ARCH=riscv64
             BUILD_ARCH=riscv64
 
@@ -2465,9 +2441,6 @@ jobs:
   # needed) is gone.
   hadron-bios-riscv64:
     runs-on: cncf-ubuntu-26.04-32-128-x86
-    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
-    # release tags may use. See files/kernel/module-signing/README.md.
-    environment: module-signing
     needs: [container-riscv64]
     timeout-minutes: 360
     strategy:
@@ -2483,12 +2456,6 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
-      - name: Select the kernel module signing key
-        id: modsign
-        uses: ./.github/actions/module-signing-key
-        with:
-          key: ${{ secrets.MODULE_SIGNING_KEY }}
-          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -2540,10 +2507,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-riscv64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:grub-${{ matrix.kernel }}-riscv64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:grub-{0}-riscv64,{1}', matrix.kernel, env.CACHE_TO_MIN) || '' }}
-          secret-files: |
-            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
-            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
