@@ -258,7 +258,7 @@ packages:
 
   expat:
     version_arg: EXPAT_VERSION
-    sha256: 5466a341f9c692ef7a958a6881311be597f8e1ce345984cf78414f54793dea4c
+    sha256: b3e3fcbb629e4d357a9cc0af5b146b85959bcf1cefe87e529d2c0a9234be737f
     urls:
       - https://github.com/libexpat/libexpat/releases/download/R_${version_underscore}/expat-${version}.tar.gz
     filename: expat.tar.gz
