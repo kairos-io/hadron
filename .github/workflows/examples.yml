@@ -19,9 +19,6 @@ jobs:
     strategy:
       matrix:
         extra-file:
-          - "Dockerfile.git"
-          - "Dockerfile.gpg"
-          - "Dockerfile.fwupd"
           - "Dockerfile.nvidia"
     steps:
       - name: Checkout code
@@ -34,8 +31,8 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           file: examples/add-packages/${{ matrix.extra-file }}
-      # hadron-extension is the last stage in every example, so the step above
-      # never builds `default`, which is the target the examples tell users to
+      # hadron-extension is the last stage in the example, so the step above
+      # never builds `default`, which is the target the example tells users to
       # build. Build it too. Every stage it needs is already in this job's
       # buildx cache from the step above, so it costs the COPY lines only.
       - name: Build the default target
