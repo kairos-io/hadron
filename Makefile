@@ -32,6 +32,12 @@ VERSION ?= v0.0.0
 BOOTLOADER ?= grub
 KERNEL_TYPE ?= default
 KEYS_DIR ?= ${PWD}/tests/assets/keys
+## A PEM file with the kernel module signing key and its certificate. Empty
+## signs the modules with the public CI key in files/kernel/module-signing/,
+## which is fine for a local build and wrong for a release. See the README there.
+MODULE_SIGNING_KEY ?=
+comma := ,
+MODULE_SIGNING_ARGS = $(if $(MODULE_SIGNING_KEY),--secret id=module-signing-key$(comma)src=$(abspath $(MODULE_SIGNING_KEY)) --build-arg MODULE_SIGNING_CERT_FPR=$$(sh files/kernel/module-signing/module-signing-key.sh check $(MODULE_SIGNING_KEY)))
 CURRENT_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 PROGRESS ?= none
 PROGRESS_FLAG = --progress=${PROGRESS}
@@ -154,6 +160,7 @@ help: targets
 	@echo "The PULL_IMAGE_NAME variable can be set to the published Hadron image that pull-image fetches. The default is 'ghcr.io/kairos-io/hadron:main', with '-cloud' for KERNEL_TYPE=cloud, '-fips' for FIPS=fips and '-trusted' for BOOTLOADER=systemd added to the image name (for example 'ghcr.io/kairos-io/hadron-cloud-fips-trusted:main')."
 	@echo "The INIT_IMAGE_NAME variable can be set to the name of the Kairos image builts from Hadron. The default is 'hadron-init'."
 	@echo "The KUBERNETES_DISTRO variable can be set to a Kubernetes distribution (e.g., 'k3s') to build a standard image. If not set, a core image will be built."
+	@echo "The MODULE_SIGNING_KEY variable can be set to a PEM file with the kernel module signing key and its certificate. The default signs the modules with the public CI key in files/kernel/module-signing/, which must not be used for a release."
 	@echo "The KEYS_DIR variable can be set to the directory containing the keys for the Trusted Boot image. The default is to use the keys that we use for testing, which are INSECURE and should not be used in production."
 	@echo "update-kernel-configs: Run 'make olddefconfig' against the current KERNEL_VERSION for all six x86_64, arm64, and riscv64 configs and update them in place. Run this after bumping KERNEL_VERSION."
 	@echo "------------------------------------------------------------------------"
@@ -252,6 +259,10 @@ test-updatecli-sources: ## Verify every updatecli shell source fails when it fin
 test-patch-headers: ## Verify every patch under patches/ carries a header
 	@sh ./hack/check-patch-headers_test.sh
 
+.PHONY: test-module-signing
+test-module-signing: ## Verify the module signing key selection and the kernel and module signer check
+	@sh ./tests/module-signing-key_test.sh
+
 .PHONY: test-cache-tag-cleanup
 test-cache-tag-cleanup: ## Verify the PR cache cleanup never deletes a manifest a kept tag shares
 	@bash ./.github/scripts/delete-cache-tags_test.sh
@@ -280,6 +291,7 @@ build-hadron:
 	--build-arg BOOTLOADER=${BOOTLOADER} \
 	--build-arg KERNEL_TYPE=${KERNEL_TYPE} \
 	--build-arg FIPS=${FIPS} \
+	$(MODULE_SIGNING_ARGS) \
 	-t ${IMAGE_NAME} \
 	--target ${TARGET} .
 	@echo "Hadron image built successfully"

@@ -44,6 +44,7 @@ while IFS= read -r f; do
 	.github/workflows/populate-sources.yml) needs=true ;;
 	.github/actions/*) needs=true ;;
 	.github/scripts/image-size-report.sh | .github/scripts/size-history-lib.sh) needs=true ;;
+	.github/scripts/check-module-signer.sh) needs=true ;;          # check-module-signer action
 	.github/scripts/image-inputs.sh) needs=true ;;                 # the gate itself: a change to it builds
 	tests/assets/*) needs=true ;;                                  # ISO fixtures and Secure Boot keys
 	tests/*.go | tests/go.mod | tests/go.sum) needs=true ;;        # boot and structure specs

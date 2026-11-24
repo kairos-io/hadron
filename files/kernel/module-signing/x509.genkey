@@ -1,0 +1,18 @@
+# openssl req configuration for a kernel module signing key, the same layout
+# as the kernel's certs/default_x509.genkey. Only the CN differs. Used to make
+# ci-signing-key.pem, and documented in README.md for the release key.
+[ req ]
+default_bits = 4096
+distinguished_name = req_distinguished_name
+prompt = no
+string_mask = utf8only
+x509_extensions = myexts
+
+[ req_distinguished_name ]
+CN = Hadron CI module signing key (public, not trusted)
+
+[ myexts ]
+basicConstraints=critical,CA:FALSE
+keyUsage=digitalSignature
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid

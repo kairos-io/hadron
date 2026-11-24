@@ -174,6 +174,7 @@ jobs:
           target: kernel
           cache-from: |
             type=gha,scope=hadron-kernel
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-ci-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
@@ -230,6 +231,7 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:cmake-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-ci-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:systemd-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
@@ -394,6 +396,7 @@ jobs:
             type=gha,scope=hadron-kernel
             type=gha,scope=hadron-container
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-bios-default-no-fips-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-ci-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
@@ -408,6 +411,17 @@ jobs:
             BOOTLOADER=grub
             KERNEL_TYPE=default
             FIPS=no-fips
+      # A pull request builds with the public CI module signing key (it has no
+      # release key, and the Dockerfile defaults to the CI key). The kernel has
+      # to trust that key and every module has to be signed by it. Two kernel
+      # builds mixed in one image fail here instead of at boot with
+      # "Loading of module with unavailable key is rejected".
+      - name: Check the module signing key of the image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: hadron-amd64:${{ github.sha }}
+          platform: linux/amd64
+          expect: files/kernel/module-signing/ci-signing-key.pem
       - name: Install Go
         uses: actions/setup-go@v7
         # These workers cap at 100Mb/s, so a congested one turns even the Go
@@ -509,6 +523,7 @@ jobs:
             type=gha,scope=hadron-kernel
             type=gha,scope=hadron-container
             type=registry,ref=quay.io/kairos/hadron-build-cache:pr-${{ env.PR_NUM }}-trusted-default-amd64,mode=max
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-ci-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-default-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
@@ -522,6 +537,17 @@ jobs:
           build-args: |
             BOOTLOADER=systemd
             KERNEL_TYPE=default
+      # A pull request builds with the public CI module signing key (it has no
+      # release key, and the Dockerfile defaults to the CI key). The kernel has
+      # to trust that key and every module has to be signed by it. Two kernel
+      # builds mixed in one image fail here instead of at boot with
+      # "Loading of module with unavailable key is rejected".
+      - name: Check the module signing key of the image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: hadron-trusted-${{ github.sha }}:24h
+          platform: linux/amd64
+          expect: files/kernel/module-signing/ci-signing-key.pem
       - name: Save the image as a tarball
         # The file name carries the variant, for the same reason as
         # hadron-bios-amd64's save step above.

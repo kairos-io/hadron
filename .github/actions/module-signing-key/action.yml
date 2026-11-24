@@ -1,0 +1,45 @@
+name: Select the kernel module signing key
+description: |
+  Write the key the kernel build signs modules with to a file in RUNNER_TEMP,
+  for docker/build-push-action's `secret-files` (id module-signing-key), and
+  output the sha256 of its certificate for the MODULE_SIGNING_CERT_FPR build
+  arg. Without `key` it is the public CI key in files/kernel/module-signing/.
+  With `required: 'true'` a missing key, or the CI key passed as `key`, fails
+  the job: a main or release build never falls back to the CI key.
+  See files/kernel/module-signing/README.md.
+
+inputs:
+  key:
+    description: The release key and its certificate, one PEM. Pass secrets.MODULE_SIGNING_KEY.
+    required: false
+    default: ''
+  required:
+    description: "'true' to fail without a release key."
+    required: false
+    default: 'false'
+
+outputs:
+  file:
+    description: The PEM file with the key and its certificate.
+    value: ${{ steps.select.outputs.file }}
+  fingerprint:
+    description: sha256 of the certificate, lower case hex.
+    value: ${{ steps.select.outputs.fingerprint }}
+  source:
+    description: "'release' or 'ci'."
+    value: ${{ steps.select.outputs.source }}
+
+runs:
+  using: composite
+  steps:
+    - name: Select the kernel module signing key
+      id: select
+      shell: bash
+      env:
+        MODULE_SIGNING_KEY: ${{ inputs.key }}
+        MODULE_SIGNING_KEY_REQUIRED: ${{ inputs.required }}
+      run: |
+        set -euo pipefail
+        file="${RUNNER_TEMP}/module-signing-key.pem"
+        sh "$GITHUB_WORKSPACE/files/kernel/module-signing/module-signing-key.sh" select "$file" >> "$GITHUB_OUTPUT"
+        echo "file=${file}" >> "$GITHUB_OUTPUT"

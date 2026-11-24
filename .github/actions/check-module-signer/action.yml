@@ -1,0 +1,60 @@
+name: Check the kernel module signer
+description: |
+  Copy /boot and /lib/modules out of a Hadron image and run
+  .github/scripts/check-module-signer.sh on them: vmlinuz has to trust the
+  certificate in `expect`, and every module has to be signed by it. With
+  `forbid`, vmlinuz must not trust that certificate and no module may be
+  signed by it.
+
+  The image is pulled if it is not in the local image store. The check runs
+  in an alpine container, so it needs nothing on the runner but docker.
+
+inputs:
+  image:
+    description: Image reference, local or in a registry the job is logged in to.
+    required: true
+  platform:
+    description: Platform of the image, for example linux/arm64.
+    required: true
+  expect:
+    description: PEM file with the certificate the kernel and the modules must use. It may hold the private key too.
+    required: true
+  forbid:
+    description: PEM file with a certificate neither may use. Optional.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Check the kernel module signer
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        PLATFORM: ${{ inputs.platform }}
+        EXPECT: ${{ inputs.expect }}
+        FORBID: ${{ inputs.forbid }}
+        # Same pinned alpine as the Dockerfile's alpine-base.
+        CHECK_IMAGE: alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
+      run: |
+        set -euo pipefail
+        work=$(mktemp -d "${RUNNER_TEMP}/module-signer.XXXXXX")
+        trap 'docker rm -f "${cid:-}" >/dev/null 2>&1 || true; rm -rf "$work"' EXIT
+        mkdir -p "$work/rootfs/lib" "$work/certs"
+        # Only the certificates go into the check container, never a private key.
+        openssl x509 -in "$EXPECT" -out "$work/certs/expect.pem"
+        forbid_arg=
+        if [ -n "$FORBID" ]; then
+          openssl x509 -in "$FORBID" -out "$work/certs/forbid.pem"
+          forbid_arg=/certs/forbid.pem
+        fi
+        cid=$(docker create --platform "$PLATFORM" "$IMAGE" /bin/true)
+        docker cp "$cid:/boot" "$work/rootfs/boot"
+        docker cp "$cid:/lib/modules" "$work/rootfs/lib/modules"
+        docker run --rm --platform "$PLATFORM" \
+          -v "$work/rootfs:/rootfs:ro" \
+          -v "$work/certs:/certs:ro" \
+          -v "$GITHUB_WORKSPACE/.github/scripts/check-module-signer.sh:/check-module-signer.sh:ro" \
+          "$CHECK_IMAGE" sh -c '
+            apk add --no-cache -q openssl kmod zstd xz gzip grep >/dev/null &&
+            sh /check-module-signer.sh /rootfs /certs/expect.pem '"$forbid_arg"
