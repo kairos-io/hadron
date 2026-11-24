@@ -274,7 +274,7 @@ packages:
 
   flex:
     version_arg: FLEX_VERSION
-    sha256: 9bf281cd771d2b15d547896c8b53f8d061cfe85c4dd8ed6a6d733b5f10f42fc6
+    sha256: d7aedd600702e6a42d221f799bcd10c274254fbfafab49b6fb9c03573e3d92de
     urls:
       - https://github.com/westes/flex/releases/download/v${version}/flex-${version}.tar.gz
     filename: flex.tar.gz
