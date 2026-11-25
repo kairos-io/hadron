@@ -1,0 +1,81 @@
+---
+name: 'native Go build timing'
+
+# One-off measurement, next to riscv64-native-timing.yml. Builds kairos-init
+# with Go natively on an amd64, an arm64 and a riscv64 runner. No cross builds.
+# The Go toolchain that kairos needs is newer than the one Alpine ships, so Go
+# downloads it first. That time is counted in the download step, not the build.
+#
+# It pushes nothing and writes no cache. It only runs when this file changes,
+# or when started by hand.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/native-go-timing.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-go-timing-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    name: go build natively on ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+          - arch: riscv64
+            runner: ubuntu-24.04-riscv
+            platform: linux/riscv64
+    permissions:
+      contents: read
+    steps:
+      - name: Record runner
+        run: |
+          echo "runner=${{ runner.name }} arch=$(uname -m) cpus=$(nproc) memory_gb=$(free -g | awk '/Mem:/ {print $2}')"
+          {
+            echo "### ${{ matrix.arch }}: kairos-init v4.4.0, Go, native"
+            echo "- runner: \`${{ runner.name }}\`, cpus: \`$(nproc)\`, memory: \`$(free -g | awk '/Mem:/ {print $2}') GB\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build kairos-init
+        run: |
+          set -o pipefail
+          cat > build-go.sh <<'SCRIPT'
+          set -eu
+          now() { date +%s; }
+          apk add --no-cache go curl
+          curl -fsSL -o kairos.tar.gz "https://github.com/kairos-io/kairos/archive/refs/tags/v4.4.0.tar.gz"
+          tar xzf kairos.tar.gz
+          cd kairos-4.4.0
+          export GOTOOLCHAIN=auto
+          t0=$(now)
+          go mod download
+          t1=$(now)
+          go build ./kairos-init/...
+          t2=$(now)
+          echo "go_version=$(go version)"
+          echo "download_seconds=$((t1 - t0))"
+          echo "build_seconds=$((t2 - t1))"
+          SCRIPT
+          docker run --rm --platform ${{ matrix.platform }} \
+            -v "$PWD/build-go.sh:/build-go.sh:ro" \
+            alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf \
+            sh /build-go.sh | tee result-go.txt
+          {
+            echo "- go: \`$(sed -n 's/^go_version=//p' result-go.txt)\`"
+            echo "- module and toolchain download: **$(sed -n 's/^download_seconds=//p' result-go.txt) s**"
+            echo "- go build: **$(sed -n 's/^build_seconds=//p' result-go.txt) s**"
+          } >> "$GITHUB_STEP_SUMMARY"
