@@ -1,9 +1,14 @@
 ---
 name: 'riscv64 native build timing'
 
-# One-off measurement. Builds the same Dockerfile targets that PR_riscv64.yml
-# builds under QEMU on an x86 VM (cmake, systemd, python-build, kernel), but
-# natively on a RISE riscv64 runner, so the two can be compared.
+# One-off measurement. Builds cmake from its release tarball with the system
+# compiler of a plain Alpine image, natively on a RISE riscv64 runner. This
+# gives a native compile time to compare with the QEMU cmake build time of
+# PR_riscv64.yml.
+#
+# It does not use the hadron Dockerfile, because every Dockerfile target
+# starts from the mussel cross-compiler stage, which alone took 5.5 hours
+# natively. So this measures compile speed, not the full hadron build.
 #
 # It pushes nothing and writes no cache, so it cannot affect any other
 # pipeline. It only runs when this file changes, or when started by hand.
@@ -24,66 +29,50 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04-riscv
-    timeout-minutes: 600
-    strategy:
-      fail-fast: false
-      # One at a time, so the jobs do not compete for the same runner and the
-      # numbers stay comparable.
-      max-parallel: 1
-      matrix:
-        include:
-          # Cheapest component only. The cross-toolchain is not prebuilt, so
-          # this is a cold native build of the toolchain plus python.
-          - name: python
-            target: python-build
-            kernel_type: ''
-    name: build ${{ matrix.name }}
+    timeout-minutes: 90
+    name: build cmake natively
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-      - name: Render Dockerfile
-        uses: ./.github/actions/render-dockerfile
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@master
-        with:
-          buildkitd-config-inline: |
-            [worker.oci]
-              max-parallelism = 4
       - name: Record runner
         run: |
           {
-            echo "### ${{ matrix.name }}"
+            echo "### cmake, native riscv64, plain Alpine compiler"
             echo "- runner: \`${{ runner.name }}\`"
             echo "- arch: \`$(uname -m)\`, cpus: \`$(nproc)\`, memory: \`$(free -g | awk '/Mem:/ {print $2}') GB\`"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Start timer
-        run: echo "BUILD_START=$(date +%s)" >> "$GITHUB_ENV"
-      - name: Build ${{ matrix.target }}
-        uses: docker/build-push-action@v7
-        env:
-          SOURCE_DATE_EPOCH: 0
-        with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: ./
-          file: ./Dockerfile
-          platforms: linux/riscv64
-          target: ${{ matrix.target }}
-          # Read the shared stage caches so the cross-toolchain chain is not
-          # rebuilt in every job, but never the target's own cache, so the
-          # target itself builds cold. Nothing is written back.
-          cache-from: |
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-riscv64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-riscv64,mode=max
-          build-args: |
-            ARCH=riscv64
-            BUILD_ARCH=riscv64
-            ${{ matrix.kernel_type != '' && format('KERNEL_TYPE={0}', matrix.kernel_type) || '' }}
-      - name: Report build time
-        if: always()
+      - name: Build cmake
         run: |
-          secs=$(( $(date +%s) - BUILD_START ))
-          echo "- build step: **$(( secs / 60 )) min $(( secs % 60 )) s**" >> "$GITHUB_STEP_SUMMARY"
+          version="$(grep -oP '^ARG CMAKE_VERSION=\K.*' Dockerfile)"
+          echo "- cmake version: \`${version}\`" >> "$GITHUB_STEP_SUMMARY"
+          cat > build.sh <<'SCRIPT'
+          set -eu
+          now() { date +%s; }
+          t0=$(now)
+          apk add --no-cache build-base linux-headers curl perl
+          t1=$(now)
+          curl -fsSL -o cmake.tar.gz "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz"
+          tar xzf cmake.tar.gz
+          cd "cmake-${CMAKE_VERSION}"
+          t2=$(now)
+          ./bootstrap --parallel="$(nproc)" -- -DCMAKE_USE_OPENSSL=OFF
+          t3=$(now)
+          make -j"$(nproc)"
+          t4=$(now)
+          echo "setup_seconds=$((t1 - t0))"
+          echo "bootstrap_seconds=$((t3 - t2))"
+          echo "make_seconds=$((t4 - t3))"
+          echo "compile_seconds=$((t4 - t2))"
+          SCRIPT
+          docker run --rm --platform linux/riscv64 \
+            -e "CMAKE_VERSION=${version}" \
+            -v "$PWD/build.sh:/build.sh:ro" \
+            alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf \
+            sh /build.sh | tee result.txt
+          {
+            echo "- bootstrap: **$(( $(sed -n 's/^bootstrap_seconds=//p' result.txt) / 60 )) min**"
+            echo "- make: **$(( $(sed -n 's/^make_seconds=//p' result.txt) / 60 )) min**"
+            echo "- compile total (bootstrap plus make): **$(( $(sed -n 's/^compile_seconds=//p' result.txt) / 60 )) min $(( $(sed -n 's/^compile_seconds=//p' result.txt) % 60 )) s**"
+          } >> "$GITHUB_STEP_SUMMARY"
