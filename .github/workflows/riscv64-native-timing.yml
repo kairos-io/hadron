@@ -76,3 +76,29 @@ jobs:
             echo "- make: **$(( $(sed -n 's/^make_seconds=//p' result.txt) / 60 )) min**"
             echo "- compile total (bootstrap plus make): **$(( $(sed -n 's/^compile_seconds=//p' result.txt) / 60 )) min $(( $(sed -n 's/^compile_seconds=//p' result.txt) % 60 )) s**"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build kairos-init
+        run: |
+          cat > build-go.sh <<'SCRIPT'
+          set -eu
+          now() { date +%s; }
+          apk add --no-cache go curl
+          curl -fsSL -o kairos.tar.gz "https://github.com/kairos-io/kairos/archive/refs/tags/v4.4.0.tar.gz"
+          tar xzf kairos.tar.gz
+          cd kairos-4.4.0
+          t0=$(now)
+          go mod download
+          t1=$(now)
+          go build ./kairos-init/...
+          t2=$(now)
+          echo "download_seconds=$((t1 - t0))"
+          echo "build_seconds=$((t2 - t1))"
+          SCRIPT
+          docker run --rm --platform linux/riscv64 \
+            -v "$PWD/build-go.sh:/build-go.sh:ro" \
+            alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf \
+            sh /build-go.sh | tee result-go.txt
+          {
+            echo "### kairos-init v4.4.0, Go, native riscv64, cold module cache"
+            echo "- module download: **$(sed -n 's/^download_seconds=//p' result-go.txt) s**"
+            echo "- go build: **$(sed -n 's/^build_seconds=//p' result-go.txt) s**"
+          } >> "$GITHUB_STEP_SUMMARY"
