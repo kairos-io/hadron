@@ -1,8 +1,8 @@
 ---
 name: 'native Go build timing'
 
-# One-off measurement, next to riscv64-native-timing.yml. Builds kairos-init
-# with Go natively on an amd64, an arm64 and a riscv64 runner. No cross builds.
+# One-off measurement, next to riscv64-native-timing.yml. Builds the kairos agent,
+# immucore and sdk with Go natively on an amd64, an arm64 and a riscv64 runner. No cross builds.
 # The Go toolchain that kairos needs is newer than the one Alpine ships, so Go
 # downloads it first. That time is counted in the download step, not the build.
 #
@@ -47,7 +47,7 @@ jobs:
         run: |
           echo "runner=${{ runner.name }} arch=$(uname -m) cpus=$(nproc) memory_gb=$(free -g | awk '/Mem:/ {print $2}')"
           {
-            echo "### ${{ matrix.arch }}: kairos-init v4.4.0, Go, native"
+            echo "### ${{ matrix.arch }}: kairos v4.4.0 agent, immucore and sdk, Go, native"
             echo "- runner: \`${{ runner.name }}\`, cpus: \`$(nproc)\`, memory: \`$(free -g | awk '/Mem:/ {print $2}') GB\`"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Build kairos-init
@@ -64,7 +64,7 @@ jobs:
           t0=$(now)
           go mod download
           t1=$(now)
-          go build ./kairos-init/...
+          go build ./agent/... ./immucore/... ./sdk/...
           t2=$(now)
           echo "go_version=$(go version)"
           echo "download_seconds=$((t1 - t0))"
