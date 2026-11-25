@@ -1,10 +1,11 @@
 ---
 name: 'riscv64 native build timing'
 
-# One-off measurement. Builds cmake from its release tarball with the system
-# compiler of a plain Alpine image, natively on a RISE riscv64 runner. This
-# gives a native compile time to compare with the QEMU cmake build time of
-# PR_riscv64.yml.
+# One-off measurement. Builds cmake from its release tarball and kairos-init
+# with Go, using the compiler of a plain Alpine image, natively on an amd64,
+# an arm64 and a riscv64 runner. No cross builds. This gives native compile
+# times to compare across the three architectures and with the QEMU cmake
+# build time of PR_riscv64.yml.
 #
 # It does not use the hadron Dockerfile, because every Dockerfile target
 # starts from the mussel cross-compiler stage, which alone took 5.5 hours
@@ -28,9 +29,22 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04-riscv
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
-    name: build cmake natively
+    name: build natively on ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+          - arch: riscv64
+            runner: ubuntu-24.04-riscv
+            platform: linux/riscv64
     permissions:
       contents: read
     steps:
@@ -39,7 +53,7 @@ jobs:
       - name: Record runner
         run: |
           {
-            echo "### cmake, native riscv64, plain Alpine compiler"
+            echo "### ${{ matrix.arch }}, native, plain Alpine compiler"
             echo "- runner: \`${{ runner.name }}\`"
             echo "- arch: \`$(uname -m)\`, cpus: \`$(nproc)\`, memory: \`$(free -g | awk '/Mem:/ {print $2}') GB\`"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -66,7 +80,7 @@ jobs:
           echo "make_seconds=$((t4 - t3))"
           echo "compile_seconds=$((t4 - t2))"
           SCRIPT
-          docker run --rm --platform linux/riscv64 \
+          docker run --rm --platform ${{ matrix.platform }} \
             -e "CMAKE_VERSION=${version}" \
             -v "$PWD/build.sh:/build.sh:ro" \
             alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf \
@@ -93,12 +107,12 @@ jobs:
           echo "download_seconds=$((t1 - t0))"
           echo "build_seconds=$((t2 - t1))"
           SCRIPT
-          docker run --rm --platform linux/riscv64 \
+          docker run --rm --platform ${{ matrix.platform }} \
             -v "$PWD/build-go.sh:/build-go.sh:ro" \
             alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf \
             sh /build-go.sh | tee result-go.txt
           {
-            echo "### kairos-init v4.4.0, Go, native riscv64, cold module cache"
+            echo "### ${{ matrix.arch }}: kairos-init v4.4.0, Go, native, cold module cache"
             echo "- module download: **$(sed -n 's/^download_seconds=//p' result-go.txt) s**"
             echo "- go build: **$(sed -n 's/^build_seconds=//p' result-go.txt) s**"
           } >> "$GITHUB_STEP_SUMMARY"
