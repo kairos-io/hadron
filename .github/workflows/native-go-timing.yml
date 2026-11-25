@@ -56,7 +56,7 @@ jobs:
           cat > build-go.sh <<'SCRIPT'
           set -eu
           now() { date +%s; }
-          apk add --no-cache go curl
+          apk add --no-cache go curl build-base openssl-dev
           curl -fsSL -o kairos.tar.gz "https://github.com/kairos-io/kairos/archive/refs/tags/v4.4.0.tar.gz"
           tar xzf kairos.tar.gz
           cd kairos-4.4.0

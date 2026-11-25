@@ -29,6 +29,8 @@ concurrency:
 
 jobs:
   build:
+    # The cmake numbers are in. Switched off so it does not run again on every push.
+    if: ${{ false }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     name: build natively on ${{ matrix.arch }}
