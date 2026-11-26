@@ -54,6 +54,10 @@ jobs:
         run: make test-bash-patch-level
       - name: Verify every carried patch has a header
         run: make test-patch-headers
+      - name: Verify the module signing key selection and the signer check
+        run: |
+          sudo apt-get install -y kmod zstd
+          make test-module-signing
       - name: Verify the PR cache cleanup keeps manifests main still uses
         run: make test-cache-tag-cleanup
       - name: Verify every Dockerfile COPY source is in the build context

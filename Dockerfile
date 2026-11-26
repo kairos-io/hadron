@@ -2300,6 +2300,29 @@ COPY files/kernel/default-riscv64.config /default.config
 
 FROM kernel-configs-${TARGETARCH} AS kernel-configs
 
+# The module signing key. The kernel trusts the certificate of this key and
+# CONFIG_MODULE_SIG_ALL signs every module with it, see
+# files/kernel/module-signing/README.md. The key itself reaches the kernel build
+# as the BuildKit secret module-signing-key, and without one the build signs
+# with the public CI key committed next to the script. A secret is not part of
+# the cache key, so MODULE_SIGNING_CERT_FPR, the sha256 of the key's
+# certificate, is: a kernel signed with one key is never taken from the cache
+# for a build that asks for another. kernel-build checks that the key it got
+# has this fingerprint.
+# The fingerprint goes to kernel-build as a file, by COPY, which is keyed on
+# the content. For a config that does not sign modules (riscv64) the content is
+# the same whatever the key, and so is the cache key of that kernel.
+FROM alpine-base AS kernel-module-signing
+ARG KERNEL_TYPE
+ARG MODULE_SIGNING_CERT_FPR=50b67f2a3d359189249e6cabb20aa8832b3c5dcbd0fc2ad7c221c4cf5c5de973
+COPY --from=kernel-configs /${KERNEL_TYPE}.config /kernel.config
+COPY files/kernel/module-signing/module-signing-key.sh files/kernel/module-signing/ci-signing-key.pem /out/
+RUN if grep -q '^CONFIG_MODULE_SIG=y' /kernel.config; then \
+        printf '%s\n' "${MODULE_SIGNING_CERT_FPR}" > /out/fingerprint; \
+    else \
+        echo unsigned > /out/fingerprint; \
+    fi
+
 FROM kernel-base AS kernel-cloud
 WORKDIR /sources/kernel
 COPY --from=kernel-configs /cloud.config .config
@@ -2317,12 +2340,18 @@ FROM kernel-${KERNEL_TYPE} AS kernel-build
 ARG KERNEL_JOBS
 ARG MAX_LOAD
 WORKDIR /sources/kernel
+COPY --from=kernel-module-signing /out/ /sources/module-signing/
 # This only builds the kernel
 # Linux 7.0 added __attribute_const__ to include/uapi/linux/swab.h. That macro is defined in
 # include/linux/compiler_types.h (kernel-internal), which host tools never include. Defining it
 # empty silences the undefined-macro errors; it is only an optimization hint and has no effect
 # on correctness for build-time host tools such as objtool and insn_sanity.
-RUN hcflags='-D__attribute_const__=' && \
+# The signing key is needed here for its certificate, which goes into the kernel's builtin
+# keyring. `install` puts it where CONFIG_MODULE_SIG_KEY points and `remove` deletes it at the
+# end of the step, so the private key is in no layer. A failed step leaves no layer either.
+RUN --mount=type=secret,id=module-signing-key \
+    hcflags='-D__attribute_const__=' && \
+    sh /sources/module-signing/module-signing-key.sh install && \
     if [ ${ARCH} = "aarch64" ]; then \
     ARCH=arm64 make olddefconfig; \
     ARCH=arm64 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" Image; \
@@ -2332,7 +2361,8 @@ RUN hcflags='-D__attribute_const__=' && \
     else \
     ARCH=x86_64 make olddefconfig; \
     ARCH=x86_64 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" bzImage; \
-    fi
+    fi && \
+    sh /sources/module-signing/module-signing-key.sh remove
 RUN if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     elif [ ${ARCH} = "riscv64" ]; then \
@@ -2351,31 +2381,42 @@ RUN if [ ${ARCH} = "aarch64" ]; then \
 RUN ln -sfv /kernel/vmlinuz-$(cat /kernel/kernel-release) /kernel/vmlinuz
 
 # The modules are built here, in the same stage lineage as the kernel image, and both
-# travel together from this point on. CONFIG_MODULE_SIG_KEY points at certs/signing_key.pem,
-# which is not in the tree, so kbuild mints a fresh throwaway key on every real kernel build
-# and CONFIG_MODULE_SIG_ALL=y signs the modules with it. If vmlinuz and lib/modules ever come
-# from two different builds, the modules carry a signature the kernel's builtin keyring does
-# not know, and with CONFIG_CRYPTO_FIPS=y a fips=1 boot panics on the first modular crypto
-# algorithm it loads. Keeping one linear chain, kernel-build -> kernel-modules -> kernel,
-# means the cache cannot serve the two halves from different builds.
+# travel together from this point on. CONFIG_MODULE_SIG_ALL=y signs every module at
+# modules_install, and the kernel only loads a module signed by a certificate in its builtin
+# keyring. Until the key was fixed (kernel-module-signing above), CONFIG_MODULE_SIG_KEY was
+# certs/signing_key.pem, the path kbuild fills with a fresh throwaway key on every kernel
+# build, and the one linear chain kernel-build -> kernel-modules -> kernel was meant to keep
+# vmlinuz and lib/modules from the same build. It did not: in pull requests 896 and 899 the
+# image carried a vmlinuz from one build and modules from another, mixed from the cache
+# sources of the job, and the trusted boot rejected every module ("Loading of module with
+# unavailable key is rejected"; with CONFIG_CRYPTO_FIPS=y a fips=1 boot panics on the first
+# modular crypto algorithm it loads). With the same key in every build, a mix is harmless.
+# The key is installed for these steps too, as in kernel-build: `make modules` may visit
+# certs/, and modules_install signs with it.
 FROM kernel-build AS kernel-modules
 ARG KERNEL_JOBS
 # This builds the modules
-RUN hcflags='-D__attribute_const__=' && \
+RUN --mount=type=secret,id=module-signing-key \
+    hcflags='-D__attribute_const__=' && \
+    sh /sources/module-signing/module-signing-key.sh install && \
     if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     elif [ ${ARCH} = "riscv64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules
-RUN if [ ${ARCH} = "aarch64" ]; then \
+    fi && make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} HOSTCFLAGS="$hcflags" modules && \
+    sh /sources/module-signing/module-signing-key.sh remove
+RUN --mount=type=secret,id=module-signing-key \
+    sh /sources/module-signing/module-signing-key.sh install && \
+    if [ ${ARCH} = "aarch64" ]; then \
     export ARCH=arm64; \
     elif [ ${ARCH} = "riscv64" ]; then \
     export ARCH=riscv; \
     else \
     export ARCH=x86_64;\
-    fi;  ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install
+    fi && ZSTD_CLEVEL=19 INSTALL_MOD_PATH="/modules" INSTALL_MOD_STRIP=1 make -s -j${KERNEL_JOBS:-$(nproc)} ${MAX_LOAD:+-l${MAX_LOAD}} modules_install && \
+    sh /sources/module-signing/module-signing-key.sh remove
 
 # What the rest of the build takes from the kernel is /kernel and /modules, a few
 # hundred MB. kernel-modules, which holds them, is more than 20 GB of layers: the
@@ -4527,8 +4568,9 @@ COPY --from=openssl /openssl/ /skeleton/
 ## openssh
 COPY --from=openssh /openssh/ /skeleton/
 
-# kernel and modules. Both come from the single `kernel` stage so that the image can never
-# pair a vmlinuz with modules signed by a different build's throwaway module signing key.
+# kernel and modules, both from the single `kernel` stage. They are signed with the fixed
+# module signing key (kernel-module-signing), so a vmlinuz and modules from two builds of the
+# same key still load.
 COPY --from=kernel /kernel/ /skeleton/boot/
 COPY --from=kernel /modules/lib/modules/ /skeleton/lib/modules
 

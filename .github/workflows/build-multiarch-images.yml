@@ -265,10 +265,16 @@ jobs:
 
   kernel-amd64:
     runs-on: cncf-ubuntu-24-96-x86
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     strategy:
       matrix:
         kernel: [cloud, default]
         fips: [no-fips]
+        # Named here so the ci leg below is a leg of its own. Without it the
+        # include entry would be merged into the default no-fips leg.
+        signing: [release]
         # The FIPS image legs build kernel-base against openssl-fips, so their
         # kernel graph shares no cache with the no-fips one. Build it here, in
         # parallel, instead of serially inside hadron-bios-amd64 (cloud, fips).
@@ -277,6 +283,14 @@ jobs:
             fips: fips
           - kernel: default
             fips: fips
+          # The kernel a pull request builds (default, no-fips, amd64), signed
+          # with the public CI key. Pull requests have no release key, and the
+          # key's fingerprint is part of the kernel's cache key, so this leg
+          # only fills the kernel-misc-default-ci-amd64 cache tag that
+          # PR_multiarch.yml reads. Nothing it builds is published.
+          - kernel: default
+            fips: no-fips
+            signing: ci
     needs: [rsync-amd64]
     permissions:
       packages: write
@@ -288,6 +302,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ matrix.signing != 'ci' && secrets.MODULE_SIGNING_KEY || '' }}
+          required: ${{ matrix.signing != 'ci' }}
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -328,9 +348,12 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage0-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:stage1-merge-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-amd64,mode=max
-            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}-amd64,mode=max
-          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}{2}-amd64,{0}', env.CACHE_TO, matrix.kernel, matrix.fips == 'fips' && '-fips' || '') || '' }}
+            type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}${{ matrix.fips == 'fips' && '-fips' || '' }}${{ matrix.signing == 'ci' && '-ci' || '' }}-amd64,mode=max
+          cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}{2}{3}-amd64,{0}', env.CACHE_TO, matrix.kernel, matrix.fips == 'fips' && '-fips' || '', matrix.signing == 'ci' && '-ci' || '') || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
       # Stages that stage0 and stage1 already cached should never run here.
@@ -691,6 +714,9 @@ jobs:
 
   kernel-arm64:
     runs-on: cncf-ubuntu-32-128-arm
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     strategy:
       matrix:
         kernel: [cloud, default]
@@ -705,6 +731,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -744,7 +776,10 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:rsync-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-${{ matrix.kernel }}-arm64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:kernel-misc-{1}-arm64,{0}', env.CACHE_TO, matrix.kernel) || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             KERNEL_TYPE=${{ matrix.kernel }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
@@ -860,6 +895,9 @@ jobs:
 
   toolchain-amd64:
     runs-on: cncf-ubuntu-24-96-x86
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs: [cmake-amd64, kernel-amd64, systemd-amd64, python-amd64]
     permissions:
       packages: write
@@ -871,6 +909,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -921,6 +965,10 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
+          build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
       # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
       # This turns a silent rebuild (the kernel taking an hour inside an image
       # job) into a warning on the run summary.
@@ -943,6 +991,9 @@ jobs:
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   toolchain-arm64:
     runs-on: cncf-ubuntu-24-96-arm
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs: [cmake-arm64, kernel-arm64, systemd-arm64, python-arm64]
     permissions:
       packages: write
@@ -954,6 +1005,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1003,7 +1060,10 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:python-build-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max
           cache-to: ${{ github.ref_name == 'main' && 'type=registry,ref=quay.io/kairos/hadron-build-cache:toolchain-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true' || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
   toolchain:
@@ -1251,6 +1311,9 @@ jobs:
             ^${{ github.ref_name }}-arm64$
   hadron-bios-amd64:
     runs-on: cncf-ubuntu-24-96-x86
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
       - kernel-amd64     # and from the kernel legs, so the kernel is not built again here
@@ -1269,6 +1332,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1326,7 +1395,10 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
@@ -1358,11 +1430,24 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-amd64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      # The pushed image has to trust the release key and only it, and every
+      # module in it has to be signed by it. A kernel and modules from two
+      # builds, or a build that fell back to the public CI key, fail here.
+      - name: Check the module signing key of the pushed image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-amd64@${{ steps.build-retry.outputs.digest || steps.build.outputs.digest }}
+          platform: linux/amd64
+          expect: ${{ steps.modsign.outputs.file }}
+          forbid: files/kernel/module-signing/ci-signing-key.pem
       # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
       # This turns a silent rebuild (the kernel taking an hour inside an image
       # job) into a warning on the run summary.
@@ -1385,6 +1470,9 @@ jobs:
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-bios-arm64:
     runs-on: cncf-ubuntu-32-128-arm
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs:
       - container-arm64  # Take advantage of cached layers from the container build
       - kernel-arm64     # and from the kernel legs, so the kernel is not built again here
@@ -1403,6 +1491,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1430,6 +1524,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1454,13 +1549,26 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:container-arm64,mode=max
             type=registry,ref=quay.io/kairos/hadron-build-cache:bios-${{ matrix.kernel }}-${{ matrix.fips }}-arm64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:bios-{0}-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=grub
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
+      # The pushed image has to trust the release key and only it, and every
+      # module in it has to be signed by it. A kernel and modules from two
+      # builds, or a build that fell back to the public CI key, fail here.
+      - name: Check the module signing key of the pushed image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}:${{ github.ref_name }}-arm64@${{ steps.build.outputs.digest }}
+          platform: linux/arm64
+          expect: ${{ steps.modsign.outputs.file }}
+          forbid: files/kernel/module-signing/ci-signing-key.pem
   hadron-bios:
     needs:
       - hadron-bios-amd64
@@ -1510,6 +1618,9 @@ jobs:
             ^${{ github.ref_name }}-arm64$
   hadron-trusted-amd64:
     runs-on: cncf-ubuntu-26.04-32-128-x86
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs:
       - container-amd64  # Take advantage of cached layers from the container build
       - kernel-amd64     # and from the kernel legs, so the kernel is not built again here
@@ -1528,6 +1639,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1580,11 +1697,24 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-${{ matrix.fips }}-amd64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-{1}-amd64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           target: default
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
+      # The pushed image has to trust the release key and only it, and every
+      # module in it has to be signed by it. A kernel and modules from two
+      # builds, or a build that fell back to the public CI key, fail here.
+      - name: Check the module signing key of the pushed image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-amd64@${{ steps.build.outputs.digest }}
+          platform: linux/amd64
+          expect: ${{ steps.modsign.outputs.file }}
+          forbid: files/kernel/module-signing/ci-signing-key.pem
       # Stages that stage0, stage1 and the kernel jobs already cached should never run here.
       # This turns a silent rebuild (the kernel taking an hour inside an image
       # job) into a warning on the run summary.
@@ -1607,6 +1737,9 @@ jobs:
           ./hack/ci-rebuild-guard.sh "${RUNNER_TEMP}/build.log" '^(skeleton|stage1|stage1-merge|[a-z0-9-]+-stage0|kernel-(base|build|modules|misc|default|cloud))$'
   hadron-trusted-arm64:
     runs-on: cncf-ubuntu-24-96-arm
+    # MODULE_SIGNING_KEY is a secret of this environment, which only main and
+    # release tags may use. See files/kernel/module-signing/README.md.
+    environment: module-signing
     needs:
       - container-arm64  # Take advantage of cached layers from the container build
       - kernel-arm64     # and from the kernel legs, so the kernel is not built again here
@@ -1625,6 +1758,12 @@ jobs:
         uses: actions/checkout@v7
       - name: Render Dockerfile
         uses: ./.github/actions/render-dockerfile
+      - name: Select the kernel module signing key
+        id: modsign
+        uses: ./.github/actions/module-signing-key
+        with:
+          key: ${{ secrets.MODULE_SIGNING_KEY }}
+          required: 'true'
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -1652,6 +1791,7 @@ jobs:
           labels: |
             org.opencontainers.image.licenses=Apache-2.0
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v7
         env:
           SOURCE_DATE_EPOCH: 0
@@ -1676,13 +1816,26 @@ jobs:
             type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-${{ matrix.kernel }}-${{ matrix.fips }}-arm64,mode=max
           cache-to: ${{ github.ref_name == 'main' && format('type=registry,ref=quay.io/kairos/hadron-build-cache:trusted-{0}-{1}-arm64,mode=max,ignore-error=true,compression=zstd,compression-level=3,oci-mediatypes=true,image-manifest=true', matrix.kernel, matrix.fips) || '' }}
           target: default
+          secret-files: |
+            module-signing-key=${{ steps.modsign.outputs.file }}
           build-args: |
+            MODULE_SIGNING_CERT_FPR=${{ steps.modsign.outputs.fingerprint }}
             VERSION=${{ env.VERSION }}
             BOOTLOADER=systemd
             KERNEL_TYPE=${{ matrix.kernel }}
             FIPS=${{ matrix.fips }}
             ARCH=aarch64
             BUILD_ARCH=aarch64
+      # The pushed image has to trust the release key and only it, and every
+      # module in it has to be signed by it. A kernel and modules from two
+      # builds, or a build that fell back to the public CI key, fail here.
+      - name: Check the module signing key of the pushed image
+        uses: ./.github/actions/check-module-signer
+        with:
+          image: ghcr.io/${{ github.repository }}${{ matrix.kernel == 'cloud' && '-cloud' || '' }}${{ matrix.fips == 'fips' && '-fips' || '' }}-trusted:${{ github.ref_name }}-arm64@${{ steps.build.outputs.digest }}
+          platform: linux/arm64
+          expect: ${{ steps.modsign.outputs.file }}
+          forbid: files/kernel/module-signing/ci-signing-key.pem
   hadron-trusted:
     needs:
       - hadron-trusted-amd64
