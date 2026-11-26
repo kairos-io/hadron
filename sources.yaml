@@ -452,7 +452,7 @@ packages:
 
   libffi:
     version_arg: LIBFFI_VERSION
-    sha256: 81e879c094cc5ec3186c48510c6385ac6b3e866192e8bc71a35245703757ee40
+    sha256: a699fda2b090c4b46cb79cf60c4dacfce480eb05742c0de66acf3af174a47f92
     urls:
       - https://github.com/libffi/libffi/releases/download/v${version}/libffi-${version}.tar.gz
     filename: libffi.tar.gz
