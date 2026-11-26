@@ -11,7 +11,8 @@ source of truth; this page and the chart are regenerated from it by
 
 | date | sha | hadron | hadron-cloud | hadron-trusted | hadron-cloud-trusted |
 |---|---|--:|--:|--:|--:|
-| 2026-11-24 | [`c0761bd9347e`](https://github.com/kairos-io/hadron/commit/c0761bd9347e802581829839631bf5e43da699de) | 223MB (+0B) | 117MB (+0B) | 193MB (+0B) | 87MB (+0B) |
+| 2026-11-26 | [`7381741f7765`](https://github.com/kairos-io/hadron/commit/7381741f77650d965e908b1d5d79c1f2e580b125) | 223MB (+678B) | 117MB (-76B) | 193MB (+679B) | 87MB (-75B) |
+| 2026-11-24 | [`c0761bd9347e`](https://github.com/kairos-io/hadron/commit/c0761bd9347e802581829839631bf5e43da699de) [`v0.7.0`](https://github.com/kairos-io/hadron/releases/tag/v0.7.0) | 223MB (+0B) | 117MB (+0B) | 193MB (+0B) | 87MB (+0B) |
 | 2026-11-24 | [`b72e9b1c10d0`](https://github.com/kairos-io/hadron/commit/b72e9b1c10d0895eb787e88f3930487306ee9e2e) | 223MB (+19KB) | 117MB (+17KB) | 193MB (+19KB) | 87MB (+17KB) |
 | 2026-11-24 | [`fcc0781e1268`](https://github.com/kairos-io/hadron/commit/fcc0781e126834c011533ee0e2f07e035e57c063) | 223MB (-5.8KB) | 117MB (+65B) | 193MB (-5.8KB) | 87MB (+64B) |
 | 2026-11-23 | [`e9704a0f1911`](https://github.com/kairos-io/hadron/commit/e9704a0f191189cac5659f1201357eaab747a378) | 223MB (+2.2MB) | 117MB (-38B) | 193MB (+2.2MB) | 87MB (-36B) |
@@ -30,5 +31,4 @@ source of truth; this page and the chart are regenerated from it by
 | 2026-11-18 | [`cd779deaa986`](https://github.com/kairos-io/hadron/commit/cd779deaa98647209a7bcd0bc82af796df437a7e) | 221MB (-3.2KB) | 117MB (+0B) | 191MB (-3.8KB) | 87MB (-280B) |
 | 2026-11-17 | [`4600bc82989b`](https://github.com/kairos-io/hadron/commit/4600bc82989b79b9dfae946c3bcb34946a0dd707) | 221MB (+3.7KB) | 117MB (-301B) | 191MB (+3.4KB) | 87MB (+406B) |
 | 2026-11-17 | [`d68d2ff28153`](https://github.com/kairos-io/hadron/commit/d68d2ff28153fa20a14e42575e788555725a2b6d) | 221MB (-1.7KB) | 117MB (+568B) | 191MB (+141B) | 87MB (-308B) |
-| 2026-11-16 | [`de78cc12d41f`](https://github.com/kairos-io/hadron/commit/de78cc12d41f88b5a4035bfa09ef3776b737995d) | 221MB (+218B) | 117MB (-109B) | 191MB (+2.4KB) | 87MB (+173B) |
 
