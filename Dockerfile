@@ -161,7 +161,7 @@ ARG WIRELESS_REGDB_VERSION=2026.09.03
 ARG XXHASH_VERSION=0.8.4
 ARG XZUTILS_VERSION=5.8.4
 ARG ZLIB_VERSION=1.4
-ARG ZSTD_VERSION=1.5.7
+ARG ZSTD_VERSION=1.6.0
 
 # Base image with build tools
 # Use sha. Otherwise the tag can get updated and break reproducibility and force rebuilds for apparent no reason
